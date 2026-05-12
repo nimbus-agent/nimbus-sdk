@@ -26,7 +26,7 @@ server.start();
 
 ## See also
 
-- [Nimbus Developer Guide](https://nimbus-agent.dev/developer/)
+- [Nimbus Developer Guide](https://nimbus-agent.dev/)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io/)
 
 ## License

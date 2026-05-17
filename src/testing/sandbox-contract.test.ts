@@ -3,7 +3,36 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { runSandboxContractTests } from "./sandbox-contract.ts";
+import {
+  __defaultRunProbe,
+  type ProbeResult,
+  type ProbeRunner,
+  runSandboxContractTests,
+} from "./sandbox-contract.ts";
+
+function makeProbeRunner(
+  responses: ReadonlyArray<{ probe: string; arg?: string; result: ProbeResult }>,
+): { runner: ProbeRunner; calls: Array<{ probe: string; arg: string }> } {
+  const calls: Array<{ probe: string; arg: string }> = [];
+  const runner: ProbeRunner = (probe, arg) => {
+    calls.push({ probe, arg });
+    const match = responses.find(
+      (r) => r.probe === probe && (r.arg === undefined || r.arg === arg),
+    );
+    if (match === undefined) {
+      throw new Error(`unexpected probe call: ${probe} arg=${arg}`);
+    }
+    return match.result;
+  };
+  return { runner, calls };
+}
+
+function writeManifest(perms: unknown): string {
+  const dir = mkdtempSync(join(tmpdir(), "sdk-contract-stub-"));
+  const manifestPath = join(dir, "nimbus.extension.json");
+  writeFileSync(manifestPath, JSON.stringify({ id: "test", permissions: perms }));
+  return manifestPath;
+}
 
 describe("runSandboxContractTests", () => {
   it("rejects when the manifest file does not exist", async () => {
@@ -46,5 +75,90 @@ describe("runSandboxContractTests", () => {
       // POSIX /etc/passwd is world-readable → fs-denied probe exits 2 → harness throws.
       expect(outcome).toBe("fail");
     }
+  }, 30_000);
+
+  it("runs all three probes when manifest declares hosts (Linux/macOS)", async () => {
+    const manifestPath = writeManifest({ network: ["api.github.com"] });
+    const { runner, calls } = makeProbeRunner([
+      {
+        probe: "network-listed",
+        arg: "api.github.com",
+        result: { status: 0, stderr: "", stdout: "" },
+      },
+      { probe: "network-unlisted", arg: "", result: { status: 11, stderr: "", stdout: "" } },
+      { probe: "fs-denied", arg: "", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, { runProbe: runner, platform: "linux" });
+    expect(calls).toEqual([
+      { probe: "network-listed", arg: "api.github.com" },
+      { probe: "network-unlisted", arg: "" },
+      { probe: "fs-denied", arg: "" },
+    ]);
+  });
+
+  it("skips the network-unlisted probe on Windows", async () => {
+    const manifestPath = writeManifest({ network: ["api.github.com"] });
+    const { runner, calls } = makeProbeRunner([
+      { probe: "network-listed", result: { status: 0, stderr: "", stdout: "" } },
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, { runProbe: runner, platform: "win32" });
+    expect(calls.map((c) => c.probe)).toEqual(["network-listed", "fs-denied"]);
+  });
+
+  it("throws when the listed-host probe exits non-zero", async () => {
+    const manifestPath = writeManifest({ network: ["api.github.com"] });
+    const { runner } = makeProbeRunner([
+      { probe: "network-listed", result: { status: 7, stderr: "connect refused", stdout: "" } },
+    ]);
+    await expect(
+      runSandboxContractTests(manifestPath, { runProbe: runner, platform: "linux" }),
+    ).rejects.toThrow(/network-listed probe failed for api\.github\.com.*exit 7.*connect refused/);
+  });
+
+  it("throws when the unlisted-host probe does NOT return exit 11", async () => {
+    const manifestPath = writeManifest({ network: ["api.github.com"] });
+    const { runner } = makeProbeRunner([
+      { probe: "network-listed", result: { status: 0, stderr: "", stdout: "" } },
+      {
+        probe: "network-unlisted",
+        result: { status: 2, stderr: "unexpected fetch success", stdout: "" },
+      },
+    ]);
+    await expect(
+      runSandboxContractTests(manifestPath, { runProbe: runner, platform: "linux" }),
+    ).rejects.toThrow(/network-unlisted probe should have failed.*exit 2.*platform-asymmetry/s);
+  });
+
+  it("throws when fs-denied probe does NOT return exit 10", async () => {
+    const manifestPath = writeManifest({});
+    const { runner } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 2, stderr: "unexpected file read", stdout: "" } },
+    ]);
+    await expect(
+      runSandboxContractTests(manifestPath, { runProbe: runner, platform: "linux" }),
+    ).rejects.toThrow(/fs-denied probe should have returned EACCES.*exit 2.*unexpected file read/s);
+  });
+
+  it("tolerates a manifest with `permissions: string[]` (legacy array form)", async () => {
+    // The validator at registry-load normalizes legacy array form; the SDK
+    // harness sees it on disk and must not crash — it just skips the
+    // network probes and runs fs-denied.
+    const manifestPath = writeManifest(["read-files", "trash"]);
+    const { runner, calls } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, { runProbe: runner, platform: "linux" });
+    expect(calls).toEqual([{ probe: "fs-denied", arg: "" }]);
+  });
+
+  it("`__defaultRunProbe` returns a well-formed envelope on a probe that exits non-zero", () => {
+    // Smoke-test the production runProbe by invoking it with an unknown
+    // probe name; the probe binary exits 2 (unexpected) without touching
+    // the sandbox so it's safe everywhere.
+    const r = __defaultRunProbe("definitely-not-a-probe", "");
+    expect(typeof r.status).toBe("number");
+    expect(typeof r.stderr).toBe("string");
+    expect(typeof r.stdout).toBe("string");
   }, 30_000);
 });

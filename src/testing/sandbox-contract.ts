@@ -62,10 +62,27 @@ interface Manifest {
   permissions?: ManifestPermissions | unknown[];
 }
 
-interface ProbeResult {
+export interface ProbeResult {
   status: number;
   stderr: string;
   stdout: string;
+}
+
+/** Probe-runner shape — exposed for testability (see `__defaultRunProbe`). */
+export type ProbeRunner = (probe: string, arg: string) => ProbeResult;
+
+export interface RunSandboxContractTestsOptions {
+  /**
+   * Override the probe runner. Default is `__defaultRunProbe` (a
+   * `child_process.spawnSync` wrapper around the bundled probe binary).
+   * Tests inject a stub here; production callers leave this undefined.
+   */
+  runProbe?: ProbeRunner;
+  /**
+   * Override `process.platform` for testability of the Windows skip
+   * branch. Default is the live `process.platform`.
+   */
+  platform?: NodeJS.Platform;
 }
 
 /**
@@ -76,7 +93,13 @@ interface ProbeResult {
  * Throws on first failure with a message that names the probe, the
  * observed exit code, and the probe's stderr.
  */
-export async function runSandboxContractTests(manifestPath: string): Promise<void> {
+export async function runSandboxContractTests(
+  manifestPath: string,
+  opts: RunSandboxContractTestsOptions = {},
+): Promise<void> {
+  const runProbe = opts.runProbe ?? __defaultRunProbe;
+  const platform = opts.platform ?? process.platform;
+
   const raw = await readFile(manifestPath, "utf8");
   const manifest = JSON.parse(raw) as Manifest;
 
@@ -99,7 +122,7 @@ export async function runSandboxContractTests(manifestPath: string): Promise<voi
   }
 
   // Probe 2 — unlisted host must be blocked. Skipped on Windows (asymmetry).
-  if (process.platform !== "win32" && hosts.length > 0) {
+  if (platform !== "win32" && hosts.length > 0) {
     const r = runProbe("network-unlisted", "");
     if (r.status !== 11) {
       throw new Error(
@@ -120,7 +143,13 @@ export async function runSandboxContractTests(manifestPath: string): Promise<voi
   }
 }
 
-function runProbe(probe: string, arg: string): ProbeResult {
+/**
+ * Default probe runner — forks the bundled probe binary via
+ * `child_process.spawnSync`. Exported for direct use in test scaffolding
+ * that wants to assert the production wiring without re-implementing the
+ * `spawnSync` envelope.
+ */
+export function __defaultRunProbe(probe: string, arg: string): ProbeResult {
   const result = spawnSync(process.execPath, [PROBE_PATH, `--probe=${probe}`, `--arg=${arg}`], {
     encoding: "utf8",
   });

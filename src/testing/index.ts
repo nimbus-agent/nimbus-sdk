@@ -9,7 +9,7 @@
  *     `permissions.network` + `permissions.filesystem` (Phase 5 T2 PR 1).
  */
 
-export { runSandboxContractTests } from "./sandbox-contract.ts";
+export { runSandboxContractTests } from "./sandbox-contract";
 
 export class MockGateway {
   // Roadmap Q3: mock Gateway for extension testing

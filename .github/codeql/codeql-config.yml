@@ -1,0 +1,6 @@
+name: nimbus-sdk CodeQL config
+
+# Analyze source only; skip generated output and deps.
+paths-ignore:
+  - dist
+  - node_modules

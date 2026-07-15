@@ -41,6 +41,7 @@
     "test": "bun test",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build && bun run typecheck",
+    "test:coverage": "bun test --coverage --coverage-reporter=lcov src",
     "test:coverage:sdk": "bun test --coverage src"
   },
   "publishConfig": {

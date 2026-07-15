@@ -16,9 +16,10 @@ jobs:
   release-please:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    # Default GITHUB_TOKEN is sufficient because the publish job lives in this same
-    # workflow, gated on the release output — no cross-workflow trigger (and thus
-    # no PAT) is required.
+    # The org blocks GITHUB_TOKEN from creating pull requests, so release-please
+    # opens its release PR with a PAT (RELEASE_PLEASE_PAT), matching the monorepo.
+    # Falls back to github.token if the secret is absent (publish still gates on
+    # the release output).
     permissions:
       contents: write
       pull-requests: write
@@ -35,7 +36,7 @@ jobs:
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          token: ${{ github.token }}
+          token: ${{ secrets.RELEASE_PLEASE_PAT || github.token }}
 
   publish:
     needs: release-please

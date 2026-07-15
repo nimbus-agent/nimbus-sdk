@@ -1,5 +1,39 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.3.0...sdk-v1.3.0) (2026-07-15)
+
+
+### Features
+
+* **apple:** iCloud Mail + Calendar connector (Phase 6 Slice 9-E) ([#711](https://github.com/nimbus-agent/nimbus-sdk/issues/711)) ([c32e67a](https://github.com/nimbus-agent/nimbus-sdk/commit/c32e67a0805bd38e27eb91422f2b84835e1ec6eb))
+* **docs:** implement sub-project B docs publish design ([5bf532a](https://github.com/nimbus-agent/nimbus-sdk/commit/5bf532acdf27fc43c8f0e27732b3e3b6c3fbe10e))
+* **docs:** Sub-project B - Docs Publish and Package READMEs ([178afc9](https://github.com/nimbus-agent/nimbus-sdk/commit/178afc97f7d646cef97bf5cd59a514f74ffaf151))
+* implement CI pipeline infrastructure and initialize UI package scaffolding ([34faece](https://github.com/nimbus-agent/nimbus-sdk/commit/34faece32f92fc740b93a63bbdb8dcd0109b905b))
+* **phase-4:** WS4 Release Infrastructure — signing, auto-update, Plugin API v1, LAN remote access ([6523a81](https://github.com/nimbus-agent/nimbus-sdk/commit/6523a811ab0fa91143a475e25f1ac8fc869e51cb))
+* **sandbox:** T2 PR 1 — Sandbox PAL + 3-OS isolation + I15 ([e143401](https://github.com/nimbus-agent/nimbus-sdk/commit/e14340159622fcc26e290e5ed1ae813c08ee202b))
+* **sdk:** freeze Plugin API v1 — CHANGELOG + contract tests + version 1.0.0 ([2cabfd0](https://github.com/nimbus-agent/nimbus-sdk/commit/2cabfd0822b7dccffc8bd14aeaa490007db884d2))
+* **sdk:** Plugin API v1 — AuditLogger + HitlRequest ([84cf95b](https://github.com/nimbus-agent/nimbus-sdk/commit/84cf95baa15b65425c4794f1fa97a1bf0df568c8))
+* **sdk:** runSandboxContractTests + probe (T2 PR 1) ([0751c22](https://github.com/nimbus-agent/nimbus-sdk/commit/0751c224941e245b80de39965105a366705e7b72))
+
+
+### Bug Fixes
+
+* add repository field to client, sdk, and root for npm provenance ([#633](https://github.com/nimbus-agent/nimbus-sdk/issues/633)) ([f0b1b23](https://github.com/nimbus-agent/nimbus-sdk/commit/f0b1b23bfb227ea0dd4921224226695dc09c5e32))
+* **ci:** unblock cross-platform test suite + SonarCloud reliability gate ([70bb289](https://github.com/nimbus-agent/nimbus-sdk/commit/70bb289f04046e51b7043535aae32cf4d87ff16f))
+* **coverage-floor:** Sonar new-code coverage — mirror local exemptions + lift sandbox-contract (PR [#329](https://github.com/nimbus-agent/nimbus-sdk/issues/329)) ([5a0857d](https://github.com/nimbus-agent/nimbus-sdk/commit/5a0857d159260c60f3ba4474c4fa722eb27f7eba))
+* **docs:** fix README links and add lychee exclusion for nimbus-agent.dev ([ba62971](https://github.com/nimbus-agent/nimbus-sdk/commit/ba62971b0e1f036539b266aaab61ed71ab17f88a))
+* **sdk:** drop .ts extension on testing/index re-export (T2 PR 1 CI) ([1f38c12](https://github.com/nimbus-agent/nimbus-sdk/commit/1f38c12c0415749955ea2851a7189175fd58ff32))
+* **sdk:** make runContractTests async, use await form in contract tests ([11ca1e3](https://github.com/nimbus-agent/nimbus-sdk/commit/11ca1e37810b41a5b1164e5bef1f5c236c333bff))
+* **sdk:** point published entry points at dist so the package is usable ([#637](https://github.com/nimbus-agent/nimbus-sdk/issues/637)) ([5ea6e2e](https://github.com/nimbus-agent/nimbus-sdk/commit/5ea6e2ecc7f700185c2e83c0620f6a2e0960f6a7))
+* **sdk:** remove .ts extensions from audit-logger and hitl-request imports ([08a318c](https://github.com/nimbus-agent/nimbus-sdk/commit/08a318c3a2587b68c864c0277f6fe115cbe36952))
+* **sonar:** clear the SonarCloud board — S5906 sweep + long-tail code smells ([#731](https://github.com/nimbus-agent/nimbus-sdk/issues/731)) ([7fcac9d](https://github.com/nimbus-agent/nimbus-sdk/commit/7fcac9d67b97cc9c56e68bdfbc869538c1114ce5))
+* **ws4:** address second round of SonarCloud warnings ([e249585](https://github.com/nimbus-agent/nimbus-sdk/commit/e249585f191b09ede4d141df510460d71c3dedd5))
+
+
+### Continuous Integration
+
+* open release PR with RELEASE_PLEASE_PAT (org blocks GITHUB_TOKEN PRs) ([d0ef1bf](https://github.com/nimbus-agent/nimbus-sdk/commit/d0ef1bff8f823a89fb60e73ffd5811607cb2a8c7))
+
 ## [1.2.1](https://github.com/nimbus-agent/Nimbus/compare/sdk-v1.2.0...sdk-v1.2.1) (2026-06-23)
 
 

@@ -90,7 +90,73 @@ jobs:
         env:
           CI: "true"
 
+      # Catch the two dominant causes of silent provenance degradation BEFORE
+      # publishing. npm cannot unpublish after 72h, so a post-publish failure
+      # reports damage rather than preventing it.
+      - name: Preflight — OIDC available and npm meets the trusted-publishing floor
+        run: |
+          set -euo pipefail
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::ACTIONS_ID_TOKEN_REQUEST_TOKEN is unset — the job lacks 'id-token: write'."
+            echo "::error::Publishing now would succeed WITHOUT provenance and cannot be undone after 72h."
+            exit 1
+          fi
+          have="$(npm --version)"
+          need="11.5.1"
+          # `sort -V` is a GNU coreutils extension. Both satellites run on
+          # ubuntu-24.04, where it is guaranteed. If this job is ever moved to a
+          # macOS runner, BSD sort has no -V and this comparison breaks — switch
+          # to `gsort` or a Node one-liner at that point.
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -n1)" != "$need" ]; then
+            echo "::error::npm $have is below the $need floor required for OIDC trusted publishing."
+            exit 1
+          fi
+          echo "preflight ok: OIDC token present, npm $have >= $need"
+
       # No NODE_AUTH_TOKEN: the npm trusted-publisher binding for @nimbus-dev/sdk
       # authenticates this workflow via GitHub OIDC and attaches provenance.
       - name: Publish to npm with provenance
         run: npm publish --provenance --access public
+
+      - name: Resolve published version
+        id: published
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # `npm audit signatures` verifies the registry signatures of the packages
+      # in the CURRENT tree. Run in the repo root it would audit our own
+      # dependencies — which never includes the package we just shipped. To
+      # cryptographically verify the published artifact it must be installed
+      # from the registry into a clean tree first. Verified live against
+      # @nimbus-dev/sdk@1.3.0: "1 package has a verified registry signature /
+      # 1 package has a verified attestation", exit 0.
+      - name: Verify the published tarball's registry signature (cryptographic)
+        env:
+          PUBLISHED_VERSION: ${{ steps.published.outputs.version }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          npm init -y >/dev/null
+          # The registry serves a fresh publish with a short propagation lag;
+          # retry so a few seconds of lag is not read as a supply-chain failure.
+          for attempt in 1 2 3 4 5; do
+            if npm install "@nimbus-dev/sdk@${PUBLISHED_VERSION}" --no-audit --no-fund; then
+              break
+            fi
+            if [ "$attempt" = 5 ]; then
+              echo "::error::@nimbus-dev/sdk@${PUBLISHED_VERSION} was not installable from the registry after 5 attempts."
+              exit 1
+            fi
+            sleep $(( attempt * 5 ))
+          done
+          npm audit signatures
+
+      - name: Verify provenance names this repo, workflow and commit
+        uses: nimbus-agent/.github/actions/verify-npm-provenance@5fb42792fa88287048fd24f704183b9a9b807a67
+        with:
+          package: "@nimbus-dev/sdk"
+          version: ${{ steps.published.outputs.version }}
+          expected-repo: nimbus-agent/nimbus-sdk
+          expected-workflow: .github/workflows/release.yml
+          expected-sha: ${{ github.sha }}
+          severity: gate

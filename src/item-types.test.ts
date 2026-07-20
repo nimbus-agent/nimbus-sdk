@@ -3,45 +3,43 @@ import { describe, expect, test } from "bun:test";
 import { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types.ts";
 import type { ItemType, NimbusItem } from "./types.ts";
 
-// The authoritative list lives in the gateway's docs/schema-reference.md SQL
-// comment. This test is the machine-readable copy; if the gateway adds a type,
-// this list and that comment must change together.
-const EMITTED = [
-  "file",
-  "email",
-  "event",
-  "photo",
-  "pr",
-  "issue",
-  "pipeline_run",
-  "deployment",
-  "alert",
-  "incident",
-  "infra_resource",
-  "data_model",
-  "data_pipeline",
-  "dashboard",
-  "log_alarm",
-  "ml_model",
-  "data_quality_test",
-  "api_endpoint",
-  "obsidian_note",
-];
-
 describe("KNOWN_ITEM_TYPES", () => {
-  test("contains exactly the types the gateway emits", () => {
-    expect([...KNOWN_ITEM_TYPES].sort()).toEqual([...EMITTED].sort());
+  test("is a deduplicated, sorted list", () => {
+    // Sorted so a connector author can find their type by eye; deduplicated so
+    // the union has no redundant arms.
+    expect([...KNOWN_ITEM_TYPES]).toEqual([...new Set(KNOWN_ITEM_TYPES)]);
+    expect([...KNOWN_ITEM_TYPES]).toEqual([...KNOWN_ITEM_TYPES].sort());
   });
 
-  test("does not contain types the gateway never emits", () => {
-    // schema-reference.md: 'task' is not a currently emitted item_type.
-    expect(KNOWN_ITEM_TYPES).not.toContain("task");
-    expect(KNOWN_ITEM_TYPES).not.toContain("folder");
-  });
-
-  test("includes the ops types that matter to the on-call ICP", () => {
-    for (const t of ["deployment", "alert", "incident", "pipeline_run", "pr", "issue"]) {
+  test("contains every type observed in a real gateway index", () => {
+    // Captured from a live nimbus.db (546 rows): the types that actually
+    // reached the item table on a working install.
+    for (const t of ["email", "ci_run", "pr", "file", "folder", "issue", "web_clip"]) {
       expect(KNOWN_ITEM_TYPES).toContain(t);
+    }
+  });
+
+  test("contains the ops types that matter to the on-call ICP", () => {
+    // ci_run is the CI type — github-actions/jenkins/circleci/gitlab all emit
+    // it. There is no "pipeline_run" item type.
+    for (const t of ["ci_run", "deployment", "incident", "pr", "issue", "monitor"]) {
+      expect(KNOWN_ITEM_TYPES).toContain(t);
+    }
+  });
+
+  test("omits values no gateway writer emits", () => {
+    // These were carried in the SDK's original union or assumed by downstream
+    // code, but no call site writes them to item.type. Listing them would
+    // invite consumers to switch on cases that can never occur.
+    //   task           — only reachable via LocalIndex.upsert() with an SDK item
+    //   pipeline_run   — a graph entity type, not an item type
+    //   alert          — a graph entity type; the item types are monitor /
+    //                    log_group / application / project
+    //   infra_resource — the real values are resource / k8s_workload /
+    //                    lambda_function / subscription
+    //   log_alarm      — the real value is log_group
+    for (const t of ["task", "pipeline_run", "alert", "infra_resource", "log_alarm"]) {
+      expect(KNOWN_ITEM_TYPES).not.toContain(t);
     }
   });
 });
@@ -49,6 +47,7 @@ describe("KNOWN_ITEM_TYPES", () => {
 describe("isKnownItemType", () => {
   test("accepts an emitted type", () => {
     expect(isKnownItemType("deployment")).toBe(true);
+    expect(isKnownItemType("ci_run")).toBe(true);
   });
 
   test("rejects an unknown string", () => {
@@ -63,7 +62,6 @@ describe("isKnownItemType", () => {
 
 describe("ItemType is an open enum", () => {
   test("a future gateway type is assignable without an SDK release", () => {
-    // roadmap.md Phase 7+ plans 'service', 'scorecard', 'dora_metric', ...
     const future: ItemType = "dora_metric";
     expect(future).toBe("dora_metric");
   });
@@ -71,5 +69,15 @@ describe("ItemType is an open enum", () => {
   test("NimbusItem accepts an unknown type verbatim", () => {
     const item: NimbusItem = { id: "x:1", service: "x", itemType: "brand_new", name: "n" };
     expect(item.itemType).toBe("brand_new");
+  });
+
+  test("an unknown type survives a round-trip through the guard", () => {
+    // The regression this module exists to prevent: a consumer that maps an
+    // unrecognised type onto a recognised one is corrupting data, not
+    // defaulting. isKnownItemType must never be used to filter or replace.
+    const wire = "some_new_connector_type";
+    expect(isKnownItemType(wire)).toBe(false);
+    const itemType: ItemType = wire;
+    expect(itemType).toBe(wire);
   });
 });

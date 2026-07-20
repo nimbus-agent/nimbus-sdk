@@ -1,5 +1,18 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.4.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.3.0...sdk-v1.4.0) (2026-07-20)
+
+
+### Features
+
+* make NimbusItem.itemType the real, open item-type vocabulary ([#11](https://github.com/nimbus-agent/nimbus-sdk/issues/11)) ([679d84a](https://github.com/nimbus-agent/nimbus-sdk/commit/679d84aac094e29d5f3334f034303edc519f9bef))
+
+
+### Bug Fixes
+
+* correct the item-type vocabulary against the real gateway writers ([#13](https://github.com/nimbus-agent/nimbus-sdk/issues/13)) ([17081bf](https://github.com/nimbus-agent/nimbus-sdk/commit/17081bf20a032b22148f05294c9881488982263b))
+* stop pinning package.json version to a literal in the identity check ([#15](https://github.com/nimbus-agent/nimbus-sdk/issues/15)) ([cd7ddad](https://github.com/nimbus-agent/nimbus-sdk/commit/cd7ddade964c89f8670c6faeb94554573882c509))
+
 ## [1.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.3.0...sdk-v1.3.0) (2026-07-15)
 
 

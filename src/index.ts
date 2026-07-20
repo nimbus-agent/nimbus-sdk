@@ -85,6 +85,8 @@ export {
   type ParsedEvent,
   parseICalendar,
 } from "./icalendar";
+export type { KnownItemType } from "./item-types";
+export { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types";
 export {
   asRecord,
   asString,
@@ -115,4 +117,4 @@ export { NimbusExtensionServer } from "./server";
 export type { StorybookStory } from "./storybook/index";
 export { parseStorybookIndex } from "./storybook/index";
 export { MockGateway } from "./testing/index";
-export type { ExtensionManifest, NimbusItem } from "./types";
+export type { ExtensionManifest, ItemType, NimbusItem } from "./types";

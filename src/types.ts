@@ -2,10 +2,19 @@
  * Shared types for Nimbus extensions
  */
 
+import type { KnownItemType } from "./item-types";
+
+/**
+ * An indexed item's type. Open by design — see `item-types.ts`. The
+ * `(string & {})` arm keeps editor autocomplete for KnownItemType while
+ * accepting types a newer gateway emits.
+ */
+export type ItemType = KnownItemType | (string & {});
+
 export interface NimbusItem {
   id: string;
   service: string;
-  itemType: "file" | "folder" | "email" | "event" | "photo" | "task";
+  itemType: ItemType;
   name: string;
   mimeType?: string;
   sizeBytes?: number;

@@ -6,6 +6,26 @@
  * See CHANGELOG.md for the stable surface guarantee.
  */
 
+export { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agents/agent-names";
+export type {
+  AgentBrief,
+  BriefFor,
+  BriefReadyPayload,
+  CatchupBrief,
+  ConflictBrief,
+  ConflictFinding,
+  ExpertBrief,
+  ExpertiseRank,
+  FederatedItemLite,
+  GhostBrief,
+  GhostFinding,
+  HuddleBrief,
+  HuddleContribution,
+  ImpactBrief,
+  ImpactCategory,
+  JanitorBrief,
+  PreflightBrief,
+} from "./agents/brief-composites";
 export type {
   AgentBriefBase,
   CatchupItem,

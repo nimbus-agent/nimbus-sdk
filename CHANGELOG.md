@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.4.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.4.0...sdk-v1.4.1) (2026-07-22)
+
+
+### Bug Fixes
+
+* **sonar:** clear the 3 open SonarCloud issues ([#18](https://github.com/nimbus-agent/nimbus-sdk/issues/18)) ([e168f33](https://github.com/nimbus-agent/nimbus-sdk/commit/e168f339937319b5f2c63458735e7ddbbb4bb5a7))
+
 ## [1.4.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.3.0...sdk-v1.4.0) (2026-07-20)
 
 

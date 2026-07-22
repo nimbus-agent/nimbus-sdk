@@ -17,9 +17,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     # The org blocks GITHUB_TOKEN from creating pull requests, so release-please
-    # opens its release PR with a PAT (RELEASE_PLEASE_PAT), matching the monorepo.
-    # Falls back to github.token if the secret is absent (publish still gates on
-    # the release output).
+    # opens its release PR with a token minted from the "Nimbus Release Bot"
+    # GitHub App — the same App the monorepo and nimbus-client use. This retires
+    # the last consumer of the org-wide RELEASE_PLEASE_PAT. App tokens are minted
+    # per-run and expire in ~1h.
     permissions:
       contents: write
       pull-requests: write
@@ -31,12 +32,26 @@ jobs:
         with:
           egress-policy: audit
 
+      - name: Mint release-bot token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: nimbus-agent
+          repositories: nimbus-sdk
+          permission-contents: write
+          permission-pull-requests: write
+          # release-please creates its autorelease:* label definitions via the
+          # Issues API; see nimbus-client#8.
+          permission-issues: write
+
       - id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          token: ${{ secrets.RELEASE_PLEASE_PAT || github.token }}
+          token: ${{ steps.app-token.outputs.token }}
 
   publish:
     needs: release-please

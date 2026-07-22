@@ -42,7 +42,12 @@ async function probeNetworkListed(): Promise<number> {
 
 async function probeNetworkUnlisted(): Promise<number> {
   try {
-    await fetch("http://192.0.2.1");
+    // 192.0.2.1 is RFC 5737 TEST-NET-1 — unroutable by definition, so this is
+    // an egress-block probe that must never establish a connection. https
+    // rather than http: the outcome is decided at TCP connect (the error codes
+    // below), well before any TLS handshake, so the scheme is behaviourally
+    // irrelevant here and the secure one avoids modelling a cleartext call.
+    await fetch("https://192.0.2.1");
     return 2;
   } catch (e: unknown) {
     const code = errorCode(e);

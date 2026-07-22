@@ -26,6 +26,17 @@ export type {
   JanitorBrief,
   PreflightBrief,
 } from "./agents/brief-composites";
+export {
+  BRIEF_GUARDS,
+  isCatchupBrief,
+  isConflictBrief,
+  isExpertBrief,
+  isGhostBrief,
+  isHuddleBrief,
+  isImpactBrief,
+  isJanitorBrief,
+  isPreflightBrief,
+} from "./agents/brief-guards";
 export type {
   AgentBriefBase,
   CatchupItem,

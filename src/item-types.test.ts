@@ -62,8 +62,11 @@ describe("isKnownItemType", () => {
 
 describe("ItemType is an open enum", () => {
   test("a future gateway type is assignable without an SDK release", () => {
+    // The assignment is the real assertion: it only compiles while ItemType is
+    // open. At runtime the meaningful fact is that this SDK build has NOT heard
+    // of the type yet — precisely the case the open enum exists to survive.
     const future: ItemType = "dora_metric";
-    expect(future).toBe("dora_metric");
+    expect(isKnownItemType(future)).toBe(false);
   });
 
   test("NimbusItem accepts an unknown type verbatim", () => {
@@ -77,7 +80,9 @@ describe("ItemType is an open enum", () => {
     // defaulting. isKnownItemType must never be used to filter or replace.
     const wire = "some_new_connector_type";
     expect(isKnownItemType(wire)).toBe(false);
+    // Widening to ItemType must not change the guard's verdict — and the
+    // assignment only compiles because ItemType is open.
     const itemType: ItemType = wire;
-    expect(itemType).toBe(wire);
+    expect(isKnownItemType(itemType)).toBe(false);
   });
 });

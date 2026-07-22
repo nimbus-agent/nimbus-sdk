@@ -1,10 +1,99 @@
 import { describe, expect, test } from "bun:test";
-import { AGENT_NAMES } from "./agent-names.ts";
+import { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agent-names.ts";
+import type { AgentBrief, BriefFor } from "./brief-composites.ts";
 import { BRIEF_GUARDS, isConflictBrief, isExpertBrief } from "./brief-guards.ts";
 
-const base = { agentVersion: 1, generatedAt: 1, latencyMs: 1, gaps: [] };
+const base = { agentVersion: 1 as const, generatedAt: 1, latencyMs: 1, gaps: [] };
+
+/**
+ * A minimal well-formed brief per agent, plus the field(s) that distinguish
+ * its guard from every other guard. Deleting any one of `distinguishing`
+ * from the fixture must flip its own guard from accept to reject.
+ */
+const FIXTURES: { [A in AgentName]: { brief: BriefFor<A>; distinguishing: string[] } } = {
+  expert: {
+    brief: { ...base, kind: "expert", query: { topicOrFile: "x" }, ranked: [] },
+    distinguishing: ["ranked"],
+  },
+  impact: {
+    brief: {
+      ...base,
+      kind: "impact",
+      query: { fileOrPrUrl: "x" },
+      startEntityId: null,
+      affected: [],
+    },
+    distinguishing: ["affected"],
+  },
+  catchup: {
+    brief: {
+      ...base,
+      kind: "catchup",
+      query: { sinceMs: 1 },
+      selfPersonId: null,
+      involvement: {
+        ownedServices: [],
+        activeRepos: [],
+        incidentServices: [],
+        collaboratorPersonIds: [],
+      },
+      sections: [],
+    },
+    distinguishing: ["sections"],
+  },
+  ghost: {
+    brief: {
+      ...base,
+      kind: "ghost",
+      query: { file: "x" },
+      startEntityId: null,
+      findings: [],
+    },
+    distinguishing: ["findings"],
+  },
+  conflicts: {
+    brief: {
+      ...base,
+      kind: "conflict",
+      query: { file: "x" },
+      startEntityId: null,
+      collisions: [],
+    },
+    distinguishing: ["collisions"],
+  },
+  huddle: {
+    brief: { ...base, kind: "huddle", query: { sinceMs: 1 }, contributions: [] },
+    distinguishing: ["contributions"],
+  },
+  janitor: {
+    brief: {
+      ...base,
+      kind: "janitor",
+      query: { resourceRef: "x", idleDays: 1 },
+      idle: false,
+      proposalSuppressed: false,
+      cleanupAction: null,
+      peersClear: 0,
+      peersTouched: [],
+    },
+    distinguishing: ["idle", "peersTouched"],
+  },
+  preflight: {
+    brief: {
+      ...base,
+      kind: "preflight",
+      query: { ref: "x", namespace: "x" },
+      downstreams: [],
+      anyFailed: false,
+      anyIncomplete: false,
+    },
+    distinguishing: ["downstreams", "anyFailed", "anyIncomplete"],
+  },
+};
 
 describe("brief guards", () => {
+  // Preserved from the original test — exact real-world payloads for the two
+  // guards whose kind differs from the singular/plural naming trap.
   test("a well-formed expert brief is accepted", () => {
     expect(
       isExpertBrief({ ...base, kind: "expert", query: { topicOrFile: "x" }, ranked: [] }),
@@ -28,7 +117,37 @@ describe("brief guards", () => {
     ).toBe(false);
   });
 
-  test("BRIEF_GUARDS has an entry per agent", () => {
-    for (const name of AGENT_NAMES) expect(typeof BRIEF_GUARDS[name]).toBe("function");
+  describe.each(AGENT_NAMES)("%s", (name) => {
+    const { brief, distinguishing } = FIXTURES[name];
+    const guard = BRIEF_GUARDS[name];
+
+    test("a minimal well-formed brief is accepted", () => {
+      expect(guard(brief)).toBe(true);
+    });
+
+    test.each(distinguishing)("rejects when %s is missing", (field) => {
+      const broken = { ...(brief as unknown as Record<string, unknown>) };
+      delete broken[field];
+      expect(guard(broken)).toBe(false);
+    });
+
+    test("rejects the wrong kind", () => {
+      const wrongKind = { ...(brief as unknown as Record<string, unknown>), kind: "not-a-kind" };
+      expect(guard(wrongKind)).toBe(false);
+    });
+
+    test("BRIEF_GUARDS[name] is this agent's guard and no other's — accepts only its own brief", () => {
+      for (const other of AGENT_NAMES) {
+        const expected = other === name;
+        expect(guard(FIXTURES[other].brief)).toBe(expected);
+      }
+    });
+  });
+
+  test("every AGENT_KIND value matches the fixture's kind field", () => {
+    for (const name of AGENT_NAMES) {
+      const kind = (FIXTURES[name].brief as AgentBrief).kind;
+      expect(kind).toBe(AGENT_KIND[name]);
+    }
   });
 });

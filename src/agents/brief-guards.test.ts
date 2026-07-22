@@ -117,32 +117,43 @@ describe("brief guards", () => {
     ).toBe(false);
   });
 
-  describe.each(AGENT_NAMES)("%s", (name) => {
-    const { brief, distinguishing } = FIXTURES[name];
-    const guard = BRIEF_GUARDS[name];
+  // `describe.each`/`test.each` take a mutable `unknown[]`, which both rejects
+  // the `readonly` AGENT_NAMES tuple and widens the callback param to `any` —
+  // silently erasing type-checking on every `FIXTURES[name]`/`BRIEF_GUARDS[name]`
+  // lookup below. Plain loops keep `name` as the literal `AgentName` union.
+  for (const name of AGENT_NAMES) {
+    describe(name, () => {
+      const { brief, distinguishing } = FIXTURES[name];
+      const guard = BRIEF_GUARDS[name];
 
-    test("a minimal well-formed brief is accepted", () => {
-      expect(guard(brief)).toBe(true);
-    });
+      test("a minimal well-formed brief is accepted", () => {
+        expect(guard(brief)).toBe(true);
+      });
 
-    test.each(distinguishing)("rejects when %s is missing", (field) => {
-      const broken = { ...(brief as unknown as Record<string, unknown>) };
-      delete broken[field];
-      expect(guard(broken)).toBe(false);
-    });
-
-    test("rejects the wrong kind", () => {
-      const wrongKind = { ...(brief as unknown as Record<string, unknown>), kind: "not-a-kind" };
-      expect(guard(wrongKind)).toBe(false);
-    });
-
-    test("BRIEF_GUARDS[name] is this agent's guard and no other's — accepts only its own brief", () => {
-      for (const other of AGENT_NAMES) {
-        const expected = other === name;
-        expect(guard(FIXTURES[other].brief)).toBe(expected);
+      for (const field of distinguishing) {
+        test(`rejects when ${field} is missing`, () => {
+          const broken = { ...(brief as unknown as Record<string, unknown>) };
+          delete broken[field];
+          expect(guard(broken)).toBe(false);
+        });
       }
+
+      test("rejects the wrong kind", () => {
+        const wrongKind = {
+          ...(brief as unknown as Record<string, unknown>),
+          kind: "not-a-kind",
+        };
+        expect(guard(wrongKind)).toBe(false);
+      });
+
+      test("BRIEF_GUARDS[name] is this agent's guard and no other's — accepts only its own brief", () => {
+        for (const other of AGENT_NAMES) {
+          const expected = other === name;
+          expect(guard(FIXTURES[other].brief)).toBe(expected);
+        }
+      });
     });
-  });
+  }
 
   test("every AGENT_KIND value matches the fixture's kind field", () => {
     for (const name of AGENT_NAMES) {

@@ -1,5 +1,14 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.5.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.5.0...sdk-v1.5.1) (2026-07-23)
+
+
+### Bug Fixes
+
+* **ci:** retry the signature audit, not just the install ([#22](https://github.com/nimbus-agent/nimbus-sdk/issues/22)) ([0ff49ec](https://github.com/nimbus-agent/nimbus-sdk/commit/0ff49eccf3db5b962c48bfc85e7f699fd5ba3efe))
+* **testing:** resolve the sandbox probe path lazily ([#25](https://github.com/nimbus-agent/nimbus-sdk/issues/25)) ([a6604a6](https://github.com/nimbus-agent/nimbus-sdk/commit/a6604a65ef88a111d6e257080ee8c5a2ee52db07))
+* **types:** typecheck the test files ([#24](https://github.com/nimbus-agent/nimbus-sdk/issues/24)) ([343eb11](https://github.com/nimbus-agent/nimbus-sdk/commit/343eb110932b29af4b9897e775b3987288feb4be))
+
 ## [1.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.4.1...sdk-v1.5.0) (2026-07-23)
 
 

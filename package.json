@@ -36,7 +36,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "build": "tsc --project tsconfig.build.json",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.test.json",
     "lint": "biome check src/",
     "test": "bun test",
     "clean": "rm -rf dist",

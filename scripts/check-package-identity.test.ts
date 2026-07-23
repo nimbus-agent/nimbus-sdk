@@ -6,8 +6,10 @@ test("package identity is standalone nimbus-sdk", () => {
   expect(pkg.name).toBe("@nimbus-dev/sdk");
   expect(pkg.license).toBe("MIT");
   expect(pkg.repository.url).toBe("git+https://github.com/nimbus-agent/nimbus-sdk.git");
-  expect((pkg.repository as Record<string, unknown>).directory).toBeUndefined();
-  expect((pkg as Record<string, unknown>).dependencies).toBeUndefined();
+  // Bracket access: noPropertyAccessFromIndexSignature forbids dot access on an
+  // index signature, and these two are asserted absent so they are not on the type.
+  expect((pkg.repository as Record<string, unknown>)["directory"]).toBeUndefined();
+  expect((pkg as Record<string, unknown>)["dependencies"]).toBeUndefined();
 });
 
 test("package.json version tracks the release-please manifest baseline", () => {

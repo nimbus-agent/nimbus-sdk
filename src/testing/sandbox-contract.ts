@@ -50,7 +50,22 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PROBE_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "sandbox-probe.ts");
+/**
+ * Resolved lazily, NOT at module scope.
+ *
+ * `src/index.ts` re-exports `MockGateway` from `./testing/index.js`, so anything
+ * importing this package's root pulls this module in. A bundler that inlines the
+ * source — `@nimbus-dev/client` builds its CJS entry with
+ * `bun build --bundle --conditions=bun` — replaces `import.meta.url` with the
+ * BUILD MACHINE's absolute path. Evaluated at module scope that ran on import,
+ * so `require("@nimbus-dev/client")` threw `ERR_INVALID_FILE_URL_PATH` on every
+ * machine that was not the CI runner, while passing CI, where the baked path
+ * happened to exist. Kept lazy, importing the root is inert; only an actual
+ * probe run touches the path.
+ */
+function probePath(): string {
+  return resolve(dirname(fileURLToPath(import.meta.url)), "sandbox-probe.ts");
+}
 
 interface ManifestPermissions {
   network?: string[];
@@ -144,7 +159,7 @@ export async function runSandboxContractTests(
  * `spawnSync` envelope.
  */
 export function __defaultRunProbe(probe: string, arg: string): ProbeResult {
-  const result = spawnSync(process.execPath, [PROBE_PATH, `--probe=${probe}`, `--arg=${arg}`], {
+  const result = spawnSync(process.execPath, [probePath(), `--probe=${probe}`, `--arg=${arg}`], {
     encoding: "utf8",
   });
   return {

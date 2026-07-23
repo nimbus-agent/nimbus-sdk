@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types.js";
+import { isKnownItemType, KNOWN_ITEM_TYPES, type KnownItemType } from "./item-types.js";
 import type { ItemType, NimbusItem } from "./types.js";
 
 describe("KNOWN_ITEM_TYPES", () => {
@@ -13,8 +13,19 @@ describe("KNOWN_ITEM_TYPES", () => {
 
   test("contains every type observed in a real gateway index", () => {
     // Captured from a live nimbus.db (546 rows): the types that actually
-    // reached the item table on a working install.
-    for (const t of ["email", "ci_run", "pr", "file", "folder", "issue", "web_clip"]) {
+    // reached the item table on a working install. Annotated so the compiler
+    // checks membership too — a value dropped from the union stops compiling
+    // here rather than only failing at runtime.
+    const observed: readonly KnownItemType[] = [
+      "email",
+      "ci_run",
+      "pr",
+      "file",
+      "folder",
+      "issue",
+      "web_clip",
+    ];
+    for (const t of observed) {
       expect(KNOWN_ITEM_TYPES).toContain(t);
     }
   });
@@ -22,7 +33,15 @@ describe("KNOWN_ITEM_TYPES", () => {
   test("contains the ops types that matter to the on-call ICP", () => {
     // ci_run is the CI type — github-actions/jenkins/circleci/gitlab all emit
     // it. There is no "pipeline_run" item type.
-    for (const t of ["ci_run", "deployment", "incident", "pr", "issue", "monitor"]) {
+    const opsTypes: readonly KnownItemType[] = [
+      "ci_run",
+      "deployment",
+      "incident",
+      "pr",
+      "issue",
+      "monitor",
+    ];
+    for (const t of opsTypes) {
       expect(KNOWN_ITEM_TYPES).toContain(t);
     }
   });

@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src/**/*", "scripts/**/*"],
+  // The base config excludes **/*.test.ts. `exclude` filters `include`, so
+  // inheriting it would make this config — whose entire purpose is typechecking
+  // the tests — compile zero test files. Verify with `tsc --listFiles`.
+  "exclude": ["node_modules", "dist", "coverage"]
+}

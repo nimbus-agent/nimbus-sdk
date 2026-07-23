@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.5.2](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.5.1...sdk-v1.5.2) (2026-07-23)
+
+
+### Bug Fixes
+
+* **tsconfig:** put test files in the editor's project ([#26](https://github.com/nimbus-agent/nimbus-sdk/issues/26)) ([9cb3195](https://github.com/nimbus-agent/nimbus-sdk/commit/9cb31957bdb1c4d29db577945834970c50d3558e))
+
 ## [1.5.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.5.0...sdk-v1.5.1) (2026-07-23)
 
 

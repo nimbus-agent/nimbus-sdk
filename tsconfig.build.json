@@ -9,5 +9,9 @@
     "allowImportingTsExtensions": false,
     "rootDir": "./src"
   },
+  // Pinned, NOT inherited: the base include now also covers scripts/ so editors resolve
+  // those files to a real project, but rootDir is ./src so they must not reach the build.
+  // The *.test.ts exclude below is load-bearing — this package co-locates its tests in src/.
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

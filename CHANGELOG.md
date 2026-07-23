@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.4.1...sdk-v1.5.0) (2026-07-23)
+
+
+### Features
+
+* **agents:** promote the composed brief types + guards; fix ESM entry points ([#20](https://github.com/nimbus-agent/nimbus-sdk/issues/20)) ([fecb0c2](https://github.com/nimbus-agent/nimbus-sdk/commit/fecb0c27f1189880f8f919632c58e03d577be243))
+
 ## [1.4.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.4.0...sdk-v1.4.1) (2026-07-22)
 
 

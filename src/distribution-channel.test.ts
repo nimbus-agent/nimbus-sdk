@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { channelUpgradeHint, resolveDistributionChannel } from "./distribution-channel.ts";
+import { channelUpgradeHint, resolveDistributionChannel } from "./distribution-channel.js";
 
 describe("resolveDistributionChannel", () => {
   test("returns null for an ordinary install path with no env marker", () => {

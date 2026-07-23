@@ -2,7 +2,7 @@
  * Shared types for Nimbus extensions
  */
 
-import type { KnownItemType } from "./item-types";
+import type { KnownItemType } from "./item-types.js";
 
 /**
  * An indexed item's type. Open by design — see `item-types.ts`. The

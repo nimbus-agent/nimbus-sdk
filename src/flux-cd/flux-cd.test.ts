@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { FLUX_KINDS, trimTrailingSlash } from "./index.ts";
+import { FLUX_KINDS, trimTrailingSlash } from "./index.js";
 
 describe("FLUX_KINDS", () => {
   it("has exactly 9 entries", () => {

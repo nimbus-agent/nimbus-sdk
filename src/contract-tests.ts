@@ -1,6 +1,6 @@
-import { type AuditLogger, createScopedAuditLogger } from "./audit-logger";
-import { type HitlRequest, isHitlRequest } from "./hitl-request";
-import type { ExtensionManifest } from "./types";
+import { type AuditLogger, createScopedAuditLogger } from "./audit-logger.js";
+import { type HitlRequest, isHitlRequest } from "./hitl-request.js";
+import type { ExtensionManifest } from "./types.js";
 
 export class ExtensionContractError extends Error {
   constructor(message: string) {

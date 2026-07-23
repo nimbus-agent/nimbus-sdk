@@ -20,7 +20,7 @@ import {
   ManifestNestedTooDeep,
   NonIntegerNumberInManifest,
   UnsupportedManifestValueType,
-} from "./canonical-json.ts";
+} from "./canonical-json.js";
 
 describe("canonicalize — primitives", () => {
   test("null serializes to 'null'", () => {

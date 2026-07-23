@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { NimbusExtensionServer } from "./server";
+import { NimbusExtensionServer } from "./server.js";
 
 describe("@nimbus-dev/sdk", () => {
   test("NimbusExtensionServer is constructible", () => {

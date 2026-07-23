@@ -5,7 +5,7 @@ import type {
   ExtensionManifest,
   HitlRequest,
   NimbusItem,
-} from "./index.ts";
+} from "./index.js";
 import {
   createScopedAuditLogger,
   ExtensionContractError,
@@ -13,7 +13,7 @@ import {
   MockGateway,
   NimbusExtensionServer,
   runContractTests,
-} from "./index.ts";
+} from "./index.js";
 
 describe("Plugin API v1 — stable surface", () => {
   test("every v1 export is reachable from the package root", () => {

@@ -9,7 +9,7 @@
  * See: https://developer.apple.com/documentation/appstoreconnectapi/generating-tokens-for-api-requests
  */
 
-import { signJwt } from "./jwt";
+import { signJwt } from "./jwt.js";
 
 export interface AppStoreConnectJwtParams {
   readonly issuerId: string;

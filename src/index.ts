@@ -6,6 +6,37 @@
  * See CHANGELOG.md for the stable surface guarantee.
  */
 
+export { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agents/agent-names.js";
+export type {
+  AgentBrief,
+  BriefFor,
+  BriefReadyPayload,
+  CatchupBrief,
+  ConflictBrief,
+  ConflictFinding,
+  ExpertBrief,
+  ExpertiseRank,
+  FederatedItemLite,
+  GhostBrief,
+  GhostFinding,
+  HuddleBrief,
+  HuddleContribution,
+  ImpactBrief,
+  ImpactCategory,
+  JanitorBrief,
+  PreflightBrief,
+} from "./agents/brief-composites.js";
+export {
+  BRIEF_GUARDS,
+  isCatchupBrief,
+  isConflictBrief,
+  isExpertBrief,
+  isGhostBrief,
+  isHuddleBrief,
+  isImpactBrief,
+  isJanitorBrief,
+  isPreflightBrief,
+} from "./agents/brief-guards.js";
 export type {
   AgentBriefBase,
   CatchupItem,
@@ -18,37 +49,37 @@ export type {
   ImpactFinding,
   JanitorPeerTouch,
   PreflightDownstream,
-} from "./agents/brief-types.ts";
-export { createBriefGuard } from "./agents/guard-factory";
-export type { AuditEmit, AuditLogger } from "./audit-logger";
-export { createScopedAuditLogger } from "./audit-logger";
+} from "./agents/brief-types.js";
+export { createBriefGuard } from "./agents/guard-factory.js";
+export type { AuditEmit, AuditLogger } from "./audit-logger.js";
+export { createScopedAuditLogger } from "./audit-logger.js";
 export {
   assertNoRowDataTools,
   ExtensionContractError,
   ROW_DATA_TOOL_SEGMENTS,
   type RowDataToolCandidate,
   runContractTests,
-} from "./contract-tests";
+} from "./contract-tests.js";
 export {
   type AppStoreConnectJwtParams,
   signAppStoreConnectJwt,
-} from "./crypto/app-store-connect-jwt";
+} from "./crypto/app-store-connect-jwt.js";
 export {
   canonicalize,
   canonicalizeManifest,
   ManifestNestedTooDeep,
   NonIntegerNumberInManifest,
   UnsupportedManifestValueType,
-} from "./crypto/canonical-json";
-export { base64UrlJson, type SignJwtOptions, signJwt } from "./crypto/jwt";
+} from "./crypto/canonical-json.js";
+export { base64UrlJson, type SignJwtOptions, signJwt } from "./crypto/jwt.js";
 export {
   type FetchLike,
   type GoogleServiceAccount,
   mintGoogleAccessToken,
   parseServiceAccountJson,
   signServiceAccountAssertion,
-} from "./crypto/service-account-token";
-export type { SignatureDisableReason } from "./crypto/verify-signature";
+} from "./crypto/service-account-token.js";
+export type { SignatureDisableReason } from "./crypto/verify-signature.js";
 export {
   decodeBase64,
   encodeBase64,
@@ -59,8 +90,8 @@ export {
   SignatureInvalidFormat,
   signManifest,
   verifyManifestSignature,
-} from "./crypto/verify-signature";
-export type { DataColumn, ParquetMetadataLike } from "./data-profile/index";
+} from "./crypto/verify-signature.js";
+export type { DataColumn, ParquetMetadataLike } from "./data-profile/index.js";
 export {
   firstLineAndRows,
   jsKind,
@@ -68,25 +99,25 @@ export {
   parseCsvHeader,
   parseJsonColumns,
   parseJsonlColumns,
-} from "./data-profile/index";
+} from "./data-profile/index.js";
 export {
   channelUpgradeHint,
   type DistributionChannel,
   type ResolveChannelOptions,
   resolveDistributionChannel,
-} from "./distribution-channel";
-export type { FluxKindEntry } from "./flux-cd/index";
-export { FLUX_KINDS, trimTrailingSlash } from "./flux-cd/index";
-export type { HitlRequest } from "./hitl-request";
-export { isHitlRequest } from "./hitl-request";
+} from "./distribution-channel.js";
+export type { FluxKindEntry } from "./flux-cd/index.js";
+export { FLUX_KINDS, trimTrailingSlash } from "./flux-cd/index.js";
+export type { HitlRequest } from "./hitl-request.js";
+export { isHitlRequest } from "./hitl-request.js";
 export {
   type BuildEventInput,
   buildVEvent,
   type ParsedEvent,
   parseICalendar,
-} from "./icalendar";
-export type { KnownItemType } from "./item-types";
-export { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types";
+} from "./icalendar.js";
+export type { KnownItemType } from "./item-types.js";
+export { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types.js";
 export {
   asRecord,
   asString,
@@ -112,9 +143,9 @@ export {
   SUBMISSION_CAPABILITY,
   validateApiUrl,
   viewEmail,
-} from "./jmap-fastmail/index";
-export { NimbusExtensionServer } from "./server";
-export type { StorybookStory } from "./storybook/index";
-export { parseStorybookIndex } from "./storybook/index";
-export { MockGateway } from "./testing/index";
-export type { ExtensionManifest, ItemType, NimbusItem } from "./types";
+} from "./jmap-fastmail/index.js";
+export { NimbusExtensionServer } from "./server.js";
+export type { StorybookStory } from "./storybook/index.js";
+export { parseStorybookIndex } from "./storybook/index.js";
+export { MockGateway } from "./testing/index.js";
+export type { ExtensionManifest, ItemType, NimbusItem } from "./types.js";

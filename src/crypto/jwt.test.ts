@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import crypto from "node:crypto";
 
-import { base64UrlJson, signJwt } from "./jwt";
+import { base64UrlJson, signJwt } from "./jwt.js";
 
 function decode(segment: string): Record<string, unknown> {
   return JSON.parse(Buffer.from(segment, "base64url").toString("utf8")) as Record<string, unknown>;

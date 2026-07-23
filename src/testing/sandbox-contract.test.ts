@@ -8,7 +8,7 @@ import {
   type ProbeResult,
   type ProbeRunner,
   runSandboxContractTests,
-} from "./sandbox-contract.ts";
+} from "./sandbox-contract.js";
 
 function makeProbeRunner(
   responses: ReadonlyArray<{ probe: string; arg?: string; result: ProbeResult }>,

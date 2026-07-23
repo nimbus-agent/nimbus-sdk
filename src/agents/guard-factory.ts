@@ -5,12 +5,15 @@
  * `agentVersion === 1`, `gaps` is an array, and `generatedAt`/`latencyMs` are
  * numbers — plus a connector-supplied `extra` predicate for the brief-specific
  * fields. Some guards additionally require a non-null `query` object; this is
- * opt-in via `requireQuery` so each call site preserves its exact historical
- * behavior (the cli expert/impact/catchup guards omit the query check; every
- * gateway guard and the remaining cli guards include it).
+ * opt-in via `requireQuery`. The eight concrete guards this package exports
+ * (`./brief-guards.ts`) all pass `requireQuery: true`, matching the gateway —
+ * which emits the briefs and so defines the wire. The CLI once kept laxer
+ * expert/impact/catchup guards that omitted the check; it now consumes the
+ * strict SDK guards, so that divergence is gone.
  *
  * The factory exists to remove the byte-mechanical duplication of these guards
- * across `cli/src/types/agents.ts` and `gateway/src/agents/_lib/findings.ts`.
+ * across the gateway, the CLI, and `@nimbus-dev/client`, all of which now
+ * consume the concrete guards from this package rather than defining their own.
  */
 export function createBriefGuard<T>(
   kind: string,

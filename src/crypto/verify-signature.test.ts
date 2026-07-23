@@ -10,7 +10,7 @@ import {
   SignatureInvalidFormat,
   signManifest,
   verifyManifestSignature,
-} from "./verify-signature.ts";
+} from "./verify-signature.js";
 
 type Manifest = {
   publisher?: { id: string; key: string };

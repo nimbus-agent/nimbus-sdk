@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createScopedAuditLogger } from "./audit-logger.ts";
+import { createScopedAuditLogger } from "./audit-logger.js";
 
 describe("createScopedAuditLogger", () => {
   test("prefixes action with extension ID", async () => {

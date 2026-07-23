@@ -25,7 +25,7 @@ import {
   SUBMISSION_CAPABILITY,
   validateApiUrl,
   viewEmail,
-} from "./index.ts";
+} from "./index.js";
 
 // ─── constants ────────────────────────────────────────────────────────────────
 

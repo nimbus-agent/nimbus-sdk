@@ -7,7 +7,7 @@
  *   server.start();
  */
 
-import type { ExtensionManifest } from "./types";
+import type { ExtensionManifest } from "./types.js";
 
 export interface ExtensionServerOptions<TClient> {
   manifest: ExtensionManifest;

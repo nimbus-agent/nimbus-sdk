@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import crypto from "node:crypto";
 
-import { signAppStoreConnectJwt } from "./app-store-connect-jwt";
+import { signAppStoreConnectJwt } from "./app-store-connect-jwt.js";
 
 function generateP8Pem(): string {
   const { privateKey } = crypto.generateKeyPairSync("ec", { namedCurve: "P-256" });

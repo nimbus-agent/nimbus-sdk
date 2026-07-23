@@ -10,7 +10,7 @@
  * See: https://developers.google.com/identity/protocols/oauth2/service-account
  */
 
-import { signJwt } from "./jwt";
+import { signJwt } from "./jwt.js";
 
 const SCOPE_CLOUD_PLATFORM = "https://www.googleapis.com/auth/cloud-platform";
 const DEFAULT_TOKEN_URI = "https://oauth2.googleapis.com/token";

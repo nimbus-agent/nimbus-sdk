@@ -1,4 +1,4 @@
-import type { AgentName } from "./agent-names.ts";
+import type { AgentName } from "./agent-names.js";
 import type {
   AgentBriefBase,
   CatchupSection,
@@ -7,7 +7,7 @@ import type {
   ImpactFinding,
   JanitorPeerTouch,
   PreflightDownstream,
-} from "./brief-types.ts";
+} from "./brief-types.js";
 
 /** Expertise confidence band. Mirrored by the gateway's federation layer. */
 export type ExpertiseRank = "high" | "medium" | "low" | "none";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { IPC_MAX_LINE_BYTES, NdjsonLineReader } from "./ndjson-line-reader.ts";
+import { IPC_MAX_LINE_BYTES, NdjsonLineReader } from "./ndjson-line-reader.js";
 
 describe("NdjsonLineReader", () => {
   test("emits non-empty lines and skips blanks", () => {

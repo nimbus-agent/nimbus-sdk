@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agent-names.ts";
-import type { AgentBrief, BriefFor } from "./brief-composites.ts";
-import { BRIEF_GUARDS, isConflictBrief, isExpertBrief } from "./brief-guards.ts";
+import { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agent-names.js";
+import type { AgentBrief, BriefFor } from "./brief-composites.js";
+import { BRIEF_GUARDS, isConflictBrief, isExpertBrief } from "./brief-guards.js";
 
 const base = { agentVersion: 1 as const, generatedAt: 1, latencyMs: 1, gaps: [] };
 

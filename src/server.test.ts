@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { NimbusExtensionServer } from "./server";
-import type { ExtensionManifest } from "./types";
+import { NimbusExtensionServer } from "./server.js";
+import type { ExtensionManifest } from "./types.js";
 
 /** Minimal valid ExtensionManifest fixture */
 function makeManifest(id: string): ExtensionManifest {

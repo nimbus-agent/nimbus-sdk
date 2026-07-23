@@ -9,7 +9,7 @@
  *     `permissions.network` + `permissions.filesystem` (Phase 5 T2 PR 1).
  */
 
-export { runSandboxContractTests } from "./sandbox-contract";
+export { runSandboxContractTests } from "./sandbox-contract.js";
 
 export class MockGateway {
   async callTool(_toolName: string, _input: Record<string, unknown>): Promise<unknown> {

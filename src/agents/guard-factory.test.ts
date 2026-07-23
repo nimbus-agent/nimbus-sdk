@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { createBriefGuard } from "./guard-factory.ts";
+import { createBriefGuard } from "./guard-factory.js";
 
 describe("createBriefGuard", () => {
   const base = { kind: "x", agentVersion: 1, generatedAt: 0, latencyMs: 0, gaps: [] };

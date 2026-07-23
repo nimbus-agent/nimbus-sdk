@@ -5,8 +5,8 @@ import {
   ExtensionContractError,
   ROW_DATA_TOOL_SEGMENTS,
   runContractTests,
-} from "./contract-tests.ts";
-import type { ExtensionManifest } from "./types.ts";
+} from "./contract-tests.js";
+import type { ExtensionManifest } from "./types.js";
 
 const base = (): ExtensionManifest => ({
   id: "demo.ext",

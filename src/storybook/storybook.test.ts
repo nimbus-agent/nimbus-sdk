@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseStorybookIndex } from "./index.ts";
+import { parseStorybookIndex } from "./index.js";
 
 describe("parseStorybookIndex", () => {
   it("returns [] for null input", () => {

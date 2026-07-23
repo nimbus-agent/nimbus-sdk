@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildVEvent, parseICalendar } from "./icalendar.ts";
+import { buildVEvent, parseICalendar } from "./icalendar.js";
 
 // ---------------------------------------------------------------------------
 // Fixture helpers

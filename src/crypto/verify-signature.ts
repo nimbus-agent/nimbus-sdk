@@ -4,7 +4,7 @@
  * at install + every startup (I16 wiring sites).
  */
 
-import { canonicalizeManifest } from "./canonical-json";
+import { canonicalizeManifest } from "./canonical-json.js";
 
 export class PublisherKeyMismatch extends Error {
   override readonly name = "PublisherKeyMismatch";

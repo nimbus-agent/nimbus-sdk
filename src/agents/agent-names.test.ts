@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { AGENT_KIND, AGENT_NAMES } from "./agent-names.ts";
+import { AGENT_KIND, AGENT_NAMES } from "./agent-names.js";
 
 describe("agent names", () => {
   test("all eight agents are listed", () => {

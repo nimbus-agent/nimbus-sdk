@@ -1,4 +1,4 @@
-import type { AgentName } from "./agent-names";
+import type { AgentName } from "./agent-names.js";
 import type {
   CatchupBrief,
   ConflictBrief,
@@ -8,8 +8,8 @@ import type {
   ImpactBrief,
   JanitorBrief,
   PreflightBrief,
-} from "./brief-composites";
-import { createBriefGuard } from "./guard-factory";
+} from "./brief-composites.js";
+import { createBriefGuard } from "./guard-factory.js";
 
 const STRICT = { requireQuery: true } as const;
 

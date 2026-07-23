@@ -6,7 +6,7 @@ import {
   mintGoogleAccessToken,
   parseServiceAccountJson,
   signServiceAccountAssertion,
-} from "./service-account-token";
+} from "./service-account-token.js";
 
 function generateRsa(): { privateKey: string; publicKey: string } {
   const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });

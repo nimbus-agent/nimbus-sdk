@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types.ts";
-import type { ItemType, NimbusItem } from "./types.ts";
+import { isKnownItemType, KNOWN_ITEM_TYPES } from "./item-types.js";
+import type { ItemType, NimbusItem } from "./types.js";
 
 describe("KNOWN_ITEM_TYPES", () => {
   test("is a deduplicated, sorted list", () => {

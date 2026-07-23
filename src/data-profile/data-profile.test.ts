@@ -6,7 +6,7 @@ import {
   parseCsvHeader,
   parseJsonColumns,
   parseJsonlColumns,
-} from "./index.ts";
+} from "./index.js";
 
 // ---------------------------------------------------------------------------
 // jsKind

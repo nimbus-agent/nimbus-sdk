@@ -152,19 +152,39 @@ jobs:
           tmp="$(mktemp -d)"
           cd "$tmp"
           npm init -y >/dev/null
-          # The registry serves a fresh publish with a short propagation lag;
-          # retry so a few seconds of lag is not read as a supply-chain failure.
-          for attempt in 1 2 3 4 5; do
-            if npm install "@nimbus-dev/sdk@${PUBLISHED_VERSION}" --no-audit --no-fund; then
+          # A publish is followed by TWO independent propagation lags, and each has
+          # already turned a good release red:
+          #
+          #   * packument lag — `npm install pkg@<v>` fails ETARGET "No matching
+          #     version found" while the version is still propagating.
+          #   * attestation lag — the tarball installs fine while
+          #     `/-/npm/v1/attestations/...` still 404s, so `npm audit signatures`
+          #     fails on a package that is live and correctly attested. That is what
+          #     made 1.5.0's publish job red: install succeeded on attempt 1, the loop
+          #     broke, and the single audit that followed hit the 404. Minutes later
+          #     the identical command reported a verified signature and attestation.
+          #
+          # So install and audit must retry TOGETHER — a loop that breaks on install
+          # alone and audits once afterwards reads attestation lag as a supply-chain
+          # failure. `--prefer-online` is also required: npm caches the negative
+          # packument, so plain retries re-read the same cached 404 instead of asking
+          # the registry again.
+          verified=""
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if npm install "@nimbus-dev/sdk@${PUBLISHED_VERSION}" \
+                 --no-audit --no-fund --prefer-online \
+              && npm audit signatures; then
+              verified=1
               break
             fi
-            if [ "$attempt" = 5 ]; then
-              echo "::error::@nimbus-dev/sdk@${PUBLISHED_VERSION} was not installable from the registry after 5 attempts."
-              exit 1
+            if [ "$attempt" != 8 ]; then
+              sleep $(( attempt * 10 ))
             fi
-            sleep $(( attempt * 5 ))
           done
-          npm audit signatures
+          if [ -z "$verified" ]; then
+            echo "::error::@nimbus-dev/sdk@${PUBLISHED_VERSION} could not be installed and signature-verified from the registry after 8 attempts (~4.5 min)."
+            exit 1
+          fi
 
       - name: Verify provenance names this repo, workflow and commit
         uses: nimbus-agent/.github/actions/verify-npm-provenance@5fb42792fa88287048fd24f704183b9a9b807a67

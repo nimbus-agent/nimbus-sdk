@@ -64,7 +64,9 @@ provenance story. Commitments:
 
 - **Every official SDK stays dependency-minimal** and publishes with the strongest
   provenance its ecosystem supports (e.g. PyPI Trusted Publishers, Sigstore
-  attestations), mirroring the npm `--provenance` guarantee.
+  attestations), mirroring the npm `--provenance` guarantee — tokenless where the
+  ecosystem allows and verified after publish. The per-language pipelines and their
+  parity guarantees are documented in [RELEASING.md](./RELEASING.md).
 - **A vulnerability is triaged per language.** Reports must name the affected
   language SDK; a fix in one binding does not imply the others are affected or
   fixed.

@@ -65,6 +65,8 @@ Changing an exported type is a semver-relevant change.
   language-neutral, batteries-included authoring contract for all of Nimbus.
 - [Architecture](./docs/ARCHITECTURE.md) — how the SDK is structured today and the
   spec-first / polyglot target.
+- [Releasing](./docs/RELEASING.md) — how each language SDK is published (npm today;
+  PyPI + Go module proxy planned) under one set of release-parity guarantees.
 - [Security](./docs/SECURITY.md) — reporting, supply-chain posture, and the trust
   model as the SDK grows.
 - [Governance](./docs/GOVERNANCE.md) — how contract-affecting decisions are made

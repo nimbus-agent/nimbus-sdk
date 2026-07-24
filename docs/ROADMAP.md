@@ -15,8 +15,9 @@ The product / cross-surface plan (client surfaces, delivery, the wider agent
 ecosystem) lives in the gateway repo's
 **[Nimbus Ecosystem Roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/ecosystem-roadmap.md)**.
 This document owns everything SDK-shaped. See also
-[ARCHITECTURE.md](./ARCHITECTURE.md) (how it's built), [SECURITY.md](./SECURITY.md)
-(the trust model), [GOVERNANCE.md](./GOVERNANCE.md) (how decisions are made),
+[ARCHITECTURE.md](./ARCHITECTURE.md) (how it's built), [RELEASING.md](./RELEASING.md)
+(how each language SDK is published), [SECURITY.md](./SECURITY.md) (the trust model),
+[GOVERNANCE.md](./GOVERNANCE.md) (how decisions are made),
 [GLOSSARY.md](./GLOSSARY.md) (terms), and [`spec/`](./spec/) (the contract spec's
 home).
 
@@ -75,6 +76,16 @@ clean, a coverage floor, and npm publish with `--provenance` via GitHub OIDC. A
 public API-surface snapshot test keeps accidental semver breaks out, and the
 conformance suite becomes a CI gate for every language.
 
+This pillar also holds **release parity** and **test breadth**. *Release parity:*
+every official SDK is published the way the TypeScript one is today — automated from
+Conventional Commits via release-please, with the strongest provenance its ecosystem
+supports, **no long-lived tokens**, hardened runners, and post-publish verification
+of the artifact. The mechanics differ by language (npm / PyPI OIDC push vs. Go's
+tag-based module proxy) but the guarantees do not; see [RELEASING.md](./RELEASING.md).
+*Test breadth:* the suite runs across the operating systems and language/runtime
+versions the SDK actually supports — not a single-OS, single-version run — so
+cross-platform behavior (e.g. sandbox platform-asymmetry) is exercised in CI.
+
 ### 6. Ecosystem fit
 
 How the SDK plugs into the rest of Nimbus and welcomes outside contributors:
@@ -132,6 +143,11 @@ reference every later language SDK is measured against.*
 - [ ] A runnable example connector kept green in CI — *Pillar 4*
 - [ ] A public **API-surface snapshot test** that fails PRs on unintended
   `exports` changes — *Pillars 5, 7*
+- [ ] Expand CI from `ubuntu`-only to a **cross-OS matrix** (Linux / macOS /
+  Windows) so cross-platform behavior — including the documented sandbox
+  platform-asymmetry — is exercised on every PR — *Pillar 5*
+- [ ] Run the **Node ESM smoke across the supported Node LTS versions** (not just the
+  runner default), since the published ESM must load under plain Node on each — *Pillar 5*
 - [ ] The written **inclusion policy** for the batteries, linked from
   `CONTRIBUTING.md` — *Pillar 3*
 - [ ] The written **deprecation policy** (how an export is marked and how long it
@@ -139,8 +155,8 @@ reference every later language SDK is measured against.*
 
 **Exit criteria:** every public export is documented and reachable from the docs
 surface; the example connector builds and passes `runContractTests` in CI; the
-`exports` snapshot is committed and gating PRs; inclusion + deprecation policies are
-published.
+`exports` snapshot is committed and gating PRs; the test suite is green on the
+cross-OS × Node-LTS matrix; inclusion + deprecation policies are published.
 
 ### Phase 1 — Lift the contract out of TypeScript
 
@@ -169,12 +185,21 @@ same contract.*
 - [ ] `create-nimbus-connector` scaffolding for TypeScript **and** Python — *Pillar 4*
 - [ ] Per-language quickstarts — *Pillar 4*
 - [ ] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*
-- [ ] Python published with ecosystem-native provenance (PyPI Trusted
-  Publishers) — *Pillars 5, 7*
+- [ ] **Automated Python releases via release-please** — add a `python` component to
+  `release-please-config.json` so merged Conventional Commits open a release PR and
+  maintain the Python `CHANGELOG`, exactly as the `node` component does today — *Pillars 5, 7*
+- [ ] **Tokenless publish to PyPI via Trusted Publishers** (OIDC) — build `sdist` +
+  `wheel`, publish with **PEP 740 attestations**, **no `PYPI_TOKEN` secret**,
+  mirroring the npm `--provenance` guarantee — *Pillar 5*
+- [ ] **Harden + verify the Python release workflow** to match npm's — `harden-runner`,
+  an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
+  confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
 
 **Exit criteria:** a Python-authored connector runs against the gateway and passes
 the same suite as the TS reference; the suite is green for both languages in CI; a
-first-time author can scaffold and ship a Python connector from the docs alone.
+Python release is cut end-to-end from a merged commit — release PR → PyPI publish
+with attestations, no long-lived token — and verified post-publish; a first-time
+author can scaffold and ship a Python connector from the docs alone.
 
 ### Phase 3 — Scale languages & batteries
 
@@ -183,6 +208,16 @@ maintained."*
 
 - [ ] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*
 - [ ] The hottest batteries ported to the additional languages — *Pillar 3*
+- [ ] **Go release model (tag-based, not a registry push)** — decide the module
+  layout (root vs. `sdks/go/` and its tag prefix), cut releases as **semver git
+  tags** + GitHub Releases via release-please's `go` component, and confirm the
+  module resolves through `proxy.golang.org` with docs on `pkg.go.dev` — *Pillars 5, 7*
+- [ ] **Provenance for Go** — since there is no registry token, sign tags and attach
+  **Sigstore / SLSA build provenance** to the GitHub Release artifacts, giving Go the
+  same "verifiable, tokenless" property as the npm/PyPI SDKs — *Pillar 5*
+- [ ] A **reusable release workflow** (harden-runner → build/test → publish →
+  post-publish verify) that each language's release job calls, so the hardened
+  pipeline is defined once and every SDK inherits it — *Pillar 5*
 - [ ] A **cross-language CI matrix** running the conformance suite against every
   SDK — *Pillar 5*
 - [ ] **Tiered stability** markers separating battle-tested helpers from the frozen
@@ -190,8 +225,10 @@ maintained."*
 - [ ] The written process for **how a language becomes "official"** — *Pillar 9*
 
 **Exit criteria:** at least three official SDKs pass the suite in a shared matrix;
-each SDK's stability tier is documented and enforced; the official-language process
-is written down.
+each publishes through its ecosystem's tokenless, provenance-carrying path (npm /
+PyPI OIDC push, Go signed tags + module proxy) from a shared reusable workflow; each
+SDK's stability tier is documented and enforced; the official-language process is
+written down.
 
 ### Phase 4 — Open the ecosystem
 

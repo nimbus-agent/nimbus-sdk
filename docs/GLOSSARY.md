@@ -101,7 +101,20 @@ per [GOVERNANCE.md](./GOVERNANCE.md).
 
 **Provenance** — the verifiable attestation a published artifact carries about how
 and where it was built (npm `--provenance` via OIDC today; per-ecosystem equivalents
-as other languages land).
+as other languages land). See [RELEASING.md](./RELEASING.md).
+
+**Release parity** — the rule that every official SDK is published with the same
+guarantees (automated from Conventional Commits, tokenless auth, provenance, hardened
+CI, post-publish verification), even though the per-language mechanics differ.
+
+**Trusted Publisher** — an OIDC-based registry binding (npm, PyPI) that lets a
+specific GitHub workflow publish **without a long-lived token**; the registry trusts
+the workflow's short-lived identity and attaches provenance.
+
+**Module proxy** — Go's distribution model (`proxy.golang.org`): a module is
+released by *tagging* a commit, and the proxy fetches it from the VCS. There is no
+registry push and no publish token; integrity comes from the checksum database
+(`sum.golang.org`).
 
 **Manifest signing** — signing a canonicalized `ExtensionManifest` with an Ed25519
 key (`signManifest` / `verifyManifestSignature`) so the gateway can verify a

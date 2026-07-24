@@ -25,6 +25,8 @@ export type {
   ImpactCategory,
   JanitorBrief,
   PreflightBrief,
+  WhyBrief,
+  WhyPeek,
 } from "./agents/brief-composites.js";
 export {
   BRIEF_GUARDS,
@@ -36,6 +38,7 @@ export {
   isImpactBrief,
   isJanitorBrief,
   isPreflightBrief,
+  isWhyBrief,
 } from "./agents/brief-guards.js";
 export type {
   AgentBriefBase,
@@ -49,6 +52,9 @@ export type {
   ImpactFinding,
   JanitorPeerTouch,
   PreflightDownstream,
+  WhyFinding,
+  WhyLane,
+  WhySubject,
 } from "./agents/brief-types.js";
 export { createBriefGuard } from "./agents/guard-factory.js";
 export type { AuditEmit, AuditLogger } from "./audit-logger.js";

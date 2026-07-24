@@ -41,7 +41,8 @@ need, and drives consent. Lives in the
 [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, **not** here.
 
 **Wire protocol** — the language-agnostic message framing between a connector and
-the gateway: NDJSON (one JSON value per line) over stdio, via the `./ipc` helpers.
+the gateway: NDJSON (one JSON value per line) over stdio, via the `src/ipc/` helpers
+(shipped as the `@nimbus-dev/sdk/ipc` export).
 Being a wire protocol is what makes the SDK polyglot-able.
 
 **HITL (human-in-the-loop)** — the consent mechanism. A tool returns a `HitlRequest`

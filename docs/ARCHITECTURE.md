@@ -93,7 +93,7 @@ reused) — see the [roadmap](./ROADMAP.md#3-batteries-for-connectors--apps).
 
 A connector is a **separate process** the gateway spawns inside a sandbox. The two
 communicate over a stdio stream using **NDJSON line framing** (one JSON value per
-line — the `./ipc` helpers). The SDK builds the *connector* side of this boundary;
+line — the `src/ipc/` helpers). The SDK builds the *connector* side of this boundary;
 the gateway is the host.
 
 ```mermaid
@@ -109,7 +109,7 @@ flowchart LR
     tools["Registered tools"]
     bat["Batteries: crypto / jmap / icalendar / ..."]
   end
-  gw <-- "NDJSON IPC (./ipc framing)" --> srv
+  gw <-- "NDJSON IPC (src/ipc framing)" --> srv
   srv --> tools --> bat
   gw -. "injects AuditLogger" .-> srv
   tools -. "return HitlRequest for consent" .-> gw
@@ -169,8 +169,9 @@ Phase 3 scales to Go, Rust, and beyond.
 ## Evolving the contract
 
 Because the contract is depended on across products and languages, it changes under
-explicit rules rather than ad hoc. The `exports` map is guarded by an API-surface
-snapshot test, so an unintended surface change fails CI. Deprecations follow a
+explicit rules rather than ad hoc. The `exports` map is to be guarded by an
+API-surface snapshot test (a [Phase 0](./ROADMAP.md#phase-0--a-solid-typescript-reference)
+task), so that an unintended surface change fails CI. Deprecations will follow a
 written policy (mark → support window → removal at a major bump), and once the spec
 exists, a **contract-version** is negotiated between connector and gateway so both
 know which version they speak. The mechanics live in the

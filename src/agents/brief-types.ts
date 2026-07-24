@@ -82,3 +82,27 @@ export type PreflightDownstream = {
 };
 
 export type ConflictType = "open_pr" | "assigned_ticket" | "recent_commit" | "open_branch";
+
+export type WhyLane =
+  | "authorship"
+  | "pull_request"
+  | "ticket"
+  | "discussion"
+  | "driver"
+  | "downstream";
+
+export type WhyFinding = {
+  lane: WhyLane;
+  title: string;
+  detail: string;
+  url: string | null;
+  occurredAt: number | null;
+  entityId: string | null;
+};
+
+export type WhySubject = {
+  repoRoot: string;
+  filePath: string;
+  lineNo: number | null;
+  symbol: string | null;
+};

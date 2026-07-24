@@ -7,6 +7,8 @@ import type {
   ImpactFinding,
   JanitorPeerTouch,
   PreflightDownstream,
+  WhyFinding,
+  WhySubject,
 } from "./brief-types.js";
 
 /** Expertise confidence band. Mirrored by the gateway's federation layer. */
@@ -117,6 +119,13 @@ export type PreflightBrief = AgentBriefBase & {
   anyIncomplete: boolean;
 };
 
+export type WhyBrief = AgentBriefBase & {
+  kind: "why";
+  query: { ref: string; line: number | null };
+  subject: WhySubject | null;
+  findings: WhyFinding[];
+};
+
 export type AgentBrief =
   | ExpertBrief
   | ImpactBrief
@@ -125,7 +134,25 @@ export type AgentBrief =
   | ConflictBrief
   | HuddleBrief
   | JanitorBrief
-  | PreflightBrief;
+  | PreflightBrief
+  | WhyBrief;
+
+/**
+ * `agents.whyPeek` result — a synchronous one-line answer, NOT a brief.
+ * Deliberately not part of `AgentBrief`: it carries no `AgentBriefBase` fields
+ * and no gap notes.
+ */
+export type WhyPeek = {
+  subject: { repoRoot: string; filePath: string; lineNo: number } | null;
+  author: string | null;
+  authorEmail: string | null;
+  commitSha: string | null;
+  committedAt: number | null;
+  commitSubject: string | null;
+  pr: { number: number | null; title: string; url: string | null } | null;
+  ticket: { key: string; title: string; url: string | null } | null;
+  hasMore: boolean;
+};
 
 /** The payload of a `<agent>.briefReady` notification. */
 export type BriefReadyPayload<B extends AgentBrief> = {
@@ -144,4 +171,5 @@ export type BriefFor<A extends AgentName> = {
   huddle: HuddleBrief;
   janitor: JanitorBrief;
   preflight: PreflightBrief;
+  why: WhyBrief;
 }[A];

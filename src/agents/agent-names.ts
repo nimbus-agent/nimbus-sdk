@@ -1,4 +1,4 @@
-/** The eight built-in read-only agents exposed over `agents.*` IPC. */
+/** The nine built-in read-only agents exposed over `agents.*` IPC. */
 export const AGENT_NAMES = [
   "expert",
   "impact",
@@ -8,6 +8,7 @@ export const AGENT_NAMES = [
   "huddle",
   "janitor",
   "preflight",
+  "why",
 ] as const;
 
 export type AgentName = (typeof AGENT_NAMES)[number];
@@ -27,4 +28,5 @@ export const AGENT_KIND = {
   huddle: "huddle",
   janitor: "janitor",
   preflight: "preflight",
+  why: "why",
 } as const satisfies Record<AgentName, string>;

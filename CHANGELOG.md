@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.5.2...sdk-v1.6.0) (2026-07-24)
+
+
+### Features
+
+* promote the why types to the SDK (1.6.0) ([#28](https://github.com/nimbus-agent/nimbus-sdk/issues/28)) ([9569079](https://github.com/nimbus-agent/nimbus-sdk/commit/9569079fdfb0b0eb7ed2d01dc06db13ac5d53bb8))
+
 ## [1.5.2](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.5.1...sdk-v1.5.2) (2026-07-23)
 
 

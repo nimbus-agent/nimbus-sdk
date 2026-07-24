@@ -8,6 +8,7 @@ import type {
   ImpactBrief,
   JanitorBrief,
   PreflightBrief,
+  WhyBrief,
 } from "./brief-composites.js";
 import { createBriefGuard } from "./guard-factory.js";
 
@@ -64,6 +65,12 @@ export const isPreflightBrief = createBriefGuard<PreflightBrief>(
   STRICT,
 );
 
+export const isWhyBrief = createBriefGuard<WhyBrief>(
+  "why",
+  (b) => Array.isArray(b["findings"]),
+  STRICT,
+);
+
 /** Agent name → its guard. Keyed by AGENT name, not by brief `kind`. */
 export const BRIEF_GUARDS: { [A in AgentName]: (x: unknown) => boolean } = {
   expert: isExpertBrief,
@@ -74,4 +81,5 @@ export const BRIEF_GUARDS: { [A in AgentName]: (x: unknown) => boolean } = {
   huddle: isHuddleBrief,
   janitor: isJanitorBrief,
   preflight: isPreflightBrief,
+  why: isWhyBrief,
 };

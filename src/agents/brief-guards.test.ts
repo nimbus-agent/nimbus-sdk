@@ -89,6 +89,16 @@ const FIXTURES: { [A in AgentName]: { brief: BriefFor<A>; distinguishing: string
     },
     distinguishing: ["downstreams", "anyFailed", "anyIncomplete"],
   },
+  why: {
+    brief: {
+      ...base,
+      kind: "why",
+      query: { ref: "src/a.ts", line: null },
+      subject: null,
+      findings: [],
+    },
+    distinguishing: ["findings"],
+  },
 };
 
 describe("brief guards", () => {

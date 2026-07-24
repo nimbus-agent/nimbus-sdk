@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { AGENT_KIND, AGENT_NAMES } from "./agent-names.js";
 
 describe("agent names", () => {
-  test("all eight agents are listed", () => {
+  test("all nine agents are listed", () => {
     expect([...AGENT_NAMES]).toEqual([
       "expert",
       "impact",
@@ -12,6 +12,7 @@ describe("agent names", () => {
       "huddle",
       "janitor",
       "preflight",
+      "why",
     ]);
   });
 

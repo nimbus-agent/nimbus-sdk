@@ -59,6 +59,21 @@ server.start();
 
 Changing an exported type is a semver-relevant change.
 
+## Documentation
+
+- [Roadmap](./docs/ROADMAP.md) — the 9 pillars and the phased plan to make the SDK a
+  language-neutral, batteries-included authoring contract for all of Nimbus.
+- [Architecture](./docs/ARCHITECTURE.md) — how the SDK is structured today and the
+  spec-first / polyglot target.
+- [Security](./docs/SECURITY.md) — reporting, supply-chain posture, and the trust
+  model as the SDK grows.
+- [Governance](./docs/GOVERNANCE.md) — how contract-affecting decisions are made
+  (the RFC process, how a language becomes official).
+- [Glossary](./docs/GLOSSARY.md) — the shared vocabulary (narrow waist, binding,
+  conformance suite, …).
+- [Contract spec](./docs/spec/) — the future home of the language-neutral spec
+  (planned; Phase 1).
+
 ## Contributing
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md). In short: Bun v1.2+, TypeScript strict,

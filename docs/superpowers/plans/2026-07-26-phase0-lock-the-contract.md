@@ -726,6 +726,10 @@ describe("parseBarrel", () => {
   test("throws on a namespaced wildcard re-export too", () => {
     expect(() => parseBarrel('export * as ns from "./x.js";')).toThrow(/wildcard re-export/);
   });
+
+  test("throws on a re-export from an external package rather than resolving a bogus path", () => {
+    expect(() => parseBarrel('export { X } from "some-library";')).toThrow(/non-relative specifier/);
+  });
 });
 ```
 
@@ -788,6 +792,18 @@ export function parseBarrel(text: string): ParsedBarrel {
     const body = clause[2] ?? "";
     const module = clause[3] ?? "";
 
+    // Refused here rather than in resolveSpecifier so the error names the offending
+    // statement and no bogus path is ever read. This package is dependency-free: a
+    // barrel re-exporting from an external module violates a core constraint, it is
+    // not merely a gap in the extractor.
+    if (!module.startsWith(".")) {
+      throw new Error(
+        `re-export from a non-relative specifier is not supported by the API-surface guard: ${statement}\n` +
+          "This package is dependency-free — a barrel must not re-export from an external " +
+          "module. If that ever changes deliberately, extend scripts/api-surface.ts to resolve it.",
+      );
+    }
+
     for (const raw of body.split(",")) {
       const specifier = raw.trim();
       if (specifier.length === 0) continue;
@@ -812,7 +828,7 @@ export function parseBarrel(text: string): ParsedBarrel {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 26 tests.
+Expected: PASS, 27 tests.
 
 - [ ] **Step 5: Prove it against the real emitted barrels**
 
@@ -1059,7 +1075,13 @@ export function collectEntryPoints(packageJsonText: string): EntryPoint[] {
   return entries;
 }
 
-/** Resolve a `./x.js` specifier against its importer to the sibling `.d.ts`, always with `/`. */
+/**
+ * Resolve a `./x.js` specifier against its importer to the sibling `.d.ts`, always with `/`.
+ *
+ * Deliberately operates on repo-relative paths and stays pure: absolute paths here
+ * would leak machine-specific strings into the golden file. `parseBarrel` has already
+ * guaranteed the specifier is relative.
+ */
 export function resolveSpecifier(fromFile: string, specifier: string): string {
   const resolved = join(dirname(fromFile), specifier.replace(/\.js$/, ".d.ts"));
   return resolved.split("\\").join("/");
@@ -1119,7 +1141,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 37 tests.
+Expected: PASS, 38 tests.
 
 - [ ] **Step 5: Prove it against the real package**
 
@@ -1270,7 +1292,7 @@ export function renderSurface(surfaces: EntrySurface[]): string {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 42 tests.
+Expected: PASS, 43 tests.
 
 - [ ] **Step 5: Typecheck, lint, and commit**
 
@@ -1311,22 +1333,38 @@ If it is still untracked rather than tracked, use `rm src/api-surface.test.ts`.
 
 - [ ] **Step 2: Add the CLI to the extractor**
 
-First extend the existing `node:path` import line at the top of `scripts/api-surface.ts` with a `node:fs` import beside it:
+First extend the imports at the top of `scripts/api-surface.ts`:
 
 ```ts
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 ```
 
 Then append to the end of the file. `import.meta.main` is false when the module is imported by the test, so this block runs only via `bun run api:surface`:
 
 ```ts
 if (import.meta.main) {
-  const surfaces = buildSurface(
-    collectEntryPoints(readFileSync("package.json", "utf8")),
-    (path) => readFileSync(path, "utf8"),
-  );
-  writeFileSync(GOLDEN_PATH, renderSurface(surfaces), "utf8");
+  // Anchor every path to the repo root so the command works from any cwd. Only the
+  // I/O boundary is absolute — the pure functions keep operating on repo-relative
+  // paths, so nothing machine-specific can reach the golden file.
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const readFromRoot: ReadFile = (path) => readFileSync(join(repoRoot, path), "utf8");
+
+  const surfaces = buildSurface(collectEntryPoints(readFromRoot("package.json")), readFromRoot);
+
+  // An empty entry point means the extractor is broken, not that the surface shrank.
+  // Writing that baseline would make the guard pass vacuously from then on — the one
+  // failure mode that would leave CI green while guarding nothing.
+  const empty = surfaces.filter((surface) => surface.exports.length === 0);
+  if (empty.length > 0) {
+    throw new Error(
+      `refusing to write ${GOLDEN_PATH}: extracted zero exports for ` +
+        `${empty.map((surface) => surface.label).join(", ")}. Fix the extractor first.`,
+    );
+  }
+
+  writeFileSync(join(repoRoot, GOLDEN_PATH), renderSurface(surfaces), "utf8");
   const total = surfaces.reduce((sum, surface) => sum + surface.exports.length, 0);
   process.stdout.write(`wrote ${GOLDEN_PATH} — ${total} exports across ${surfaces.length} entry points\n`);
 }
@@ -1346,24 +1384,36 @@ Append to `scripts/api-surface.test.ts`, adding `GOLDEN_PATH` to the import from
 
 ```ts
 import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 ```
 
 ```ts
 describe("the committed API surface", () => {
-  const pkgText = readFileSync("package.json", "utf8");
+  // Same root anchoring as the CLI, so `bun test` works from any cwd.
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
+  const pkgText = readFromRoot("package.json");
 
   test("dist/ has been built", () => {
     expect(
-      existsSync("dist/index.d.ts"),
+      existsSync(join(repoRoot, "dist/index.d.ts")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });
 
+  test("no entry point is empty — an empty surface would pass vacuously forever", () => {
+    for (const surface of buildSurface(collectEntryPoints(pkgText), readFromRoot)) {
+      expect(
+        surface.exports.length,
+        `exports["${surface.label}"] extracted zero exports — the extractor is broken`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
   test("matches docs/api-surface.md", () => {
-    const actual = renderSurface(
-      buildSurface(collectEntryPoints(pkgText), (path) => readFileSync(path, "utf8")),
-    );
-    const committed = normalizeEol(readFileSync(GOLDEN_PATH, "utf8"));
+    const actual = renderSurface(buildSurface(collectEntryPoints(pkgText), readFromRoot));
+    const committed = normalizeEol(readFromRoot(GOLDEN_PATH));
 
     if (actual !== committed) {
       const actualLines = actual.split("\n");
@@ -1382,7 +1432,7 @@ describe("the committed API surface", () => {
   });
 
   test("covers every exports entry point", () => {
-    const committed = readFileSync(GOLDEN_PATH, "utf8");
+    const committed = readFromRoot(GOLDEN_PATH);
     for (const entry of collectEntryPoints(pkgText)) {
       expect(committed, `${GOLDEN_PATH} has no section for exports["${entry.label}"]`).toContain(
         `## \`${entry.label}\``,
@@ -1411,7 +1461,7 @@ Expected: a sane header and first entries, `82` from the count, and **no output*
 - [ ] **Step 8: Run the gate to verify it passes**
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 45 tests.
+Expected: PASS, 47 tests.
 
 - [ ] **Step 9: Prove the gate actually catches a surface change**
 
@@ -1425,12 +1475,21 @@ git checkout src/index.ts && bun run build
 
 Expected: FAIL with `The public API surface changed but docs/api-surface.md was not regenerated`, and `exit=1`. Then the checkout restores the tree.
 
-- [ ] **Step 10: Confirm the whole suite is green**
+- [ ] **Step 10: Prove the command works from any working directory**
+
+```bash
+(cd docs && bun run --cwd .. api:surface)
+git diff --stat docs/api-surface.md
+```
+
+Expected: the same `wrote docs/api-surface.md — 82 exports…` line, and **no diff** — running from elsewhere must produce a byte-identical file, not a relocated or truncated one.
+
+- [ ] **Step 11: Confirm the whole suite is green**
 
 Run: `bun run typecheck && bun run lint && bunx biome check scripts/ && bun run build && bun run test`
 Expected: all pass.
 
-- [ ] **Step 11: Commit**
+- [ ] **Step 12: Commit**
 
 The deletion from Step 1 is already staged if the file was tracked; if it was untracked, there is nothing to stage.
 
@@ -1551,4 +1610,15 @@ run with `gh run watch` and confirm all nine jobs pass before merging.
 
 - **tsc reformatting shows as golden-file diff noise.** Accepted: a reviewer seeing every change to the published `.d.ts` is the point, and re-baselining is one command.
 - **`stripComments` is not template-literal-aware.** A `${…}` interpolation in a template literal type containing `//` would confuse it. No such type exists in the surface today; if one is added, the guard's own tests should be extended first.
+- **A `@types/*` bump can shift the baseline.** The extractor does not resolve types transitively, so a reference to an external type is captured as the text tsc emitted — the surface contains `NodeJS.Platform` today. If the external package changes such that tsc prints a different form, the golden file changes without any source change in this repo. That is expected behavior, not a bug: re-baseline and note the cause in the commit. It is the same diff-noise trade-off the design accepted for tsc reformatting.
 - **Node 26 enters LTS on 2026-10-28** and will need adding to the smoke matrix then.
+
+## Review history
+
+Revised 2026-07-26 against
+[`2026-07-26-phase0-lock-the-contract-review.md`](./2026-07-26-phase0-lock-the-contract-review.md).
+Accepted: refusal of non-relative re-export specifiers (Task 5), repo-root anchoring
+for the CLI and gate (Task 8), and a non-empty-surface guarantee enforced in both the
+CLI and the gate (Task 8) — the last of these closes the one failure mode that would
+have left CI green while guarding nothing. Recorded as a known limitation rather than
+changed: external type references shifting the baseline.

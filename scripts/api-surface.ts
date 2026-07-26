@@ -165,6 +165,75 @@ export function declaredNameOf(statement: string): string | null {
   return match?.[1] ?? null;
 }
 
+/** A JSDoc block, its `@deprecated` message, and everything after it. */
+const JSDOC_BLOCK = /\/\*\*([\s\S]*?)\*\//g;
+
+/** Anything that can precede the declaration a JSDoc block annotates. */
+const SKIPPABLE_BEFORE_DECLARATION = /^(?:\s|\/\/[^\n]*\n|\/\*(?!\*)[\s\S]*?\*\/)*/;
+
+/**
+ * Map each declared name to its `@deprecated` message, for declarations that carry one.
+ *
+ * Runs on the RAW module text, before `stripComments` — the deprecation marker lives in
+ * a comment, so by the time the rest of the extractor sees a module the marker is gone.
+ * Without this, deprecating an export would produce no diff in the golden file, and the
+ * one contract change the deprecation policy governs would be the one the contract guard
+ * cannot see.
+ *
+ * The message stops at the next JSDoc tag: tsc emits multi-tag blocks verbatim, so a
+ * `@deprecated` followed by `@param` would otherwise swallow it.
+ */
+export function collectDeprecations(rawText: string): Map<string, string> {
+  const text = normalizeEol(rawText);
+  const found = new Map<string, string>();
+
+  JSDOC_BLOCK.lastIndex = 0;
+  let block = JSDOC_BLOCK.exec(text);
+  while (block !== null) {
+    const body = block[1] ?? "";
+    const message = deprecationMessage(body);
+    if (message !== null) {
+      const after = text.slice(block.index + block[0].length);
+      const declaration = after.replace(SKIPPABLE_BEFORE_DECLARATION, "");
+      const name = declaredNameOf(declaration);
+      if (name !== null) found.set(name, message);
+    }
+    block = JSDOC_BLOCK.exec(text);
+  }
+
+  return found;
+}
+
+/**
+ * The text of a JSDoc body's `@deprecated` tag, or null if it has none.
+ *
+ * The message ends at the next line-initial `@word`, whether or not JSDoc knows that
+ * tag. That matches how JSDoc itself parses — a line starting `@override` opens a new
+ * tag — so a message cannot continue onto a line beginning with `@`. Matching against a
+ * whitelist of known tags instead would absorb such a line and surprise anyone who
+ * knows JSDoc.
+ *
+ * A `@deprecated` tag whose following declaration is not exported is dropped, because
+ * `declaredNameOf` returns null for it. That is correct: a non-exported declaration is
+ * not part of the public surface, so its deprecation state is not this guard's
+ * business. `dist/` contains one today — `type SignedManifestShape` — so treating this
+ * as an error would fail on real output.
+ */
+function deprecationMessage(body: string): string | null {
+  const lines = body.split("\n").map((line) => line.replace(/^\s*\*?\s?/, ""));
+  const start = lines.findIndex((line) => /^@deprecated\b/.test(line));
+  if (start === -1) return null;
+
+  const collected: string[] = [(lines[start] ?? "").replace(/^@deprecated\b/, "")];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    if (/^@\w+/.test(line.trim())) break;
+    collected.push(line);
+  }
+
+  return collected.join(" ").replace(/\s+/g, " ").trim();
+}
+
 /** One name re-exported by a barrel. `name` is what consumers import; `sourceName` is what the target module declares. */
 export type ReexportRef = {
   name: string;
@@ -302,6 +371,8 @@ export type SurfaceExport = {
   /** The module specifier it came from, or `(local)` if the barrel declares it. */
   source: string;
   declaration: string;
+  /** The `@deprecated` message, or null when the export is not deprecated. */
+  deprecated: string | null;
 };
 
 export type EntrySurface = { label: string; exports: SurfaceExport[] };
@@ -425,30 +496,49 @@ function tidy(statement: string): string {
  */
 export const DECLARATION_NOT_FOUND = "(declaration not found)";
 
+/** One target module's declarations and deprecations, read once and reused. */
+type ModuleIndex = {
+  declarations: Map<string, string>;
+  deprecations: Map<string, string>;
+};
+
 export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySurface[] {
   return entries.map((entry) => {
-    const barrel = parseBarrel(readFile(entry.file));
+    const barrelText = readFile(entry.file);
+    const barrel = parseBarrel(barrelText);
+    const barrelDeprecations = collectDeprecations(barrelText);
     const exports: SurfaceExport[] = [];
 
     for (const statement of barrel.locals) {
       const name = declaredNameOf(statement);
       if (name === null) continue;
-      exports.push({ name, typeOnly: false, source: "(local)", declaration: tidy(statement) });
+      exports.push({
+        name,
+        typeOnly: false,
+        source: "(local)",
+        declaration: tidy(statement),
+        deprecated: barrelDeprecations.get(name) ?? null,
+      });
     }
 
-    const cache = new Map<string, Map<string, string>>();
+    const cache = new Map<string, ModuleIndex>();
     for (const ref of barrel.reexports) {
       const target = resolveSpecifier(entry.file, ref.module);
-      let declarations = cache.get(target);
-      if (declarations === undefined) {
-        declarations = declarationsOf(readFile(target), target);
-        cache.set(target, declarations);
+      let index = cache.get(target);
+      if (index === undefined) {
+        const text = readFile(target);
+        index = {
+          declarations: declarationsOf(text, target),
+          deprecations: collectDeprecations(text),
+        };
+        cache.set(target, index);
       }
       exports.push({
         name: ref.name,
         typeOnly: ref.typeOnly,
         source: ref.module,
-        declaration: declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
+        declaration: index.declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
+        deprecated: index.deprecations.get(ref.sourceName) ?? null,
       });
     }
 
@@ -484,16 +574,16 @@ export function renderSurface(surfaces: EntrySurface[]): string {
     lines.push(`${surface.exports.length} exports.`, "");
 
     for (const entry of surface.exports) {
-      lines.push(
-        `### \`${entry.name}\`${entry.typeOnly ? " *(type-only)*" : ""}`,
-        "",
-        `From \`${entry.source}\`.`,
-        "",
-        "```ts",
-        entry.declaration,
-        "```",
-        "",
-      );
+      lines.push(`### \`${entry.name}\`${entry.typeOnly ? " *(type-only)*" : ""}`, "");
+
+      if (entry.deprecated !== null) {
+        lines.push(
+          entry.deprecated === "" ? "**Deprecated**" : `**Deprecated:** ${entry.deprecated}`,
+          "",
+        );
+      }
+
+      lines.push(`From \`${entry.source}\`.`, "", "```ts", entry.declaration, "```", "");
     }
   }
 

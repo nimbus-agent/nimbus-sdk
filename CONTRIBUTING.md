@@ -46,6 +46,12 @@ that this file will not show; review those by hand.
   `dependencies` — it is the stable, MIT-licensed contract that first-party and
   third-party MCP connectors / extensions compile against. Do not add a runtime
   dependency; if you need a helper, inline it.
+- **Adding a battery?** It must satisfy the
+  [inclusion policy](./docs/INCLUSION-POLICY.md) — dep-free, pure, genuinely reused,
+  contract-shaped. The default answer is no.
+- **Removing or renaming an export?** It must pass through the
+  [deprecation policy](./docs/DEPRECATION-POLICY.md) — marked in a released minor, at
+  least one minor shipped carrying the marker, removed only in a major.
 - **No `any`; TypeScript strict.** Use `unknown` for data crossing a boundary and
   narrow with a type guard. Biome enforces the rules in `biome.json`, including
   `noExplicitAny` and `noConsole` in `src/`.

@@ -77,8 +77,9 @@ reinvented. Each is self-contained and independently testable:
 - `src/flux-cd/`, `src/storybook/` — small format helpers.
 - `src/distribution-channel.ts` — release-channel resolution + upgrade hints.
 
-Growth here is deliberately gated by an inclusion policy (dep-free, pure, genuinely
-reused) — see the [roadmap](./ROADMAP.md#3-batteries-for-connectors--apps).
+Growth here is deliberately gated by the [inclusion policy](./INCLUSION-POLICY.md)
+(dep-free, pure, genuinely reused) — see also the
+[roadmap](./ROADMAP.md#3-batteries-for-connectors--apps).
 
 ### 4. Test harness & IPC
 

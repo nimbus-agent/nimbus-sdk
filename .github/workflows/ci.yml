@@ -59,19 +59,12 @@ jobs:
       # specifiers typecheck cleanly and tsc emits them verbatim — producing a dist/
       # that Node ESM rejects with ERR_MODULE_NOT_FOUND. That shipped undetected
       # because every consumer reached the package through the `bun` export condition
-      # or a bundler. Bun resolves those specifiers happily, so this step must run on
-      # Node to have any value.
+      # or a bundler. Bun resolves those specifiers happily, so this must run on Node.
+      #
+      # Lives in a script rather than an inline block: the Windows runner defaults to
+      # PowerShell, so a multi-line bash `run:` would break once the matrix lands.
       - name: Node ESM smoke (every exports entry)
-        run: |
-          node --input-type=module -e "
-            const entries = ['./dist/index.js', './dist/ipc/index.js', './dist/testing/index.js'];
-            let bad = 0;
-            for (const e of entries) {
-              try { await import(e); console.log('ok   ' + e); }
-              catch (err) { bad++; console.error('FAIL ' + e + ' — ' + err.code); }
-            }
-            if (bad > 0) process.exit(1);
-          "
+        run: node scripts/smoke-esm.mjs
 
       - name: Test
         run: bun run test

@@ -117,3 +117,33 @@ jobs:
 
       - name: Smoke the published ESM entry points
         run: node scripts/smoke-esm.mjs
+
+  # The single required status check.
+  #
+  # `build-test` and `node-smoke` are matrices, so their job names carry the matrix
+  # leg — `build-test (ubuntu-24.04)`, `node-smoke (macos-15, 22)`, and so on. A
+  # ruleset that names those directly has to be hand-edited every time the matrix
+  # changes shape, and it will: Node 26 enters LTS on 2026-10-28. This job is the one
+  # stable name to require. It succeeds only if every job it needs succeeded, so the
+  # matrices can grow without anyone touching repository settings.
+  #
+  # `if: always()` is load-bearing — without it this job would be skipped when a
+  # dependency fails, the required check would never report, and PRs would hang
+  # waiting for a status that never arrives.
+  ci-complete:
+    needs: [build-test, node-smoke]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+
+      - name: Fail unless every CI job succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }}" && exit 1

@@ -16,7 +16,7 @@ bun install
 
 ```bash
 bun run typecheck   # tsc --noEmit (strict)
-bun run lint        # biome check src/
+bun run lint        # biome check src/ scripts/
 bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 ```

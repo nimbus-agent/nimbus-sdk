@@ -2,7 +2,7 @@
 
 **Date of Review:** 2026-07-26
 **Reviewer:** AI Assistant (Antigravity)
-**Target Spec:** [`2026-07-26-phase0-lock-the-contract-design.md`](file:///C:/gitrep/nimbus-sdk/docs/superpowers/specs/2026-07-26-phase0-lock-the-contract-design.md)
+**Target Spec:** [`2026-07-26-phase0-lock-the-contract-design.md`](./2026-07-26-phase0-lock-the-contract-design.md)
 
 ---
 

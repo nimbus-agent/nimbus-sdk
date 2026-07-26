@@ -373,10 +373,35 @@ export function resolveSpecifier(fromFile: string, specifier: string): string {
   return resolved.split("\\").join("/");
 }
 
+// A legitimate top-level statement — in a barrel *or* in a target module — always
+// begins with an identifier/keyword character, a `///` triple-slash directive, or is
+// a lone stray `;`. Anything else (a stray `>`, `}`, `)`, or similar leftover
+// punctuation) is evidence that splitTopLevelStatements mis-tracked depth and handed
+// us a fragment of some other statement — see the module header's "Known limitation":
+// a braced generic constraint, e.g. `<T extends { id: string }>`, is not depth-tracked
+// on purpose, so a statement can split mid-declaration.
+//
+// This is deliberately weaker than STATEMENT_START above (which requires
+// "export"/"import"/"declare"): a target module legitimately contains unexported
+// internal declarations (`interface Foo {}`, `type X = ...`) and bare `export {}`
+// markers that STATEMENT_START's rule would wrongly reject, but that still begin with
+// a normal identifier/keyword character and so pass this check.
+const VALID_DECLARATION_START = /^(?:[A-Za-z_$]|\/\/\/|;$)/;
+
 /** Index a module's top-level declarations by the name each introduces. */
-function declarationsOf(text: string): Map<string, string> {
+function declarationsOf(text: string, file: string): Map<string, string> {
   const declarations = new Map<string, string>();
   for (const statement of splitTopLevelStatements(stripComments(normalizeEol(text)))) {
+    if (!VALID_DECLARATION_START.test(statement)) {
+      throw new Error(
+        `top-level statement in "${file}" does not begin with an identifier, a "///" ` +
+          `directive, or a lone ";": ${statement}\n` +
+          "This is most likely a fragment of a preceding declaration that " +
+          "splitTopLevelStatements mis-split (for example a generic constraint's braces, " +
+          "`<T extends { ... }>`, which are deliberately not depth-tracked — see this file's " +
+          "module header). A module parser must never silently index a truncated declaration.",
+      );
+    }
     const name = declaredNameOf(statement);
     if (name !== null) declarations.set(name, tidy(statement));
   }
@@ -416,7 +441,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
       const target = resolveSpecifier(entry.file, ref.module);
       let declarations = cache.get(target);
       if (declarations === undefined) {
-        declarations = declarationsOf(readFile(target));
+        declarations = declarationsOf(readFile(target), target);
         cache.set(target, declarations);
       }
       exports.push({

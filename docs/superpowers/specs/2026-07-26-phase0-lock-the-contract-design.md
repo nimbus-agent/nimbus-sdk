@@ -215,7 +215,7 @@ requirement above:
 
 Replaces the single `build-test` job in `.github/workflows/ci.yml` with two jobs.
 
-```
+```text
 build-test    os: [ubuntu-24.04, macos-15, windows-2025]        → 3 jobs
               fail-fast: false
               typecheck → lint → build → test

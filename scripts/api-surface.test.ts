@@ -384,6 +384,56 @@ describe("buildSurface", () => {
     );
     expect(entry?.exports[0]?.declaration).toBe(DECLARATION_NOT_FOUND);
   });
+
+  test("throws rather than silently indexing a truncated declaration when a target module's generic constraint contains braces", () => {
+    // Same mis-split as parseBarrel's "generic constraint contains braces" case above,
+    // but on the *target* module side: declarationsOf must refuse this too, not just
+    // parseBarrel on the barrel side. Before this guard, `declarationsOf` recorded
+    // `Box`'s declaration truncated at the constraint's `}` (silently dropping the body
+    // and `AFTER` entirely) because the barrel-only STATEMENT_START rule (requiring
+    // "export"/"import"/"declare") was deliberately not applied here — target modules
+    // legitimately contain unexported internals that rule would wrongly reject.
+    const broken = {
+      "dist/index.d.ts": 'export { Box } from "./types.js";',
+      "dist/types.d.ts":
+        "export interface Box<T extends { id: string }> {\n" +
+        "    value: T;\n" +
+        "    secret: string;\n" +
+        "}\n" +
+        "export declare const AFTER: number;",
+    };
+    expect(() =>
+      buildSurface(
+        [{ label: ".", file: "dist/index.d.ts" }],
+        (p) => broken[p as keyof typeof broken] ?? "",
+      ),
+    ).toThrow(/does not begin with an identifier/);
+  });
+
+  test("still finds a re-exported declaration when the target module also has an unexported internal type and a bare `export {}` marker", () => {
+    // Mirrors the real shape of dist/crypto/verify-signature.d.ts: an unexported
+    // internal type alias used only by a signature, plus a trailing `export {};`
+    // module marker. Neither should be mistaken for a mis-split fragment.
+    const files = {
+      "dist/index.d.ts": 'export { Public } from "./types.js";',
+      "dist/types.d.ts":
+        "type InternalHelper = {\n    id: string;\n};\n" +
+        "export declare const Public: InternalHelper;\n" +
+        "export {};",
+    };
+    const [entry] = buildSurface(
+      [{ label: ".", file: "dist/index.d.ts" }],
+      (p) => files[p as keyof typeof files] ?? "",
+    );
+    expect(entry?.exports).toEqual([
+      {
+        name: "Public",
+        typeOnly: false,
+        source: "./types.js",
+        declaration: "export declare const Public: InternalHelper;",
+      },
+    ]);
+  });
 });
 
 describe("renderSurface", () => {

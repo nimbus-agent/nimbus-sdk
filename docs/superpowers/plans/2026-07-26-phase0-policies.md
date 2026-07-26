@@ -137,6 +137,43 @@ describe("collectDeprecations", () => {
     expect(found.has("b")).toBe(false);
     expect(found.get("c")).toBe("second");
   });
+
+  // Pins JSDoc semantics: a line-initial `@word` starts a new tag, so it ends the
+  // message even when it is not a tag JSDoc knows. This is correct, not a bug —
+  // absorbing such a line would surprise anyone who knows how JSDoc parses.
+  test("ends the message at any line-initial @tag, known to JSDoc or not", () => {
+    const src = [
+      "/**",
+      " * @deprecated since 1.8.0.",
+      " * @override is now the default behavior.",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("since 1.8.0.");
+  });
+
+  // Dropping this is correct: a non-exported declaration is not part of the public
+  // surface, so its deprecation state is not the guard's business. `dist/` contains
+  // such a declaration today (`type SignedManifestShape`), so warning here would be
+  // a false positive on real output.
+  test("ignores a @deprecated tag on a non-exported declaration", () => {
+    const src = "/** @deprecated internal only */\ndeclare const hidden: string;";
+    expect(collectDeprecations(src).size).toBe(0);
+  });
+
+  // No emitted .d.ts in this package has duplicate top-level declared names today
+  // (verified across all 28). If overloads ever appear, deprecation resolves
+  // last-wins — the same limitation `declarationsOf` already has for the declaration
+  // text itself. Pinned so a future change to it is a deliberate one.
+  test("resolves a repeated declared name last-wins", () => {
+    const src = [
+      "/** @deprecated first overload */",
+      "export declare function f(x: string): void;",
+      "/** @deprecated second overload */",
+      "export declare function f(x: number): void;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("f")).toBe("second overload");
+  });
 });
 ```
 
@@ -189,7 +226,21 @@ export function collectDeprecations(rawText: string): Map<string, string> {
   return found;
 }
 
-/** The text of a JSDoc body's `@deprecated` tag, or null if it has none. */
+/**
+ * The text of a JSDoc body's `@deprecated` tag, or null if it has none.
+ *
+ * The message ends at the next line-initial `@word`, whether or not JSDoc knows that
+ * tag. That matches how JSDoc itself parses — a line starting `@override` opens a new
+ * tag — so a message cannot continue onto a line beginning with `@`. Matching against a
+ * whitelist of known tags instead would absorb such a line and surprise anyone who
+ * knows JSDoc.
+ *
+ * A `@deprecated` tag whose following declaration is not exported is dropped, because
+ * `declaredNameOf` returns null for it. That is correct: a non-exported declaration is
+ * not part of the public surface, so its deprecation state is not this guard's
+ * business. `dist/` contains one today — `type SignedManifestShape` — so treating this
+ * as an error would fail on real output.
+ */
 function deprecationMessage(body: string): string | null {
   const lines = body.split("\n").map((line) => line.replace(/^\s*\*?\s?/, ""));
   const start = lines.findIndex((line) => /^@deprecated\b/.test(line));
@@ -209,7 +260,7 @@ function deprecationMessage(body: string): string | null {
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 70 tests (61 existing + 9 new).
+Expected: PASS, 73 tests (61 existing + 12 new).
 
 - [ ] **Step 5: Add `deprecated` to `SurfaceExport` and thread it through**
 
@@ -303,7 +354,7 @@ In `scripts/api-surface.test.ts`:
 - [ ] **Step 7: Run the tests to verify everything passes**
 
 Run: `bun run typecheck && bun test scripts/api-surface.test.ts`
-Expected: typecheck clean, PASS 70 tests.
+Expected: typecheck clean, PASS 73 tests.
 
 - [ ] **Step 8: Test the re-export path, which is the real-world case**
 
@@ -360,7 +411,7 @@ describe("buildSurface — deprecations", () => {
 ```
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 73 tests. If the aliased case fails, the lookup is using `ref.name` where it must use `ref.sourceName`.
+Expected: PASS, 76 tests. If the aliased case fails, the lookup is using `ref.name` where it must use `ref.sourceName`.
 
 - [ ] **Step 9: Write the failing renderer tests**
 
@@ -461,7 +512,7 @@ In `renderSurface`, replace the `for (const entry of surface.exports)` loop body
 - [ ] **Step 12: Run to verify they pass**
 
 Run: `bun test scripts/api-surface.test.ts`
-Expected: PASS, 78 tests.
+Expected: PASS, 81 tests.
 
 - [ ] **Step 13: Verify the committed baseline is byte-unchanged**
 
@@ -490,7 +541,7 @@ Expected: the grep shows `**Deprecated:** since 1.8.0 — canary.` Then the chec
 - [ ] **Step 15: Full verification and commit**
 
 Run: `bun run typecheck && bun run lint && bun run build && bun run test`
-Expected: all pass, 437 tests total.
+Expected: all pass, 440 tests total.
 
 ```bash
 git add scripts/api-surface.ts scripts/api-surface.test.ts
@@ -911,7 +962,7 @@ Expected: `3` — per-module docs, the docs surface, and the example connector r
 - [ ] **Step 3: Full verification**
 
 Run: `bun run typecheck && bun run lint && bun run build && bun run test && node scripts/smoke-esm.mjs`
-Expected: every command exits 0, 437 tests pass.
+Expected: every command exits 0, 440 tests pass.
 
 Run: `bun run api:surface && git diff --stat docs/api-surface.md`
 Expected: empty — the baseline is unchanged by this entire slice.

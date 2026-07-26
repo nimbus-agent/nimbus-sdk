@@ -66,6 +66,22 @@ describe("splitTopLevelStatements", () => {
     const src = 'export type T = "{";';
     expect(splitTopLevelStatements(src)).toEqual([src]);
   });
+
+  test("does not let a const enum swallow the statement that follows it", () => {
+    const src = "export const enum E {\n  A,\n}\nexport declare const B: string;";
+    expect(splitTopLevelStatements(src)).toEqual([
+      "export const enum E {\n  A,\n}",
+      "export declare const B: string;",
+    ]);
+  });
+
+  test("does not let a `declare const enum` swallow the statement that follows it", () => {
+    const src = "export declare const enum E {\n  A,\n}\nexport declare const B: string;";
+    expect(splitTopLevelStatements(src)).toEqual([
+      "export declare const enum E {\n  A,\n}",
+      "export declare const B: string;",
+    ]);
+  });
 });
 
 describe("declaredNameOf", () => {
@@ -77,6 +93,8 @@ describe("declaredNameOf", () => {
     ["export interface I {\n}", "I"],
     ["export type T = string;", "T"],
     ["export declare enum E {\n}", "E"],
+    ["export const enum E {\n}", "E"],
+    ["export declare const enum E {\n}", "E"],
   ])("reads the name out of %p", (statement, expected) => {
     expect(declaredNameOf(statement)).toBe(expected);
   });
@@ -150,5 +168,37 @@ describe("parseBarrel", () => {
     expect(() => parseBarrel('export { X } from "some-library";')).toThrow(
       /non-relative specifier/,
     );
+  });
+
+  test("throws on a type-only wildcard re-export too (`export type *` bypasses the plain wildcard guard)", () => {
+    expect(() => parseBarrel('export type * from "./x.js";')).toThrow(/wildcard re-export/);
+    expect(() => parseBarrel('export type * as ns from "./x.js";')).toThrow(/wildcard re-export/);
+  });
+
+  test("throws on `export default` and `export =` rather than silently dropping them", () => {
+    expect(() => parseBarrel("export default function foo(): void;")).toThrow(
+      /unrecognized export/,
+    );
+    expect(() => parseBarrel("declare const x: number;\nexport = x;")).toThrow(
+      /unrecognized export/,
+    );
+  });
+
+  test("does not let a const enum swallow the re-export clause that follows it", () => {
+    const text = 'export const enum E {\n  A,\n}\nexport { X } from "./x.js";';
+    const parsed = parseBarrel(text);
+    expect(parsed.reexports.map((r) => r.name)).toEqual(["X"]);
+    expect(parsed.locals).toHaveLength(1);
+    expect(declaredNameOf(parsed.locals[0] ?? "")).toBe("E");
+  });
+
+  test("collects an ambient module declaration as a local rather than dropping it", () => {
+    const parsed = parseBarrel('export declare module "spec" {\n}');
+    expect(parsed.reexports).toEqual([]);
+    expect(parsed.locals).toHaveLength(1);
+  });
+
+  test("treats a bare `export {}` module marker as a no-op, not an omission", () => {
+    expect(parseBarrel("export {};")).toEqual({ reexports: [], locals: [] });
   });
 });

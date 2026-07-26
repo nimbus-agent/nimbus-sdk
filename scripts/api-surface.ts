@@ -184,9 +184,12 @@ const SKIPPABLE_BEFORE_DECLARATION = /^(?:\s|\/\/[^\n]*\n|\/\*(?!\*)[\s\S]*?\*\/
  * `@deprecated` followed by `@param` would otherwise swallow it.
  *
  * A block that sits above a from-clause re-export (rather than a declaration) is also
- * recorded, keyed by the name(s) the clause exports — see `reexportedNamesOf`. This is
- * the barrel-clause case; `buildSurface` still prefers a marker found in the source
- * module itself when both exist.
+ * recorded, but only when that clause exports exactly one name — see
+ * `reexportedNamesOf`. A clause exporting more than one name (`export { a, b } from
+ * "./t.js"`) makes the marker's target genuinely ambiguous: there is no way to tell
+ * which of `a` or `b` it was meant for, so it is attached to neither rather than
+ * guessed or applied to all of them. This is the barrel-clause case; `buildSurface`
+ * still prefers a marker found in the source module itself when both exist.
  */
 export function collectDeprecations(rawText: string): Map<string, string> {
   const text = normalizeEol(rawText);
@@ -204,9 +207,12 @@ export function collectDeprecations(rawText: string): Map<string, string> {
       if (name !== null) {
         found.set(name, message);
       } else {
-        for (const reexported of reexportedNamesOf(declaration)) {
-          found.set(reexported, message);
-        }
+        const reexported = reexportedNamesOf(declaration);
+        // Exactly one name: unambiguous, attach the marker. Zero or several: either
+        // this isn't a from-clause at all, or it is one covering multiple names — in
+        // both cases there is no single name to safely attach the marker to.
+        const only = reexported.length === 1 ? reexported[0] : undefined;
+        if (only !== undefined) found.set(only, message);
       }
     }
     block = JSDOC_BLOCK.exec(text);
@@ -288,14 +294,18 @@ const FROM_CLAUSE = /^export\s+(type\s+)?\{([\s\S]*)\}\s*from\s*["']([^"']+)["']
 const ALIASED = /^(\S+)\s+as\s+(\S+)$/;
 
 /**
- * The name(s) a from-clause re-export statement makes available to a consumer — the
- * alias if one is given, otherwise the bare specifier — or `[]` if the first statement
- * in `text` is not a from-clause.
+ * Every name a from-clause re-export statement makes available to a consumer — the
+ * alias if one is given, otherwise the bare specifier, in clause order — or `[]` if
+ * the first statement in `text` is not a from-clause. This is per-clause, not
+ * per-name: `export { a, b } from "./t.js"` returns `["a", "b"]` with no way to tell
+ * them apart, so a caller cannot assume the granularity of a single declared name.
  *
  * Used so a `@deprecated` marker placed directly above a barrel re-export clause (e.g.
  * `export { oldThing } from "./old.js"`) still attaches to the name every consumer
  * imports, even though `declaredNameOf` — which only recognizes declarations, not
- * re-export clauses — returns null for that statement.
+ * re-export clauses — returns null for that statement. `collectDeprecations` only
+ * attaches the marker when this returns exactly one name; a multi-name result means
+ * the marker's target is ambiguous, not that it applies to all of them.
  */
 function reexportedNamesOf(text: string): string[] {
   const [statement] = splitTopLevelStatements(stripComments(text));

@@ -817,6 +817,72 @@ describe("buildSurface — deprecation marker on a barrel re-export clause", () 
   });
 });
 
+describe("buildSurface — a multi-name barrel clause marker is ambiguous", () => {
+  test("marks neither name when a two-name clause is ambiguous and the source marks neither", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated only oldThing was meant */",
+        'export { oldThing, keepThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": [
+        "export declare const oldThing: string;",
+        "export declare const keepThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    const oldThing = entry?.exports.find((e) => e.name === "oldThing");
+    const keepThing = entry?.exports.find((e) => e.name === "keepThing");
+    expect(oldThing?.deprecated).toBeNull();
+    expect(keepThing?.deprecated).toBeNull();
+  });
+
+  test("ignores an ambiguous two-name barrel marker entirely, even when one name is marked in its source", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.9.0 — ambiguous, must be ignored. */",
+        'export { oldThing, keepThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — marked in the source. */",
+        "export declare const oldThing: string;",
+        "export declare const keepThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    const oldThing = entry?.exports.find((e) => e.name === "oldThing");
+    const keepThing = entry?.exports.find((e) => e.name === "keepThing");
+    expect(oldThing?.deprecated).toBe("since 1.8.0 — marked in the source.");
+    expect(keepThing?.deprecated).toBeNull();
+  });
+
+  test("still applies a marker above a single-name clause", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — single-name clause still applies. */",
+        'export { oldThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const oldThing: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — single-name clause still applies.");
+  });
+
+  test("still applies a marker above a single-name aliased clause", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — single-name aliased clause still applies. */",
+        'export { internalName as publicName } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const internalName: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("publicName");
+    expect(entry?.exports[0]?.deprecated).toBe(
+      "since 1.8.0 — single-name aliased clause still applies.",
+    );
+  });
+});
+
 describe("renderSurface — deprecations", () => {
   const withDeprecated = [
     {

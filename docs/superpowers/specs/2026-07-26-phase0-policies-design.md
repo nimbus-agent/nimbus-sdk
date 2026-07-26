@@ -140,6 +140,16 @@ response to an engine mismatch is a warning, not a failure; and the excluded lin
 already end-of-life. Recorded because the reasoning generalizes: **a narrowing of a
 support claim is not by itself a breaking change if no behavior changes.**
 
+**With a caveat the precedent must state.** "npm warns" is not universal. Under
+`engine-strict`, and by default in some package managers, an engine mismatch is a hard
+install failure — so a consumer on an excluded Node line who could install the previous
+version cannot install this one. The classification still holds, because the excluded
+line was end-of-life and the alternative was to promise support the project does not
+test. But it is the reason a support narrowing warrants a release note even when it
+ships as a minor, and the reason the bar should be "the excluded line is already EOL"
+rather than merely "we would rather not test it." Raised independently by the reviewer
+of this spec and by slice 1's final whole-branch review.
+
 ---
 
 ## Component 3 — The guard records `@deprecated`
@@ -158,8 +168,34 @@ collectDeprecations(rawText: string): Map<string, string>
 ```
 
 It runs on the **raw** module text, before `stripComments`, and pairs each
-`/** … @deprecated … */` block with the name of the declaration that immediately
-follows it. It returns the tag's text, trimmed and collapsed to a single line.
+`/** … @deprecated … */` block with the name of the declaration that follows it.
+
+**Scanning.** Find each `/** … */` block, extract its deprecation message if it has
+one, then scan forward past whitespace and any further comments to the next
+declaration and take its name via the existing `declaredNameOf`. Tolerating an
+intervening comment costs nothing and removes a fragility class. It is *not* needed
+for correctness today — verified: given a `//` comment between a JSDoc block and its
+declaration in source, `tsc` drops that comment from the emitted `.d.ts` and leaves the
+JSDoc adjacent — but the extractor reads whatever `tsc` emits, and not depending on
+that behavior is free.
+
+**Where the message ends.** Take the text after the `@deprecated` tag, strip the
+leading `*` from each line, collapse newlines to single spaces, and **stop at the next
+JSDoc tag or at the closing `*/`**, whichever comes first. This is load-bearing, not a
+nicety: `tsc` emits multi-tag JSDoc blocks verbatim, confirmed by probe —
+
+```ts
+/**
+ * @deprecated since 1.8.0 — use `newThing` instead.
+ * @param options Configuration options.
+ * @see https://example.com
+ */
+export declare const oldThing = 42;
+```
+
+Without a termination rule the recorded message would swallow the `@param` and `@see`
+lines. Since nothing is deprecated today, the very first real deprecation is what would
+hit this.
 
 It is called on **both** kinds of file the extractor reads: the target modules whose
 declarations back a re-export, and the entry barrels themselves — a barrel may declare
@@ -172,15 +208,24 @@ the repo compiles under `exactOptionalPropertyTypes`, where optional properties 
 friction for no benefit here.
 
 The renderer emits a single line under the export's heading, and **only** when the
-value is non-null:
+value is non-null. Everything else about the entry is unchanged — the source line and
+the fenced declaration still render exactly as they do today:
 
-```markdown
+````markdown
 ### `oldThing`
 
 **Deprecated:** since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.
 
 From `./old-thing.js`.
+
+```ts
+export declare const oldThing: string;
 ```
+````
+
+A non-deprecated export renders byte-for-byte what it renders today: heading, source
+line, fence. The deprecation line is the only insertion, and it appears between the
+heading and the source line.
 
 ### The verifiable property
 
@@ -194,13 +239,21 @@ verification step, not a nicety.
 
 - A `@deprecated` tag with explanatory text.
 - A `@deprecated` tag with no text — recorded, rendered without a trailing dash.
-- Tag text spanning multiple JSDoc lines — collapsed to one line.
+- Tag text spanning multiple JSDoc lines — leading `*` stripped from each line and the
+  whole collapsed to one space-separated line.
+- **A `@deprecated` tag followed by another tag** (`@param`, `@see`, `@example`) — the
+  message stops at the next tag and does not swallow it. `tsc` emits such blocks
+  verbatim, so this is the shape a real deprecation will most often take.
 - A JSDoc block with no `@deprecated` tag — yields `null`, renders nothing.
 - A deprecated **re-export**, where the tag lives on the declaration in the source
   module rather than on the barrel clause. This is the common real case and must
   resolve through the same `sourceName` lookup the declaration text already uses.
 - A comment block that is not JSDoc (`/* … */`) containing the word `@deprecated` —
   must not be treated as a tag.
+- **An intervening comment** between the JSDoc block and its declaration — still
+  paired. Exercised at the unit level, since `collectDeprecations` takes raw text;
+  `tsc` will not emit this shape, and the test documents the tolerance rather than a
+  live requirement.
 
 ---
 
@@ -262,6 +315,19 @@ so `test:`, not `fix:` or `feat:`, and it must not influence the published versi
   a removal is a governance problem, not a policy-wording one.
 - **`collectDeprecations` is text-based**, inheriting the extractor's existing
   limitations. It sees what `tsc` emits, which is what ships.
+
+## Review history
+
+Revised 2026-07-26 against
+[`2026-07-26-phase0-policies-design-review.md`](./2026-07-26-phase0-policies-design-review.md).
+Accepted: an explicit rule for where a `@deprecated` message ends (confirmed by probe
+that `tsc` emits multi-tag JSDoc verbatim, so the first real deprecation would have hit
+this); a corrected rendering example that shows the full entry rather than a truncated
+one; tolerance for a comment between a JSDoc block and its declaration; the
+strict-package-manager caveat on the `engines` precedent; and all four suggested test
+cases. Corrected: the intervening-comment scenario was presented as a live parsing
+risk, but `tsc` drops such comments from the emitted `.d.ts` — the tolerance is cheap
+defense, not a bug fix.
 
 ## Exit criteria
 

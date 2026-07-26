@@ -148,9 +148,9 @@ reference every later language SDK is measured against.*
   platform-asymmetry — is exercised on every PR — *Pillar 5*
 - [x] Run the **Node ESM smoke across the supported Node LTS versions** (not just the
   runner default), since the published ESM must load under plain Node on each — *Pillar 5*
-- [ ] The written **inclusion policy** for the batteries, linked from
+- [x] The written **inclusion policy** for the batteries, linked from
   `CONTRIBUTING.md` — *Pillar 3*
-- [ ] The written **deprecation policy** (how an export is marked and how long it
+- [x] The written **deprecation policy** (how an export is marked and how long it
   lives) — *Pillar 7*
 
 **Exit criteria:** every public export is documented and reachable from the docs

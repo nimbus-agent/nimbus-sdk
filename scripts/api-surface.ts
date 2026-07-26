@@ -387,3 +387,46 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
     return { label: entry.label, exports };
   });
 }
+
+/** Where the committed baseline lives, relative to the repo root. */
+export const GOLDEN_PATH = "docs/api-surface.md";
+
+export function renderSurface(surfaces: EntrySurface[]): string {
+  const lines: string[] = [
+    "# Public API surface",
+    "",
+    "<!-- GENERATED FILE — do not edit by hand.",
+    "     Regenerate with `bun run build && bun run api:surface`.",
+    "     A diff in this file is a change to the published contract and must carry the",
+    "     matching semver bump — see docs/ROADMAP.md#7-versioning--compatibility. -->",
+    "",
+    "Every export of every `exports` entry point in `package.json`, as emitted to `dist/`.",
+    "",
+  ];
+
+  for (const surface of surfaces) {
+    lines.push(`## \`${surface.label}\``, "");
+
+    if (surface.exports.length === 0) {
+      lines.push("_No exports._", "");
+      continue;
+    }
+
+    lines.push(`${surface.exports.length} exports.`, "");
+
+    for (const entry of surface.exports) {
+      lines.push(
+        `### \`${entry.name}\`${entry.typeOnly ? " *(type-only)*" : ""}`,
+        "",
+        `From \`${entry.source}\`.`,
+        "",
+        "```ts",
+        entry.declaration,
+        "```",
+        "",
+      );
+    }
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}

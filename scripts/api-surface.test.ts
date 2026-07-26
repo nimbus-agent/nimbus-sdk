@@ -5,6 +5,7 @@ import {
   declaredNameOf,
   normalizeEol,
   parseBarrel,
+  renderSurface,
   resolveSpecifier,
   splitTopLevelStatements,
   stripComments,
@@ -363,5 +364,58 @@ describe("buildSurface", () => {
       (p) => broken[p as keyof typeof broken] ?? "",
     );
     expect(entry?.exports[0]?.declaration).toBe("(declaration not found)");
+  });
+});
+
+describe("renderSurface", () => {
+  const surfaces = [
+    {
+      label: ".",
+      exports: [
+        {
+          name: "Item",
+          typeOnly: true,
+          source: "./types.js",
+          declaration: "export interface Item {\n    id: string;\n}",
+        },
+        {
+          name: "VERSION",
+          typeOnly: false,
+          source: "./types.js",
+          declaration: 'export declare const VERSION = "1";',
+        },
+      ],
+    },
+  ];
+
+  test("marks the file as generated and names the regeneration command", () => {
+    const out = renderSurface(surfaces);
+    expect(out).toContain("GENERATED FILE");
+    expect(out).toContain("bun run api:surface");
+  });
+
+  test("renders one section per entry point with its export count", () => {
+    const out = renderSurface(surfaces);
+    expect(out).toContain("## `.`");
+    expect(out).toContain("2 exports.");
+  });
+
+  test("flags type-only exports and fences each declaration", () => {
+    const out = renderSurface(surfaces);
+    expect(out).toContain("### `Item` *(type-only)*");
+    expect(out).toContain("### `VERSION`");
+    expect(out).not.toContain("### `VERSION` *(type-only)*");
+    expect(out).toContain("```ts\nexport interface Item {\n    id: string;\n}\n```");
+  });
+
+  test("ends with exactly one trailing newline and contains no CR", () => {
+    const out = renderSurface(surfaces);
+    expect(out.endsWith("\n")).toBe(true);
+    expect(out.endsWith("\n\n")).toBe(false);
+    expect(out).not.toContain("\r");
+  });
+
+  test("is stable across repeated calls", () => {
+    expect(renderSurface(surfaces)).toBe(renderSurface(surfaces));
   });
 });

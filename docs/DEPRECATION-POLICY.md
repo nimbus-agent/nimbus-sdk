@@ -8,9 +8,10 @@ depend on. Changing it is fine. Changing it *without warning* is not.
 
 ## The window
 
-An export must be marked deprecated in a **released minor**, and **at least one minor
-must ship carrying that marker**, before a major may remove it. Removal is always a
-major bump.
+An export must be marked deprecated in a **released minor**, and it must still be
+present and marked in **a later, separate minor release**, before a major may remove
+it. The minor that introduces the marker does not itself satisfy this — a second
+release is required. Removal is always a major bump.
 
 ```text
 1.8.0   mark @deprecated              window opens

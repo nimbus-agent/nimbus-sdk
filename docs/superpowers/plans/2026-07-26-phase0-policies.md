@@ -616,6 +616,13 @@ export const oldThing = …;
 
 Keep the message on the `@deprecated` tag. Any following tag (`@param`, `@see`) ends it.
 
+Wrap any `@`-shaped token in the message — a scoped package name, a handle — in
+backticks. The surface extractor treats a whitespace-preceded `@word` as the start of
+the next JSDoc tag, exactly as JSDoc and TypeDoc do, so an unwrapped mention truncates
+the message there. `use @nimbus-dev/sdk-v2 instead` records as `use`; ``use
+`@nimbus-dev/sdk-v2` instead`` records in full. This matters here more than most
+places, because the package's own name begins with `@`.
+
 ## Visibility
 
 The marker is recorded in [`api-surface.md`](./api-surface.md), the generated snapshot

@@ -39,6 +39,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "build": "tsc --project tsconfig.build.json",
+    "api:surface": "bun run scripts/api-surface.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/ scripts/",
     "test": "bun test",

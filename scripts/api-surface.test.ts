@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   buildSurface,
   collectEntryPoints,
   declaredNameOf,
+  GOLDEN_PATH,
   normalizeEol,
   parseBarrel,
   renderSurface,
@@ -417,5 +421,57 @@ describe("renderSurface", () => {
 
   test("is stable across repeated calls", () => {
     expect(renderSurface(surfaces)).toBe(renderSurface(surfaces));
+  });
+});
+
+describe("the committed API surface", () => {
+  // Same root anchoring as the CLI, so `bun test` works from any cwd.
+  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+  const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
+  const pkgText = readFromRoot("package.json");
+
+  test("dist/ has been built", () => {
+    expect(
+      existsSync(join(repoRoot, "dist/index.d.ts")),
+      "dist/ is missing — run `bun run build` before `bun test`",
+    ).toBe(true);
+  });
+
+  test("no entry point is empty — an empty surface would pass vacuously forever", () => {
+    for (const surface of buildSurface(collectEntryPoints(pkgText), readFromRoot)) {
+      expect(
+        surface.exports.length,
+        `exports["${surface.label}"] extracted zero exports — the extractor is broken`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  test("matches docs/api-surface.md", () => {
+    const actual = renderSurface(buildSurface(collectEntryPoints(pkgText), readFromRoot));
+    const committed = normalizeEol(readFromRoot(GOLDEN_PATH));
+
+    if (actual !== committed) {
+      const actualLines = actual.split("\n");
+      const committedLines = committed.split("\n");
+      const at = actualLines.findIndex((line, i) => line !== committedLines[i]);
+      throw new Error(
+        `The public API surface changed but ${GOLDEN_PATH} was not regenerated.\n\n` +
+          `First difference at line ${at + 1}:\n` +
+          `  committed: ${committedLines[at] ?? "(end of file)"}\n` +
+          `  actual:    ${actualLines[at] ?? "(end of file)"}\n\n` +
+          "If this change is intentional, re-baseline it and make sure the commit carries\n" +
+          "the matching semver bump:\n\n    bun run build && bun run api:surface\n",
+      );
+    }
+    expect(actual).toBe(committed);
+  });
+
+  test("covers every exports entry point", () => {
+    const committed = readFromRoot(GOLDEN_PATH);
+    for (const entry of collectEntryPoints(pkgText)) {
+      expect(committed, `${GOLDEN_PATH} has no section for exports["${entry.label}"]`).toContain(
+        `## \`${entry.label}\``,
+      );
+    }
   });
 });

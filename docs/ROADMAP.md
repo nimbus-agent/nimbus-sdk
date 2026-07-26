@@ -58,7 +58,7 @@ app author actually reaches for, so common work isn't reinvented per connector.
 Already shipped: `crypto` (Ed25519 signing, JWT, Google / Apple service tokens),
 `jmap-fastmail`, `icalendar`, `data-profile` (CSV / JSON / Parquet), `flux-cd`,
 `storybook`, distribution-channel resolution, the scoped audit logger, and HITL
-requests. Growth is governed by an inclusion policy (dep-free, pure, genuinely
+requests. Growth is governed by an [inclusion policy](./INCLUSION-POLICY.md) (dep-free, pure, genuinely
 reused) so the surface grows on purpose, not by accretion.
 
 ### 4. Authoring experience
@@ -100,7 +100,7 @@ roadmap).
 
 The contract is a shared law many products and languages depend on, so its
 evolution must be predictable. This pillar owns semver discipline across the spec
-**and** every binding, a written **deprecation policy** (how an export is marked
+**and** every binding, a written **[deprecation policy](./DEPRECATION-POLICY.md)** (how an export is marked
 deprecated and how long it lives before removal), **contract-version negotiation**
 so a connector and gateway can agree on which version they speak, and eventually
 **LTS lines** for the frozen core. Changing the contract is changing a law — this

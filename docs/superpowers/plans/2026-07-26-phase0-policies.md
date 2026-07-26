@@ -842,6 +842,7 @@ Three shipped documents cite these policies as governing rules. Until this task 
 - Modify: `docs/GOVERNANCE.md:37`
 - Modify: `docs/ARCHITECTURE.md:80`
 - Modify: `docs/GLOSSARY.md:61` and `docs/GLOSSARY.md:84-86`
+- Modify: `docs/ROADMAP.md`
 - Modify: `CONTRIBUTING.md`
 - Modify: `README.md`
 

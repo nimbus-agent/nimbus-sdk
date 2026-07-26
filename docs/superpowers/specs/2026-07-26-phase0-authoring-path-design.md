@@ -271,8 +271,34 @@ nothing about any of them, and the batteries get their coverage from their own d
 
 ### How they stay green
 
-Each ships an `index.test.ts` that stands the server up and runs `runContractTests`
-against it — precisely what Phase 0's exit criteria names.
+Each ships an `index.test.ts` that exports the connector's manifest and tool handlers and
+asserts three things:
+
+1. `await runContractTests(manifest)` resolves. Note the real signature —
+   `runContractTests(manifest: ExtensionManifest): Promise<void>` takes the **manifest**,
+   not the server. It validates required strings, `runtime`, `permissions`,
+   `hitlRequired`, `minNimbusVersion`, and the v1 HITL-guard and audit-logger shapes.
+2. `assertNoRowDataTools()` passes over the registered tool surface — the SDK's own
+   executable backstop against a tool name that would pull row data.
+3. Each tool handler, called directly, returns what the module docs say it returns.
+
+### What "runnable" honestly means here
+
+`NimbusExtensionServer.registerTool()` is currently a no-op — its body is the comment
+`// Roadmap Q3: register tool with MCP server` — and `start()` validates `manifest.id` and
+nothing else. The MCP server loop lives in the gateway, not in this package.
+
+So "runnable" in Phase 0's box 3 means, precisely: the example module executes to
+completion under Bun and under plain Node without throwing, its manifest passes
+`runContractTests`, and its handlers are exercised directly. It does **not** mean the
+example serves MCP traffic, and this slice does not implement `registerTool` to make it —
+that is connector-runtime work, well outside a documentation slice, and doing it here
+would quietly widen the published contract.
+
+This is worth stating plainly because the examples are teaching artifacts: an author
+copying `examples/calendar-connector/` gets a correct, contract-valid connector whose
+tools the gateway will drive once it loads them. The stub is the gateway's boundary, not a
+defect in the example.
 
 **The sandbox probe stays out.** Its platform asymmetry is documented and deliberate;
 wiring `runSandboxContractTests` into an example would paint the examples red on Windows
@@ -359,5 +385,6 @@ Phase 0's exit criteria, restated against this slice:
   coverage guard, not asserted.
 - Every `ts` snippet in the teaching surface compiles against `dist/` — enforced by the
   snippet guard.
-- Both example connectors build and pass `runContractTests` in CI on the cross-OS matrix.
+- Both example connectors typecheck, lint, execute without throwing, and pass
+  `runContractTests` + `assertNoRowDataTools` in CI on the cross-OS matrix.
 - `ROADMAP.md` Phase 0 shows eight of eight boxes ticked.

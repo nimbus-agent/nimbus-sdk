@@ -16,6 +16,19 @@
  * The parser either understands a construct or refuses it. It must never silently
  * under-report the surface — a guard that quietly misses an export is worse than
  * no guard at all.
+ *
+ * Known limitation: the golden file records each export's own top-level statement
+ * text and nothing one hop away. A type that is referenced in a public signature but
+ * is not itself exported from a barrel can change — including in a way that breaks
+ * every consumer — while `docs/api-surface.md` stays byte-identical, because the guard
+ * never looks inside the exported declaration's referenced types. Live examples in this
+ * package: `ExtensionServerOptions` (referenced by `NimbusExtensionServer`'s constructor
+ * but not itself re-exported from `src/index.ts`), `SignedManifestShape` (referenced by
+ * `signManifest` and `verifyManifestSignature`), and `RunSandboxContractTestsOptions`.
+ * Adding a required field to `ExtensionServerOptions`, for instance, breaks every
+ * consumer that constructs a server, and this guard stays green. Transitively including
+ * referenced types is a substantial design change and is out of scope here — this guard
+ * only ever catches an add, remove, rename, or change to an export's own declaration text.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
@@ -176,6 +189,16 @@ const ALIASED = /^(\S+)\s+as\s+(\S+)$/;
 /** A bare `export {}` (or `export {};`) — a real TypeScript module marker, not an export. */
 const BARE_EXPORT_MARKER = /^export\s*\{\s*\}\s*;?$/;
 
+// A legitimate top-level statement in a `.d.ts` barrel always begins with one of these
+// three keywords. Anything else is not a construct this extractor declines to support —
+// it is evidence that `splitTopLevelStatements` mis-tracked depth and handed us a
+// fragment of some other statement (see the module header's "Known limitation": a
+// braced generic constraint, e.g. `<T extends { id: string }>`, is not depth-tracked
+// on purpose, so a statement can split mid-declaration). Refusing loudly here, rather
+// than falling through to the narrower `/^export\b/` check below, turns that mis-split
+// into a clear error naming the offending text instead of a silently dropped export.
+const STATEMENT_START = /^(?:export|import|declare)\b/;
+
 /**
  * Parse an entry-point `.d.ts` into its re-exports and its own declarations.
  *
@@ -197,6 +220,16 @@ export function parseBarrel(text: string): ParsedBarrel {
   const locals: string[] = [];
 
   for (const statement of statements) {
+    if (!STATEMENT_START.test(statement)) {
+      throw new Error(
+        `top-level statement does not start with "export", "import", or "declare": ${statement}\n` +
+          "This is not a recognized top-level construct — it is most likely a fragment of a " +
+          "preceding declaration that splitTopLevelStatements mis-split (for example a generic " +
+          "constraint's braces, `<T extends { ... }>`, which are deliberately not depth-tracked). " +
+          "A barrel parser must never silently drop part of a declaration.",
+      );
+    }
+
     if (WILDCARD.test(statement)) {
       throw new Error(
         `wildcard re-export is not supported by the API-surface guard: ${statement}\n` +
@@ -358,6 +391,15 @@ function tidy(statement: string): string {
     .join("\n");
 }
 
+/**
+ * Placeholder declaration text for a re-export whose source name could not be found in
+ * its target module — e.g. a two-hop re-export chain this extractor does not follow.
+ * `buildSurface` degrades to this rather than throwing so a single broken entry does not
+ * block inspecting the rest of the surface; the CLI below refuses to ever write it into
+ * the committed baseline.
+ */
+export const DECLARATION_NOT_FOUND = "(declaration not found)";
+
 export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySurface[] {
   return entries.map((entry) => {
     const barrel = parseBarrel(readFile(entry.file));
@@ -381,7 +423,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         name: ref.name,
         typeOnly: ref.typeOnly,
         source: ref.module,
-        declaration: declarations.get(ref.sourceName) ?? "(declaration not found)",
+        declaration: declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
       });
     }
 
@@ -450,6 +492,27 @@ if (import.meta.main) {
     throw new Error(
       `refusing to write ${GOLDEN_PATH}: extracted zero exports for ` +
         `${empty.map((surface) => surface.label).join(", ")}. Fix the extractor first.`,
+    );
+  }
+
+  // A sentinel baked into the committed baseline would silently unguard that export's
+  // signature forever after: `buildSurface` degrades to DECLARATION_NOT_FOUND for a
+  // re-export chain it cannot follow (e.g. an entry point re-exporting a name that
+  // another entry point's barrel itself only re-exports, rather than declares), instead
+  // of throwing — so re-baselining after a CI failure would otherwise freeze the
+  // placeholder in rather than surfacing the gap.
+  const unresolved = surfaces.flatMap((surface) =>
+    surface.exports
+      .filter((entry) => entry.declaration === DECLARATION_NOT_FOUND)
+      .map((entry) => `${surface.label} -> ${entry.name} (from "${entry.source}")`),
+  );
+  if (unresolved.length > 0) {
+    throw new Error(
+      `refusing to write ${GOLDEN_PATH}: could not resolve the declaration for:\n` +
+        `${unresolved.map((line) => `  ${line}`).join("\n")}\n` +
+        "This extractor does not follow a re-export chain more than one hop. Re-export " +
+        "the underlying declaration directly, or extend scripts/api-surface.ts deliberately " +
+        "— never re-baseline over a placeholder.",
     );
   }
 

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   buildSurface,
   collectEntryPoints,
+  DECLARATION_NOT_FOUND,
   declaredNameOf,
   GOLDEN_PATH,
   normalizeEol,
@@ -192,6 +193,20 @@ describe("parseBarrel", () => {
     );
   });
 
+  test("throws rather than silently dropping a declaration whose generic constraint contains braces", () => {
+    // splitTopLevelStatements deliberately does not depth-track `<>` (it would break on
+    // `=>` in function types), so `Box`'s statement ends early at the constraint's `}`
+    // and the tail begins with `>`. Silently this would truncate Box and drop AFTER
+    // entirely; parseBarrel must instead refuse loudly.
+    const src =
+      "export interface Box<T extends { id: string }> {\n" +
+      "    value: T;\n" +
+      "    secret: string;\n" +
+      "}\n" +
+      "export declare const AFTER: number;";
+    expect(() => parseBarrel(src)).toThrow(/does not start with "export", "import", or "declare"/);
+  });
+
   test("does not let a const enum swallow the re-export clause that follows it", () => {
     const text = 'export const enum E {\n  A,\n}\nexport { X } from "./x.js";';
     const parsed = parseBarrel(text);
@@ -367,7 +382,7 @@ describe("buildSurface", () => {
       [{ label: ".", file: "dist/index.d.ts" }],
       (p) => broken[p as keyof typeof broken] ?? "",
     );
-    expect(entry?.exports[0]?.declaration).toBe("(declaration not found)");
+    expect(entry?.exports[0]?.declaration).toBe(DECLARATION_NOT_FOUND);
   });
 });
 
@@ -473,5 +488,12 @@ describe("the committed API surface", () => {
         `## \`${entry.label}\``,
       );
     }
+  });
+
+  test("never bakes an unresolved-declaration placeholder into the committed baseline", () => {
+    // A `(declaration not found)` sentinel here would mean some export's signature is
+    // silently unguarded — see DECLARATION_NOT_FOUND and the CLI's pre-write refusal.
+    const committed = readFromRoot(GOLDEN_PATH);
+    expect(committed).not.toContain(DECLARATION_NOT_FOUND);
   });
 });

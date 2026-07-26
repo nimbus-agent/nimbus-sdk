@@ -35,6 +35,11 @@ Commit the regenerated file alongside your change. The diff is the review: it is
 where the semver conversation happens, so make sure your Conventional Commit type
 matches what the diff shows — a removed or narrowed export is breaking.
 
+The guard covers each export's own declaration text — not types it merely references.
+A change to a type that is used in a public signature but not itself exported from a
+barrel (e.g. an options type named in a constructor parameter) is a breaking change
+that this file will not show; review those by hand.
+
 ## Architecture notes
 
 - **Dependency-free at runtime.** `@nimbus-dev/sdk` ships with **no** runtime

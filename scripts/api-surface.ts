@@ -274,6 +274,20 @@ export type EntrySurface = { label: string; exports: SurfaceExport[] };
 export type ReadFile = (path: string) => string;
 
 /**
+ * Ordinal (UTF-16 code-unit) string comparison, for use with `Array#sort`.
+ *
+ * Deliberately not `String#localeCompare`: locale collation is ICU-dependent
+ * and can order the same two strings differently across machines and Node
+ * builds, which would make the golden file's section order non-deterministic
+ * across the platforms it must be byte-identical on.
+ */
+function ordinalCompare(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
+/**
  * Derive the entry points from the `exports` map rather than hardcoding them, so
  * adding a fourth entry point automatically brings it under the guard. The public
  * surface cannot be widened without this noticing.
@@ -291,7 +305,14 @@ export function collectEntryPoints(packageJsonText: string): EntryPoint[] {
 
   const entries: EntryPoint[] = [];
   for (const [label, value] of Object.entries(exportsField as Record<string, unknown>)) {
-    if (typeof value !== "object" || value === null) continue;
+    if (typeof value !== "object" || value === null) {
+      throw new Error(
+        `exports["${label}"] is not a conditions object with a "types" entry; the ` +
+          "API-surface guard cannot derive a declaration file from it. Extend " +
+          "scripts/api-surface.ts deliberately if this entry point is intentional — " +
+          "a non-object exports target must not be silently skipped.",
+      );
+    }
     const types = (value as Record<string, unknown>)["types"];
     if (typeof types !== "string") {
       throw new Error(
@@ -301,7 +322,7 @@ export function collectEntryPoints(packageJsonText: string): EntryPoint[] {
     entries.push({ label, file: types.replace(/^\.\//, "") });
   }
 
-  entries.sort((a, b) => a.label.localeCompare(b.label));
+  entries.sort((a, b) => ordinalCompare(a.label, b.label));
   return entries;
 }
 
@@ -362,7 +383,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
       });
     }
 
-    exports.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    exports.sort((a, b) => ordinalCompare(a.name, b.name));
     return { label: entry.label, exports };
   });
 }

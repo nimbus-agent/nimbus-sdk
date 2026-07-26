@@ -228,6 +228,39 @@ describe("collectEntryPoints", () => {
   test("throws when there is no exports map at all", () => {
     expect(() => collectEntryPoints("{}")).toThrow(/no exports map/);
   });
+
+  test("throws on a string-valued exports entry rather than silently skipping it", () => {
+    const pkg = JSON.stringify({
+      exports: { ".": { types: "./dist/index.d.ts" }, "./package.json": "./package.json" },
+    });
+    expect(() => collectEntryPoints(pkg)).toThrow(/exports\["\.\/package\.json"\]/);
+  });
+
+  test("throws on a nested conditional entry rather than misreporting it as having no types condition", () => {
+    // The guard only understands a flat `types` condition; a `types` nested under
+    // `import`/`require` is refused loudly rather than resolved incorrectly or dropped.
+    const pkg = JSON.stringify({
+      exports: {
+        "./x": {
+          import: { types: "./dist/x.d.ts", default: "./dist/x.js" },
+          require: { types: "./dist/x.d.cts", default: "./dist/x.cjs" },
+        },
+      },
+    });
+    expect(() => collectEntryPoints(pkg)).toThrow(/no "types" condition/);
+  });
+
+  test("sorts entry labels ordinally, not through locale-aware collation", () => {
+    // Under default-locale localeCompare, "./apple" sorts before "./Zebra" (case folded);
+    // ordinally, uppercase-initial "./Zebra" sorts first. This pins the ordinal behavior.
+    const pkg = JSON.stringify({
+      exports: {
+        "./apple": { types: "./dist/apple.d.ts" },
+        "./Zebra": { types: "./dist/zebra.d.ts" },
+      },
+    });
+    expect(collectEntryPoints(pkg).map((e) => e.label)).toEqual(["./Zebra", "./apple"]);
+  });
 });
 
 describe("resolveSpecifier", () => {

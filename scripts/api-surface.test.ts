@@ -671,6 +671,47 @@ describe("collectDeprecations", () => {
     ].join("\n");
     expect(collectDeprecations(src).get("f")).toBe("second overload");
   });
+
+  // Regression: a tag is a tag wherever it sits on a line, not only when it is the
+  // first token on that line. A whole-line scan misses this and silently drops the
+  // deprecation — the exact under-report this guard exists to prevent.
+  test("records a tag when it is not first on its line", () => {
+    const src =
+      "/** @since 1.0 @deprecated Use `newThing` instead. */\nexport declare const oldThing: string;";
+    expect(collectDeprecations(src).get("oldThing")).toBe("Use `newThing` instead.");
+  });
+
+  test("stops the message at a trailing tag on the same line", () => {
+    const src = "/** @deprecated foo bar @param x baz */\nexport declare const oldThing: string;";
+    expect(collectDeprecations(src).get("oldThing")).toBe("foo bar");
+  });
+
+  test("records a tag when it is not first on its line, in multi-line form", () => {
+    const src = [
+      "/**",
+      " * @since 1.0",
+      " * @deprecated Use `newThing` instead.",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("Use `newThing` instead.");
+  });
+
+  test("stops the message at a trailing tag on the same line, in multi-line form", () => {
+    const src = [
+      "/**",
+      " * @deprecated foo bar @param x baz",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("foo bar");
+  });
+
+  test("does not treat an embedded @ as a tag boundary", () => {
+    const src =
+      "/** @deprecated contact `foo@bar` for details. */\nexport declare const oldThing: string;";
+    expect(collectDeprecations(src).get("oldThing")).toBe("contact `foo@bar` for details.");
+  });
 });
 
 describe("buildSurface — deprecations", () => {

@@ -204,14 +204,25 @@ export function collectDeprecations(rawText: string): Map<string, string> {
   return found;
 }
 
+// A tag begins at an `@word` preceded by whitespace (including a newline) or by the
+// start of the body — never when it directly follows a non-whitespace character. That
+// is how TypeScript's own JSDoc parser recognizes a tag, which is why tsc emits these
+// shapes at all, and it is what keeps an embedded address like `` `foo@bar` `` from
+// being mistaken for a tag boundary: the `@` there follows the letter `o`, not
+// whitespace. Operating on tag *positions* in the raw body, rather than scanning
+// line by line, is what lets a tag be found (or ended) mid-line as well as at a line
+// start — `/** @since 1.0 @deprecated ... */` and `/** @deprecated ... @param ... */`
+// both depend on this.
+const TAG_START = /(?<=^|\s)@([A-Za-z]\w*)/g;
+
 /**
  * The text of a JSDoc body's `@deprecated` tag, or null if it has none.
  *
- * The message ends at the next line-initial `@word`, whether or not JSDoc knows that
- * tag. That matches how JSDoc itself parses — a line starting `@override` opens a new
- * tag — so a message cannot continue onto a line beginning with `@`. Matching against a
- * whitelist of known tags instead would absorb such a line and surprise anyone who
- * knows JSDoc.
+ * The message runs from the end of the `@deprecated` tag's name to the start of the
+ * next tag or the end of the body, whichever comes first — whether or not JSDoc knows
+ * that next tag. That matches how JSDoc itself parses: any recognized tag start ends
+ * the previous tag's text. Matching against a whitelist of known tags instead would
+ * absorb an unrecognized one and surprise anyone who knows JSDoc.
  *
  * A `@deprecated` tag whose following declaration is not exported is dropped, because
  * `declaredNameOf` returns null for it. That is correct: a non-exported declaration is
@@ -220,18 +231,28 @@ export function collectDeprecations(rawText: string): Map<string, string> {
  * as an error would fail on real output.
  */
 function deprecationMessage(body: string): string | null {
-  const lines = body.split("\n").map((line) => line.replace(/^\s*\*?\s?/, ""));
-  const start = lines.findIndex((line) => /^@deprecated\b/.test(line));
-  if (start === -1) return null;
-
-  const collected: string[] = [(lines[start] ?? "").replace(/^@deprecated\b/, "")];
-  for (let i = start + 1; i < lines.length; i += 1) {
-    const line = lines[i] ?? "";
-    if (/^@\w+/.test(line.trim())) break;
-    collected.push(line);
+  const tags: { start: number; end: number; name: string }[] = [];
+  TAG_START.lastIndex = 0;
+  let match = TAG_START.exec(body);
+  while (match !== null) {
+    tags.push({ start: match.index, end: match.index + match[0].length, name: match[1] ?? "" });
+    match = TAG_START.exec(body);
   }
 
-  return collected.join(" ").replace(/\s+/g, " ").trim();
+  const depIndex = tags.findIndex((tag) => tag.name === "deprecated");
+  if (depIndex === -1) return null;
+  const deprecatedTag = tags[depIndex];
+  if (deprecatedTag === undefined) return null;
+
+  const nextTag = tags[depIndex + 1];
+  const raw = body.slice(deprecatedTag.end, nextTag?.start ?? body.length);
+
+  return raw
+    .split("\n")
+    .map((line) => line.replace(/^\s*\*?\s?/, ""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** One name re-exported by a barrel. `name` is what consumers import; `sourceName` is what the target module declares. */

@@ -59,7 +59,7 @@ Already shipped: `crypto` (Ed25519 signing, JWT, Google / Apple service tokens),
 `jmap-fastmail`, `icalendar`, `data-profile` (CSV / JSON / Parquet), `flux-cd`,
 `storybook`, distribution-channel resolution, the scoped audit logger, and HITL
 requests. Growth is governed by an [inclusion policy](./INCLUSION-POLICY.md) (dep-free, pure, genuinely
-reused) so the surface grows on purpose, not by accretion.
+reused, contract-shaped) so the surface grows on purpose, not by accretion.
 
 ### 4. Authoring experience
 

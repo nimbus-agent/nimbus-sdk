@@ -2,10 +2,13 @@
 
 `@nimbus-dev/sdk` ships **batteries**: pure, dependency-free helper modules so common
 connector work isn't reinvented per connector. `crypto`, `jmap-fastmail`, `icalendar`,
-`data-profile`, `flux-cd`, `storybook`, and `distribution-channel` are the ones that
-exist today.
+`data-profile`, `flux-cd`, `storybook`, `distribution-channel`, the scoped audit logger,
+and HITL requests are the ones that exist today.
 
-This policy is the test a reviewer applies when someone proposes another. It exists so
+This policy is the test [maintainers](./GOVERNANCE.md#roles) apply — by consensus, or a
+documented maintainer vote if consensus fails, the same authority
+[GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process) gives contract-affecting decisions —
+when someone proposes another. It exists so
 the surface grows on purpose rather than by accretion — every export here is one more
 thing every language binding must eventually implement and every consumer may depend on.
 
@@ -26,15 +29,36 @@ It compiles and runs with nothing in `dependencies`. If it needs a helper, that 
 is inlined. This is not a preference — it is the guarantee that makes the SDK safe to
 depend on across an ecosystem, and `package.json` has no `dependencies` key at all.
 
-### 2. Pure — effects are injectable and deterministic
+### 2. Pure — hidden ambient state is forbidden, substitutable effects are seamed
 
-No module-level side effects, no ambient singletons, no global mutable state. Any I/O,
-network, filesystem, clock, or randomness must be reachable **only through a parameter**
-the caller can replace. A real default for that parameter is permitted — it keeps the
-live path ergonomic — but the effect must be substitutable, and the function must be
-deterministic once every seam is supplied. This makes batteries testable and verifiable,
-and it is a meaningful bar: a helper that reaches for ambient state with no way to
-override it still fails.
+No module-level side effects, no ambient singletons, no global mutable configuration —
+nothing a battery does may depend on state a caller cannot see or replace. Beyond that:
+any effect a caller would reasonably want to substitute in a test — the clock, the
+network, the filesystem, the environment — must be reachable through a parameter the
+caller can replace. A real default for that parameter is permitted — it keeps the live
+path ergonomic — but the effect must be substitutable, and the function must be
+deterministic *for the effects that are seamed*: given the same seam values, the same
+observable behavior. This makes batteries testable and verifiable, and it is a
+meaningful bar: a helper that reaches for ambient state with no way to override it still
+fails.
+
+**Cryptographic primitives are carved out of the determinism requirement.** Key
+generation and signing are nondeterministic on purpose — that unpredictability is the
+security property, not an accident that a seam could fix. The worked example is
+`generateEd25519Keypair` (`src/crypto/verify-signature.ts`): it takes no parameters and
+calls Node's `generateKeyPairSync` directly, and there is no seam that would make two
+calls return the same keypair without destroying the reason the function exists. The
+same reasoning covers `signJwt`'s reliance on `crypto.sign` under ES256 (ECDSA signing
+is randomized per call even with the same injected key) and `signManifest` /
+`verifyManifestSignature`'s use of `crypto.subtle` — each is nondeterministic in a way
+no parameter could seam away without producing a function that no longer performs the
+primitive it is named for.
+
+This carve-out is narrow: it excuses the nondeterminism *inherent to the primitive*, not
+ambient configuration a helper reaches for out of convenience. A helper that reads
+`process.env.API_ENDPOINT` with no way to override it still fails criterion 2, even
+though it never touches a keypair — a parameter is always available for that case, and
+the absence of one is exactly what this criterion exists to catch.
 
 Worked examples: `distribution-channel` injects `env`, `execPath`, and `realpath` so a
 caller can substitute filesystem or environment queries in tests.
@@ -47,7 +71,7 @@ Used by at least two connectors — or by one, plus a written case for the secon
 
 This one cannot be checked mechanically. The first-party connectors live in the
 [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, so this is a claim the
-proposing author makes and a reviewer accepts on the evidence offered. A weaker
+proposing author makes and maintainers accept on the evidence offered. A weaker
 criterion that CI *could* check would admit exactly the helpers this policy exists to
 keep out.
 

@@ -35,6 +35,12 @@ Commit the regenerated file alongside your change. The diff is the review: it is
 where the semver conversation happens, so make sure your Conventional Commit type
 matches what the diff shows — a removed or narrowed export is breaking.
 
+A new `**Deprecated:**` line for an existing export is a third kind of diff, with its
+own rule: it must ship as `feat:`, per the
+[deprecation policy](./docs/DEPRECATION-POLICY.md#ship-the-marker-as-feat) — the
+policy's window is defined in terms of a released minor, and only a `feat:` commit
+makes release-please cut one.
+
 The guard covers each export's own declaration text — not types it merely references.
 A change to a type that is used in a public signature but not itself exported from a
 barrel (e.g. an options type named in a constructor parameter) is a breaking change

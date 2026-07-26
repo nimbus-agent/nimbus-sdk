@@ -78,7 +78,7 @@ reinvented. Each is self-contained and independently testable:
 - `src/distribution-channel.ts` — release-channel resolution + upgrade hints.
 
 Growth here is deliberately gated by the [inclusion policy](./INCLUSION-POLICY.md)
-(dep-free, pure, genuinely reused) — see also the
+(dep-free, pure, genuinely reused, contract-shaped) — see also the
 [roadmap](./ROADMAP.md#3-batteries-for-connectors--apps).
 
 ### 4. Test harness & IPC
@@ -172,8 +172,9 @@ Phase 3 scales to Go, Rust, and beyond.
 Because the contract is depended on across products and languages, it changes under
 explicit rules rather than ad hoc. The `exports` map is to be guarded by an
 API-surface snapshot test (a [Phase 0](./ROADMAP.md#phase-0--a-solid-typescript-reference)
-task), so that an unintended surface change fails CI. Deprecations will follow a
-written policy (mark → support window → removal at a major bump), and once the spec
+task), so that an unintended surface change fails CI. Deprecations follow the
+[deprecation policy](./DEPRECATION-POLICY.md) (mark in a released minor → carried
+through a later, separate minor release → removal at a major bump), and once the spec
 exists, a **contract-version** is negotiated between connector and gateway so both
 know which version they speak. The mechanics live in the
 [roadmap](./ROADMAP.md#7-versioning--compatibility) and

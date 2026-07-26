@@ -762,6 +762,61 @@ describe("buildSurface — deprecations", () => {
   });
 });
 
+describe("buildSurface — deprecation marker on a barrel re-export clause", () => {
+  test("falls back to a marker on the barrel clause when the source module has none", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — marked on the barrel clause. */",
+        'export { oldThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const oldThing: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("oldThing");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked on the barrel clause.");
+  });
+
+  test("carries a deprecation marked only in the source module (no barrel marker)", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": 'export { oldThing } from "./t.js";',
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — marked in the source module. */",
+        "export declare const oldThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked in the source module.");
+  });
+
+  test("prefers the source module's marker when both the barrel clause and the source are marked", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.9.0 — marked on the barrel (should lose). */",
+        'export { oldThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — marked in the source (should win). */",
+        "export declare const oldThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked in the source (should win).");
+  });
+
+  test("resolves an aliased re-export's barrel-clause marker by the exported name", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — marked on the barrel, aliased. */",
+        'export { internalName as publicName } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const internalName: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("publicName");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked on the barrel, aliased.");
+  });
+});
+
 describe("renderSurface — deprecations", () => {
   const withDeprecated = [
     {

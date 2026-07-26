@@ -182,6 +182,11 @@ const SKIPPABLE_BEFORE_DECLARATION = /^(?:\s|\/\/[^\n]*\n|\/\*(?!\*)[\s\S]*?\*\/
  *
  * The message stops at the next JSDoc tag: tsc emits multi-tag blocks verbatim, so a
  * `@deprecated` followed by `@param` would otherwise swallow it.
+ *
+ * A block that sits above a from-clause re-export (rather than a declaration) is also
+ * recorded, keyed by the name(s) the clause exports — see `reexportedNamesOf`. This is
+ * the barrel-clause case; `buildSurface` still prefers a marker found in the source
+ * module itself when both exist.
  */
 export function collectDeprecations(rawText: string): Map<string, string> {
   const text = normalizeEol(rawText);
@@ -196,7 +201,13 @@ export function collectDeprecations(rawText: string): Map<string, string> {
       const after = text.slice(block.index + block[0].length);
       const declaration = after.replace(SKIPPABLE_BEFORE_DECLARATION, "");
       const name = declaredNameOf(declaration);
-      if (name !== null) found.set(name, message);
+      if (name !== null) {
+        found.set(name, message);
+      } else {
+        for (const reexported of reexportedNamesOf(declaration)) {
+          found.set(reexported, message);
+        }
+      }
     }
     block = JSDOC_BLOCK.exec(text);
   }
@@ -275,6 +286,35 @@ export type ParsedBarrel = {
 const WILDCARD = /^export\s+(?:type\s+)?\*/;
 const FROM_CLAUSE = /^export\s+(type\s+)?\{([\s\S]*)\}\s*from\s*["']([^"']+)["']\s*;?$/;
 const ALIASED = /^(\S+)\s+as\s+(\S+)$/;
+
+/**
+ * The name(s) a from-clause re-export statement makes available to a consumer — the
+ * alias if one is given, otherwise the bare specifier — or `[]` if the first statement
+ * in `text` is not a from-clause.
+ *
+ * Used so a `@deprecated` marker placed directly above a barrel re-export clause (e.g.
+ * `export { oldThing } from "./old.js"`) still attaches to the name every consumer
+ * imports, even though `declaredNameOf` — which only recognizes declarations, not
+ * re-export clauses — returns null for that statement.
+ */
+function reexportedNamesOf(text: string): string[] {
+  const [statement] = splitTopLevelStatements(stripComments(text));
+  if (statement === undefined) return [];
+
+  const clause = FROM_CLAUSE.exec(statement);
+  if (clause === null) return [];
+
+  const body = clause[2] ?? "";
+  const names: string[] = [];
+  for (const raw of body.split(",")) {
+    const specifier = raw.trim();
+    if (specifier.length === 0) continue;
+    const bare = specifier.replace(/^type\s+/, "").trim();
+    const aliased = ALIASED.exec(bare);
+    names.push(aliased !== null ? (aliased[2] ?? bare) : bare);
+  }
+  return names;
+}
 
 /** A bare `export {}` (or `export {};`) — a real TypeScript module marker, not an export. */
 const BARE_EXPORT_MARKER = /^export\s*\{\s*\}\s*;?$/;
@@ -554,12 +594,18 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         };
         cache.set(target, index);
       }
+      // The source module's own marker wins when both exist. Falling back to the
+      // barrel's deprecation map (keyed by the exported/alias name, not the source
+      // name) covers a marker placed directly on the re-export clause — otherwise
+      // `declaredNameOf` returning null for that clause would silently drop it, and
+      // `docs/api-surface.md` would show no diff for a real deprecation.
       exports.push({
         name: ref.name,
         typeOnly: ref.typeOnly,
         source: ref.module,
         declaration: index.declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
-        deprecated: index.deprecations.get(ref.sourceName) ?? null,
+        deprecated:
+          index.deprecations.get(ref.sourceName) ?? barrelDeprecations.get(ref.name) ?? null,
       });
     }
 

@@ -37,6 +37,10 @@ deprecated in, the replacement, and the earliest version that may remove it.
 export const oldThing = …;
 ```
 
+Mark the declaration in its own module, not the barrel re-export line (e.g. in
+`src/index.ts`) — that is where it lives for every consumer, whichever barrel
+re-exports it.
+
 Keep the message on the `@deprecated` tag. Any following tag (`@param`, `@see`) ends it.
 
 Wrap any `@`-shaped token in the message — a scoped package name, a handle — in
@@ -45,6 +49,17 @@ the next JSDoc tag, exactly as JSDoc and TypeDoc do, so an unwrapped mention tru
 the message there. `use @nimbus-dev/sdk-v2 instead` records as `use`; ``use
 `@nimbus-dev/sdk-v2` instead`` records in full. This matters here more than most
 places, because the package's own name begins with `@`.
+
+### Ship the marker as `feat:`
+
+The window above is defined in terms of a **released minor**, but release-please cuts
+a release only for commit types it treats as version-bumping — `docs:`, `chore:`, and
+`test:` cut nothing. The commit that adds a new `@deprecated` marker must therefore be
+typed `feat:`, even though the diff is "just" a JSDoc comment: `feat:` is what makes
+release-please open the minor release PR that opens this policy's window. A marker
+committed as `docs:` or `chore:` passes CI and updates `api-surface.md`, but ships in no
+release — the window silently never opens, and a later removal would cite a marking
+release that does not exist.
 
 ## Visibility
 
@@ -66,10 +81,13 @@ have. A deprecation that does not show up there has not really been made.
 Real classification calls and the reasoning behind them, so the next similar decision is
 cheap.
 
-### `engines: ">=22"` shipped as `feat:` — a minor, not a major
+### `engines: ">=22"` merged as `feat:` — a minor, not a major
 
 Introducing an engine constraint where none existed narrows what the package claims to
-support, which is superficially breaking. It shipped as a minor because:
+support, which is superficially breaking. It merged as a `feat:` commit — classified as
+a minor, not shipped as one yet: `package.json` is still `1.6.0` as of this writing, so
+the bump lands whenever release-please next cuts a release off `main`. It is classified
+as a minor because:
 
 1. **Nothing stops working.** The SDK is dependency-free types and pure helpers with no
    Node-22-only code. A consumer on Node 20 keeps working — they lose a promise, not a

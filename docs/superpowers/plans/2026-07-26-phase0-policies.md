@@ -586,9 +586,10 @@ depend on. Changing it is fine. Changing it *without warning* is not.
 
 ## The window
 
-An export must be marked deprecated in a **released minor**, and **at least one minor
-must ship carrying that marker**, before a major may remove it. Removal is always a
-major bump.
+An export must be marked deprecated in a **released minor**, and it must still be
+present and marked in **a later, separate minor release**, before a major may remove
+it. The minor that introduces the marker does not itself satisfy this — a second
+release is required. Removal is always a major bump.
 
 ```text
 1.8.0   mark @deprecated              window opens
@@ -614,6 +615,10 @@ deprecated in, the replacement, and the earliest version that may remove it.
 export const oldThing = …;
 ```
 
+Mark the declaration in its own module, not the barrel re-export line (e.g. in
+`src/index.ts`) — that is where it lives for every consumer, whichever barrel
+re-exports it.
+
 Keep the message on the `@deprecated` tag. Any following tag (`@param`, `@see`) ends it.
 
 Wrap any `@`-shaped token in the message — a scoped package name, a handle — in
@@ -622,6 +627,17 @@ the next JSDoc tag, exactly as JSDoc and TypeDoc do, so an unwrapped mention tru
 the message there. `use @nimbus-dev/sdk-v2 instead` records as `use`; ``use
 `@nimbus-dev/sdk-v2` instead`` records in full. This matters here more than most
 places, because the package's own name begins with `@`.
+
+### Ship the marker as `feat:`
+
+The window above is defined in terms of a **released minor**, but release-please cuts
+a release only for commit types it treats as version-bumping — `docs:`, `chore:`, and
+`test:` cut nothing. The commit that adds a new `@deprecated` marker must therefore be
+typed `feat:`, even though the diff is "just" a JSDoc comment: `feat:` is what makes
+release-please open the minor release PR that opens this policy's window. A marker
+committed as `docs:` or `chore:` passes CI and updates `api-surface.md`, but ships in no
+release — the window silently never opens, and a later removal would cite a marking
+release that does not exist.
 
 ## Visibility
 
@@ -643,10 +659,13 @@ have. A deprecation that does not show up there has not really been made.
 Real classification calls and the reasoning behind them, so the next similar decision is
 cheap.
 
-### `engines: ">=22"` shipped as `feat:` — a minor, not a major
+### `engines: ">=22"` merged as `feat:` — a minor, not a major
 
 Introducing an engine constraint where none existed narrows what the package claims to
-support, which is superficially breaking. It shipped as a minor because:
+support, which is superficially breaking. It merged as a `feat:` commit — classified as
+a minor, not shipped as one yet: `package.json` is still `1.6.0` as of this writing, so
+the bump lands whenever release-please next cuts a release off `main`. It is classified
+as a minor because:
 
 1. **Nothing stops working.** The SDK is dependency-free types and pure helpers with no
    Node-22-only code. A consumer on Node 20 keeps working — they lose a promise, not a
@@ -722,10 +741,13 @@ Create `docs/INCLUSION-POLICY.md` with exactly this content:
 
 `@nimbus-dev/sdk` ships **batteries**: pure, dependency-free helper modules so common
 connector work isn't reinvented per connector. `crypto`, `jmap-fastmail`, `icalendar`,
-`data-profile`, `flux-cd`, `storybook`, and `distribution-channel` are the ones that
-exist today.
+`data-profile`, `flux-cd`, `storybook`, `distribution-channel`, the scoped audit logger,
+and HITL requests are the ones that exist today.
 
-This policy is the test a reviewer applies when someone proposes another. It exists so
+This policy is the test [maintainers](./GOVERNANCE.md#roles) apply — by consensus, or a
+documented maintainer vote if consensus fails, the same authority
+[GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process) gives contract-affecting decisions —
+when someone proposes another. It exists so
 the surface grows on purpose rather than by accretion — every export here is one more
 thing every language binding must eventually implement and every consumer may depend on.
 
@@ -746,15 +768,36 @@ It compiles and runs with nothing in `dependencies`. If it needs a helper, that 
 is inlined. This is not a preference — it is the guarantee that makes the SDK safe to
 depend on across an ecosystem, and `package.json` has no `dependencies` key at all.
 
-### 2. Pure — effects are injectable and deterministic
+### 2. Pure — hidden ambient state is forbidden, substitutable effects are seamed
 
-No module-level side effects, no ambient singletons, no global mutable state. Any I/O,
-network, filesystem, clock, or randomness must be reachable **only through a parameter**
-the caller can replace. A real default for that parameter is permitted — it keeps the
-live path ergonomic — but the effect must be substitutable, and the function must be
-deterministic once every seam is supplied. This makes batteries testable and verifiable,
-and it is a meaningful bar: a helper that reaches for ambient state with no way to
-override it still fails.
+No module-level side effects, no ambient singletons, no global mutable configuration —
+nothing a battery does may depend on state a caller cannot see or replace. Beyond that:
+any effect a caller would reasonably want to substitute in a test — the clock, the
+network, the filesystem, the environment — must be reachable through a parameter the
+caller can replace. A real default for that parameter is permitted — it keeps the live
+path ergonomic — but the effect must be substitutable, and the function must be
+deterministic *for the effects that are seamed*: given the same seam values, the same
+observable behavior. This makes batteries testable and verifiable, and it is a
+meaningful bar: a helper that reaches for ambient state with no way to override it still
+fails.
+
+**Cryptographic primitives are carved out of the determinism requirement.** Key
+generation and signing are nondeterministic on purpose — that unpredictability is the
+security property, not an accident that a seam could fix. The worked example is
+`generateEd25519Keypair` (`src/crypto/verify-signature.ts`): it takes no parameters and
+calls Node's `generateKeyPairSync` directly, and there is no seam that would make two
+calls return the same keypair without destroying the reason the function exists. The
+same reasoning covers `signJwt`'s reliance on `crypto.sign` under ES256 (ECDSA signing
+is randomized per call even with the same injected key) and `signManifest` /
+`verifyManifestSignature`'s use of `crypto.subtle` — each is nondeterministic in a way
+no parameter could seam away without producing a function that no longer performs the
+primitive it is named for.
+
+This carve-out is narrow: it excuses the nondeterminism *inherent to the primitive*, not
+ambient configuration a helper reaches for out of convenience. A helper that reads
+`process.env.API_ENDPOINT` with no way to override it still fails criterion 2, even
+though it never touches a keypair — a parameter is always available for that case, and
+the absence of one is exactly what this criterion exists to catch.
 
 Worked examples: `distribution-channel` injects `env`, `execPath`, and `realpath` so a
 caller can substitute filesystem or environment queries in tests.
@@ -767,7 +810,7 @@ Used by at least two connectors — or by one, plus a written case for the secon
 
 This one cannot be checked mechanically. The first-party connectors live in the
 [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, so this is a claim the
-proposing author makes and a reviewer accepts on the evidence offered. A weaker
+proposing author makes and maintainers accept on the evidence offered. A weaker
 criterion that CI *could* check would admit exactly the helpers this policy exists to
 keep out.
 

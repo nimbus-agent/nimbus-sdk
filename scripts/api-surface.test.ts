@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   declaredNameOf,
   normalizeEol,
+  parseBarrel,
   splitTopLevelStatements,
   stripComments,
 } from "./api-surface.js";
@@ -82,5 +83,72 @@ describe("declaredNameOf", () => {
 
   test("returns null for a re-export clause", () => {
     expect(declaredNameOf('export { a } from "./x.js";')).toBeNull();
+  });
+});
+
+describe("parseBarrel", () => {
+  test("reads a single-line clause with a mix of value and inline-type specifiers", () => {
+    const { reexports } = parseBarrel('export { A, B, type C } from "./x.js";');
+    expect(reexports).toEqual([
+      { name: "A", sourceName: "A", typeOnly: false, module: "./x.js" },
+      { name: "B", sourceName: "B", typeOnly: false, module: "./x.js" },
+      { name: "C", sourceName: "C", typeOnly: true, module: "./x.js" },
+    ]);
+  });
+
+  test("marks every specifier of a clause-level `export type` as type-only", () => {
+    const { reexports } = parseBarrel('export type { A, B } from "./x.js";');
+    expect(reexports.map((r) => r.typeOnly)).toEqual([true, true]);
+  });
+
+  test("records the exported name for an aliased re-export, and the source name separately", () => {
+    const { reexports } = parseBarrel('export { originalName as exportedName } from "./x.js";');
+    expect(reexports).toEqual([
+      { name: "exportedName", sourceName: "originalName", typeOnly: false, module: "./x.js" },
+    ]);
+  });
+
+  test("handles a clause spanning multiple lines with a trailing comma", () => {
+    const { reexports } = parseBarrel('export {\n  A,\n  type B,\n} from "./x.js";');
+    expect(reexports.map((r) => r.name)).toEqual(["A", "B"]);
+    expect(reexports.map((r) => r.typeOnly)).toEqual([false, true]);
+  });
+
+  test("ignores comments interleaved with the clauses", () => {
+    const text = [
+      "/** file header */",
+      "// a note",
+      'export { A } from "./x.js"; // trailing',
+      "//# sourceMappingURL=index.d.ts.map",
+    ].join("\n");
+    expect(parseBarrel(text).reexports.map((r) => r.name)).toEqual(["A"]);
+  });
+
+  test("is unaffected by CRLF line endings", () => {
+    const lf = 'export {\n  A,\n} from "./x.js";';
+    expect(parseBarrel(lf.replace(/\n/g, "\r\n"))).toEqual(parseBarrel(lf));
+  });
+
+  test("collects locally declared exports alongside re-exports", () => {
+    const text =
+      'export { A } from "./x.js";\nexport declare class MockGateway {\n    m(): void;\n}';
+    const parsed = parseBarrel(text);
+    expect(parsed.reexports.map((r) => r.name)).toEqual(["A"]);
+    expect(parsed.locals).toHaveLength(1);
+    expect(declaredNameOf(parsed.locals[0] ?? "")).toBe("MockGateway");
+  });
+
+  test("throws on a wildcard re-export rather than under-reporting the surface", () => {
+    expect(() => parseBarrel('export * from "./x.js";')).toThrow(/wildcard re-export/);
+  });
+
+  test("throws on a namespaced wildcard re-export too", () => {
+    expect(() => parseBarrel('export * as ns from "./x.js";')).toThrow(/wildcard re-export/);
+  });
+
+  test("throws on a re-export from an external package rather than resolving a bogus path", () => {
+    expect(() => parseBarrel('export { X } from "some-library";')).toThrow(
+      /non-relative specifier/,
+    );
   });
 });

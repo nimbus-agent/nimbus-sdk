@@ -142,3 +142,84 @@ export function declaredNameOf(statement: string): string | null {
   const match = DECLARED_NAME.exec(statement.replace(/\s+/g, " ").trim());
   return match?.[1] ?? null;
 }
+
+/** One name re-exported by a barrel. `name` is what consumers import; `sourceName` is what the target module declares. */
+export type ReexportRef = {
+  name: string;
+  sourceName: string;
+  typeOnly: boolean;
+  module: string;
+};
+
+export type ParsedBarrel = {
+  reexports: ReexportRef[];
+  /** Full text of declarations the barrel makes itself, e.g. `export declare class MockGateway`. */
+  locals: string[];
+};
+
+const WILDCARD = /^export\s+\*/;
+const FROM_CLAUSE = /^export\s+(type\s+)?\{([\s\S]*)\}\s*from\s*["']([^"']+)["']\s*;?$/;
+const ALIASED = /^(\S+)\s+as\s+(\S+)$/;
+
+/**
+ * Parse an entry-point `.d.ts` into its re-exports and its own declarations.
+ *
+ * Entry barrels in this package are explicit named re-exports, but
+ * `dist/testing/index.d.ts` also declares `MockGateway` locally — both forms
+ * are part of the published surface and both are captured.
+ */
+export function parseBarrel(text: string): ParsedBarrel {
+  const statements = splitTopLevelStatements(stripComments(normalizeEol(text)));
+  const reexports: ReexportRef[] = [];
+  const locals: string[] = [];
+
+  for (const statement of statements) {
+    if (WILDCARD.test(statement)) {
+      throw new Error(
+        `wildcard re-export is not supported by the API-surface guard: ${statement}\n` +
+          "Replace it with explicit named re-exports, or extend scripts/api-surface.ts " +
+          "deliberately — a wildcard would silently under-report the published surface.",
+      );
+    }
+
+    const clause = FROM_CLAUSE.exec(statement);
+    if (clause === null) {
+      if (declaredNameOf(statement) !== null) locals.push(statement);
+      continue;
+    }
+
+    const clauseIsTypeOnly = clause[1] !== undefined;
+    const body = clause[2] ?? "";
+    const module = clause[3] ?? "";
+
+    // Refused here rather than in resolveSpecifier so the error names the offending
+    // statement and no bogus path is ever read. This package is dependency-free: a
+    // barrel re-exporting from an external module violates a core constraint, it is
+    // not merely a gap in the extractor.
+    if (!module.startsWith(".")) {
+      throw new Error(
+        `re-export from a non-relative specifier is not supported by the API-surface guard: ${statement}\n` +
+          "This package is dependency-free — a barrel must not re-export from an external " +
+          "module. If that ever changes deliberately, extend scripts/api-surface.ts to resolve it.",
+      );
+    }
+
+    for (const raw of body.split(",")) {
+      const specifier = raw.trim();
+      if (specifier.length === 0) continue;
+
+      const inlineType = /^type\s+/.test(specifier);
+      const bare = specifier.replace(/^type\s+/, "").trim();
+      const aliased = ALIASED.exec(bare);
+
+      reexports.push({
+        name: aliased !== null ? (aliased[2] ?? bare) : bare,
+        sourceName: aliased !== null ? (aliased[1] ?? bare) : bare,
+        typeOnly: clauseIsTypeOnly || inlineType,
+        module,
+      });
+    }
+  }
+
+  return { reexports, locals };
+}

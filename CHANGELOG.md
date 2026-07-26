@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.7.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.6.0...sdk-v1.7.0) (2026-07-26)
+
+
+### Features
+
+* lock the contract — API-surface guard, cross-OS CI, Node &gt;=22 ([#34](https://github.com/nimbus-agent/nimbus-sdk/issues/34)) ([c3eace7](https://github.com/nimbus-agent/nimbus-sdk/commit/c3eace7edd569e26ab4ccac1521c448d59315a66))
+
 ## [1.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.5.2...sdk-v1.6.0) (2026-07-24)
 
 

@@ -874,7 +874,7 @@ for (const f of ['dist/index.d.ts','dist/testing/index.d.ts','dist/ipc/index.d.t
 }"
 ```
 
-Expected: `dist/index.d.ts: 77 re-exports, 0 local`, `dist/testing/index.d.ts: 1 re-exports, 1 local`, `dist/ipc/index.d.ts: 3 re-exports, 0 local`. If the root count is not 77, the parser is dropping specifiers — do not proceed.
+Expected: `dist/index.d.ts: 135 re-exports, 0 local`, `dist/testing/index.d.ts: 1 re-exports, 1 local`, `dist/ipc/index.d.ts: 3 re-exports, 0 local`. If the root count is not 135 (77 value + 58 type-only specifiers), the parser is dropping specifiers — do not proceed.
 
 - [ ] **Step 6: Typecheck, lint, and commit**
 
@@ -1189,7 +1189,7 @@ for (const e of s) {
 }"
 ```
 
-Expected: `.: 77 exports, 0 unresolved`, `./ipc: 3 exports, 0 unresolved`, `./testing: 2 exports, 0 unresolved`. **Any unresolved declaration means the parser is incomplete — fix it before continuing**, because the golden file would bake in a hole.
+Expected: `.: 135 exports, 0 unresolved`, `./ipc: 3 exports, 0 unresolved`, `./testing: 2 exports, 0 unresolved`. **Any unresolved declaration means the parser is incomplete — fix it before continuing**, because the golden file would bake in a hole.
 
 - [ ] **Step 6: Typecheck, lint, and commit**
 
@@ -1480,13 +1480,13 @@ Expected: FAIL — `docs/api-surface.md` does not exist (ENOENT). This confirms 
 - [ ] **Step 6: Generate the baseline**
 
 Run: `bun run build && bun run api:surface`
-Expected: `wrote docs/api-surface.md — 82 exports across 3 entry points`
+Expected: `wrote docs/api-surface.md — 140 exports across 3 entry points`
 
 - [ ] **Step 7: Read the generated file before trusting it**
 
 Run: `head -40 docs/api-surface.md && grep -c '^### ' docs/api-surface.md && grep -n 'declaration not found' docs/api-surface.md`
 
-Expected: a sane header and first entries, `82` from the count, and **no output** from the `grep` for unresolved declarations. If any declaration is unresolved, go back to Task 6 — do not commit a baseline with holes in it.
+Expected: a sane header and first entries, `140` from the count, and **no output** from the `grep` for unresolved declarations. If any declaration is unresolved, go back to Task 6 — do not commit a baseline with holes in it.
 
 - [ ] **Step 8: Run the gate to verify it passes**
 
@@ -1512,7 +1512,7 @@ Expected: FAIL with `The public API surface changed but docs/api-surface.md was 
 git diff --stat docs/api-surface.md
 ```
 
-Expected: the same `wrote docs/api-surface.md — 82 exports…` line, and **no diff** — running from elsewhere must produce a byte-identical file, not a relocated or truncated one.
+Expected: the same `wrote docs/api-surface.md — 140 exports…` line, and **no diff** — running from elsewhere must produce a byte-identical file, not a relocated or truncated one.
 
 - [ ] **Step 11: Confirm the whole suite is green**
 

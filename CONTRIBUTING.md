@@ -21,6 +21,20 @@ bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 ```
 
+### Changing the public API surface
+
+`docs/api-surface.md` is a generated snapshot of every export of every `exports`
+entry point. CI fails when it is stale, so if you add, remove, rename, or change
+the type of an export:
+
+```bash
+bun run build && bun run api:surface
+```
+
+Commit the regenerated file alongside your change. The diff is the review: it is
+where the semver conversation happens, so make sure your Conventional Commit type
+matches what the diff shows — a removed or narrowed export is breaking.
+
 ## Architecture notes
 
 - **Dependency-free at runtime.** `@nimbus-dev/sdk` ships with **no** runtime

@@ -746,12 +746,20 @@ It compiles and runs with nothing in `dependencies`. If it needs a helper, that 
 is inlined. This is not a preference — it is the guarantee that makes the SDK safe to
 depend on across an ecosystem, and `package.json` has no `dependencies` key at all.
 
-### 2. Pure
+### 2. Pure — effects are injectable and deterministic
 
-No I/O, no credentials, no network, no filesystem, no global mutable state, and no
-clock or randomness reachable from its result. Given the same input it returns the same
-output on every supported platform. Anything that must touch the outside world belongs
-in the gateway, not here.
+No module-level side effects, no ambient singletons, no global mutable state. Any I/O,
+network, filesystem, clock, or randomness must be reachable **only through a parameter**
+the caller can replace. A real default for that parameter is permitted — it keeps the
+live path ergonomic — but the effect must be substitutable, and the function must be
+deterministic once every seam is supplied. This makes batteries testable and verifiable,
+and it is a meaningful bar: a helper that reaches for ambient state with no way to
+override it still fails.
+
+Worked examples: `distribution-channel` injects `env`, `execPath`, and `realpath` so a
+caller can substitute filesystem or environment queries in tests.
+`service-account-token` injects `fetchFn` and `nowMs` so tests control network calls
+and deterministic timestamps. Both carry real defaults to their live paths.
 
 ### 3. Genuinely reused
 
@@ -767,7 +775,9 @@ keep out.
 
 It serves the job of authoring a Nimbus connector or app. A correct, pure,
 dependency-free utility that any project might want is still out of scope — that is
-what a general-purpose library is for.
+what a general-purpose library is for. This fourth criterion makes explicit what
+`ARCHITECTURE.md`, `GOVERNANCE.md`, and `GLOSSARY.md` already describe: the narrow-waist
+posture that every addition must justify its width.
 
 ## Standing scope constraints
 
@@ -788,6 +798,17 @@ A new battery is an **additive** change under
 bump, and it will show up as new entries in [`api-surface.md`](./api-surface.md). Adding
 it is easy; removing it later requires the
 [deprecation policy](./DEPRECATION-POLICY.md) and a major version. Decide accordingly.
+
+## What rejection means
+
+A proposal that does not satisfy all four criteria is declined. The decision and its
+reasoning are recorded in the review — the PR conversation, or the RFC if the proposal
+went through the wider RFC process. A rejected helper can live in the proposing
+contributor's own package, repository, or ecosystem, in whatever form works for them.
+A resubmission is worth making only if the proposal changes materially — for instance,
+if a helper initially rejected for not being reused is now used by two connectors, or
+if one initially rejected for hidden effects has been restructured to inject every
+seam. Resubmitting unchanged work wastes reviewer time and will be declined again.
 ```
 
 - [ ] **Step 2: Verify the links resolve**

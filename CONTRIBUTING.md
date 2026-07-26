@@ -16,10 +16,29 @@ bun install
 
 ```bash
 bun run typecheck   # tsc --noEmit (strict)
-bun run lint        # biome check src/
+bun run lint        # biome check src/ scripts/
 bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 ```
+
+### Changing the public API surface
+
+`docs/api-surface.md` is a generated snapshot of every export of every `exports`
+entry point. CI fails when it is stale, so if you add, remove, rename, or change
+the type of an export:
+
+```bash
+bun run build && bun run api:surface
+```
+
+Commit the regenerated file alongside your change. The diff is the review: it is
+where the semver conversation happens, so make sure your Conventional Commit type
+matches what the diff shows — a removed or narrowed export is breaking.
+
+The guard covers each export's own declaration text — not types it merely references.
+A change to a type that is used in a public signature but not itself exported from a
+barrel (e.g. an options type named in a constructor parameter) is a breaking change
+that this file will not show; review those by hand.
 
 ## Architecture notes
 

@@ -141,12 +141,12 @@ reference every later language SDK is measured against.*
   data-profile, flux-cd, storybook, distribution-channel) — *Pillars 3, 4*
 - [ ] A docs surface that indexes every public export — *Pillar 4*
 - [ ] A runnable example connector kept green in CI — *Pillar 4*
-- [ ] A public **API-surface snapshot test** that fails PRs on unintended
+- [x] A public **API-surface snapshot test** that fails PRs on unintended
   `exports` changes — *Pillars 5, 7*
-- [ ] Expand CI from `ubuntu`-only to a **cross-OS matrix** (Linux / macOS /
+- [x] Expand CI from `ubuntu`-only to a **cross-OS matrix** (Linux / macOS /
   Windows) so cross-platform behavior — including the documented sandbox
   platform-asymmetry — is exercised on every PR — *Pillar 5*
-- [ ] Run the **Node ESM smoke across the supported Node LTS versions** (not just the
+- [x] Run the **Node ESM smoke across the supported Node LTS versions** (not just the
   runner default), since the published ESM must load under plain Node on each — *Pillar 5*
 - [ ] The written **inclusion policy** for the batteries, linked from
   `CONTRIBUTING.md` — *Pillar 3*

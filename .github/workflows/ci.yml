@@ -15,13 +15,20 @@ concurrency:
 
 jobs:
   build-test:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
+      # harden-runner supports egress *blocking* on Linux only; Windows and macOS are
+      # audit-mode only. Rather than weaken the Linux job to a common denominator, keep
+      # block where it is available and record egress everywhere else.
       - name: Harden Runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
         with:
-          egress-policy: block
+          egress-policy: ${{ runner.os == 'Linux' && 'block' || 'audit' }}
           allowed-endpoints: >
             github.com:443
             api.github.com:443
@@ -50,30 +57,93 @@ jobs:
       - name: Lint
         run: bun run lint
 
-      # Build before Test: the declaration-map meta-check asserts dist output.
+      # Build before Test: the declaration-map meta-check and the API-surface guard
+      # both assert dist/ output.
       - name: Build
         run: bun run build
-
-      # The published ESM entry points must load under plain Node, not just Bun.
-      # tsconfig uses moduleResolution: bundler, under which extensionless relative
-      # specifiers typecheck cleanly and tsc emits them verbatim — producing a dist/
-      # that Node ESM rejects with ERR_MODULE_NOT_FOUND. That shipped undetected
-      # because every consumer reached the package through the `bun` export condition
-      # or a bundler. Bun resolves those specifiers happily, so this step must run on
-      # Node to have any value.
-      - name: Node ESM smoke (every exports entry)
-        run: |
-          node --input-type=module -e "
-            const entries = ['./dist/index.js', './dist/ipc/index.js', './dist/testing/index.js'];
-            let bad = 0;
-            for (const e of entries) {
-              try { await import(e); console.log('ok   ' + e); }
-              catch (err) { bad++; console.error('FAIL ' + e + ' — ' + err.code); }
-            }
-            if (bad > 0) process.exit(1);
-          "
 
       - name: Test
         run: bun run test
         env:
           CI: "true"
+
+      # One tarball is published and loaded on every OS, so one build is what the
+      # smoke jobs must exercise — not a per-OS rebuild the ecosystem never receives.
+      - name: Upload dist for the Node smoke jobs
+        if: matrix.os == 'ubuntu-24.04'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
+
+  node-smoke:
+    needs: build-test
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        node: ["22", "24"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: ${{ runner.os == 'Linux' && 'block' || 'audit' }}
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            nodejs.org:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - name: Download the ubuntu-built dist
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Smoke the published ESM entry points
+        run: node scripts/smoke-esm.mjs
+
+  # The single required status check.
+  #
+  # `build-test` and `node-smoke` are matrices, so their job names carry the matrix
+  # leg — `build-test (ubuntu-24.04)`, `node-smoke (macos-15, 22)`, and so on. A
+  # ruleset that names those directly has to be hand-edited every time the matrix
+  # changes shape, and it will: Node 26 enters LTS on 2026-10-28. This job is the one
+  # stable name to require. It succeeds only if every job it needs succeeded, so the
+  # matrices can grow without anyone touching repository settings.
+  #
+  # `if: always()` is load-bearing — without it this job would be skipped when a
+  # dependency fails, the required check would never report, and PRs would hang
+  # waiting for a status that never arrives.
+  ci-complete:
+    needs: [build-test, node-smoke]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+
+      - name: Fail unless every CI job succeeded
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }}" && exit 1

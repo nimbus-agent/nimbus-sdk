@@ -7,6 +7,9 @@
     "url": "git+https://github.com/nimbus-agent/nimbus-sdk.git"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -36,8 +39,9 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "build": "tsc --project tsconfig.build.json",
+    "api:surface": "bun run build && bun run scripts/api-surface.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/",
+    "lint": "biome check src/ scripts/",
     "test": "bun test",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build && bun run typecheck",

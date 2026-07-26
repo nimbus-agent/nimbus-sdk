@@ -95,6 +95,7 @@ export function isHitlRequest(value: unknown): value is HitlRequest;
 | `tsconfig.json:37` | **Modify.** Add `examples/**/*` to `include`. |
 | `package.json:39` | **Modify.** `lint` gains `examples/`. |
 | `.gitignore` | **Modify.** Add the snippet scratch directory. |
+| `biome.json:10-16` | **Modify.** Exclude the scratch directory explicitly, for runs with VCS integration off. |
 | `README.md` | **Modify.** Link `docs/README.md`. |
 | `CONTRIBUTING.md` | **Modify.** Add the coverage rule. |
 | `docs/ROADMAP.md:140-143` | **Modify.** Tick boxes 1–3. |
@@ -1041,14 +1042,15 @@ git commit -m "test(docs): fence extraction and SDK paths mapping for the snippe
 ### Task 5: The snippet typecheck pass
 
 **Files:**
-- Modify: `scripts/docs-snippets.test.ts` (append the integration block)
+- Modify: `scripts/docs-snippets.test.ts` (replace the import block, append the integration block)
 - Modify: `.gitignore`
+- Modify: `biome.json:10-16`
 
 **Interfaces:**
 - Consumes: everything Task 4 produced.
 - Produces: nothing importable. This is the guard's live half.
 
-- [ ] **Step 1: Gitignore the scratch directory**
+- [ ] **Step 1: Gitignore the scratch directory, and ignore it in Biome too**
 
 Append to `.gitignore`:
 
@@ -1056,19 +1058,53 @@ Append to `.gitignore`:
 .docs-snippets/
 ```
 
-`biome.json` sets `vcs.useIgnoreFile: true`, so Biome skips it automatically — no Biome change needed.
+`biome.json` sets `vcs.useIgnoreFile: true`, so Biome already skips it during a normal
+`bun run lint`. Add the explicit exclusion anyway, because that is not the only way Biome
+runs: an IDE extension, or any invocation with VCS integration disabled, would otherwise
+lint and format the transient snippet files during the window they exist.
+
+In `biome.json:10-16`, add one entry to `files.includes`:
+
+```json
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/.docs-snippets",
+      "!**/*.d.ts",
+      "!**/.claude/settings.local.json"
+    ]
+```
+
+Note the syntax: Biome 2.x uses negated globs inside `files.includes`. There is no
+`files.ignore` array — that was Biome 1.x, and adding one here is silently ignored.
 
 - [ ] **Step 2: Write the failing integration test**
 
-Append to `scripts/docs-snippets.test.ts`:
+First **replace** the import block at the top of `scripts/docs-snippets.test.ts` with the
+following. Do not append a second set of imports — a second `import` statement from
+`./docs-snippets.ts` is a duplicate Biome flags, and the `Snippet` type the new code needs
+is not imported by Task 4's version of the file:
 
 ```ts
+import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { collectEntryPoints } from "./api-surface.ts";
-import { SCRATCH_DIR, SNIPPET_SOURCES, sdkPathsMapping } from "./docs-snippets.ts";
+import {
+  assertAllowedImports,
+  extractSnippets,
+  SCRATCH_DIR,
+  sdkPathsMapping,
+  type Snippet,
+  SNIPPET_SOURCES,
+} from "./docs-snippets.ts";
+```
 
+Then append the block below to the end of the file:
+
+```ts
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
@@ -1087,66 +1123,93 @@ function snippetSources(): string[] {
  *
  * One invocation, not one per snippet: the compiler's startup cost dominates, and this
  * runs on three operating systems on every pull request.
+ *
+ * The scratch directory sits at the repository root on purpose. `types: ["bun"]` resolves
+ * by walking up from the tsconfig's own directory looking for `node_modules/@types/bun`,
+ * which `@types/bun` in the root devDependencies provides. Moving this to the system temp
+ * directory breaks that walk and fails with `TS2688: Cannot find type definition file for
+ * 'bun'` — the placement is load-bearing, not incidental.
  */
 async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> {
   const scratch = join(repoRoot, SCRATCH_DIR);
   rmSync(scratch, { recursive: true, force: true });
   mkdirSync(scratch, { recursive: true });
 
-  const fileToOrigin = new Map<string, string>();
-  snippets.forEach((snippet, index) => {
-    const name = `snippet-${String(index).padStart(3, "0")}.ts`;
-    writeFileSync(join(scratch, name), snippet.code, "utf8");
-    fileToOrigin.set(name, `${snippet.file}:${snippet.line}`);
-  });
+  // Everything from here on is inside try/finally: a throw from writeFileSync or from the
+  // spawn would otherwise leave the scratch directory sitting in the working tree, where
+  // it shows up in every later `git status` and gets linted by editors.
+  try {
+    const fileToOrigin = new Map<string, string>();
+    snippets.forEach((snippet, index) => {
+      const name = `snippet-${String(index).padStart(3, "0")}.ts`;
+      writeFileSync(join(scratch, name), snippet.code, "utf8");
+      fileToOrigin.set(name, `${snippet.file}:${snippet.line}`);
+    });
 
-  const paths = sdkPathsMapping("@nimbus-dev/sdk", collectEntryPoints(readFromRoot("package.json")), repoRoot);
-  writeFileSync(
-    join(scratch, "tsconfig.json"),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ESNext",
-          module: "ESNext",
-          moduleResolution: "bundler",
-          lib: ["ESNext"],
-          types: ["bun"],
-          strict: true,
-          noUncheckedIndexedAccess: true,
-          exactOptionalPropertyTypes: true,
-          skipLibCheck: true,
-          noEmit: true,
-          paths,
+    const paths = sdkPathsMapping(
+      "@nimbus-dev/sdk",
+      collectEntryPoints(readFromRoot("package.json")),
+      repoRoot,
+    );
+    writeFileSync(
+      join(scratch, "tsconfig.json"),
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ESNext",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            lib: ["ESNext"],
+            types: ["bun"],
+            strict: true,
+            noUncheckedIndexedAccess: true,
+            exactOptionalPropertyTypes: true,
+            skipLibCheck: true,
+            noEmit: true,
+            paths,
+          },
+          include: ["./*.ts"],
         },
-        include: ["./*.ts"],
-      },
-      null,
-      2,
-    )}\n`,
-    "utf8",
-  );
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
 
-  const result = Bun.spawnSync({
-    cmd: ["bunx", "tsc", "--noEmit", "--project", join(scratch, "tsconfig.json")],
-    cwd: repoRoot,
-    stdout: "pipe",
-    stderr: "pipe",
-  });
+    // `process.execPath` is the absolute path to the running Bun binary, and `bun x` is
+    // what `bunx` aliases to. Spawning the resolved binary rather than the bare string
+    // "bunx" removes any dependence on PATH inside the spawned environment — which is
+    // where this would otherwise be fragile on the windows-2025 CI runner.
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "x", "tsc", "--noEmit", "--project", join(scratch, "tsconfig.json")],
+      cwd: repoRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
 
-  const output = `${result.stdout.toString()}${result.stderr.toString()}`;
-  if (result.exitCode === 0) {
+    const output = `${result.stdout.toString()}${result.stderr.toString()}`;
+
+    if (/TS2688/.test(output)) {
+      throw new Error(
+        `the scratch project could not resolve Bun's type definitions:\n\n${output}\n` +
+          "This means @types/bun was not found by walking up from " +
+          `${SCRATCH_DIR}/. Run \`bun install\`, and do not move the scratch directory ` +
+          "out of the repository root.",
+      );
+    }
+
+    if (result.exitCode === 0) return "";
+
+    // Map every scratch filename back to the document and line the fence came from, so a
+    // failure names docs/modules/crypto.md:42 rather than .docs-snippets/snippet-007.ts.
+    let mapped = output;
+    for (const [name, origin] of fileToOrigin) {
+      mapped = mapped.split(name).join(origin);
+    }
+    return mapped;
+  } finally {
     rmSync(scratch, { recursive: true, force: true });
-    return "";
   }
-
-  // Map every scratch filename back to the document and line the fence came from, so a
-  // failure names docs/modules/crypto.md:42 rather than .docs-snippets/snippet-007.ts.
-  let mapped = output;
-  for (const [name, origin] of fileToOrigin) {
-    mapped = mapped.split(name).join(origin);
-  }
-  rmSync(scratch, { recursive: true, force: true });
-  return mapped;
 }
 
 describe("documentation snippets", () => {
@@ -1209,10 +1272,20 @@ Expected: PASS. If a snippet in a Task 3 page fails, the output names `docs/modu
 Run: `git status --short`
 Expected: no `.docs-snippets/` entry, tracked or untracked.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Verify the scratch directory survives a failure**
+
+Temporarily add a snippet that cannot compile — `const x: number = "no";` — to any page,
+run `bun test scripts/docs-snippets.test.ts`, confirm it fails naming that page and line,
+then run `git status --short` and confirm no `.docs-snippets/` entry appears. Remove the
+bad snippet.
+
+This checks the `finally` block, which is the difference between a failing test and a
+failing test that also leaves debris in the working tree.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add scripts/docs-snippets.test.ts .gitignore
+git add scripts/docs-snippets.test.ts .gitignore biome.json
 git commit -m "test(docs): typecheck every documentation snippet against dist/"
 ```
 
@@ -1701,3 +1774,5 @@ git commit -m "docs: close Phase 0 — the authoring path is documented and guar
 **Type consistency.** `Snippet` is defined once in Task 4 and used unchanged in Task 5. `moduleKeyOf(entryFile, source)` keeps that argument order in both its test and `modulesInSurface`. `sdkPathsMapping(packageName, entries, absoluteRepoRoot)` is called with the same three arguments in Tasks 4 and 5. `TOOLS` is `readonly` in both examples and is passed to `assertNoRowDataTools`, whose parameter is `ReadonlyArray<...>`.
 
 **One known ordering risk, called out deliberately:** Task 2 commits a red guard. That is intentional and its commit message says so. If the executor is a subagent that refuses to commit failing tests, have it complete Tasks 2 and 3 as a single commit instead.
+
+**Revised after review.** Task 5 now wraps the scratch project in `try/finally` so a throw cannot leave debris in the working tree, excludes the scratch directory in `biome.json` as well as `.gitignore` (for runs with VCS integration off), spawns `tsc` through `process.execPath` rather than a bare `bunx` on PATH, detects `TS2688` and explains it, and replaces rather than appends the test file's import block — appending would have produced a duplicate import of `./docs-snippets.ts` and omitted the `Snippet` type the new code needs.

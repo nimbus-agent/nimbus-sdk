@@ -28,8 +28,8 @@
 |---|---|---|
 | `scripts/api-surface.ts` | modify | Add `collectDeprecations`; add `deprecated` to `SurfaceExport`; thread it through `buildSurface` and `renderSurface` |
 | `scripts/api-surface.test.ts` | modify | Unit tests for the new function and renderer; update existing whole-object assertions |
-| `docs/INCLUSION-POLICY.md` | create | The four battery admission criteria |
 | `docs/DEPRECATION-POLICY.md` | create | The window, the marking, the worked precedents |
+| `docs/INCLUSION-POLICY.md` | create | The four battery admission criteria |
 | `docs/GOVERNANCE.md` | modify | Link line 37's "inclusion policy" |
 | `docs/ARCHITECTURE.md` | modify | Link line 80's "inclusion policy" |
 | `docs/GLOSSARY.md` | modify | Link lines 61 and 84; drop "deliverable" |
@@ -562,116 +562,7 @@ byte-unchanged."
 
 ---
 
-### Task 2: The batteries inclusion policy
-
-**Files:**
-- Create: `docs/INCLUSION-POLICY.md`
-
-**Interfaces:**
-- Consumes: nothing
-- Produces: `docs/INCLUSION-POLICY.md`, linked by Task 4
-
-- [ ] **Step 1: Write the policy**
-
-Create `docs/INCLUSION-POLICY.md` with exactly this content:
-
-```markdown
-# Batteries — inclusion policy
-
-`@nimbus-dev/sdk` ships **batteries**: pure, dependency-free helper modules so common
-connector work isn't reinvented per connector. `crypto`, `jmap-fastmail`, `icalendar`,
-`data-profile`, `flux-cd`, `storybook`, and `distribution-channel` are the ones that
-exist today.
-
-This policy is the test a reviewer applies when someone proposes another. It exists so
-the surface grows on purpose rather than by accretion — every export here is one more
-thing every language binding must eventually implement and every consumer may depend on.
-
-## The default answer is no
-
-The burden is on the proposal. This mirrors the posture
-[GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process) already takes on the narrow waist: the
-question is never "is this useful?" but "does the contract get worse if this is *not*
-here?"
-
-## Admission criteria
-
-A proposed battery must satisfy **all four**.
-
-### 1. No runtime dependency
-
-It compiles and runs with nothing in `dependencies`. If it needs a helper, that helper
-is inlined. This is not a preference — it is the guarantee that makes the SDK safe to
-depend on across an ecosystem, and `package.json` has no `dependencies` key at all.
-
-### 2. Pure
-
-No I/O, no credentials, no network, no filesystem, no global mutable state, and no
-clock or randomness reachable from its result. Given the same input it returns the same
-output on every supported platform. Anything that must touch the outside world belongs
-in the gateway, not here.
-
-### 3. Genuinely reused
-
-Used by at least two connectors — or by one, plus a written case for the second.
-
-This one cannot be checked mechanically. The first-party connectors live in the
-[Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, so this is a claim the
-proposing author makes and a reviewer accepts on the evidence offered. A weaker
-criterion that CI *could* check would admit exactly the helpers this policy exists to
-keep out.
-
-### 4. Contract-shaped
-
-It serves the job of authoring a Nimbus connector or app. A correct, pure,
-dependency-free utility that any project might want is still out of scope — that is
-what a general-purpose library is for.
-
-## Standing scope constraints
-
-Independent of the four criteria, and non-negotiable because they are
-data-minimization guarantees the SDK already makes:
-
-- `jmap-fastmail` stays **headers-only**.
-- `data-profile` stays **metadata-only** — never cell values.
-- No battery may place row or body data anywhere it could reach a log.
-
-A proposal needing any of these relaxed is contract-affecting and takes the RFC path in
-[GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process).
-
-## What acceptance means
-
-A new battery is an **additive** change under
-[GOVERNANCE.md's change classes](./GOVERNANCE.md#change-classes): PR plus review, minor
-bump, and it will show up as new entries in [`api-surface.md`](./api-surface.md). Adding
-it is easy; removing it later requires the
-[deprecation policy](./DEPRECATION-POLICY.md) and a major version. Decide accordingly.
-```
-
-- [ ] **Step 2: Verify the links resolve**
-
-Run: `ls docs/GOVERNANCE.md docs/DEPRECATION-POLICY.md docs/api-surface.md`
-Expected: `GOVERNANCE.md` and `api-surface.md` exist. `DEPRECATION-POLICY.md` does not yet — it is created in Task 3, which lands before any of this is pushed. Note it and continue.
-
-- [ ] **Step 3: Commit**
-
-```bash
-git add docs/INCLUSION-POLICY.md
-git commit -m "docs: add the batteries inclusion policy
-
-ARCHITECTURE.md, GOVERNANCE.md, and GLOSSARY.md have all cited an inclusion
-policy as a governing rule while none existed. This writes the one they
-describe — dep-free, pure, genuinely reused — as a test a reviewer can apply,
-rather than inventing new criteria.
-
-States plainly that the reuse criterion cannot be checked mechanically, since
-the first-party connectors live in the Nimbus monorepo. A weaker criterion CI
-could check would admit the helpers the policy exists to keep out."
-```
-
----
-
-### Task 3: The deprecation policy
+### Task 2: The deprecation policy
 
 **Files:**
 - Create: `docs/DEPRECATION-POLICY.md`
@@ -802,6 +693,115 @@ promise is one this release cadence cannot keep.
 Records the engines >=22 classification as the first worked precedent, which
 slice 1 explicitly deferred pending this policy, including the caveat that an
 engine mismatch is a hard failure under engine-strict."
+```
+
+---
+
+### Task 3: The batteries inclusion policy
+
+**Files:**
+- Create: `docs/INCLUSION-POLICY.md`
+
+**Interfaces:**
+- Consumes: nothing
+- Produces: `docs/INCLUSION-POLICY.md`, linked by Task 4
+
+- [ ] **Step 1: Write the policy**
+
+Create `docs/INCLUSION-POLICY.md` with exactly this content:
+
+```markdown
+# Batteries — inclusion policy
+
+`@nimbus-dev/sdk` ships **batteries**: pure, dependency-free helper modules so common
+connector work isn't reinvented per connector. `crypto`, `jmap-fastmail`, `icalendar`,
+`data-profile`, `flux-cd`, `storybook`, and `distribution-channel` are the ones that
+exist today.
+
+This policy is the test a reviewer applies when someone proposes another. It exists so
+the surface grows on purpose rather than by accretion — every export here is one more
+thing every language binding must eventually implement and every consumer may depend on.
+
+## The default answer is no
+
+The burden is on the proposal. This mirrors the posture
+[GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process) already takes on the narrow waist: the
+question is never "is this useful?" but "does the contract get worse if this is *not*
+here?"
+
+## Admission criteria
+
+A proposed battery must satisfy **all four**.
+
+### 1. No runtime dependency
+
+It compiles and runs with nothing in `dependencies`. If it needs a helper, that helper
+is inlined. This is not a preference — it is the guarantee that makes the SDK safe to
+depend on across an ecosystem, and `package.json` has no `dependencies` key at all.
+
+### 2. Pure
+
+No I/O, no credentials, no network, no filesystem, no global mutable state, and no
+clock or randomness reachable from its result. Given the same input it returns the same
+output on every supported platform. Anything that must touch the outside world belongs
+in the gateway, not here.
+
+### 3. Genuinely reused
+
+Used by at least two connectors — or by one, plus a written case for the second.
+
+This one cannot be checked mechanically. The first-party connectors live in the
+[Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, so this is a claim the
+proposing author makes and a reviewer accepts on the evidence offered. A weaker
+criterion that CI *could* check would admit exactly the helpers this policy exists to
+keep out.
+
+### 4. Contract-shaped
+
+It serves the job of authoring a Nimbus connector or app. A correct, pure,
+dependency-free utility that any project might want is still out of scope — that is
+what a general-purpose library is for.
+
+## Standing scope constraints
+
+Independent of the four criteria, and non-negotiable because they are
+data-minimization guarantees the SDK already makes:
+
+- `jmap-fastmail` stays **headers-only**.
+- `data-profile` stays **metadata-only** — never cell values.
+- No battery may place row or body data anywhere it could reach a log.
+
+A proposal needing any of these relaxed is contract-affecting and takes the RFC path in
+[GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process).
+
+## What acceptance means
+
+A new battery is an **additive** change under
+[GOVERNANCE.md's change classes](./GOVERNANCE.md#change-classes): PR plus review, minor
+bump, and it will show up as new entries in [`api-surface.md`](./api-surface.md). Adding
+it is easy; removing it later requires the
+[deprecation policy](./DEPRECATION-POLICY.md) and a major version. Decide accordingly.
+```
+
+- [ ] **Step 2: Verify the links resolve**
+
+Run: `ls docs/GOVERNANCE.md docs/DEPRECATION-POLICY.md docs/api-surface.md`
+Expected: all three exist. `DEPRECATION-POLICY.md` was created in Task 2, which lands first precisely so this file never commits a broken link.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add docs/INCLUSION-POLICY.md
+git commit -m "docs: add the batteries inclusion policy
+
+ARCHITECTURE.md, GOVERNANCE.md, and GLOSSARY.md have all cited an inclusion
+policy as a governing rule while none existed. This writes the one they
+describe — dep-free, pure, genuinely reused — as a test a reviewer can apply,
+rather than inventing new criteria.
+
+States plainly that the reuse criterion cannot be checked mechanically, since
+the first-party connectors live in the Nimbus monorepo. A weaker criterion CI
+could check would admit the helpers the policy exists to keep out."
 ```
 
 ---

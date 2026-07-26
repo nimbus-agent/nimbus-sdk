@@ -1,8 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildSurface,
+  collectEntryPoints,
   declaredNameOf,
   normalizeEol,
   parseBarrel,
+  resolveSpecifier,
   splitTopLevelStatements,
   stripComments,
 } from "./api-surface.js";
@@ -200,5 +203,132 @@ describe("parseBarrel", () => {
 
   test("treats a bare `export {}` module marker as a no-op, not an omission", () => {
     expect(parseBarrel("export {};")).toEqual({ reexports: [], locals: [] });
+  });
+});
+
+describe("collectEntryPoints", () => {
+  test("derives one entry per exports key, from the types condition, sorted by label", () => {
+    const pkg = JSON.stringify({
+      exports: {
+        "./testing": { bun: "./src/testing/index.ts", types: "./dist/testing/index.d.ts" },
+        ".": { bun: "./src/index.ts", types: "./dist/index.d.ts" },
+      },
+    });
+    expect(collectEntryPoints(pkg)).toEqual([
+      { label: ".", file: "dist/index.d.ts" },
+      { label: "./testing", file: "dist/testing/index.d.ts" },
+    ]);
+  });
+
+  test("throws when an entry has no types condition, rather than skipping it", () => {
+    const pkg = JSON.stringify({ exports: { "./x": { import: "./dist/x.js" } } });
+    expect(() => collectEntryPoints(pkg)).toThrow(/no "types" condition/);
+  });
+
+  test("throws when there is no exports map at all", () => {
+    expect(() => collectEntryPoints("{}")).toThrow(/no exports map/);
+  });
+});
+
+describe("resolveSpecifier", () => {
+  test("resolves a .js specifier to the sibling .d.ts, with forward slashes", () => {
+    expect(resolveSpecifier("dist/ipc/index.d.ts", "./ndjson-line-reader.js")).toBe(
+      "dist/ipc/ndjson-line-reader.d.ts",
+    );
+  });
+
+  test("resolves a parent-relative specifier", () => {
+    expect(resolveSpecifier("dist/testing/index.d.ts", "../types.js")).toBe("dist/types.d.ts");
+  });
+});
+
+describe("buildSurface", () => {
+  const files: Record<string, string> = {
+    "dist/index.d.ts": [
+      "/** header */",
+      'export { Thing, VERSION, doIt, type Item, type Kind } from "./types.js";',
+      'export { hidden as visible } from "./types.js";',
+    ].join("\n"),
+    "dist/types.d.ts": [
+      "export declare class Thing {\n}",
+      'export declare const VERSION = "1";',
+      "export declare function doIt(x: number): string;",
+      "export interface Item {\n    id: string;\n    label?: string;\n}",
+      'export type Kind = "a" | "b";',
+      "export declare const hidden: boolean;",
+    ].join("\n"),
+  };
+  const readFile = (path: string): string => {
+    const found = files[path];
+    if (found === undefined) throw new Error(`unexpected read: ${path}`);
+    return found;
+  };
+
+  test("returns every export sorted by name", () => {
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], readFile);
+    expect(entry?.exports.map((e) => e.name)).toEqual([
+      "Item",
+      "Kind",
+      "Thing",
+      "VERSION",
+      "doIt",
+      "visible",
+    ]);
+  });
+
+  test("carries type-only-ness and the source module", () => {
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], readFile);
+    const item = entry?.exports.find((e) => e.name === "Item");
+    expect(item?.typeOnly).toBe(true);
+    expect(item?.source).toBe("./types.js");
+    const thing = entry?.exports.find((e) => e.name === "Thing");
+    expect(thing?.typeOnly).toBe(false);
+  });
+
+  test("captures the full declaration text, including a multi-line interface body", () => {
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], readFile);
+    expect(entry?.exports.find((e) => e.name === "Item")?.declaration).toBe(
+      "export interface Item {\n    id: string;\n    label?: string;\n}",
+    );
+    expect(entry?.exports.find((e) => e.name === "Kind")?.declaration).toBe(
+      'export type Kind = "a" | "b";',
+    );
+  });
+
+  test("looks up an aliased export by its source name", () => {
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], readFile);
+    expect(entry?.exports.find((e) => e.name === "visible")?.declaration).toBe(
+      "export declare const hidden: boolean;",
+    );
+  });
+
+  test("includes a locally declared export with source '(local)'", () => {
+    const local = {
+      "dist/testing/index.d.ts": "export declare class MockGateway {\n    m(): void;\n}",
+    };
+    const [entry] = buildSurface(
+      [{ label: "./testing", file: "dist/testing/index.d.ts" }],
+      (p) => local[p as keyof typeof local] ?? "",
+    );
+    expect(entry?.exports).toEqual([
+      {
+        name: "MockGateway",
+        typeOnly: false,
+        source: "(local)",
+        declaration: "export declare class MockGateway {\n    m(): void;\n}",
+      },
+    ]);
+  });
+
+  test("marks an export whose declaration cannot be found rather than dropping it", () => {
+    const broken = {
+      "dist/index.d.ts": 'export { Missing } from "./types.js";',
+      "dist/types.d.ts": "export declare const Other: string;",
+    };
+    const [entry] = buildSurface(
+      [{ label: ".", file: "dist/index.d.ts" }],
+      (p) => broken[p as keyof typeof broken] ?? "",
+    );
+    expect(entry?.exports[0]?.declaration).toBe("(declaration not found)");
   });
 });

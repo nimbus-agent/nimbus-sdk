@@ -18,6 +18,8 @@
  * no guard at all.
  */
 
+import { dirname, join } from "node:path";
+
 /** Collapse CRLF and lone CR to LF, so a Windows checkout cannot shift the baseline. */
 export function normalizeEol(text: string): string {
   return text.replace(/\r\n?/g, "\n");
@@ -255,4 +257,112 @@ export function parseBarrel(text: string): ParsedBarrel {
   }
 
   return { reexports, locals };
+}
+
+export type EntryPoint = { label: string; file: string };
+
+export type SurfaceExport = {
+  name: string;
+  typeOnly: boolean;
+  /** The module specifier it came from, or `(local)` if the barrel declares it. */
+  source: string;
+  declaration: string;
+};
+
+export type EntrySurface = { label: string; exports: SurfaceExport[] };
+
+export type ReadFile = (path: string) => string;
+
+/**
+ * Derive the entry points from the `exports` map rather than hardcoding them, so
+ * adding a fourth entry point automatically brings it under the guard. The public
+ * surface cannot be widened without this noticing.
+ */
+export function collectEntryPoints(packageJsonText: string): EntryPoint[] {
+  const parsed: unknown = JSON.parse(packageJsonText);
+  if (typeof parsed !== "object" || parsed === null) {
+    throw new Error("package.json did not parse to an object");
+  }
+
+  const exportsField = (parsed as Record<string, unknown>)["exports"];
+  if (typeof exportsField !== "object" || exportsField === null) {
+    throw new Error("package.json has no exports map; the API-surface guard needs one");
+  }
+
+  const entries: EntryPoint[] = [];
+  for (const [label, value] of Object.entries(exportsField as Record<string, unknown>)) {
+    if (typeof value !== "object" || value === null) continue;
+    const types = (value as Record<string, unknown>)["types"];
+    if (typeof types !== "string") {
+      throw new Error(
+        `exports["${label}"] has no "types" condition; the API-surface guard needs one`,
+      );
+    }
+    entries.push({ label, file: types.replace(/^\.\//, "") });
+  }
+
+  entries.sort((a, b) => a.label.localeCompare(b.label));
+  return entries;
+}
+
+/**
+ * Resolve a `./x.js` specifier against its importer to the sibling `.d.ts`, always with `/`.
+ *
+ * Deliberately operates on repo-relative paths and stays pure: absolute paths here
+ * would leak machine-specific strings into the golden file. `parseBarrel` has already
+ * guaranteed the specifier is relative.
+ */
+export function resolveSpecifier(fromFile: string, specifier: string): string {
+  const resolved = join(dirname(fromFile), specifier.replace(/\.js$/, ".d.ts"));
+  return resolved.split("\\").join("/");
+}
+
+/** Index a module's top-level declarations by the name each introduces. */
+function declarationsOf(text: string): Map<string, string> {
+  const declarations = new Map<string, string>();
+  for (const statement of splitTopLevelStatements(stripComments(normalizeEol(text)))) {
+    const name = declaredNameOf(statement);
+    if (name !== null) declarations.set(name, tidy(statement));
+  }
+  return declarations;
+}
+
+/** Trim trailing whitespace per line; interior indentation is kept, and is deterministic. */
+function tidy(statement: string): string {
+  return statement
+    .split("\n")
+    .map((line) => line.replace(/\s+$/, ""))
+    .join("\n");
+}
+
+export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySurface[] {
+  return entries.map((entry) => {
+    const barrel = parseBarrel(readFile(entry.file));
+    const exports: SurfaceExport[] = [];
+
+    for (const statement of barrel.locals) {
+      const name = declaredNameOf(statement);
+      if (name === null) continue;
+      exports.push({ name, typeOnly: false, source: "(local)", declaration: tidy(statement) });
+    }
+
+    const cache = new Map<string, Map<string, string>>();
+    for (const ref of barrel.reexports) {
+      const target = resolveSpecifier(entry.file, ref.module);
+      let declarations = cache.get(target);
+      if (declarations === undefined) {
+        declarations = declarationsOf(readFile(target));
+        cache.set(target, declarations);
+      }
+      exports.push({
+        name: ref.name,
+        typeOnly: ref.typeOnly,
+        source: ref.module,
+        declaration: declarations.get(ref.sourceName) ?? "(declaration not found)",
+      });
+    }
+
+    exports.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+    return { label: entry.label, exports };
+  });
 }

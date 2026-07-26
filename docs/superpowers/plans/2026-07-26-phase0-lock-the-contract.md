@@ -15,7 +15,7 @@
 - **No runtime dependencies, and no new devDependencies.** The extractor must not import `typescript` — TS 7 does not ship the classic compiler API (`ts.createProgram` is `undefined`).
 - **No `any`.** `unknown` for external data, narrowed with a type guard. Enforced by `biome check src/` and `tsc --noEmit`.
 - **`tsconfig.json` includes `scripts/**/*`**, so everything written under `scripts/` is typechecked under `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noPropertyAccessFromIndexSignature`, `noUnusedLocals`, and `noUnusedParameters`. Index into strings with `.charAt(i)` (returns `string`) rather than `s[i]` (returns `string | undefined`). Read object properties that come from parsed JSON with bracket access.
-- **`bun run lint` is `biome check src/`** — it does not cover `scripts/`. Do not rely on that: write `scripts/` to the same standard. `noConsole` is an error in this repo; use `process.stdout.write` / `process.stderr.write`.
+- **`bun run lint` covers `src/` and `scripts/`** (widened in Task 2, Step 1). Everything you write under `scripts/` is linted in CI on all three operating systems. `noConsole` is an error in this repo; use `process.stdout.write` / `process.stderr.write`.
 - **Local imports use the `./name.js` form** even for `.ts` files (`moduleResolution: bundler`). Match the existing convention in `src/*.test.ts`.
 - **Every GitHub Action is pinned to a commit SHA** with a `# vN` comment. Never use a floating tag.
 - **Line endings are LF everywhere.** `biome.json` sets `lineEnding: "lf"`; `.gitattributes` sets `* text=auto eol=lf`.
@@ -90,14 +90,44 @@ response to a mismatch is a warning."
 The current smoke is an inline `run: |` block wrapping a multi-line `node -e "…"` — bash syntax that breaks on the Windows runner, whose default shell is PowerShell. This task is a behavior-preserving extraction that lands green on the existing ubuntu-only job, so the portability fix is isolated from the matrix change in Task 3.
 
 **Files:**
+- Modify: `package.json` (widen the `lint` script)
 - Create: `scripts/smoke-esm.mjs`
 - Modify: `.github/workflows/ci.yml:64-74` (the `Node ESM smoke` step)
 
 **Interfaces:**
 - Consumes: nothing
-- Produces: `scripts/smoke-esm.mjs`, invoked as `node scripts/smoke-esm.mjs` by Task 3's `node-smoke` job
+- Produces: `scripts/smoke-esm.mjs`, invoked as `node scripts/smoke-esm.mjs` by Task 3's `node-smoke` job; a `lint` script that covers `scripts/`
 
-- [ ] **Step 1: Write the script**
+- [ ] **Step 1: Widen the lint script to cover `scripts/`, and commit that first**
+
+Everything this plan adds lives in `scripts/`, which `bun run lint` did not cover. Widen it *before* adding any new file there, so each new file is written under lint coverage from the start and this change lands green on its own.
+
+In `package.json`, change:
+
+```json
+    "lint": "biome check src/",
+```
+
+to:
+
+```json
+    "lint": "biome check src/ scripts/",
+```
+
+Run: `bun run lint`
+Expected: clean. The two pre-existing files (`scripts/check-declaration-map.test.ts`, `scripts/check-package-identity.test.ts`) already satisfy Biome — verified before this plan started. If anything fails here, fix it in this commit.
+
+```bash
+git add package.json
+git commit -m "chore: lint scripts/ alongside src/
+
+Everything this repo keeps in scripts/ is meta-tooling that ships nothing, but
+it is still typechecked by tsconfig and still worth linting. The two existing
+files already pass, so widening the script is free and gets scripts/ checked in
+CI on every OS rather than only when someone remembers a manual invocation."
+```
+
+- [ ] **Step 2: Write the script**
 
 Create `scripts/smoke-esm.mjs`. Plain `.mjs`, not TypeScript — it must run under bare `node` with no build step. (`tsconfig.json` has `allowJs` unset, so `.mjs` is not typechecked.)
 
@@ -158,12 +188,12 @@ if (failures.length > 0) {
 process.stdout.write(`\nall ${specifiers.length} entry points loaded under Node ${process.version}\n`);
 ```
 
-- [ ] **Step 2: Verify it passes against a real build**
+- [ ] **Step 3: Verify it passes against a real build**
 
 Run: `bun run build && node scripts/smoke-esm.mjs`
 Expected: three `ok` lines (`@nimbus-dev/sdk` with 77 exports, `/testing` with 2, `/ipc` with 2), then `all 3 entry points loaded under Node vNN.N.N`, exit 0.
 
-- [ ] **Step 3: Verify it actually fails when dist is broken**
+- [ ] **Step 4: Verify it actually fails when dist is broken**
 
 A guard that cannot fail is not a guard. Prove it detects a missing artifact:
 
@@ -175,7 +205,7 @@ mv dist/ipc/index.js.bak dist/ipc/index.js
 
 Expected: `FAIL @nimbus-dev/sdk/ipc — ERR_MODULE_NOT_FOUND: …` and `exit=1`.
 
-- [ ] **Step 4: Replace the inline block in CI**
+- [ ] **Step 5: Replace the inline block in CI**
 
 In `.github/workflows/ci.yml`, replace the whole `Node ESM smoke (every exports entry)` step — the `run: |` block and the long explanatory comment above it — with:
 
@@ -195,12 +225,12 @@ In `.github/workflows/ci.yml`, replace the whole `Node ESM smoke (every exports 
 
 Leave everything else in the workflow untouched. This step stays where it is, between `Build` and `Test`.
 
-- [ ] **Step 5: Confirm nothing else in the workflow uses multi-line shell**
+- [ ] **Step 6: Confirm nothing else in the workflow uses multi-line shell**
 
 Run: `grep -n 'run: |' .github/workflows/ci.yml`
 Expected: no output. If any remain, they must be extracted or made shell-agnostic before Task 3 adds Windows.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add scripts/smoke-esm.mjs .github/workflows/ci.yml
@@ -631,8 +661,8 @@ Expected: PASS, 17 tests (the `test.each` block reports one per case).
 
 - [ ] **Step 5: Typecheck and lint**
 
-Run: `bun run typecheck && bunx biome check scripts/api-surface.ts scripts/api-surface.test.ts`
-Expected: both clean. `bun run lint` only covers `src/`, so `scripts/` is checked explicitly here.
+Run: `bun run typecheck && bun run lint`
+Expected: both clean. `lint` covers `scripts/` as of Task 2, so no separate invocation is needed.
 
 - [ ] **Step 6: Commit**
 
@@ -849,7 +879,7 @@ Expected: `dist/index.d.ts: 77 re-exports, 0 local`, `dist/testing/index.d.ts: 1
 - [ ] **Step 6: Typecheck, lint, and commit**
 
 ```bash
-bun run typecheck && bunx biome check scripts/
+bun run typecheck && bun run lint
 git add scripts/api-surface.ts scripts/api-surface.test.ts
 git commit -m "test(api-surface): parse entry barrels into re-exports and locals
 
@@ -1164,7 +1194,7 @@ Expected: `.: 77 exports, 0 unresolved`, `./ipc: 3 exports, 0 unresolved`, `./te
 - [ ] **Step 6: Typecheck, lint, and commit**
 
 ```bash
-bun run typecheck && bunx biome check scripts/
+bun run typecheck && bun run lint
 git add scripts/api-surface.ts scripts/api-surface.test.ts
 git commit -m "test(api-surface): derive entry points from exports and assemble the surface
 
@@ -1297,7 +1327,7 @@ Expected: PASS, 43 tests.
 - [ ] **Step 5: Typecheck, lint, and commit**
 
 ```bash
-bun run typecheck && bunx biome check scripts/
+bun run typecheck && bun run lint
 git add scripts/api-surface.ts scripts/api-surface.test.ts
 git commit -m "test(api-surface): render the surface as reviewable markdown
 
@@ -1486,7 +1516,7 @@ Expected: the same `wrote docs/api-surface.md — 82 exports…` line, and **no 
 
 - [ ] **Step 11: Confirm the whole suite is green**
 
-Run: `bun run typecheck && bun run lint && bunx biome check scripts/ && bun run build && bun run test`
+Run: `bun run typecheck && bun run lint && bun run build && bun run test`
 Expected: all pass.
 
 - [ ] **Step 12: Commit**
@@ -1566,7 +1596,7 @@ git commit -m "docs: document the api:surface re-baseline and tick Phase 0 boxes
 
 - [ ] **Step 5: Final verification before opening the PR**
 
-Run: `bun run typecheck && bun run lint && bunx biome check scripts/ && bun run build && bun run test && node scripts/smoke-esm.mjs`
+Run: `bun run typecheck && bun run lint && bun run build && bun run test && node scripts/smoke-esm.mjs`
 Expected: every command exits 0.
 
 Then confirm the working tree is clean and the branch holds the expected commits:
@@ -1576,14 +1606,22 @@ git status --short
 git log --oneline main..HEAD
 ```
 
-Expected: no output from `git status`; **nine** commits, in the order Tasks 1–9 produced them.
+Expected: no output from `git status`; **ten** commits, in the order Tasks 1–9 produced them.
 
 > **Deviation from the spec, deliberate.** The design spec sequenced six commits. This
-> plan produces nine, because the spec's single "guard the public API surface" commit
+> plan produces ten, because the spec's single "guard the public API surface" commit
 > is split across five TDD cycles (Tasks 4–8) — each with its own red/green/commit
-> loop, so a reviewer can reject the parser without rejecting the renderer. The commit
-> *order* is unchanged, and the spec's four other commits map one-to-one onto Tasks
-> 1, 2, 3, and 9.
+> loop, so a reviewer can reject the parser without rejecting the renderer — and
+> Task 2 carries an extra `chore:` commit widening `lint` to cover `scripts/`. The
+> commit *order* is unchanged, and the spec's four other commits map one-to-one onto
+> Tasks 1, 2, 3, and 9.
+
+## Pre-flight adjudications
+
+Settled before execution began; implementers and reviewers should treat these as decided:
+
+- **The `harden-runner` step is verbatim-duplicated across `build-test` and `node-smoke`.** Deliberate. GitHub Actions does not support YAML anchors in workflow files, and a composite action for a 12-line step adds a file, a layer of indirection, and a second place to audit. Nearly every multi-job hardened workflow looks like this. Not a defect to fix.
+- **`bun run lint` was widened to `biome check src/ scripts/`** (Task 2, Step 1), replacing the manual `bunx biome check scripts/` invocations the plan originally carried in Tasks 4–8.
 
 ---
 

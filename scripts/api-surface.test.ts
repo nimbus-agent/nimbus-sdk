@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildSurface,
+  collectDeprecations,
   collectEntryPoints,
   DECLARATION_NOT_FOUND,
   declaredNameOf,
@@ -369,6 +370,7 @@ describe("buildSurface", () => {
         typeOnly: false,
         source: "(local)",
         declaration: "export declare class MockGateway {\n    m(): void;\n}",
+        deprecated: null,
       },
     ]);
   });
@@ -431,6 +433,7 @@ describe("buildSurface", () => {
         typeOnly: false,
         source: "./types.js",
         declaration: "export declare const Public: InternalHelper;",
+        deprecated: null,
       },
     ]);
   });
@@ -446,12 +449,14 @@ describe("renderSurface", () => {
           typeOnly: true,
           source: "./types.js",
           declaration: "export interface Item {\n    id: string;\n}",
+          deprecated: null,
         },
         {
           name: "VERSION",
           typeOnly: false,
           source: "./types.js",
           declaration: 'export declare const VERSION = "1";',
+          deprecated: null,
         },
       ],
     },
@@ -545,5 +550,399 @@ describe("the committed API surface", () => {
     // silently unguarded — see DECLARATION_NOT_FOUND and the CLI's pre-write refusal.
     const committed = readFromRoot(GOLDEN_PATH);
     expect(committed).not.toContain(DECLARATION_NOT_FOUND);
+  });
+});
+
+describe("collectDeprecations", () => {
+  test("records a tag with explanatory text", () => {
+    const src = [
+      "/** @deprecated since 1.8.0 — use `newThing` instead. May be removed in 2.0.0. */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe(
+      "since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.",
+    );
+  });
+
+  test("records a tag with no text as an empty string", () => {
+    const src = "/** @deprecated */\nexport declare const bare: number;";
+    expect(collectDeprecations(src).get("bare")).toBe("");
+  });
+
+  test("stops at the next JSDoc tag rather than swallowing it", () => {
+    const src = [
+      "/**",
+      " * @deprecated since 1.8.0 — use `newThing` instead.",
+      " * @param options Configuration options.",
+      " * @see https://example.com",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    const message = collectDeprecations(src).get("oldThing");
+    expect(message).toBe("since 1.8.0 — use `newThing` instead.");
+    expect(message).not.toContain("@param");
+    expect(message).not.toContain("@see");
+  });
+
+  test("strips leading asterisks and collapses a multi-line message to one line", () => {
+    const src = [
+      "/**",
+      " * @deprecated since 1.8.0 because the underlying format changed;",
+      " * use `newThing`, which takes the same options.",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe(
+      "since 1.8.0 because the underlying format changed; use `newThing`, which takes the same options.",
+    );
+  });
+
+  test("ignores a JSDoc block with no @deprecated tag", () => {
+    const src = "/** Just a description. */\nexport declare const fine: string;";
+    expect(collectDeprecations(src).has("fine")).toBe(false);
+  });
+
+  test("ignores a non-JSDoc block comment mentioning @deprecated", () => {
+    const src = "/* @deprecated not a doc comment */\nexport declare const fine: string;";
+    expect(collectDeprecations(src).has("fine")).toBe(false);
+  });
+
+  test("pairs across an intervening comment", () => {
+    const src = [
+      "/** @deprecated since 1.8.0 */",
+      "// a note tsc would not emit, tolerated anyway",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("since 1.8.0");
+  });
+
+  test("is unaffected by CRLF line endings", () => {
+    const lf = "/**\n * @deprecated since 1.8.0\n */\nexport declare const a: string;";
+    expect(collectDeprecations(lf.replace(/\n/g, "\r\n"))).toEqual(collectDeprecations(lf));
+  });
+
+  test("records several deprecated declarations in one module", () => {
+    const src = [
+      "/** @deprecated first */",
+      "export declare const a: string;",
+      "export declare const b: string;",
+      "/** @deprecated second */",
+      "export declare const c: string;",
+    ].join("\n");
+    const found = collectDeprecations(src);
+    expect(found.get("a")).toBe("first");
+    expect(found.has("b")).toBe(false);
+    expect(found.get("c")).toBe("second");
+  });
+
+  // Pins JSDoc semantics: a line-initial `@word` starts a new tag, so it ends the
+  // message even when it is not a tag JSDoc knows. This is correct, not a bug —
+  // absorbing such a line would surprise anyone who knows how JSDoc parses.
+  test("ends the message at any line-initial @tag, known to JSDoc or not", () => {
+    const src = [
+      "/**",
+      " * @deprecated since 1.8.0.",
+      " * @override is now the default behavior.",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("since 1.8.0.");
+  });
+
+  // Dropping this is correct: a non-exported declaration is not part of the public
+  // surface, so its deprecation state is not the guard's business. `dist/` contains
+  // such a declaration today (`type SignedManifestShape`), so warning here would be
+  // a false positive on real output.
+  test("ignores a @deprecated tag on a non-exported declaration", () => {
+    const src = "/** @deprecated internal only */\ndeclare const hidden: string;";
+    expect(collectDeprecations(src).size).toBe(0);
+  });
+
+  // No emitted .d.ts in this package has duplicate top-level declared names today
+  // (verified across all 28). If overloads ever appear, deprecation resolves
+  // last-wins — the same limitation `declarationsOf` already has for the declaration
+  // text itself. Pinned so a future change to it is a deliberate one.
+  test("resolves a repeated declared name last-wins", () => {
+    const src = [
+      "/** @deprecated first overload */",
+      "export declare function f(x: string): void;",
+      "/** @deprecated second overload */",
+      "export declare function f(x: number): void;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("f")).toBe("second overload");
+  });
+
+  // Regression: a tag is a tag wherever it sits on a line, not only when it is the
+  // first token on that line. A whole-line scan misses this and silently drops the
+  // deprecation — the exact under-report this guard exists to prevent.
+  test("records a tag when it is not first on its line", () => {
+    const src =
+      "/** @since 1.0 @deprecated Use `newThing` instead. */\nexport declare const oldThing: string;";
+    expect(collectDeprecations(src).get("oldThing")).toBe("Use `newThing` instead.");
+  });
+
+  test("stops the message at a trailing tag on the same line", () => {
+    const src = "/** @deprecated foo bar @param x baz */\nexport declare const oldThing: string;";
+    expect(collectDeprecations(src).get("oldThing")).toBe("foo bar");
+  });
+
+  test("records a tag when it is not first on its line, in multi-line form", () => {
+    const src = [
+      "/**",
+      " * @since 1.0",
+      " * @deprecated Use `newThing` instead.",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("Use `newThing` instead.");
+  });
+
+  test("stops the message at a trailing tag on the same line, in multi-line form", () => {
+    const src = [
+      "/**",
+      " * @deprecated foo bar @param x baz",
+      " */",
+      "export declare const oldThing: string;",
+    ].join("\n");
+    expect(collectDeprecations(src).get("oldThing")).toBe("foo bar");
+  });
+
+  test("does not treat an embedded @ as a tag boundary", () => {
+    const src =
+      "/** @deprecated contact `foo@bar` for details. */\nexport declare const oldThing: string;";
+    expect(collectDeprecations(src).get("oldThing")).toBe("contact `foo@bar` for details.");
+  });
+});
+
+describe("buildSurface — deprecations", () => {
+  test("carries a deprecation from the source module through a re-export", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": 'export { oldThing, fine } from "./t.js";',
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — use `fine`. */",
+        "export declare const oldThing: string;",
+        "export declare const fine: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    const old = entry?.exports.find((e) => e.name === "oldThing");
+    const fine = entry?.exports.find((e) => e.name === "fine");
+    expect(old?.deprecated).toBe("since 1.8.0 — use `fine`.");
+    expect(fine?.deprecated).toBeNull();
+  });
+
+  test("resolves an aliased re-export's deprecation by its source name", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": 'export { internalName as publicName } from "./t.js";',
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 */",
+        "export declare const internalName: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("publicName");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0");
+  });
+
+  test("carries a deprecation on a barrel-local declaration", () => {
+    const files: Record<string, string> = {
+      "dist/testing/index.d.ts": [
+        "/** @deprecated since 1.8.0 — use the real gateway. */",
+        "export declare class MockGateway {",
+        "    m(): void;",
+        "}",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface(
+      [{ label: "./testing", file: "dist/testing/index.d.ts" }],
+      (p) => files[p] ?? "",
+    );
+    expect(entry?.exports[0]?.name).toBe("MockGateway");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — use the real gateway.");
+  });
+});
+
+describe("buildSurface — deprecation marker on a barrel re-export clause", () => {
+  test("falls back to a marker on the barrel clause when the source module has none", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — marked on the barrel clause. */",
+        'export { oldThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const oldThing: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("oldThing");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked on the barrel clause.");
+  });
+
+  test("carries a deprecation marked only in the source module (no barrel marker)", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": 'export { oldThing } from "./t.js";',
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — marked in the source module. */",
+        "export declare const oldThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked in the source module.");
+  });
+
+  test("prefers the source module's marker when both the barrel clause and the source are marked", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.9.0 — marked on the barrel (should lose). */",
+        'export { oldThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — marked in the source (should win). */",
+        "export declare const oldThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked in the source (should win).");
+  });
+
+  test("resolves an aliased re-export's barrel-clause marker by the exported name", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — marked on the barrel, aliased. */",
+        'export { internalName as publicName } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const internalName: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("publicName");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — marked on the barrel, aliased.");
+  });
+});
+
+describe("buildSurface — a multi-name barrel clause marker is ambiguous", () => {
+  test("marks neither name when a two-name clause is ambiguous and the source marks neither", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated only oldThing was meant */",
+        'export { oldThing, keepThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": [
+        "export declare const oldThing: string;",
+        "export declare const keepThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    const oldThing = entry?.exports.find((e) => e.name === "oldThing");
+    const keepThing = entry?.exports.find((e) => e.name === "keepThing");
+    expect(oldThing?.deprecated).toBeNull();
+    expect(keepThing?.deprecated).toBeNull();
+  });
+
+  test("ignores an ambiguous two-name barrel marker entirely, even when one name is marked in its source", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.9.0 — ambiguous, must be ignored. */",
+        'export { oldThing, keepThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": [
+        "/** @deprecated since 1.8.0 — marked in the source. */",
+        "export declare const oldThing: string;",
+        "export declare const keepThing: string;",
+      ].join("\n"),
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    const oldThing = entry?.exports.find((e) => e.name === "oldThing");
+    const keepThing = entry?.exports.find((e) => e.name === "keepThing");
+    expect(oldThing?.deprecated).toBe("since 1.8.0 — marked in the source.");
+    expect(keepThing?.deprecated).toBeNull();
+  });
+
+  test("still applies a marker above a single-name clause", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — single-name clause still applies. */",
+        'export { oldThing } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const oldThing: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — single-name clause still applies.");
+  });
+
+  test("still applies a marker above a single-name aliased clause", () => {
+    const files: Record<string, string> = {
+      "dist/index.d.ts": [
+        "/** @deprecated since 1.8.0 — single-name aliased clause still applies. */",
+        'export { internalName as publicName } from "./t.js";',
+      ].join("\n"),
+      "dist/t.d.ts": "export declare const internalName: string;",
+    };
+    const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
+    expect(entry?.exports[0]?.name).toBe("publicName");
+    expect(entry?.exports[0]?.deprecated).toBe(
+      "since 1.8.0 — single-name aliased clause still applies.",
+    );
+  });
+});
+
+describe("renderSurface — deprecations", () => {
+  const withDeprecated = [
+    {
+      label: ".",
+      exports: [
+        {
+          name: "oldThing",
+          typeOnly: false,
+          source: "./old-thing.js",
+          declaration: "export declare const oldThing: string;",
+          deprecated: "since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.",
+        },
+        {
+          name: "stillFine",
+          typeOnly: false,
+          source: "./fine.js",
+          declaration: "export declare const stillFine: number;",
+          deprecated: null,
+        },
+      ],
+    },
+  ];
+
+  test("renders the marker for a deprecated export", () => {
+    expect(renderSurface(withDeprecated)).toContain(
+      "**Deprecated:** since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.",
+    );
+  });
+
+  test("places the marker between the heading and the source line", () => {
+    expect(renderSurface(withDeprecated)).toContain(
+      "### `oldThing`\n\n**Deprecated:** since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.\n\nFrom `./old-thing.js`.",
+    );
+  });
+
+  test("still renders the fenced declaration for a deprecated export", () => {
+    expect(renderSurface(withDeprecated)).toContain(
+      "```ts\nexport declare const oldThing: string;\n```",
+    );
+  });
+
+  test("renders nothing extra for a non-deprecated export", () => {
+    expect(renderSurface(withDeprecated)).toContain("### `stillFine`\n\nFrom `./fine.js`.");
+  });
+
+  test("a deprecated tag with no message renders the label alone", () => {
+    const bare = [
+      {
+        label: ".",
+        exports: [
+          {
+            name: "bare",
+            typeOnly: false,
+            source: "./bare.js",
+            declaration: "export declare const bare: number;",
+            deprecated: "",
+          },
+        ],
+      },
+    ];
+    expect(renderSurface(bare)).toContain("**Deprecated**\n");
   });
 });

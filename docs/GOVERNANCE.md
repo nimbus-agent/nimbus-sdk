@@ -34,7 +34,7 @@ Not every change needs the same ceremony. Match the process to the blast radius.
 | Class | Examples | Process |
 |---|---|---|
 | **Editorial** | docs, comments, tests, internal refactors | Normal PR + review. |
-| **Additive** | new optional field, new export, new battery | PR + review; must satisfy the inclusion policy and not break the `exports` snapshot unexpectedly. Minor bump. |
+| **Additive** | new optional field, new export, new battery | PR + review; must satisfy the [inclusion policy](./INCLUSION-POLICY.md) and not break the `exports` snapshot unexpectedly. Minor bump. |
 | **Contract-affecting** | changing an exported type, the wire protocol, the schemas, or a conformance invariant | **RFC required** (below). Potentially a major bump. |
 | **Cross-ecosystem** | a new official language, the registry, the trust model | RFC **and** alignment with the [ecosystem roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/ecosystem-roadmap.md). |
 

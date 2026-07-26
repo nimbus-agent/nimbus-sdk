@@ -165,6 +165,113 @@ export function declaredNameOf(statement: string): string | null {
   return match?.[1] ?? null;
 }
 
+/** A JSDoc block, its `@deprecated` message, and everything after it. */
+const JSDOC_BLOCK = /\/\*\*([\s\S]*?)\*\//g;
+
+/** Anything that can precede the declaration a JSDoc block annotates. */
+const SKIPPABLE_BEFORE_DECLARATION = /^(?:\s|\/\/[^\n]*\n|\/\*(?!\*)[\s\S]*?\*\/)*/;
+
+/**
+ * Map each declared name to its `@deprecated` message, for declarations that carry one.
+ *
+ * Runs on the RAW module text, before `stripComments` — the deprecation marker lives in
+ * a comment, so by the time the rest of the extractor sees a module the marker is gone.
+ * Without this, deprecating an export would produce no diff in the golden file, and the
+ * one contract change the deprecation policy governs would be the one the contract guard
+ * cannot see.
+ *
+ * The message stops at the next JSDoc tag: tsc emits multi-tag blocks verbatim, so a
+ * `@deprecated` followed by `@param` would otherwise swallow it.
+ *
+ * A block that sits above a from-clause re-export (rather than a declaration) is also
+ * recorded, but only when that clause exports exactly one name — see
+ * `reexportedNamesOf`. A clause exporting more than one name (`export { a, b } from
+ * "./t.js"`) makes the marker's target genuinely ambiguous: there is no way to tell
+ * which of `a` or `b` it was meant for, so it is attached to neither rather than
+ * guessed or applied to all of them. This is the barrel-clause case; `buildSurface`
+ * still prefers a marker found in the source module itself when both exist.
+ */
+export function collectDeprecations(rawText: string): Map<string, string> {
+  const text = normalizeEol(rawText);
+  const found = new Map<string, string>();
+
+  JSDOC_BLOCK.lastIndex = 0;
+  let block = JSDOC_BLOCK.exec(text);
+  while (block !== null) {
+    const body = block[1] ?? "";
+    const message = deprecationMessage(body);
+    if (message !== null) {
+      const after = text.slice(block.index + block[0].length);
+      const declaration = after.replace(SKIPPABLE_BEFORE_DECLARATION, "");
+      const name = declaredNameOf(declaration);
+      if (name !== null) {
+        found.set(name, message);
+      } else {
+        const reexported = reexportedNamesOf(declaration);
+        // Exactly one name: unambiguous, attach the marker. Zero or several: either
+        // this isn't a from-clause at all, or it is one covering multiple names — in
+        // both cases there is no single name to safely attach the marker to.
+        const only = reexported.length === 1 ? reexported[0] : undefined;
+        if (only !== undefined) found.set(only, message);
+      }
+    }
+    block = JSDOC_BLOCK.exec(text);
+  }
+
+  return found;
+}
+
+// A tag begins at an `@word` preceded by whitespace (including a newline) or by the
+// start of the body — never when it directly follows a non-whitespace character. That
+// is how TypeScript's own JSDoc parser recognizes a tag, which is why tsc emits these
+// shapes at all, and it is what keeps an embedded address like `` `foo@bar` `` from
+// being mistaken for a tag boundary: the `@` there follows the letter `o`, not
+// whitespace. Operating on tag *positions* in the raw body, rather than scanning
+// line by line, is what lets a tag be found (or ended) mid-line as well as at a line
+// start — `/** @since 1.0 @deprecated ... */` and `/** @deprecated ... @param ... */`
+// both depend on this.
+const TAG_START = /(?<=^|\s)@([A-Za-z]\w*)/g;
+
+/**
+ * The text of a JSDoc body's `@deprecated` tag, or null if it has none.
+ *
+ * The message runs from the end of the `@deprecated` tag's name to the start of the
+ * next tag or the end of the body, whichever comes first — whether or not JSDoc knows
+ * that next tag. That matches how JSDoc itself parses: any recognized tag start ends
+ * the previous tag's text. Matching against a whitelist of known tags instead would
+ * absorb an unrecognized one and surprise anyone who knows JSDoc.
+ *
+ * A `@deprecated` tag whose following declaration is not exported is dropped, because
+ * `declaredNameOf` returns null for it. That is correct: a non-exported declaration is
+ * not part of the public surface, so its deprecation state is not this guard's
+ * business. `dist/` contains one today — `type SignedManifestShape` — so treating this
+ * as an error would fail on real output.
+ */
+function deprecationMessage(body: string): string | null {
+  const tags: { start: number; end: number; name: string }[] = [];
+  TAG_START.lastIndex = 0;
+  let match = TAG_START.exec(body);
+  while (match !== null) {
+    tags.push({ start: match.index, end: match.index + match[0].length, name: match[1] ?? "" });
+    match = TAG_START.exec(body);
+  }
+
+  const depIndex = tags.findIndex((tag) => tag.name === "deprecated");
+  if (depIndex === -1) return null;
+  const deprecatedTag = tags[depIndex];
+  if (deprecatedTag === undefined) return null;
+
+  const nextTag = tags[depIndex + 1];
+  const raw = body.slice(deprecatedTag.end, nextTag?.start ?? body.length);
+
+  return raw
+    .split("\n")
+    .map((line) => line.replace(/^\s*\*?\s?/, ""))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** One name re-exported by a barrel. `name` is what consumers import; `sourceName` is what the target module declares. */
 export type ReexportRef = {
   name: string;
@@ -185,6 +292,39 @@ export type ParsedBarrel = {
 const WILDCARD = /^export\s+(?:type\s+)?\*/;
 const FROM_CLAUSE = /^export\s+(type\s+)?\{([\s\S]*)\}\s*from\s*["']([^"']+)["']\s*;?$/;
 const ALIASED = /^(\S+)\s+as\s+(\S+)$/;
+
+/**
+ * Every name a from-clause re-export statement makes available to a consumer — the
+ * alias if one is given, otherwise the bare specifier, in clause order — or `[]` if
+ * the first statement in `text` is not a from-clause. This is per-clause, not
+ * per-name: `export { a, b } from "./t.js"` returns `["a", "b"]` with no way to tell
+ * them apart, so a caller cannot assume the granularity of a single declared name.
+ *
+ * Used so a `@deprecated` marker placed directly above a barrel re-export clause (e.g.
+ * `export { oldThing } from "./old.js"`) still attaches to the name every consumer
+ * imports, even though `declaredNameOf` — which only recognizes declarations, not
+ * re-export clauses — returns null for that statement. `collectDeprecations` only
+ * attaches the marker when this returns exactly one name; a multi-name result means
+ * the marker's target is ambiguous, not that it applies to all of them.
+ */
+function reexportedNamesOf(text: string): string[] {
+  const [statement] = splitTopLevelStatements(stripComments(text));
+  if (statement === undefined) return [];
+
+  const clause = FROM_CLAUSE.exec(statement);
+  if (clause === null) return [];
+
+  const body = clause[2] ?? "";
+  const names: string[] = [];
+  for (const raw of body.split(",")) {
+    const specifier = raw.trim();
+    if (specifier.length === 0) continue;
+    const bare = specifier.replace(/^type\s+/, "").trim();
+    const aliased = ALIASED.exec(bare);
+    names.push(aliased !== null ? (aliased[2] ?? bare) : bare);
+  }
+  return names;
+}
 
 /** A bare `export {}` (or `export {};`) — a real TypeScript module marker, not an export. */
 const BARE_EXPORT_MARKER = /^export\s*\{\s*\}\s*;?$/;
@@ -302,6 +442,8 @@ export type SurfaceExport = {
   /** The module specifier it came from, or `(local)` if the barrel declares it. */
   source: string;
   declaration: string;
+  /** The `@deprecated` message, or null when the export is not deprecated. */
+  deprecated: string | null;
 };
 
 export type EntrySurface = { label: string; exports: SurfaceExport[] };
@@ -425,30 +567,55 @@ function tidy(statement: string): string {
  */
 export const DECLARATION_NOT_FOUND = "(declaration not found)";
 
+/** One target module's declarations and deprecations, read once and reused. */
+type ModuleIndex = {
+  declarations: Map<string, string>;
+  deprecations: Map<string, string>;
+};
+
 export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySurface[] {
   return entries.map((entry) => {
-    const barrel = parseBarrel(readFile(entry.file));
+    const barrelText = readFile(entry.file);
+    const barrel = parseBarrel(barrelText);
+    const barrelDeprecations = collectDeprecations(barrelText);
     const exports: SurfaceExport[] = [];
 
     for (const statement of barrel.locals) {
       const name = declaredNameOf(statement);
       if (name === null) continue;
-      exports.push({ name, typeOnly: false, source: "(local)", declaration: tidy(statement) });
+      exports.push({
+        name,
+        typeOnly: false,
+        source: "(local)",
+        declaration: tidy(statement),
+        deprecated: barrelDeprecations.get(name) ?? null,
+      });
     }
 
-    const cache = new Map<string, Map<string, string>>();
+    const cache = new Map<string, ModuleIndex>();
     for (const ref of barrel.reexports) {
       const target = resolveSpecifier(entry.file, ref.module);
-      let declarations = cache.get(target);
-      if (declarations === undefined) {
-        declarations = declarationsOf(readFile(target), target);
-        cache.set(target, declarations);
+      let index = cache.get(target);
+      if (index === undefined) {
+        const text = readFile(target);
+        index = {
+          declarations: declarationsOf(text, target),
+          deprecations: collectDeprecations(text),
+        };
+        cache.set(target, index);
       }
+      // The source module's own marker wins when both exist. Falling back to the
+      // barrel's deprecation map (keyed by the exported/alias name, not the source
+      // name) covers a marker placed directly on the re-export clause — otherwise
+      // `declaredNameOf` returning null for that clause would silently drop it, and
+      // `docs/api-surface.md` would show no diff for a real deprecation.
       exports.push({
         name: ref.name,
         typeOnly: ref.typeOnly,
         source: ref.module,
-        declaration: declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
+        declaration: index.declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
+        deprecated:
+          index.deprecations.get(ref.sourceName) ?? barrelDeprecations.get(ref.name) ?? null,
       });
     }
 
@@ -484,16 +651,16 @@ export function renderSurface(surfaces: EntrySurface[]): string {
     lines.push(`${surface.exports.length} exports.`, "");
 
     for (const entry of surface.exports) {
-      lines.push(
-        `### \`${entry.name}\`${entry.typeOnly ? " *(type-only)*" : ""}`,
-        "",
-        `From \`${entry.source}\`.`,
-        "",
-        "```ts",
-        entry.declaration,
-        "```",
-        "",
-      );
+      lines.push(`### \`${entry.name}\`${entry.typeOnly ? " *(type-only)*" : ""}`, "");
+
+      if (entry.deprecated !== null) {
+        lines.push(
+          entry.deprecated === "" ? "**Deprecated**" : `**Deprecated:** ${entry.deprecated}`,
+          "",
+        );
+      }
+
+      lines.push(`From \`${entry.source}\`.`, "", "```ts", entry.declaration, "```", "");
     }
   }
 

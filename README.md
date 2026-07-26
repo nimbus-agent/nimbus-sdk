@@ -71,6 +71,9 @@ Changing an exported type is a semver-relevant change.
   model as the SDK grows.
 - [Governance](./docs/GOVERNANCE.md) — how contract-affecting decisions are made
   (the RFC process, how a language becomes official).
+- [Inclusion policy](./docs/INCLUSION-POLICY.md) — the bar a new battery must clear.
+- [Deprecation policy](./docs/DEPRECATION-POLICY.md) — how an export is marked
+  deprecated and how long it survives before removal.
 - [Glossary](./docs/GLOSSARY.md) — the shared vocabulary (narrow waist, binding,
   conformance suite, …).
 - [Contract spec](./docs/spec/) — the future home of the language-neutral spec

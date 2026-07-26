@@ -58,8 +58,8 @@ app author actually reaches for, so common work isn't reinvented per connector.
 Already shipped: `crypto` (Ed25519 signing, JWT, Google / Apple service tokens),
 `jmap-fastmail`, `icalendar`, `data-profile` (CSV / JSON / Parquet), `flux-cd`,
 `storybook`, distribution-channel resolution, the scoped audit logger, and HITL
-requests. Growth is governed by an inclusion policy (dep-free, pure, genuinely
-reused) so the surface grows on purpose, not by accretion.
+requests. Growth is governed by an [inclusion policy](./INCLUSION-POLICY.md) (dep-free, pure, genuinely
+reused, contract-shaped) so the surface grows on purpose, not by accretion.
 
 ### 4. Authoring experience
 
@@ -100,7 +100,7 @@ roadmap).
 
 The contract is a shared law many products and languages depend on, so its
 evolution must be predictable. This pillar owns semver discipline across the spec
-**and** every binding, a written **deprecation policy** (how an export is marked
+**and** every binding, a written **[deprecation policy](./DEPRECATION-POLICY.md)** (how an export is marked
 deprecated and how long it lives before removal), **contract-version negotiation**
 so a connector and gateway can agree on which version they speak, and eventually
 **LTS lines** for the frozen core. Changing the contract is changing a law — this
@@ -148,9 +148,9 @@ reference every later language SDK is measured against.*
   platform-asymmetry — is exercised on every PR — *Pillar 5*
 - [x] Run the **Node ESM smoke across the supported Node LTS versions** (not just the
   runner default), since the published ESM must load under plain Node on each — *Pillar 5*
-- [ ] The written **inclusion policy** for the batteries, linked from
+- [x] The written **inclusion policy** for the batteries, linked from
   `CONTRIBUTING.md` — *Pillar 3*
-- [ ] The written **deprecation policy** (how an export is marked and how long it
+- [x] The written **deprecation policy** (how an export is marked and how long it
   lives) — *Pillar 7*
 
 **Exit criteria:** every public export is documented and reachable from the docs

@@ -58,7 +58,7 @@ enforced in the monorepo; the SDK ships only the sandbox **contract tests** / pr
 
 **Battery** — a pure, dependency-free helper module the SDK ships so common connector
 work isn't reinvented (e.g. `crypto`, `jmap-fastmail`, `icalendar`, `data-profile`).
-Governed by the inclusion policy.
+Governed by the [inclusion policy](./INCLUSION-POLICY.md).
 
 ## Polyglot & conformance
 
@@ -82,8 +82,8 @@ maintained under the project's [governance](./GOVERNANCE.md).
 Conventional Commits encode the intended bump; release-please applies it.
 
 **Deprecation policy** — the rules for marking an export deprecated and how long it
-survives before a major bump removes it (a [Pillar 7](./ROADMAP.md#7-versioning--compatibility)
-deliverable).
+survives before a major bump removes it. See
+[DEPRECATION-POLICY.md](./DEPRECATION-POLICY.md).
 
 **Contract-version negotiation** — the mechanism by which a connector and gateway
 agree on which contract version they both speak.

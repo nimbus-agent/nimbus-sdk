@@ -1,0 +1,126 @@
+import { describe, expect, test } from "bun:test";
+import type { EntryPoint, EntrySurface } from "./api-surface.ts";
+import { moduleKeyOf, modulesInSurface, parseCovers } from "./docs-modules.ts";
+
+describe("moduleKeyOf", () => {
+  test("strips the dist/ prefix and the .d.ts suffix", () => {
+    expect(moduleKeyOf("dist/index.d.ts", "./crypto/jwt.js")).toBe("crypto/jwt");
+  });
+
+  test("resolves relative to the importing entry, not the repo root", () => {
+    expect(moduleKeyOf("dist/ipc/index.d.ts", "./ndjson-line-reader.js")).toBe(
+      "ipc/ndjson-line-reader",
+    );
+  });
+
+  test("maps (local) to the entry barrel's own module", () => {
+    expect(moduleKeyOf("dist/testing/index.d.ts", "(local)")).toBe("testing/index");
+  });
+
+  test("maps (local) on the root barrel to index", () => {
+    expect(moduleKeyOf("dist/index.d.ts", "(local)")).toBe("index");
+  });
+});
+
+describe("modulesInSurface", () => {
+  const entries: EntryPoint[] = [
+    { label: ".", file: "dist/index.d.ts" },
+    { label: "./testing", file: "dist/testing/index.d.ts" },
+  ];
+
+  test("returns every distinct module, sorted, with the exports that live in each", () => {
+    const surfaces: EntrySurface[] = [
+      {
+        label: ".",
+        exports: [
+          {
+            name: "signJwt",
+            typeOnly: false,
+            source: "./crypto/jwt.js",
+            declaration: "",
+            deprecated: null,
+          },
+          {
+            name: "decodeJwt",
+            typeOnly: false,
+            source: "./crypto/jwt.js",
+            declaration: "",
+            deprecated: null,
+          },
+          {
+            name: "buildIcs",
+            typeOnly: false,
+            source: "./icalendar.js",
+            declaration: "",
+            deprecated: null,
+          },
+        ],
+      },
+      {
+        label: "./testing",
+        exports: [
+          {
+            name: "MockGateway",
+            typeOnly: false,
+            source: "(local)",
+            declaration: "",
+            deprecated: null,
+          },
+        ],
+      },
+    ];
+
+    expect(modulesInSurface(entries, surfaces)).toEqual(
+      new Map([
+        ["crypto/jwt", ["decodeJwt", "signJwt"]],
+        ["icalendar", ["buildIcs"]],
+        ["testing/index", ["MockGateway"]],
+      ]),
+    );
+  });
+
+  test("throws when a surface label has no matching entry point", () => {
+    const orphan: EntrySurface[] = [
+      {
+        label: "./ghost",
+        exports: [
+          { name: "x", typeOnly: false, source: "./a.js", declaration: "", deprecated: null },
+        ],
+      },
+    ];
+    expect(() => modulesInSurface(entries, orphan)).toThrow(/no entry point named "\.\/ghost"/);
+  });
+});
+
+describe("parseCovers", () => {
+  test("reads a single-line covers comment", () => {
+    expect(parseCovers("<!-- covers: icalendar -->\n\n# iCalendar\n")).toEqual(["icalendar"]);
+  });
+
+  test("reads a multi-line covers comment and trims each entry", () => {
+    const page =
+      "<!-- covers: crypto/jwt, crypto/canonical-json,\n             crypto/verify-signature -->\n";
+    expect(parseCovers(page)).toEqual([
+      "crypto/jwt",
+      "crypto/canonical-json",
+      "crypto/verify-signature",
+    ]);
+  });
+
+  test("is CRLF-independent", () => {
+    expect(parseCovers("<!-- covers: a,\r\n  b -->\r\n")).toEqual(["a", "b"]);
+  });
+
+  test("returns null when the page has no covers comment", () => {
+    expect(parseCovers("# A page with no marker\n")).toBeNull();
+  });
+
+  test("throws when a page declares two covers comments", () => {
+    const page = "<!-- covers: a -->\n<!-- covers: b -->\n";
+    expect(() => parseCovers(page)).toThrow(/declares more than one "covers:" comment/);
+  });
+
+  test("throws on an empty covers list rather than treating it as no claim", () => {
+    expect(() => parseCovers("<!-- covers: -->\n")).toThrow(/empty "covers:" list/);
+  });
+});

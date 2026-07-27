@@ -1,5 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { assertAllowedImports, extractSnippets, sdkPathsMapping } from "./docs-snippets.ts";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { collectEntryPoints } from "./api-surface.ts";
+import {
+  assertAllowedImports,
+  extractSnippets,
+  SCRATCH_DIR,
+  SNIPPET_SOURCES,
+  type Snippet,
+  sdkPathsMapping,
+} from "./docs-snippets.ts";
 
 describe("extractSnippets", () => {
   test("collects ts fences with their 1-based opening-fence line", () => {
@@ -140,4 +151,160 @@ describe("assertAllowedImports", () => {
       assertAllowedImports({ file: "d.md", line: 1, code: 'import "polyfill";\n' }, allowed),
     ).toThrow(/"polyfill"/);
   });
+});
+
+const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
+
+/** Every document in the teaching surface, repo-relative and sorted. */
+function snippetSources(): string[] {
+  const pages = readdirSync(join(repoRoot, SNIPPET_SOURCES.modulesDir))
+    .filter((name) => name.endsWith(".md"))
+    .sort()
+    .map((name) => `${SNIPPET_SOURCES.modulesDir}/${name}`);
+  return [...SNIPPET_SOURCES.extra, ...pages];
+}
+
+/**
+ * Write every snippet into a scratch project and typecheck the lot in one `tsc` pass.
+ * Returns tsc's combined output, and "" when it is clean.
+ *
+ * One invocation, not one per snippet: the compiler's startup cost dominates, and this
+ * runs on three operating systems on every pull request.
+ *
+ * The scratch directory sits at the repository root on purpose. `types: ["bun"]` resolves
+ * by walking up from the tsconfig's own directory looking for `node_modules/@types/bun`,
+ * which `@types/bun` in the root devDependencies provides. Moving this to the system temp
+ * directory breaks that walk and fails with `TS2688: Cannot find type definition file for
+ * 'bun'` — the placement is load-bearing, not incidental.
+ */
+async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> {
+  const scratch = join(repoRoot, SCRATCH_DIR);
+  rmSync(scratch, { recursive: true, force: true });
+  mkdirSync(scratch, { recursive: true });
+
+  // Everything from here on is inside try/finally: a throw from writeFileSync or from the
+  // spawn would otherwise leave the scratch directory sitting in the working tree, where
+  // it shows up in every later `git status` and gets linted by editors.
+  try {
+    const fileToOrigin = new Map<string, string>();
+    snippets.forEach((snippet, index) => {
+      const name = `snippet-${String(index).padStart(3, "0")}.ts`;
+      writeFileSync(join(scratch, name), snippet.code, "utf8");
+      fileToOrigin.set(name, `${snippet.file}:${snippet.line}`);
+    });
+
+    const paths = sdkPathsMapping(
+      "@nimbus-dev/sdk",
+      collectEntryPoints(readFromRoot("package.json")),
+      repoRoot,
+    );
+    writeFileSync(
+      join(scratch, "tsconfig.json"),
+      `${JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ESNext",
+            module: "ESNext",
+            moduleResolution: "bundler",
+            lib: ["ESNext"],
+            types: ["bun"],
+            strict: true,
+            noUncheckedIndexedAccess: true,
+            exactOptionalPropertyTypes: true,
+            skipLibCheck: true,
+            noEmit: true,
+            paths,
+          },
+          include: ["./*.ts"],
+        },
+        null,
+        2,
+      )}\n`,
+      "utf8",
+    );
+
+    // `process.execPath` is the absolute path to the running Bun binary, and `bun x` is
+    // what `bunx` aliases to. Spawning the resolved binary rather than the bare string
+    // "bunx" removes any dependence on PATH inside the spawned environment — which is
+    // where this would otherwise be fragile on the windows-2025 CI runner.
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, "x", "tsc", "--noEmit", "--project", join(scratch, "tsconfig.json")],
+      cwd: repoRoot,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+
+    const output = `${result.stdout.toString()}${result.stderr.toString()}`;
+
+    if (/TS2688/.test(output)) {
+      throw new Error(
+        `the scratch project could not resolve Bun's type definitions:\n\n${output}\n` +
+          "This means @types/bun was not found by walking up from " +
+          `${SCRATCH_DIR}/. Run \`bun install\`, and do not move the scratch directory ` +
+          "out of the repository root.",
+      );
+    }
+
+    if (result.exitCode === 0) return "";
+
+    // Map every scratch filename back to the document and line the fence came from, so a
+    // failure names docs/modules/crypto.md:42 rather than .docs-snippets/snippet-007.ts.
+    let mapped = output;
+    for (const [name, origin] of fileToOrigin) {
+      mapped = mapped.split(name).join(origin);
+    }
+    return mapped;
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}
+
+describe("documentation snippets", () => {
+  test("dist/ has been built", () => {
+    expect(
+      existsSync(join(repoRoot, "dist/index.d.ts")),
+      "dist/ is missing — run `bun run build` before `bun test`",
+    ).toBe(true);
+  });
+
+  test("the teaching surface contains snippets at all", () => {
+    const all = snippetSources().flatMap((file) => extractSnippets(file, readFromRoot(file)));
+    expect(
+      all.length,
+      "zero ts fences found across README.md and docs/modules/ — either the extractor is " +
+        "broken or the docs have no examples, and this guard would pass vacuously",
+    ).toBeGreaterThan(0);
+  });
+
+  test("every snippet imports only SDK entry points and node: builtins", () => {
+    const entries = collectEntryPoints(readFromRoot("package.json"));
+    const allowed = new Set(Object.keys(sdkPathsMapping("@nimbus-dev/sdk", entries, repoRoot)));
+    for (const file of snippetSources()) {
+      for (const snippet of extractSnippets(file, readFromRoot(file))) {
+        assertAllowedImports(snippet, allowed);
+      }
+    }
+  });
+
+  test("every snippet typechecks against the built dist/", async () => {
+    const all = snippetSources().flatMap((file) => extractSnippets(file, readFromRoot(file)));
+    const output = await typecheckSnippets(all);
+    expect(output, `documentation snippets failed to typecheck:\n\n${output}`).toBe("");
+  }, 120_000);
+
+  test("a snippet importing a non-existent subpath fails — the no-wildcard regression test", async () => {
+    const output = await typecheckSnippets([
+      {
+        file: "synthetic",
+        line: 1,
+        code: 'import { signJwt } from "@nimbus-dev/sdk/crypto";\nvoid signJwt;\n',
+      },
+    ]);
+    expect(
+      output,
+      "@nimbus-dev/sdk/crypto typechecked clean — the paths mapping has grown a wildcard, " +
+        "which green-lights imports Node will reject at runtime",
+    ).not.toBe("");
+  }, 120_000);
 });

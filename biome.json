@@ -11,6 +11,7 @@
       "**",
       "!**/dist",
       "!**/node_modules",
+      "!**/.docs-snippets",
       "!**/*.d.ts",
       "!**/.claude/settings.local.json"
     ]

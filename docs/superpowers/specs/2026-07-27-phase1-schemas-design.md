@@ -137,7 +137,7 @@ follows the same semver discipline, not the same numbers.
 
 ### `$id`
 
-```
+```text
 https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/schemas/v1/extension-manifest.schema.json
 ```
 

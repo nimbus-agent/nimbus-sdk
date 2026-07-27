@@ -12,8 +12,28 @@
       "items": {
         "type": "object",
         "required": ["file", "shape", "expect", "class", "reason"],
+        "allOf": [
+          {
+            "if": {
+              "properties": { "file": { "type": "string", "pattern": "^manifest/" } },
+              "required": ["file"]
+            },
+            "then": { "properties": { "shape": { "const": "ExtensionManifest" } } }
+          },
+          {
+            "if": {
+              "properties": { "file": { "type": "string", "pattern": "^item/" } },
+              "required": ["file"]
+            },
+            "then": { "properties": { "shape": { "const": "NimbusItem" } } }
+          }
+        ],
         "properties": {
-          "file": { "type": "string", "pattern": "\\S" },
+          "file": {
+            "type": "string",
+            "pattern": "^(manifest|item)/[A-Za-z0-9._-]+\\.json$",
+            "description": "Fixture path relative to this directory. Constrained to the two fixture subdirectories with no path separators in the filename, so an entry cannot reach outside the corpus. The allOf above binds the directory to the shape, so a manifest/ path cannot be validated against the item schema."
+          },
           "shape": { "enum": ["ExtensionManifest", "NimbusItem"] },
           "expect": { "enum": ["valid", "invalid"] },
           "class": {

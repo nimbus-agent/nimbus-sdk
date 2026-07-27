@@ -46,6 +46,24 @@ A change to a type that is used in a public signature but not itself exported fr
 barrel (e.g. an options type named in a constructor parameter) is a breaking change
 that this file will not show; review those by hand.
 
+## Adding a public export
+
+A new export must be documented before it can ship. `scripts/docs-coverage.test.ts`
+resolves every export to its source module and fails the pull request unless some page in
+[`docs/modules/`](./docs/modules/) claims that module in its `<!-- covers: ... -->`
+comment. If your export lives in a module that already has a page, the guard is already
+satisfied — but write the prose anyway, since that is the point of the page.
+
+Code examples in `docs/modules/` and `README.md` are typechecked against the built
+`dist/` by `scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
+standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, its
+`./testing` and `./ipc` entry points, or `node:` builtins. Use ` ```text ` for anything
+that is not meant to compile.
+
+Whether the export is additive or breaking is governed by the
+[deprecation policy](./docs/DEPRECATION-POLICY.md); whether a new *battery* belongs here
+at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
+
 ## Architecture notes
 
 - **Dependency-free at runtime.** `@nimbus-dev/sdk` ships with **no** runtime

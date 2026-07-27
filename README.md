@@ -67,6 +67,8 @@ Changing an exported type is a semver-relevant change.
 
 ## Documentation
 
+- [Documentation index](./docs/README.md) — every module, every public export, and the
+  runnable examples.
 - [Roadmap](./docs/ROADMAP.md) — the 9 pillars and the phased plan to make the SDK a
   language-neutral, batteries-included authoring contract for all of Nimbus.
 - [Architecture](./docs/ARCHITECTURE.md) — how the SDK is structured today and the

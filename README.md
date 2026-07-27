@@ -20,15 +20,15 @@ npm install @nimbus-dev/sdk    # or: bun add @nimbus-dev/sdk
 
 ## Quickstart
 
-```typescript
-import { NimbusExtensionServer, type ExtensionManifest } from "@nimbus-dev/sdk";
+```ts
+import { type ExtensionManifest, NimbusExtensionServer } from "@nimbus-dev/sdk";
 
-const manifest: ExtensionManifest = {
-  id: "my-connector",
-  displayName: "My Connector",
+export const manifest: ExtensionManifest = {
+  id: "quickstart-connector",
+  displayName: "Quickstart Connector",
   version: "0.1.0",
-  description: "Example connector",
-  author: "you",
+  description: "The smallest connector that satisfies the Nimbus contract.",
+  author: "Nimbus Contributors",
   entrypoint: "./index.ts",
   runtime: "bun",
   permissions: ["read"],
@@ -36,12 +36,18 @@ const manifest: ExtensionManifest = {
   minNimbusVersion: "0.1.0",
 };
 
+export const TOOLS = [{ name: "echo", description: "Echoes its input" }] as const;
+
+export async function echoHandler(input: { text: string }): Promise<{ text: string }> {
+  return input;
+}
+
 const server = new NimbusExtensionServer({ manifest });
 
-server.registerTool("echo", {
-  description: "Echoes its input",
+server.registerTool(TOOLS[0].name, {
+  description: TOOLS[0].description,
   inputSchema: { type: "object", properties: { text: { type: "string" } } },
-  handler: async (input) => input,
+  handler: echoHandler,
 });
 
 server.start();
@@ -61,6 +67,8 @@ Changing an exported type is a semver-relevant change.
 
 ## Documentation
 
+- [Documentation index](./docs/README.md) — every module, every public export, and the
+  runnable examples.
 - [Roadmap](./docs/ROADMAP.md) — the 9 pillars and the phased plan to make the SDK a
   language-neutral, batteries-included authoring contract for all of Nimbus.
 - [Architecture](./docs/ARCHITECTURE.md) — how the SDK is structured today and the

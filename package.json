@@ -41,7 +41,7 @@
     "build": "tsc --project tsconfig.build.json",
     "api:surface": "bun run build && bun run scripts/api-surface.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check src/ scripts/",
+    "lint": "biome check src/ scripts/ examples/",
     "test": "bun test",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build && bun run typecheck",

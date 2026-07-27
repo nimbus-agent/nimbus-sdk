@@ -137,10 +137,10 @@ boundary is the gate.
 *Goal: make the SDK-as-it-exists excellent, documented, and safe to build on — the
 reference every later language SDK is measured against.*
 
-- [ ] Per-module docs for every battery (crypto, jmap-fastmail, icalendar,
+- [x] Per-module docs for every battery (crypto, jmap-fastmail, icalendar,
   data-profile, flux-cd, storybook, distribution-channel) — *Pillars 3, 4*
-- [ ] A docs surface that indexes every public export — *Pillar 4*
-- [ ] A runnable example connector kept green in CI — *Pillar 4*
+- [x] A docs surface that indexes every public export — *Pillar 4*
+- [x] A runnable example connector kept green in CI — *Pillar 4*
 - [x] A public **API-surface snapshot test** that fails PRs on unintended
   `exports` changes — *Pillars 5, 7*
 - [x] Expand CI from `ubuntu`-only to a **cross-OS matrix** (Linux / macOS /

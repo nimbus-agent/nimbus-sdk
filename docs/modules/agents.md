@@ -102,9 +102,14 @@ correct. The five claimed modules divide up as follows.
 - **`agents/brief-composites`** — the nine briefs themselves, the `AgentBrief` union, and
   the `BriefFor<A>` lookup that maps an `AgentName` to its brief type. It also holds the
   finding shapes that only appear inside a composite — `ConflictFinding`, `GhostFinding`,
-  `HuddleContribution`, `FederatedItemLite`, `ExpertiseRank`, `ImpactCategory`, `WhyPeek` —
-  so "leaf shapes live in `brief-types`" is a rule of thumb, not a boundary you can rely on.
-  `BriefReadyPayload<B>` is the envelope a completed brief arrives in.
+  `HuddleContribution`, `FederatedItemLite`, `ExpertiseRank` — so "leaf shapes live in
+  `brief-types`" is a rule of thumb, not a boundary you can rely on. Two further exports sit
+  here without belonging to any brief at all: `ImpactCategory`, which no composite
+  references — `ImpactFinding.category` over in `brief-types` inlines the same five-member
+  union rather than importing it, so the two must be changed together — and `WhyPeek`, the
+  `agents.whyPeek` result, deliberately outside the `AgentBrief` union because it carries no
+  `AgentBriefBase` fields and no gap notes. `BriefReadyPayload<B>` is the envelope a completed
+  brief arrives in.
 - **`agents/brief-guards`** — the nine `is*Brief` guards and `BRIEF_GUARDS`, which indexes
   them by `AgentName` so you can dispatch without a switch.
 - **`agents/guard-factory`** — `createBriefGuard`, which all nine are built from.

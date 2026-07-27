@@ -3,7 +3,9 @@
 # `data-profile`
 
 Structural profiling of CSV, JSON, JSONL, and Parquet — column names, column kinds, and a
-row-count estimate. The profile it produces is **metadata only**.
+row-count estimate. Everything it reads is structural: keys, schema names, and the *kinds*
+of values. The one place that can hand you a value back is `parseCsvHeader`, and the first
+constraint below is about exactly that.
 
 ## When you reach for it
 
@@ -12,17 +14,30 @@ the dataset itself becoming searchable.
 
 ## Constraints that are load-bearing
 
-- **The column extractors never return a value.** `parseCsvHeader`, `parseJsonColumns`,
-  `parseJsonlColumns`, and `parquetColumnsFromMetadata` return names and kinds and nothing
-  else; `jsKind` returns the *name* of a value's kind, never the value. That is the
-  `data-profile` half of the [inclusion policy](../INCLUSION-POLICY.md)'s standing scope
-  constraints — metadata only, never cell values.
-- **`firstLineAndRows` is the exception, and handling it is on you.** It returns the file's
-  first line **verbatim and unbounded**. For CSV that is the header row, which is metadata.
-  **For JSONL it is a complete data record, cell values included** — it is exactly the input
-  `parseJsonlColumns` needs, so pass it straight in and let the returned columns be the only
-  thing that survives. Do not log it, do not put it in an error message, and do not store it
-  on the item: the same policy forbids row or body data reaching anywhere a log could.
+- **Three of the four extractors read keys; `parseCsvHeader` reads a line.**
+  `parseJsonColumns`, `parseJsonlColumns`, and `parquetColumnsFromMetadata` take their names
+  from object keys or from Parquet schema elements and their `type` from `jsKind`, which
+  returns the *name* of a value's kind and never the value. Those three cannot leak a cell.
+  `parseCsvHeader` is structurally different: it splits the single line it is handed on
+  commas, strips surrounding quotes, and returns every field as a column `name`. **It does
+  no header detection** — it cannot, because it is given one line and nothing to compare it
+  against. Hand it a headerless CSV and up to 512 cell values come back labelled as column
+  names. Deciding that the file has a header row is the caller's job; nothing in this module
+  does it for you.
+- **`firstLineAndRows` returns the line verbatim, and handling it is on you.** It hands back
+  the file's first line **unbounded**. For a CSV that really does have a header, that line is
+  metadata. **For JSONL it is a complete data record, cell values included.** Do not log it,
+  do not put it in an error message, and do not store it on the item: the
+  [inclusion policy](../INCLUSION-POLICY.md)'s standing scope constraint is that row and body
+  data never reaches anywhere a log could.
+- **Whether the returned columns are safe residue depends on the format being identified
+  correctly, and the two paths fail in opposite directions.** `parseJsonlColumns` fails
+  *closed*: a line that is not a JSON object — a CSV header row, say — returns `[]`, so a
+  wrong guess yields nothing rather than the wrong thing. `parseCsvHeader` fails *open*: a
+  JSONL record routed to it by a mistaken format guess is split on its commas and returned as
+  "column names", and those fragments are row data. Establish the format, and for CSV the
+  presence of a header, before you treat the output as metadata you may keep. Where you
+  cannot establish it, treat the names with the same care as the line they came from.
 - **A column cap of 512 applies.** Profiling a pathological file yields a truncated column
   list rather than unbounded work.
 - **`rowCountEstimate` is an estimate, and `null` when it cannot be one.** For text it is a
@@ -53,6 +68,12 @@ type Profile = { columns: DataColumn[]; rowCountEstimate: number | null };
  *
  * `firstLine` goes straight into the column parser and nowhere else. For JSONL it is a
  * real record — logging it, or attaching it to a thrown error, would leak row data.
+ *
+ * `jsonl` is load-bearing, and this signature makes it the caller's problem on purpose. A
+ * JSONL file called CSV here reaches `parseCsvHeader`, which splits the record on its
+ * commas and returns the fragments as column names. A headerless CSV does the same without
+ * any misrouting at all — so a caller that cannot vouch for the header must not treat these
+ * columns as metadata.
  */
 export function profileText(head: string, truncated: boolean, jsonl: boolean): Profile {
   const { firstLine, rowCountEstimate } = firstLineAndRows(head, truncated);

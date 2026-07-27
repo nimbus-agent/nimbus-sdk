@@ -9,6 +9,7 @@
 
 import {
   type AuditLogger,
+  buildVEvent,
   createScopedAuditLogger,
   type ExtensionManifest,
   type HitlRequest,
@@ -50,7 +51,18 @@ export type ProposeEntryInput = {
   readonly calendarId: string;
   readonly summary: string;
   readonly startsAt: string;
+  readonly endsAt: string;
 };
+
+/**
+ * ISO 8601 (`2026-08-01T10:00:00Z`) to the RFC 5545 form (`20260801T100000Z`).
+ *
+ * `buildVEvent` writes the timestamps it is given verbatim — it parses no dates and reads
+ * no clock — so converting them is the caller's job, here and for `DTSTAMP`.
+ */
+function toIcsTimestamp(iso: string): string {
+  return iso.replace(/\.\d+/, "").replaceAll("-", "").replaceAll(":", "");
+}
 
 /**
  * Metadata only — no events, no attendees, no bodies.
@@ -76,18 +88,36 @@ export async function listCalendarsHandler(logger: AuditLogger): Promise<Calenda
  * connector mutate a calendar without approval. Returning the request — rather than
  * writing and logging that a write happened — is what makes the gate real.
  *
- * The audit entry records which calendar was targeted, never the proposed content:
- * no `summary`, no `diff`. Body content must never reach a log.
+ * The `diff` is the real VEVENT, built by the SDK's `icalendar` battery: an approver should
+ * be shown the exact thing that will be written, not a paraphrase of it. `now` is a
+ * parameter because `buildVEvent` never reads the clock.
+ *
+ * The audit entry records which calendar was targeted and nothing else — not the `summary`,
+ * and emphatically not the VEVENT. A `HitlRequest` is a return value shown to a human;
+ * a log is not, and body content must never reach one.
  */
 export async function proposeEventHandler(
   input: ProposeEntryInput,
   logger: AuditLogger,
+  now: string,
 ): Promise<HitlRequest> {
   await logger.log("calendar.entry.propose", { calendarId: input.calendarId });
+
+  const start = toIcsTimestamp(input.startsAt);
+  const vevent = buildVEvent(
+    {
+      uid: `${manifest.id}-${input.calendarId}-${start}`,
+      summary: input.summary,
+      start,
+      end: toIcsTimestamp(input.endsAt),
+    },
+    now,
+  );
+
   return {
     actionId: "calendar.event.create",
     summary: `Create "${input.summary}" in ${input.calendarId} at ${input.startsAt}`,
-    diff: `+ ${input.startsAt}  ${input.summary}`,
+    diff: vevent,
   };
 }
 
@@ -125,14 +155,18 @@ server.registerTool(TOOLS[1].name, {
   description: TOOLS[1].description,
   inputSchema: {
     type: "object",
-    required: ["calendarId", "summary", "startsAt"],
+    required: ["calendarId", "summary", "startsAt", "endsAt"],
     properties: {
       calendarId: { type: "string" },
       summary: { type: "string" },
       startsAt: { type: "string", format: "date-time" },
+      endsAt: { type: "string", format: "date-time" },
     },
   },
-  handler: (input: ProposeEntryInput) => proposeEventHandler(input, auditLogger),
+  // The clock is read here, at the edge, and injected — which is what keeps the handler and
+  // `buildVEvent` beneath it deterministic under test.
+  handler: (input: ProposeEntryInput) =>
+    proposeEventHandler(input, auditLogger, toIcsTimestamp(new Date().toISOString())),
 });
 
 server.start();

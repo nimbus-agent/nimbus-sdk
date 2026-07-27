@@ -19,8 +19,8 @@ A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 | [`hitl-request`](./modules/hitl-request.md) | Human-in-the-loop request shapes |
 | [`crypto`](./modules/crypto.md) | Ed25519 signing, JWTs, service-account tokens |
 | [`icalendar`](./modules/icalendar.md) | RFC 5545 building and parsing |
-| [`jmap-fastmail`](./modules/jmap-fastmail.md) | JMAP helpers — headers only |
-| [`data-profile`](./modules/data-profile.md) | CSV / JSON / Parquet profiling — metadata only |
+| [`jmap-fastmail`](./modules/jmap-fastmail.md) | Headers, attachment metadata, capped preview |
+| [`data-profile`](./modules/data-profile.md) | CSV / JSON / Parquet structural profiling |
 | [`flux-cd`](./modules/flux-cd.md) | Flux CD kind registry |
 | [`storybook`](./modules/storybook.md) | Storybook helpers |
 | [`distribution-channel`](./modules/distribution-channel.md) | Channel resolution |
@@ -32,7 +32,7 @@ A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 - [`examples/quickstart-connector/`](../examples/quickstart-connector/) — the smallest
   connector that passes the contract tests.
 - [`examples/calendar-connector/`](../examples/calendar-connector/) — HITL gating, the
-  audit logger, and a battery doing real work.
+  audit logger, and the `icalendar` battery building the VEVENT an approver is shown.
 
 ## Policies and process
 

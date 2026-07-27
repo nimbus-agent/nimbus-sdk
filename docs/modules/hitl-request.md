@@ -18,9 +18,11 @@ untrusted payload before rendering it.
 - **`diff` is optional but is the difference between approval and guesswork.** Include it
   whenever the action is expressible as a before/after.
 - **`isHitlRequest` is total.** It takes `unknown` and never throws. `actionId` and
-  `summary` must both be non-empty strings — an approval prompt with a blank summary is a
-  bug, not an edge case. `diff` is checked only for being a string when present, so an
-  empty `diff` passes; if a blank diff means something to your UI, test for it yourself.
+  `summary` must both be strings of non-zero length — but the check is `length > 0` on the
+  raw string, **not** on a trimmed one, so `summary: "   "` passes the guard and reaches the
+  approver as a blank prompt. Trim before you build the request; the guard will not do it for
+  you. `diff` is checked only for being a string when present, so an empty `diff` passes too;
+  if a blank diff means something to your UI, test for it yourself.
 
 ## Example
 

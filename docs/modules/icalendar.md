@@ -23,8 +23,12 @@ as data rather than as text.
   `Date`, so no timezone interpretation is imposed on you.
 - **Attendees are bare addresses.** `buildVEvent` writes `ATTENDEE:mailto:<addr>` itself, so
   pass `"ana@example.com"`. Passing `"mailto:ana@example.com"` produces
-  `ATTENDEE:mailto:mailto:ana@example.com`, which is invalid RFC 5545 and does not
-  round-trip back through `parseICalendar`.
+  `ATTENDEE:mailto:mailto:ana@example.com`, which is not a valid RFC 5545 CAL-ADDRESS: every
+  *other* consumer of the feed — the calendar server, the recipient's client — reads a
+  malformed address, and that is the damage. Nimbus's own round trip conceals it rather than
+  catching it, because `parseICalendar` strips the leading `mailto:` exactly once and hands
+  back the doubled string you passed in. The two ends agree with each other while agreeing
+  with nobody else, so a round-trip test is not the test that would find this.
 
 ## Example
 

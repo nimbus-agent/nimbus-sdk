@@ -35,10 +35,16 @@ manifest's declared permissions against what a forked probe actually observes.
   `runContractTests` and `assertNoRowDataTools` do. **`runSandboxContractTests` throws a
   plain `Error` on all three of its failure paths.** Catching only `ExtensionContractError`
   around a sandbox run silently swallows every sandbox failure.
-- **`runContractTests` validates the manifest's shape, and only its shape.** Required
-  strings, the `runtime` value, the `permissions` and `hitlRequired` vocabularies, and the
-  `minNimbusVersion` format. It does not execute your tools, so it cannot tell whether the
-  permissions you declared match the ones you actually use.
+- **`runContractTests` validates the manifest's shape, and then runs two v1 self-checks.**
+  The shape half covers required strings, the `runtime` value, the `permissions` and
+  `hitlRequired` vocabularies, and the `minNimbusVersion` format; every complaint it finds is
+  collected and raised as one `ExtensionContractError` whose message joins them with `"; "`.
+  If that passes, it asserts two of the SDK's own v1 invariants — that `isHitlRequest` still
+  accepts a valid request and rejects an empty one, and that a scoped `AuditLogger.log` still
+  returns a Promise. **Those two throw a single, unjoined message**, so a caught message is
+  not always a `"; "`-joined list, and splitting one unconditionally turns a single self-check
+  failure into a phantom list of manifest defects. What it still does not do is execute your
+  tools, so it cannot tell whether the permissions you declared match the ones you use.
 - **The sandbox probe reads a different permissions schema than `ExtensionManifest`, and
   the mismatch is silent.** `runSandboxContractTests` reads the manifest **from disk** and
   looks for `permissions.network` — an *object* form. `ExtensionManifest.permissions` in
@@ -79,7 +85,7 @@ const manifest: ExtensionManifest = {
   minNimbusVersion: "1.0.0",
 };
 
-/** Every shape problem the manifest has, or `[]` if it is well-formed. */
+/** What the contract checks reported, or `[]` when the manifest and both v1 self-checks pass. */
 export async function checkContract(): Promise<string[]> {
   try {
     await runContractTests(manifest);
@@ -88,7 +94,10 @@ export async function checkContract(): Promise<string[]> {
     assertNoRowDataTools([{ name: "acme_schema", description: "List note fields." }], manifest.id);
     return [];
   } catch (err) {
-    if (err instanceof ExtensionContractError) return err.message.split("; ");
+    // The message is returned whole, not split on "; ". Manifest-shape complaints are joined
+    // that way, but the v1 HITL/audit self-checks and `assertNoRowDataTools` each throw one
+    // sentence — splitting would render a single failure as several defects.
+    if (err instanceof ExtensionContractError) return [err.message];
     throw err;
   }
 }
@@ -130,5 +139,8 @@ correct.
   `{}`. It is a null object that lets a call site compile and run, not a mock you can
   script; substitute your own when a test needs a real answer.
 - **`testing/sandbox-contract`** — `runSandboxContractTests`.
-  `RunSandboxContractTestsOptions`, which carries `runProbe` and `platform`, is referenced
-  by it but is not itself exported: pass an object literal.
+  `RunSandboxContractTestsOptions`, which carries `runProbe` and `platform`, *is* an
+  `export interface` in that module, but the `./testing` barrel does not re-export it — so it
+  is absent from the package's public surface and appears in
+  [`api-surface.md`](../api-surface.md) only inside the function's signature. You cannot
+  import the name; pass an object literal.

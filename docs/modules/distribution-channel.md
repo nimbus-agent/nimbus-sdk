@@ -13,8 +13,14 @@ replace the binary in place.
 
 ## Constraints that are load-bearing
 
-- **`null` means "plain install", not "unknown, assume nothing".** A direct download
-  resolves to `null`, and that is the case where self-update stays enabled.
+- **`null` means "no channel was detected" — which is not the same as "no package manager
+  owns this install".** Path detection covers exactly two of the seven channels: Homebrew (a
+  `/Cellar/` or `/.linuxbrew/` segment) and Scoop (`/scoop/apps/`). The other five —
+  `winget`, `apt`, `yum`, `msi`, `pkg` — are reachable **only** through the
+  `NIMBUS_DISTRIBUTION_CHANNEL` marker, so an apt-managed binary launched without that marker
+  resolves to `null` exactly as a direct download does. A direct download is one of the things
+  `null` can mean; treating `null` on its own as a green light for self-update is how the
+  module's whole purpose gets defeated.
 - **The env marker wins, and an unknown value is ignored rather than trusted.**
   `NIMBUS_DISTRIBUTION_CHANNEL` takes precedence over the path heuristics; a value outside
   the seven known channels falls through to the heuristics rather than being returned.
@@ -40,7 +46,11 @@ import {
 /** Live resolution: reads the real env and exec path. */
 export function upgradeHint(): string {
   const channel: DistributionChannel | null = resolveDistributionChannel();
-  if (channel === null) return "Direct install — Nimbus can update itself.";
+  if (channel === null) {
+    // Undetected, not unmanaged: apt, yum, winget, msi and pkg all land here without the
+    // env marker, so this branch is not a licence to replace the binary in place.
+    return "No install channel detected — check for a package manager before self-updating.";
+  }
   return channelUpgradeHint(channel);
 }
 

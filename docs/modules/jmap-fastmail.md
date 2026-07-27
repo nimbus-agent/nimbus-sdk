@@ -79,8 +79,12 @@ published contract. They are not repeated here, so there is only ever one copy t
 correct.
 
 - **Requests** — `buildListRequest`, `buildGetRequest`, and `buildSearchRequest` all build
-  the same `Email/get` argument set from `EMAIL_PROPERTIES`, differing only in how they
-  reference the ids. Each envelope declares `using: [CORE_CAPABILITY, MAIL_CAPABILITY]`.
+  the same `Email/get` argument set from `EMAIL_PROPERTIES`. List and search build a
+  **byte-identical** `Email/get` call — both back-reference the preceding query's result ids
+  — and differ only in the `Email/query` that precedes it, where search adds
+  `filter: { text: query }`. `buildGetRequest` is the one that differs in how it references
+  ids: it names one directly and issues no query at all. Each envelope declares
+  `using: [CORE_CAPABILITY, MAIL_CAPABILITY]`.
   `SUBMISSION_CAPABILITY` is exported alongside the other two URNs but is not declared by
   any envelope built here — there is no `Email/submission` request in this module.
 - **Envelope** — `methodResponseArgs` pulls one named method's arguments out of a JMAP

@@ -13,6 +13,15 @@ paths as data.
 
 - **Both manifest shapes are handled.** Storybook v7+ emits `{ entries: {…} }` and v6 emits
   `{ stories: {…} }`; one call covers both, so a connector does not sniff the version.
+  `entries` wins when a manifest somehow carries both. Two more v6 fallbacks work the same
+  way per entry: `title` falls back to v6's `kind`, and `name` to v6's `story`.
+- **An unrecognised shape returns `[]` silently.** A root that is not an object, or one
+  carrying neither `entries` nor `stories`, yields an empty array rather than throwing — so
+  an empty result does not distinguish "a manifest with no stories" from "not a Storybook
+  manifest". If that difference matters to you, check the input before parsing it.
+- **An entry without a usable `id` is dropped, not defaulted.** `id` is the one required
+  field; an entry whose `id` is missing, empty, or not a string is skipped, so the returned
+  list can be shorter than the manifest's entry map with nothing said about the difference.
 - **Absent fields become `null`, not `undefined` and not a guess.** Storybook manifests are
   inconsistent across versions; `title`, `name`, `importPath`, and `entryType` are all
   nullable for that reason.

@@ -1,0 +1,16 @@
+{
+  "fixtures": [
+    { "file": "manifest/valid-minimal.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "Every required field present and well-formed." },
+    { "file": "manifest/valid-prerelease-min-version.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "minNimbusVersion is unanchored at the end, so a prerelease suffix is accepted." },
+    { "file": "manifest/valid-leading-space-min-version.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "runContractTests trims minNimbusVersion before matching." },
+    { "file": "manifest/invalid-missing-id.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "id is required." },
+    { "file": "manifest/invalid-whitespace-id.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "id must contain a non-whitespace character; isNonEmptyString trims." },
+    { "file": "manifest/invalid-runtime.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "runtime must be bun or node." },
+    { "file": "manifest/invalid-permission.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "admin is not a permission." },
+    { "file": "manifest/schema-only-bad-sync-interval.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "schema-only", "reason": "syncInterval must be a number. runContractTests never inspects it, so only the schema rejects this." },
+    { "file": "item/valid-minimal.json", "shape": "NimbusItem", "expect": "valid", "class": "schema-only", "reason": "Every required field present. No runtime validator exists for items." },
+    { "file": "item/valid-unknown-item-type.json", "shape": "NimbusItem", "expect": "valid", "class": "schema-only", "reason": "itemType is an open vocabulary; an unknown type must validate." },
+    { "file": "item/invalid-missing-name.json", "shape": "NimbusItem", "expect": "invalid", "class": "schema-only", "reason": "name is required." },
+    { "file": "item/invalid-size-bytes-type.json", "shape": "NimbusItem", "expect": "invalid", "class": "schema-only", "reason": "sizeBytes must be a number. TypeScript would catch this at compile time; nothing catches it at runtime." }
+  ]
+}

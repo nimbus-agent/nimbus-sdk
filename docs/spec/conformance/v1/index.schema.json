@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/index.schema.json",
+  "title": "Conformance fixture index",
+  "description": "Machine-readable manifest of the conformance fixtures, so a runner in any language can consume the corpus without parsing prose.",
+  "type": "object",
+  "required": ["fixtures"],
+  "properties": {
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["file", "shape", "expect", "class", "reason"],
+        "properties": {
+          "file": { "type": "string", "pattern": "\\S" },
+          "shape": { "enum": ["ExtensionManifest", "NimbusItem"] },
+          "expect": { "enum": ["valid", "invalid"] },
+          "class": {
+            "enum": ["equivalence", "schema-only"],
+            "description": "equivalence: the schema and runContractTests both cover these fields and must agree. schema-only: the field is one the runtime never inspects, so only the schema is asserted."
+          },
+          "reason": { "type": "string", "pattern": "\\S" }
+        }
+      }
+    }
+  }
+}

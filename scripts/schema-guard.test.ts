@@ -11,10 +11,11 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
+import { type ExtensionManifest, runContractTests } from "../src/index.ts";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
 import { diffShapes, isEmptyDiff, schemaShapeOf, tsShapeOf } from "./schema-shape.ts";
 
@@ -81,6 +82,7 @@ function makeAjv(): Ajv {
   const ajv = new Ajv({ allErrors: true, strict: false });
   ajv.addSchema(MANIFEST_SCHEMA_JSON);
   ajv.addSchema(ITEM_SCHEMA_JSON);
+  ajv.addSchema(readJsonObject("docs/spec/conformance/v1/index.schema.json"));
   return ajv;
 }
 
@@ -143,4 +145,111 @@ describe("schema guard — structural", () => {
         `  nesting:            ${diff.nestingMismatch.join(", ") || "(none)"}`,
     ).toBe(true);
   });
+});
+
+const CONFORMANCE_DIR = "docs/spec/conformance/v1";
+const INDEX_PATH = `${CONFORMANCE_DIR}/index.json`;
+const INDEX_SCHEMA_PATH = `${CONFORMANCE_DIR}/index.schema.json`;
+
+type FixtureEntry = {
+  file: string;
+  shape: "ExtensionManifest" | "NimbusItem";
+  expect: "valid" | "invalid";
+  class: "equivalence" | "schema-only";
+  reason: string;
+};
+
+/**
+ * The index, validated against its own schema before anything trusts its contents.
+ *
+ * Resolved through the shared registry rather than compiled standalone, so a `$ref` added
+ * to the index schema later resolves against the local copies. Ajv never fetches remote
+ * refs on its own — it raises MissingRefError — so the failure would be loud either way;
+ * registering simply makes it resolve instead of fail.
+ */
+function loadIndex(ajv: Ajv): FixtureEntry[] {
+  const validate = ajv.getSchema(schemaIdOf(readJson(INDEX_SCHEMA_PATH), INDEX_SCHEMA_PATH));
+  if (validate === undefined) throw new Error(`${INDEX_SCHEMA_PATH} was not registered with ajv`);
+
+  const index = readJson(INDEX_PATH);
+  if (!validate(index)) {
+    throw new Error(
+      `${INDEX_PATH} is not a valid fixture index: ${ajv.errorsText(validate.errors)}`,
+    );
+  }
+  return (index as { fixtures: FixtureEntry[] }).fixtures;
+}
+
+/** Did runContractTests accept this document? */
+async function runtimeAccepts(fixture: unknown): Promise<boolean> {
+  try {
+    await runContractTests(fixture as ExtensionManifest);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe("schema guard — fixtures", () => {
+  const ajv = makeAjv();
+  const entries = loadIndex(ajv);
+
+  test("the index validates against its own schema and is not empty", () => {
+    expect(entries.length).toBeGreaterThan(0);
+  });
+
+  test("every fixture on disk is listed in the index", () => {
+    const listed = new Set(entries.map((e) => e.file));
+    const onDisk: string[] = [];
+    for (const shape of ["manifest", "item"]) {
+      for (const name of readdirSync(join(repoRoot, CONFORMANCE_DIR, shape))) {
+        if (name.endsWith(".json")) onDisk.push(`${shape}/${name}`);
+      }
+    }
+    const unlisted = onDisk.filter((f) => !listed.has(f)).sort();
+    expect(
+      unlisted,
+      `these fixtures are not in ${INDEX_PATH}: ${unlisted.join(", ")} — an unlisted fixture ` +
+        "is never run, so it silently proves nothing",
+    ).toEqual([]);
+  });
+
+  test("the corpus exercises both classes — otherwise half the guard is dead", () => {
+    expect(entries.some((e) => e.class === "equivalence")).toBe(true);
+    expect(entries.some((e) => e.class === "schema-only")).toBe(true);
+  });
+
+  for (const entry of entries) {
+    test(`${entry.file} — schema says ${entry.expect} (${entry.reason})`, () => {
+      const schemaId = entry.shape === "ExtensionManifest" ? MANIFEST_SCHEMA_ID : ITEM_SCHEMA_ID;
+      const validate = ajv.getSchema(schemaId);
+      if (validate === undefined) throw new Error(`schema ${schemaId} was not registered`);
+
+      const doc = readJson(`${CONFORMANCE_DIR}/${entry.file}`);
+      const ok = validate(doc) === true;
+      expect(
+        ok,
+        `expected the schema to consider ${entry.file} ${entry.expect}. ${entry.reason}\n` +
+          `ajv: ${ajv.errorsText(validate.errors)}`,
+      ).toBe(entry.expect === "valid");
+    });
+  }
+
+  for (const entry of entries.filter((e) => e.class === "equivalence")) {
+    test(`${entry.file} — schema and runContractTests agree`, async () => {
+      const doc = readJson(`${CONFORMANCE_DIR}/${entry.file}`);
+      const validate = ajv.getSchema(MANIFEST_SCHEMA_ID);
+      if (validate === undefined)
+        throw new Error(`schema ${MANIFEST_SCHEMA_ID} was not registered`);
+
+      const schemaOk = validate(doc) === true;
+      const runtimeOk = await runtimeAccepts(doc);
+      expect(
+        schemaOk,
+        `${entry.file} is classed "equivalence", so the schema and runContractTests must ` +
+          `reach the same verdict. Schema: ${schemaOk ? "valid" : "invalid"}; ` +
+          `runContractTests: ${runtimeOk ? "valid" : "invalid"}. ${entry.reason}`,
+      ).toBe(runtimeOk);
+    });
+  }
 });

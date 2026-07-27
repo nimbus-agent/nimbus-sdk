@@ -40,6 +40,13 @@ const SCHEMA_DIR = "docs/spec/schemas/v1";
 const MANIFEST_SCHEMA = `${SCHEMA_DIR}/extension-manifest.schema.json`;
 const ITEM_SCHEMA = `${SCHEMA_DIR}/nimbus-item.schema.json`;
 
+const CONFORMANCE_DIR = "docs/spec/conformance/v1";
+const INDEX_PATH = `${CONFORMANCE_DIR}/index.json`;
+const INDEX_SCHEMA_PATH = `${CONFORMANCE_DIR}/index.schema.json`;
+
+/** Every `$id` in this repo is a raw.githubusercontent.com URL under this prefix. */
+const GITHUB_RAW_PREFIX = "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/";
+
 /**
  * Parsed once. Re-reading and re-parsing these inside every test — and once per fixture
  * inside the loops below — would be dozens of redundant syscalls, and would make each
@@ -49,8 +56,8 @@ const MANIFEST_SCHEMA_JSON = readJsonObject(MANIFEST_SCHEMA);
 const ITEM_SCHEMA_JSON = readJsonObject(ITEM_SCHEMA);
 
 /** The `$id` a schema declares, refused loudly if absent — an unregistered schema is unusable. */
-function schemaIdOf(schema: unknown, path: string): string {
-  const id = (schema as Record<string, unknown>)["$id"];
+function schemaIdOf(schema: Record<string, unknown>, path: string): string {
+  const id = schema["$id"];
   if (typeof id !== "string" || id.trim() === "") {
     throw new Error(`${path} has no "$id" — ajv cannot register it and fixtures cannot find it`);
   }
@@ -79,10 +86,10 @@ function declarationOf(name: string): string {
  * which restricts egress.
  */
 function makeAjv(): Ajv {
-  const ajv = new Ajv({ allErrors: true, strict: false });
+  const ajv = new Ajv({ allErrors: true, strict: true });
   ajv.addSchema(MANIFEST_SCHEMA_JSON);
   ajv.addSchema(ITEM_SCHEMA_JSON);
-  ajv.addSchema(readJsonObject("docs/spec/conformance/v1/index.schema.json"));
+  ajv.addSchema(readJsonObject(INDEX_SCHEMA_PATH));
   return ajv;
 }
 
@@ -98,6 +105,14 @@ describe("schema guard — structural", () => {
     const ajv = makeAjv();
     expect(typeof ajv.getSchema(MANIFEST_SCHEMA_ID)).toBe("function");
     expect(typeof ajv.getSchema(ITEM_SCHEMA_ID)).toBe("function");
+  });
+
+  test("each schema's $id resolves to its own repository path", () => {
+    expect(MANIFEST_SCHEMA_ID).toBe(`${GITHUB_RAW_PREFIX}${MANIFEST_SCHEMA}`);
+    expect(ITEM_SCHEMA_ID).toBe(`${GITHUB_RAW_PREFIX}${ITEM_SCHEMA}`);
+    expect(schemaIdOf(readJsonObject(INDEX_SCHEMA_PATH), INDEX_SCHEMA_PATH)).toBe(
+      `${GITHUB_RAW_PREFIX}${INDEX_SCHEMA_PATH}`,
+    );
   });
 
   test("the extracted shapes are not empty — a broken parser must not pass vacuously", () => {
@@ -147,10 +162,6 @@ describe("schema guard — structural", () => {
   });
 });
 
-const CONFORMANCE_DIR = "docs/spec/conformance/v1";
-const INDEX_PATH = `${CONFORMANCE_DIR}/index.json`;
-const INDEX_SCHEMA_PATH = `${CONFORMANCE_DIR}/index.schema.json`;
-
 type FixtureEntry = {
   file: string;
   shape: "ExtensionManifest" | "NimbusItem";
@@ -168,7 +179,7 @@ type FixtureEntry = {
  * registering simply makes it resolve instead of fail.
  */
 function loadIndex(ajv: Ajv): FixtureEntry[] {
-  const validate = ajv.getSchema(schemaIdOf(readJson(INDEX_SCHEMA_PATH), INDEX_SCHEMA_PATH));
+  const validate = ajv.getSchema(schemaIdOf(readJsonObject(INDEX_SCHEMA_PATH), INDEX_SCHEMA_PATH));
   if (validate === undefined) throw new Error(`${INDEX_SCHEMA_PATH} was not registered with ajv`);
 
   const index = readJson(INDEX_PATH);
@@ -192,11 +203,25 @@ async function runtimeAccepts(fixture: unknown): Promise<boolean> {
 
 describe("schema guard — fixtures", () => {
   const ajv = makeAjv();
-  const entries = loadIndex(ajv);
 
   test("the index validates against its own schema and is not empty", () => {
-    expect(entries.length).toBeGreaterThan(0);
+    expect(loadIndex(ajv).length).toBeGreaterThan(0);
   });
+
+  /**
+   * Loaded again here, outside any `test()`, so the fixture-loop generation below can run
+   * even when the dedicated test above is the one reporting a malformed index. Swallowing
+   * the error to an empty array — rather than letting it throw at describe-body scope —
+   * is what keeps that one failure from aborting collection of every other test in this
+   * file; the assertion above is what makes the failure loud instead of silent.
+   */
+  const entries = ((): FixtureEntry[] => {
+    try {
+      return loadIndex(ajv);
+    } catch {
+      return [];
+    }
+  })();
 
   test("every fixture on disk is listed in the index", () => {
     const listed = new Set(entries.map((e) => e.file));

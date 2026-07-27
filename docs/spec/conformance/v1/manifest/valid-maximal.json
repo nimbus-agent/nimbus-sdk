@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/schemas/v1/extension-manifest.schema.json",
+  "id": "example-connector",
+  "displayName": "Example Connector",
+  "version": "0.1.0",
+  "description": "Every optional field populated, including a fully-typed oauth object.",
+  "author": "Nimbus Contributors",
+  "homepage": "https://example.com/connector",
+  "icon": "https://example.com/connector/icon.png",
+  "entrypoint": "./index.ts",
+  "runtime": "bun",
+  "permissions": ["read", "write", "delete"],
+  "hitlRequired": ["write", "delete"],
+  "oauth": {
+    "provider": "example-idp",
+    "scopes": ["read:items", "write:items"],
+    "authUrl": "https://example.com/oauth/authorize",
+    "tokenUrl": "https://example.com/oauth/token",
+    "pkce": true
+  },
+  "syncInterval": 300,
+  "tags": ["productivity", "storage"],
+  "minNimbusVersion": "0.1.0"
+}

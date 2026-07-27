@@ -49,9 +49,9 @@ Two classes, because the schemas and the TypeScript runtime do not check identic
 
 `v1` is the **contract** version, not the package version. The package releases on its own
 clock; a schema path changes only when the contract does. Within `v1` only additive change
-is permitted — removing or narrowing a field requires a major, which means a new path
-segment rather than an edit to this one. See the
-[deprecation policy](../DEPRECATION-POLICY.md).
+is permitted — removing or narrowing a field requires a major. This spec's own convention
+resolves that as a new path segment rather than an edit to this one; the [deprecation
+policy](../DEPRECATION-POLICY.md) governs export deprecation windows, not this rule.
 
 Both schemas are **open**: neither sets `additionalProperties: false`. An older consumer
 validating against an older copy is therefore unaffected by additions.
@@ -72,7 +72,7 @@ validating against an older copy is therefore unaffected by additions.
 
 `scripts/schema-guard.test.ts` runs on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`). It compares each schema's declared properties and optionality
-against the emitted TypeScript — descending one level into inline objects, so `oauth` is
+against the emitted TypeScript — descending into inline object types, so `oauth` is
 covered — and runs every fixture through `ajv`, plus through `runContractTests` for the
 `equivalence` class. A schema that drifts from the reference implementation fails CI.
 

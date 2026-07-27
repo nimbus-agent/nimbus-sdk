@@ -1,0 +1,44 @@
+# Nimbus SDK documentation
+
+The MIT-licensed, dependency-free authoring contract for Nimbus connectors and apps.
+Start with [`server.md`](./modules/server.md) and [`types.md`](./modules/types.md) — the
+contract itself — then reach for a battery as you need it.
+
+## Modules
+
+Every public export of every `exports` entry point is documented on one of these pages.
+A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
+
+| Module | What it is |
+|--------|------------|
+| [`server`](./modules/server.md) | `NimbusExtensionServer` — the connector entry point |
+| [`types`](./modules/types.md) | `ExtensionManifest`, `NimbusItem` — the core contract shapes |
+| [`item-types`](./modules/item-types.md) | The item-type vocabulary and its guards |
+| [`agents`](./modules/agents.md) | Agent briefs, their guards, and the guard factory |
+| [`audit-logger`](./modules/audit-logger.md) | The scoped, redaction-safe audit logger |
+| [`hitl-request`](./modules/hitl-request.md) | Human-in-the-loop request shapes |
+| [`crypto`](./modules/crypto.md) | Ed25519 signing, JWTs, service-account tokens |
+| [`icalendar`](./modules/icalendar.md) | RFC 5545 building and parsing |
+| [`jmap-fastmail`](./modules/jmap-fastmail.md) | JMAP helpers — headers only |
+| [`data-profile`](./modules/data-profile.md) | CSV / JSON / Parquet profiling — metadata only |
+| [`flux-cd`](./modules/flux-cd.md) | Flux CD kind registry |
+| [`storybook`](./modules/storybook.md) | Storybook helpers |
+| [`distribution-channel`](./modules/distribution-channel.md) | Channel resolution |
+| [`ipc`](./modules/ipc.md) | NDJSON line reading and IPC framing |
+| [`testing`](./modules/testing.md) | `MockGateway`, contract tests, the sandbox probe |
+
+## Examples
+
+- [`examples/quickstart-connector/`](../examples/quickstart-connector/) — the smallest
+  connector that passes the contract tests.
+- [`examples/calendar-connector/`](../examples/calendar-connector/) — HITL gating, the
+  audit logger, and a battery doing real work.
+
+## Policies and process
+
+- [Roadmap](./ROADMAP.md) · [Architecture](./ARCHITECTURE.md) · [Glossary](./GLOSSARY.md)
+- [Inclusion policy](./INCLUSION-POLICY.md) — the bar a new battery must clear
+- [Deprecation policy](./DEPRECATION-POLICY.md) — how an export is retired
+- [Governance](./GOVERNANCE.md) · [Releasing](./RELEASING.md) · [Security](./SECURITY.md)
+- [API surface](./api-surface.md) — the generated snapshot of every public export
+- [Contract spec](./spec/) — the language-neutral spec's future home (Phase 1)

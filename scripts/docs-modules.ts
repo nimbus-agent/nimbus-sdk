@@ -86,6 +86,22 @@ export function modulesInSurface(
 }
 
 /**
+ * The module keys that no documentation page claims — the one comparison the coverage guard
+ * exists to make.
+ *
+ * It is a function here, rather than a line inside the guard's test, so it can be driven
+ * with a synthetic surface. Inline, it only ever ran against this repository, where the
+ * answer is always `[]`: the single step that *constitutes* the guard had no proof it could
+ * fail, and a guard that quietly misses an export is worse than no guard.
+ */
+export function unclaimedModules(
+  modules: Map<string, string[]>,
+  claimedBy: Map<string, string>,
+): string[] {
+  return [...modules.keys()].filter((key) => !claimedBy.has(key));
+}
+
+/**
  * The module keys a page claims, or null if it carries no claim comment.
  *
  * Null and `[]` are deliberately different outcomes. A page with no comment is a page

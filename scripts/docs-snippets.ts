@@ -6,7 +6,8 @@
  * `tsconfig.json`'s `paths` mapping instead, so what gets typechecked is byte-identical
  * to what a reader copies out of the page. A rewriting approach cannot promise that.
  *
- * Scope is the teaching surface only — `docs/modules/*.md` and `README.md`. The policy
+ * Scope is the teaching surface only — `docs/modules/*.md`, `README.md`, and the docs index
+ * `docs/README.md`. The policy
  * documents deliberately use fragments (`export const oldThing = …;` in
  * DEPRECATION-POLICY.md is not valid TypeScript and should not be). Those documents
  * argue; these teach, and only what teaches has to compile.
@@ -18,8 +19,17 @@ import { normalizeEol } from "./api-surface.ts";
 /** Gitignored scratch directory, at the repo root so `tsc` reaches `node_modules/@types`. */
 export const SCRATCH_DIR = ".docs-snippets";
 
-/** The documents whose fences are typechecked, repo-relative. */
-export const SNIPPET_SOURCES = { modulesDir: "docs/modules", extra: ["README.md"] } as const;
+/**
+ * The documents whose fences are typechecked, repo-relative.
+ *
+ * `extra` is resolved from the repository root, so `README.md` names the root readme only.
+ * `docs/README.md` is a different document and is listed separately: it has no `ts` fence
+ * today, and this is what makes sure the first one added is checked rather than skipped.
+ */
+export const SNIPPET_SOURCES = {
+  modulesDir: "docs/modules",
+  extra: ["README.md", "docs/README.md"],
+} as const;
 
 export type Snippet = {
   /** Repo-relative path of the document the fence came from. */

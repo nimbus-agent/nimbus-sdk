@@ -12,7 +12,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSurface, collectEntryPoints, normalizeEol } from "./api-surface.ts";
-import { MODULES_DIR, modulesInSurface, parseCovers } from "./docs-modules.ts";
+import { MODULES_DIR, modulesInSurface, parseCovers, unclaimedModules } from "./docs-modules.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
@@ -75,7 +75,7 @@ describe("doc coverage", () => {
       }
     }
 
-    const unclaimed = [...modules.keys()].filter((key) => !claimedBy.has(key));
+    const unclaimed = unclaimedModules(modules, claimedBy);
     expect(
       unclaimed,
       "these modules have no documentation page:\n" +

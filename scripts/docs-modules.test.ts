@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { EntryPoint, EntrySurface } from "./api-surface.ts";
-import { moduleKeyOf, modulesInSurface, parseCovers } from "./docs-modules.ts";
+import { moduleKeyOf, modulesInSurface, parseCovers, unclaimedModules } from "./docs-modules.ts";
 
 describe("moduleKeyOf", () => {
   test("strips the dist/ prefix and the .d.ts suffix", () => {
@@ -89,6 +89,40 @@ describe("modulesInSurface", () => {
       },
     ];
     expect(() => modulesInSurface(entries, orphan)).toThrow(/no entry point named "\.\/ghost"/);
+  });
+});
+
+describe("unclaimedModules", () => {
+  test("names a module in the surface that no page claims", () => {
+    const modules = new Map([
+      ["crypto/jwt", ["decodeJwt", "signJwt"]],
+      ["icalendar", ["buildVEvent"]],
+    ]);
+    const claimedBy = new Map([["icalendar", "icalendar.md"]]);
+
+    // Synthetic, not a throwaway export in src/: this is the failing direction the guard
+    // never takes against the real repository, where every module is claimed.
+    expect(unclaimedModules(modules, claimedBy)).toEqual(["crypto/jwt"]);
+  });
+
+  test("returns [] when every module in the surface is claimed", () => {
+    const modules = new Map([
+      ["crypto/jwt", ["signJwt"]],
+      ["icalendar", ["buildVEvent"]],
+    ]);
+    const claimedBy = new Map([
+      ["crypto/jwt", "crypto.md"],
+      ["icalendar", "icalendar.md"],
+    ]);
+
+    expect(unclaimedModules(modules, claimedBy)).toEqual([]);
+  });
+
+  test("a claim naming a module the surface does not contain does not mask a real gap", () => {
+    const modules = new Map([["crypto/jwt", ["signJwt"]]]);
+    const claimedBy = new Map([["icalendar", "icalendar.md"]]);
+
+    expect(unclaimedModules(modules, claimedBy)).toEqual(["crypto/jwt"]);
   });
 });
 

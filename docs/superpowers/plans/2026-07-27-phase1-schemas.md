@@ -158,6 +158,30 @@ describe("parseMembers", () => {
     ]);
   });
 
+  test("refuses an array of inline objects rather than mis-reading it as one object", () => {
+    expect(() => parseMembers("items: { name: string }[];")).toThrow(
+      /is not a plain object literal/,
+    );
+  });
+
+  test("refuses a union containing an inline object", () => {
+    expect(() => parseMembers("config: { a: string } | null;")).toThrow(
+      /is not a plain object literal/,
+    );
+  });
+
+  test("refuses a generic wrapping an inline object", () => {
+    expect(() => parseMembers("rows: Array<{ a: string }>;")).toThrow(
+      /is not a plain object literal/,
+    );
+  });
+
+  test("accepts a plain object literal with trailing whitespace", () => {
+    expect(parseMembers("o: {\n   p: string;\n }  ;")).toEqual([
+      { name: "o", optional: false, nested: [{ name: "p", optional: false, nested: null }] },
+    ]);
+  });
+
   test("does not split inside a union containing a brace-free generic", () => {
     expect(parseMembers("p: Array<'a' | 'b'>;\n q: string;")).toEqual([
       { name: "p", optional: false, nested: null },
@@ -343,6 +367,12 @@ Create `scripts/schema-shape.ts`:
  * else is a primitive, array, or union), so nothing is currently missed. Extracting
  * `oauth` into a named interface would add an exported type — a semver-relevant change —
  * and whoever does that must extend this module in the same commit.
+ *
+ * That limitation is enforced rather than merely documented. Only a type that is exactly a
+ * braced object literal is descended into; a type that contains braces in any other
+ * arrangement — `{ a: string }[]`, `{ a: string } | null`, `Array<{ a: string }>` — throws.
+ * Both alternatives are worse: descending would silently drop the array or union wrapper,
+ * and skipping would report agreement on a field that was never compared.
  */
 
 import { normalizeEol } from "./api-surface.ts";
@@ -407,6 +437,29 @@ const MEMBER = /^(\$?[A-Za-z_][\w$]*|"[^"]+"|'[^']+')(\?)?\s*:\s*([\s\S]+)$/;
 const INDEX_SIGNATURE = /^\[[^\]]*\]\s*:/;
 
 /**
+ * True only when the type is *exactly* a braced object literal — nothing trailing.
+ *
+ * A bare `startsWith("{")` test is not enough, and gets it wrong in the dangerous
+ * direction: `{ name: string }[]` and `{ a: string } | null` both start with `{`, and
+ * `interfaceBodyOf` would happily return the first brace pair's contents. The array
+ * wrapper or the union arm would then vanish silently, and the guard would report
+ * agreement on a shape it had misread.
+ */
+function isObjectLiteralType(type: string): boolean {
+  if (!type.startsWith("{")) return false;
+  let depth = 0;
+  for (let i = 0; i < type.length; i += 1) {
+    const ch = type.charAt(i);
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return type.slice(i + 1).trim().length === 0;
+    }
+  }
+  return false;
+}
+
+/**
  * Split an interface body into members at top-level `;` and parse each one.
  *
  * Depth tracking covers `{}`, `[]`, `()` and `<>` so that a nested object, a tuple, or a
@@ -450,10 +503,20 @@ export function parseMembers(body: string): PropertyShape[] {
     const optional = match[2] !== undefined;
     const type = (match[3] ?? "").trim();
 
+    const isLiteral = isObjectLiteralType(type);
+    if (!isLiteral && type.includes("{")) {
+      throw new Error(
+        `member "${name}" has a type containing braces that is not a plain object literal: ${type}\n` +
+          "Descending into it would misread the shape (an array or union wrapper would " +
+          "vanish), and skipping it would report agreement on a field never compared. " +
+          "Extend this module deliberately to handle the construct.",
+      );
+    }
+
     shapes.push({
       name,
       optional,
-      nested: type.startsWith("{") ? parseMembers(interfaceBodyOf(type)) : null,
+      nested: isLiteral ? parseMembers(interfaceBodyOf(type)) : null,
     });
   }
 
@@ -760,6 +823,26 @@ const SCHEMA_DIR = "docs/spec/schemas/v1";
 const MANIFEST_SCHEMA = `${SCHEMA_DIR}/extension-manifest.schema.json`;
 const ITEM_SCHEMA = `${SCHEMA_DIR}/nimbus-item.schema.json`;
 
+/**
+ * Parsed once. Re-reading and re-parsing these inside every test — and once per fixture
+ * inside the loops below — would be dozens of redundant syscalls, and would make each
+ * assertion read as though it were testing the file rather than the schema.
+ */
+const MANIFEST_SCHEMA_JSON = readJson(MANIFEST_SCHEMA);
+const ITEM_SCHEMA_JSON = readJson(ITEM_SCHEMA);
+
+/** The `$id` a schema declares, refused loudly if absent — an unregistered schema is unusable. */
+function schemaIdOf(schema: unknown, path: string): string {
+  const id = (schema as Record<string, unknown>)["$id"];
+  if (typeof id !== "string" || id.trim() === "") {
+    throw new Error(`${path} has no "$id" — ajv cannot register it and fixtures cannot find it`);
+  }
+  return id;
+}
+
+const MANIFEST_SCHEMA_ID = schemaIdOf(MANIFEST_SCHEMA_JSON, MANIFEST_SCHEMA);
+const ITEM_SCHEMA_ID = schemaIdOf(ITEM_SCHEMA_JSON, ITEM_SCHEMA);
+
 /** The emitted declaration text of one exported type, from the built dist/. */
 function declarationOf(name: string): string {
   const entries = collectEntryPoints(readFromRoot("package.json"));
@@ -780,8 +863,9 @@ function declarationOf(name: string): string {
  */
 function makeAjv(): Ajv {
   const ajv = new Ajv({ allErrors: true, strict: false });
-  ajv.addSchema(readJson(MANIFEST_SCHEMA));
-  ajv.addSchema(readJson(ITEM_SCHEMA));
+  ajv.addSchema(MANIFEST_SCHEMA_JSON);
+  ajv.addSchema(ITEM_SCHEMA_JSON);
+  ajv.addSchema(readJson("docs/spec/conformance/v1/index.schema.json"));
   return ajv;
 }
 
@@ -793,25 +877,21 @@ describe("schema guard — structural", () => {
     ).toBe(true);
   });
 
-  test("both schemas compile under ajv with no network access", () => {
+  test("every schema compiles under ajv with no network access", () => {
     const ajv = makeAjv();
-    expect(typeof ajv.getSchema(String((readJson(MANIFEST_SCHEMA) as { $id: string }).$id))).toBe(
-      "function",
-    );
-    expect(typeof ajv.getSchema(String((readJson(ITEM_SCHEMA) as { $id: string }).$id))).toBe(
-      "function",
-    );
+    expect(typeof ajv.getSchema(MANIFEST_SCHEMA_ID)).toBe("function");
+    expect(typeof ajv.getSchema(ITEM_SCHEMA_ID)).toBe("function");
   });
 
   test("the extracted shapes are not empty — a broken parser must not pass vacuously", () => {
     expect(tsShapeOf(declarationOf("ExtensionManifest")).length).toBeGreaterThan(5);
-    expect(schemaShapeOf(readJson(MANIFEST_SCHEMA)).length).toBeGreaterThan(5);
+    expect(schemaShapeOf(MANIFEST_SCHEMA_JSON).length).toBeGreaterThan(5);
   });
 
   test("ExtensionManifest and its schema declare the same shape, including oauth", () => {
     const diff = diffShapes(
       tsShapeOf(declarationOf("ExtensionManifest")),
-      schemaShapeOf(readJson(MANIFEST_SCHEMA)),
+      schemaShapeOf(MANIFEST_SCHEMA_JSON),
     );
     expect(
       isEmptyDiff(diff),
@@ -835,10 +915,7 @@ describe("schema guard — structural", () => {
   });
 
   test("NimbusItem and its schema declare the same shape", () => {
-    const diff = diffShapes(
-      tsShapeOf(declarationOf("NimbusItem")),
-      schemaShapeOf(readJson(ITEM_SCHEMA)),
-    );
+    const diff = diffShapes(tsShapeOf(declarationOf("NimbusItem")), schemaShapeOf(ITEM_SCHEMA_JSON));
     expect(
       isEmptyDiff(diff),
       `NimbusItem and ${ITEM_SCHEMA} disagree:\n` +
@@ -1021,10 +1098,18 @@ type FixtureEntry = {
   reason: string;
 };
 
-/** The index, validated against its own schema before anything trusts its contents. */
-function loadIndex(): FixtureEntry[] {
-  const ajv = new Ajv({ allErrors: true, strict: false });
-  const validate = ajv.compile(readJson(INDEX_SCHEMA_PATH));
+/**
+ * The index, validated against its own schema before anything trusts its contents.
+ *
+ * Resolved through the shared registry rather than compiled standalone, so a `$ref` added
+ * to the index schema later resolves against the local copies. Ajv never fetches remote
+ * refs on its own — it raises MissingRefError — so the failure would be loud either way;
+ * registering simply makes it resolve instead of fail.
+ */
+function loadIndex(ajv: Ajv): FixtureEntry[] {
+  const validate = ajv.getSchema(schemaIdOf(readJson(INDEX_SCHEMA_PATH), INDEX_SCHEMA_PATH));
+  if (validate === undefined) throw new Error(`${INDEX_SCHEMA_PATH} was not registered with ajv`);
+
   const index = readJson(INDEX_PATH);
   if (!validate(index)) {
     throw new Error(`${INDEX_PATH} is not a valid fixture index: ${ajv.errorsText(validate.errors)}`);
@@ -1043,8 +1128,8 @@ async function runtimeAccepts(fixture: unknown): Promise<boolean> {
 }
 
 describe("schema guard — fixtures", () => {
-  const entries = loadIndex();
   const ajv = makeAjv();
+  const entries = loadIndex(ajv);
 
   test("the index validates against its own schema and is not empty", () => {
     expect(entries.length).toBeGreaterThan(0);
@@ -1074,9 +1159,7 @@ describe("schema guard — fixtures", () => {
   for (const entry of entries) {
     test(`${entry.file} — schema says ${entry.expect} (${entry.reason})`, () => {
       const schemaId =
-        entry.shape === "ExtensionManifest"
-          ? String((readJson(MANIFEST_SCHEMA) as { $id: string }).$id)
-          : String((readJson(ITEM_SCHEMA) as { $id: string }).$id);
+        entry.shape === "ExtensionManifest" ? MANIFEST_SCHEMA_ID : ITEM_SCHEMA_ID;
       const validate = ajv.getSchema(schemaId);
       if (validate === undefined) throw new Error(`schema ${schemaId} was not registered`);
 
@@ -1093,9 +1176,8 @@ describe("schema guard — fixtures", () => {
   for (const entry of entries.filter((e) => e.class === "equivalence")) {
     test(`${entry.file} — schema and runContractTests agree`, async () => {
       const doc = readJson(`${CONFORMANCE_DIR}/${entry.file}`);
-      const schemaId = String((readJson(MANIFEST_SCHEMA) as { $id: string }).$id);
-      const validate = ajv.getSchema(schemaId);
-      if (validate === undefined) throw new Error(`schema ${schemaId} was not registered`);
+      const validate = ajv.getSchema(MANIFEST_SCHEMA_ID);
+      if (validate === undefined) throw new Error(`schema ${MANIFEST_SCHEMA_ID} was not registered`);
 
       const schemaOk = validate(doc) === true;
       const runtimeOk = await runtimeAccepts(doc);
@@ -1303,5 +1385,7 @@ git commit -m "docs: document the published spec and tick Phase 1 boxes 1 and 4"
 **Placeholders.** None. Every code step carries real content; every fixture is spelled out.
 
 **Type consistency.** `PropertyShape` is defined once in Task 1 and consumed unchanged in Task 2. `ShapeDiff` gained a fourth field, `nestingMismatch`, which every failure message in Task 2 prints. `diffShapes(ts, schema, path?)` keeps that argument order in its tests and both call sites. `FixtureEntry.class` values match the `enum` in `index.schema.json` exactly. `makeAjv()`, `readJson()`, `MANIFEST_SCHEMA` and `ITEM_SCHEMA` are defined in Task 2 and reused by Task 3's appended block rather than redefined.
+
+**Revised after review.** Three changes. `parseMembers` now refuses any brace-containing type that is not exactly an object literal — a bare `startsWith("{")` check would have *mis-parsed* `{ a: string }[]` and `{ a: string } | null` as plain objects, dropping the array or union wrapper silently, which is worse than skipping them; four unit tests pin it. Parsed schemas and their `$id`s are hoisted to module constants instead of being re-read inside every test and every fixture-loop iteration. And `index.schema.json` is registered in the shared ajv instance rather than compiled standalone, so a `$ref` added to it later resolves against the local copies.
 
 **One thing the plan corrects in the spec.** The spec says non-empty strings use `"pattern": "\\S"` and that `minNimbusVersion` is unanchored at the end. Both hold — but reading `validateMinNimbusVersion` while writing Task 2 showed it tests the regex against the **trimmed** value, so `"  1.2.3"` is accepted too. The schema pattern is therefore `^\\s*\\d+\\.\\d+\\.\\d+`, and `valid-leading-space-min-version.json` pins it. Without the leading `\s*` that fixture fails, which is how the plan proves the point rather than asserting it.

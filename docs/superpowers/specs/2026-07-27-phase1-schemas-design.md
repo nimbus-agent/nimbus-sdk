@@ -31,7 +31,7 @@ used three times: the API-surface snapshot, the doc-coverage guard, the snippet 
 |---|-------------|-------------|
 | 1 | `docs/spec/schemas/v1/extension-manifest.schema.json` | Phase 1, box 1 |
 | 2 | `docs/spec/schemas/v1/nimbus-item.schema.json` | Phase 1, box 1 |
-| 3 | `docs/spec/conformance/v1/` — fixture corpus with a machine-readable index | seeds box 3 |
+| 3 | `docs/spec/conformance/v1/` — fixture corpus, plus `index.json` and its own `index.schema.json` | seeds box 3 |
 | 4 | `scripts/schema-guard.test.ts` — structural diff + fixture dual-validation | Phase 1, box 4 |
 | 5 | `ajv` as a **devDependency** | enabler for 4 |
 | 6 | Rewrite `docs/spec/README.md`; one-line update to `docs/README.md`; tick roadmap boxes 1 and 4 | — |
@@ -97,7 +97,24 @@ forced by the tooling, not chosen for taste.
 **Files:** `docs/spec/schemas/v1/extension-manifest.schema.json`,
 `docs/spec/schemas/v1/nimbus-item.schema.json`.
 
-JSON Schema **draft 2020-12**.
+JSON Schema **draft-07**.
+
+Not 2020-12, and the reason is that our schemas gain nothing from it. Between them they
+use `$id`, `$schema`, `type`, `properties`, `required`, `enum`, `pattern`, `items`,
+`examples`, and `description` — every one of which behaves identically in draft-07. None of
+2019-09 or 2020-12's additions appear: no `prefixItems`, no `unevaluatedProperties`, no
+`$dynamicRef`, no `$vocabulary`.
+
+Given identical expressiveness, the deciding factor is reach. draft-07 has the broadest
+support across editor JSON language services and across validators in the languages Phase 2
+and 3 target — Python, Go, Rust — where several widely-used libraries are draft-07-only.
+That matters most for the case `$schema` exists to serve: a connector author getting
+completion and validation in their editor while writing a manifest. A schema draft the
+author's editor half-supports defeats the field's purpose.
+
+This is reversible at low cost — the schema bodies do not change, only the `$schema` line —
+so if you would rather ship the modern draft and accept narrower tool support, say so and
+it flips.
 
 ### The `v1` path segment — and an ambiguity resolved
 
@@ -133,6 +150,29 @@ The tradeoff, stated plainly: this pins to `main`, so the schema a manifest refe
 tracks the branch rather than a release tag. The `v1` path segment carries the contract
 version, which is the guarantee that actually matters to a consumer. If Pages is set up
 later, the `github.io` URL becomes an alias and this one keeps working.
+
+### Why not pin `$id` to a release tag
+
+Two reasons, one practical and one that makes the risk smaller than it looks.
+
+**The practical one is decisive: the tag does not exist when the file is committed.** A
+schema's `$id` lives inside the schema file. To reference `.../sdk-v1.8.0/docs/spec/...`
+the commit would have to name a tag that release-please only creates *after* that commit
+merges. Every schema would therefore ship with a `$id` that 404s until the release is cut,
+and keeping it correct would need a release-time step that rewrites published files — with
+the guard taught to tolerate the rewrite. That is a lot of machinery to buy very little.
+
+**And the drift a tag would protect against is drift these schemas already tolerate.**
+Within `v1`, the [deprecation policy](../../DEPRECATION-POLICY.md) permits only additive
+change; removing or narrowing a field requires a major, which by construction means a new
+path segment rather than an edit to this one. So a consumer fetching the `main` copy of a
+`v1` schema can only ever observe *additions* — and because both schemas are open, an older
+consumer validating against an older copy is unaffected by them.
+
+The genuine residual risk is not validation but capability: a manifest may use a field a
+particular gateway does not yet act on. No schema URL can express that. It is exactly what
+contract-version negotiation — Phase 1, box 5 — exists to solve, and it is recorded here so
+that box inherits the problem rather than this slice pretending to have solved it.
 
 ### Both schemas are open
 
@@ -220,13 +260,34 @@ This is the half that catches a field added to `types.ts` for which nobody wrote
 `$schema?: string` must therefore appear in the manifest schema's `properties`. If the
 first run fails on it, that is the guard working.
 
-### Declared limitation
+### It recurses one level into inline object types
 
-Stated in the file header, in the manner `api-surface.ts` states its own: **the diff is
-top-level.** `oauth` is compared as a single property; a change *inside* that nested object
-— adding a required field to it — is caught only by fixtures, never structurally.
-Recursing into nested inline object types is real parser work and does not earn its place
-in this slice.
+An earlier draft of this design stopped at the top level and declared `oauth` a blind spot.
+That was the wrong call for two reasons.
+
+First, the cost is smaller than it looked. Splitting interface members *already* requires
+brace-depth tracking — otherwise a member split would tear the inline `oauth` object in
+half. Once the parser tracks depth, descending one level to parse that object's own members
+is incremental, not a new capability.
+
+Second, `oauth` is the wrong place to accept a blind spot. It carries `authUrl`,
+`tokenUrl`, `scopes`, and `pkce` — the security-relevant half of a manifest. A schema that
+silently disagreed with the TypeScript about whether `pkce` is required is precisely the
+divergence this guard exists to catch.
+
+So the diff descends into inline object types and compares their members too, in both
+directions and including optionality.
+
+**What it still does not do**, stated in the file header the way `api-surface.ts` states
+its own limitations: it does not follow a property whose type is a *named* type declared
+elsewhere. `ExtensionManifest` has no such property today — `oauth` is inline and every
+other field is a primitive, array, or union — so the limitation is currently theoretical.
+It becomes real the moment someone extracts `oauth` into a named `OAuthConfig` interface.
+
+That extraction is itself worth doing later: a named type is what a Python or Go binding
+needs in order to name the same structure. But it adds an exported type, which is
+semver-relevant and would cut a release — so it belongs in its own `feat:` change, not in a
+documentation slice. Whoever does it must extend this guard in the same commit.
 
 ---
 
@@ -238,6 +299,28 @@ in this slice.
 `index.json` gives every fixture a shape, an expectation, a class, and a reason. It is
 machine-readable so a later Python or Go runner consumes it without parsing prose — that is
 what makes this corpus the seed of box 3 rather than a pile of test data.
+
+**The index gets its own schema**, `docs/spec/conformance/v1/index.schema.json`, and the
+guard validates the index against it before using it. A slice whose entire thesis is that
+published artifacts need machine-checked contracts should not exempt the one file a
+cross-language runner has to parse first. It also fails helpfully: a malformed entry is
+reported as a schema violation naming the offending index element, rather than surfacing
+later as a confusing fixture-loading error.
+
+### Every schema is registered with ajv locally, and nothing is fetched
+
+The guard loads each schema from disk and registers it with `ajv.addSchema(schema)` so its
+`$id` resolves from the in-memory registry. No `$ref` is ever resolved over the network.
+
+ajv does not fetch remote references on its own — synchronous compilation raises
+`MissingRefError` instead — so this is not a matter of blocking egress. It is a matter of
+making an `http`-scheme `$id` behave as the *identifier* it is rather than a location, and
+of ensuring that the first cross-schema `$ref` anyone adds resolves against the local copy
+instead of failing.
+
+It also matters for CI specifically: the workflows run under `harden-runner`, which
+restricts egress. A guard that depended on fetching `raw.githubusercontent.com` would fail
+there in a way whose cause is not obvious from the error.
 
 ### Manifest fixtures are checked in both directions
 
@@ -276,12 +359,24 @@ Following `api-surface.test.ts` and the Phase 0 guards: pure functions are unit 
 against synthetic input, then a small number of integration tests run against the real
 artifacts.
 
-- **Unit, on synthetic input:** interface-body parsing (including a nested object member,
-  so `oauth` is covered), property-and-optionality extraction, `index.json` parsing, and
-  the diff itself in both directions — a property missing from the schema, and one missing
-  from the TypeScript.
+- **Unit, on synthetic input:** interface-body parsing, property-and-optionality
+  extraction, `index.json` parsing, and — named individually, because each is a distinct
+  way the guard could silently stop working:
+  - a property in the TypeScript but absent from the schema **fails**;
+  - a property in the schema but absent from the TypeScript **fails**;
+  - an optionality mismatch (`?` in TypeScript vs presence in `required`) **fails**, tested
+    in both directions;
+  - the same three, one level down inside an inline object member, so `oauth`'s coverage is
+    proven rather than assumed.
 - **Integration, on the real artifacts:** the structural diff over the real
-  `ExtensionManifest`; every fixture validated per its class.
+  `ExtensionManifest` and its nested `oauth`; `index.json` validated against
+  `index.schema.json`; every fixture validated per its class.
+- **Class handling is itself asserted:** an `equivalence` fixture is run through both ajv
+  and `runContractTests` and their verdicts compared; a `schema-only` fixture is run
+  through ajv alone. A bug that quietly treated every fixture as `schema-only` would
+  otherwise disable half the guard while staying green.
+- **Offline resolution:** every schema resolves from the local ajv registry, with no
+  network access.
 - **Anti-vacuity floors:** a non-empty fixture count and a non-empty extracted property
   set, so a broken parser cannot pass by comparing two empty sets. Plus the
   `dist/` existence assertion the other guards use, with the same message.
@@ -311,10 +406,11 @@ outcome, not a defect.
 
 ## Exit criteria
 
-- Both schemas are published under `docs/spec/schemas/v1/`, are valid draft 2020-12, and
-  carry a resolvable `$id`.
-- The structural diff passes for `ExtensionManifest`, and fails if a property is added to
-  either side alone.
+- Both schemas are published under `docs/spec/schemas/v1/`, are valid draft-07, and carry a
+  resolvable `$id`.
+- The structural diff passes for `ExtensionManifest` and its nested `oauth` object, and
+  fails if a property is added to either side alone at either level.
+- `index.json` validates against `index.schema.json`.
 - Every `equivalence` fixture produces the same verdict from ajv and from
   `runContractTests`, in both directions.
 - `docs/spec/README.md` documents the shipped schemas and no longer describes itself as a

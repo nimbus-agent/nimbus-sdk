@@ -3,9 +3,11 @@
 # `data-profile`
 
 Structural profiling of CSV, JSON, JSONL, and Parquet — column names, column kinds, and a
-row-count estimate. Everything it reads is structural: keys, schema names, and the *kinds*
-of values. The one place that can hand you a value back is `parseCsvHeader`, and the first
-constraint below is about exactly that.
+row-count estimate. Most of it is structural — keys, schema names, and the *kinds* of values
+— but two exports hand back file content rather than structure, and they are the two the
+constraints below open with: `parseCsvHeader`, which cannot tell a header row from a data row
+and returns whichever one it was given as column names, and `firstLineAndRows`, which returns
+the file's first line verbatim — for JSONL, a complete record with its cell values in it.
 
 ## When you reach for it
 

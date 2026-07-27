@@ -17,9 +17,10 @@ untrusted payload before rendering it.
   mechanism. An approval granted against a vague summary is not consent.
 - **`diff` is optional but is the difference between approval and guesswork.** Include it
   whenever the action is expressible as a before/after.
-- **`isHitlRequest` is total.** It takes `unknown`, never throws, and rejects empty strings
-  as well as missing fields — an approval prompt with a blank summary is a bug, not an edge
-  case.
+- **`isHitlRequest` is total.** It takes `unknown` and never throws. `actionId` and
+  `summary` must both be non-empty strings — an approval prompt with a blank summary is a
+  bug, not an edge case. `diff` is checked only for being a string when present, so an
+  empty `diff` passes; if a blank diff means something to your UI, test for it yourself.
 
 ## Example
 

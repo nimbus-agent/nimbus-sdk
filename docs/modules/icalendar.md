@@ -21,6 +21,10 @@ as data rather than as text.
 - **No I/O.** Fetching the feed is the caller's job.
 - **Times stay strings.** `ParsedEvent` hands back the RFC 5545 text it found rather than a
   `Date`, so no timezone interpretation is imposed on you.
+- **Attendees are bare addresses.** `buildVEvent` writes `ATTENDEE:mailto:<addr>` itself, so
+  pass `"ana@example.com"`. Passing `"mailto:ana@example.com"` produces
+  `ATTENDEE:mailto:mailto:ana@example.com`, which is invalid RFC 5545 and does not
+  round-trip back through `parseICalendar`.
 
 ## Example
 
@@ -47,7 +51,8 @@ export const retro: string = buildVEvent(
     summary: "Retro",
     start: "20260702T090000Z",
     end: "20260702T100000Z",
-    attendees: ["mailto:ana@example.com"],
+    // Bare address — buildVEvent adds the `mailto:` prefix.
+    attendees: ["ana@example.com"],
   },
   "20260701T120000Z",
 );

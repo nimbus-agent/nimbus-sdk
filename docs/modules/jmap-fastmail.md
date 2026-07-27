@@ -2,8 +2,8 @@
 
 # `jmap-fastmail`
 
-Pure JMAP request building and response parsing for Fastmail-style mail servers.
-**Headers, attachment metadata, and a short capped body preview only.**
+Pure JMAP request building and response parsing for Fastmail-style mail servers. Headers,
+attachment metadata, and a short capped body preview.
 
 ## When you reach for it
 
@@ -14,16 +14,21 @@ be the same in the gateway sync and in the MCP connector.
 
 - **There is no surface here to fetch a full body or attachment bytes.** This is a hard
   scope constraint named in the [inclusion policy](../INCLUSION-POLICY.md), not a default.
-  Concretely: `EMAIL_PROPERTIES` requests headers plus attachment metadata;
-  `MAX_BODY_VALUE_BYTES` (2048) is sent as `maxBodyValueBytes` so the *server* truncates
-  before anything crosses the wire; `PREVIEW_MAX_CHARS` (2000) caps what `capPreview` will
-  return; and the `blobId` download URL on an attachment is never dereferenced.
-- **`validateApiUrl` exists because the session document is server-controlled.** The
-  `apiUrl` a JMAP session advertises is attacker-influenced input. It is rejected unless it
-  is absolute, `https:`, and on the same host as the configured base — call it before you
-  fetch, every time.
-- **Parsing returns `null` rather than throwing.** `parseSession` and `viewEmail` take
-  `unknown` and narrow it; a malformed response yields `null`, not an exception.
+  Concretely: `EMAIL_PROPERTIES` requests headers, attachment metadata, and the fields the
+  preview is derived from (`preview`, `textBody`, `bodyValues`);
+  `MAX_BODY_VALUE_BYTES` (2048) is sent as `maxBodyValueBytes` so the *server* truncates the
+  body value before it crosses the wire; `PREVIEW_MAX_CHARS` (2000) caps what `capPreview`
+  will return; and the `blobId` download URL on an attachment is never dereferenced.
+- **`validateApiUrl` exists because the session document is server-controlled, and it
+  THROWS.** The `apiUrl` a JMAP session advertises is attacker-influenced input. It is
+  rejected — with a thrown `Error`, not a `null` — unless it parses as an absolute URL, uses
+  `https:`, and is on the same host as the configured base. Call it before every fetch, and
+  handle the throw: this is the one code path in the module whose failure mode is an
+  exception, and it is the security-critical one.
+- **The parsing helpers return `null` rather than throwing.** `parseSession`, `viewEmail`,
+  `parseSession`'s narrowing primitives (`asRecord`, `asString`), and `methodResponseArgs`
+  all take `unknown` and hand back `null` (or `[]`) on a malformed response. `validateApiUrl`
+  is the exception, above.
 - **No I/O.** `fetch`, credential handling, and session discovery stay in each caller. See
   the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
@@ -40,11 +45,21 @@ import {
   viewEmail,
 } from "@nimbus-dev/sdk";
 
-/** The session document is untrusted: validate its apiUrl before fetching it. */
+/**
+ * The session document is untrusted: validate its apiUrl before fetching it.
+ *
+ * `validateApiUrl` throws on a non-https URL or a host the configured base does not cover
+ * — exactly the spoofed-session case this exists to defend against — so the throw is
+ * caught here and turned into a refusal to fetch.
+ */
 export function endpointFor(sessionDocument: unknown, configuredBase: string): string | null {
   const session: JmapSession | null = parseSession(sessionDocument);
   if (session === null) return null;
-  return validateApiUrl(session.apiUrl, configuredBase);
+  try {
+    return validateApiUrl(session.apiUrl, configuredBase);
+  } catch {
+    return null;
+  }
 }
 
 export function listRequest(session: JmapSession): unknown {
@@ -61,7 +76,17 @@ export function toView(rawEmail: unknown): JmapEmailView | null {
 
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the
 published contract. They are not repeated here, so there is only ever one copy to keep
-correct. `buildGetRequest` and `buildSearchRequest` are the other two request builders;
-`methodResponseArgs`, `extractEmailList`, `extractAttachments`, `formatAddress`,
-`formatAddresses`, `asRecord`, and `asString` are the narrowing helpers `viewEmail` is
-built from.
+correct.
+
+- **Requests** — `buildListRequest`, `buildGetRequest`, and `buildSearchRequest` all build
+  the same `Email/get` argument set from `EMAIL_PROPERTIES`, differing only in how they
+  reference the ids. The three capability URNs (`CORE_CAPABILITY`, `MAIL_CAPABILITY`,
+  `SUBMISSION_CAPABILITY`) are the `using` values those envelopes declare.
+- **Envelope** — `methodResponseArgs` pulls one named method's arguments out of a JMAP
+  `methodResponses` array, and `extractEmailList` is the `Email/get` special case that
+  returns its `list`. Both operate on the whole response envelope, before any single email
+  is looked at.
+- **One email** — `viewEmail` turns one raw email into a `JmapEmailView`, built from
+  `asRecord`, `asString`, `formatAddresses` (and `formatAddress` for a single
+  `{ name?, email }`), `extractAttachments` for the `JmapAttachmentMeta` list, and
+  `previewFor`/`capPreview` for the capped preview.

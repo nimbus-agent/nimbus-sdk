@@ -15,8 +15,10 @@ describes your connector.
 
 - **`permissions` and `hitlRequired` are declarations, not requests.** The sandbox enforces
   the first; the human-in-the-loop gate enforces the second. Declaring less than you use
-  fails at runtime, not at build time — see [`testing.md`](./testing.md) for the check that
-  catches it before you ship.
+  fails at runtime, not at build time — and **no automated check in this repo catches it.**
+  `runContractTests` validates the manifest's shape, not your tools' behavior; the sandbox
+  probe reads a different permissions schema entirely. See [`testing.md`](./testing.md) for
+  what those two do and do not cover.
 - **`itemType` is an open enum.** `ItemType` accepts any string so a gateway that ships a
   new type does not break a client that has not upgraded. See
   [`item-types.md`](./item-types.md) for the vocabulary and why you must never rewrite an

@@ -17,15 +17,24 @@ for a kind in order to construct a Kubernetes API path.
   connector reintroduces the drift this module removes.
 - **Pure.** No I/O, no env reads, no network — the API fetch stays in each caller. See the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
-- **The registry is `readonly`.** Treat a missing kind as "not indexed", and add it here
-  rather than patching around it at the call site.
+- **`kind` values are the registry's own snake_case keys, not Kubernetes `Kind` names.**
+  Look up `"helm_release"`, not `"HelmRelease"`. The Kubernetes-facing strings you need for
+  a URL are `group`, `version`, and `plural`.
+- **`readonly` is compile-time only.** There is no `Object.freeze`, so a consumer in plain
+  JavaScript — or one that casts the type away — can mutate the shared array for everyone
+  in the process. Treat a missing kind as "not indexed" and add it here, rather than
+  pushing onto `FLUX_KINDS` at a call site.
 
 ## Example
 
 ```ts
 import { FLUX_KINDS, type FluxKindEntry, trimTrailingSlash } from "@nimbus-dev/sdk";
 
-/** e.g. "https://cluster/apis/kustomize.toolkit.fluxcd.io/v1/kustomizations" */
+/**
+ * `kind` is a registry key — "kustomization", "helm_release" — not a Kubernetes `Kind`.
+ * e.g. apiPath("https://cluster/", "kustomization") →
+ *   "https://cluster/apis/kustomize.toolkit.fluxcd.io/v1/kustomizations"
+ */
 export function apiPath(baseUrl: string, kind: string): string | null {
   const entry: FluxKindEntry | undefined = FLUX_KINDS.find((k) => k.kind === kind);
   if (entry === undefined) return null;

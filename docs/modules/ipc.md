@@ -20,8 +20,10 @@ the CLI's IPC client, so both agree on framing and on the line limit.
   sending a newline.
 - **The thrown error type is injectable.** `lineLimitError` lets a caller map the overflow
   onto its own protocol error class without string-matching a message.
-- **Blank lines are dropped and a trailing `\r` is stripped**, so a CRLF peer and an LF peer
-  produce identical output.
+- **A trailing `\r` is always stripped**, so a CRLF peer and an LF peer produce identical
+  output. **Blank lines are dropped by `push()` only.** `flush()` returns whatever remains
+  as a single element with no such filter, so a stream ending in a bare `"\r"` yields
+  `[""]` — filter the result before parsing it.
 - **No I/O.** The reader takes bytes you already have; opening the pipe is yours.
 
 ## Example
@@ -43,9 +45,12 @@ export function onChunk(chunk: Uint8Array): unknown[] {
   return reader.push(chunk).map((line) => JSON.parse(line) as unknown);
 }
 
-/** Anything still buffered when the peer closes. */
+/** Anything still buffered when the peer closes — flush() does not drop a blank remainder. */
 export function onEnd(): unknown[] {
-  return reader.flush().map((line) => JSON.parse(line) as unknown);
+  return reader
+    .flush()
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as unknown);
 }
 
 export const maxFrameBytes: number = IPC_MAX_LINE_BYTES;

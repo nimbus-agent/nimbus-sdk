@@ -15,7 +15,7 @@ A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 | [`types`](./modules/types.md) | `ExtensionManifest`, `NimbusItem` — the core contract shapes |
 | [`item-types`](./modules/item-types.md) | The item-type vocabulary and its guards |
 | [`agents`](./modules/agents.md) | Agent briefs, their guards, and the guard factory |
-| [`audit-logger`](./modules/audit-logger.md) | The scoped, redaction-safe audit logger |
+| [`audit-logger`](./modules/audit-logger.md) | The scoped audit logger |
 | [`hitl-request`](./modules/hitl-request.md) | Human-in-the-loop request shapes |
 | [`crypto`](./modules/crypto.md) | Ed25519 signing, JWTs, service-account tokens |
 | [`icalendar`](./modules/icalendar.md) | RFC 5545 building and parsing |

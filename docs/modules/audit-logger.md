@@ -15,8 +15,11 @@ human-in-the-loop approval meaningful after the fact.
 - **The scope prefix is added for you, and you cannot bypass it.** `log("note.updated")`
   emits `acme-notes:note.updated`. An action containing a colon is rejected, so a connector
   cannot write an entry that appears to come from a different extension.
-- **An empty `extensionId` or an empty `action` throws.** An unattributable audit entry is
-  worse than none.
+- **An unattributable entry is refused, but in two different ways.** An empty or
+  whitespace-only `extensionId` throws **synchronously** from
+  `createScopedAuditLogger` — you find out at wiring time. An empty `action` **rejects the
+  promise** `log()` returns, because `log` is async; a call site that does not `await` will
+  drop that on the floor as an unhandled rejection.
 - **The emit is a seam, not an implementation.** `createScopedAuditLogger` performs no I/O
   itself — you supply the `AuditEmit`, so tests substitute a collector. See the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).

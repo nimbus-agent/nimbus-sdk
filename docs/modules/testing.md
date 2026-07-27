@@ -9,27 +9,47 @@ assertion (from the main entry point), plus `MockGateway` and the sandbox probe 
 ## When you reach for it
 
 In your connector's own test suite, before you publish. `runContractTests` catches a
-manifest that will be rejected at install time; `runSandboxContractTests` catches a
-manifest whose declared permissions do not match what the sandbox actually enforces.
+manifest that will be rejected at install time; `runSandboxContractTests` compares a
+manifest's declared permissions against what a forked probe actually observes.
 
 ## Constraints that are load-bearing
 
-- **Two entry points, deliberately.** `runContractTests` and `assertNoRowDataTools` are
-  part of the main contract (`@nimbus-dev/sdk`) because a connector may want them in
-  production code paths. `MockGateway` and `runSandboxContractTests` live behind
-  `@nimbus-dev/sdk/testing` so test-only machinery never enters a production bundle.
+- **`MockGateway` is reachable from both entry points, and that has bitten before.**
+  `src/index.ts` re-exports it, so [`api-surface.md`](../api-surface.md) lists `MockGateway`
+  under `.` as well as under `./testing`, and importing the package root pulls
+  `sandbox-contract.js` in with it. The module comment in `src/testing/sandbox-contract.ts`
+  records the consequence: a bundler that inlined the source baked the build machine's
+  absolute path into `import.meta.url`, and `require("@nimbus-dev/client")` then threw
+  `ERR_INVALID_FILE_URL_PATH` on every machine that was not the CI runner — while passing
+  CI, where the baked path happened to exist. The probe path is resolved lazily now, so a
+  root import stays inert. But the re-export is still there: test-only code is **not**
+  quarantined behind the subpath. Import from `@nimbus-dev/sdk/testing` because it says
+  what you mean, not because it isolates anything.
 - **The no-row-data check is name-based, and that is on purpose.** Each tool name is split
   on non-alphanumeric boundaries and rejected if any segment is in
   `ROW_DATA_TOOL_SEGMENTS`. Descriptions are deliberately not scanned, so a description
   reading "does not fetch rows" cannot produce a false positive. The service prefix must be
   a single token — `bigquery_list`, not `big_query_list`, which would split into a spurious
   `query`.
-- **Failures throw `ExtensionContractError`, not a plain `Error`.** Match on the class.
-- **The sandbox probe asserts enforcement, and the SDK harness alone does not wrap it.**
-  `runSandboxContractTests` forks probes for the first declared network host, an unroutable
-  address, and a protected filesystem path. The network-unlisted probe is skipped on
-  Windows, where AppContainer filtering makes the failure indistinguishable from the
-  unsandboxed case. A green run on Windows therefore proves less than a green run on POSIX.
+- **Only the `contract-tests` entry points throw `ExtensionContractError`.**
+  `runContractTests` and `assertNoRowDataTools` do. **`runSandboxContractTests` throws a
+  plain `Error` on all three of its failure paths.** Catching only `ExtensionContractError`
+  around a sandbox run silently swallows every sandbox failure.
+- **`runContractTests` validates the manifest's shape, and only its shape.** Required
+  strings, the `runtime` value, the `permissions` and `hitlRequired` vocabularies, and the
+  `minNimbusVersion` format. It does not execute your tools, so it cannot tell whether the
+  permissions you declared match the ones you actually use.
+- **The sandbox probe reads a different permissions schema than `ExtensionManifest`, and
+  the mismatch is silent.** `runSandboxContractTests` reads the manifest **from disk** and
+  looks for `permissions.network` — an *object* form. `ExtensionManifest.permissions` in
+  this same SDK is an **array** (`["read", "write"]`), the shape the first fence below
+  builds. Given an array it finds no hosts, so **both network probes skip on every
+  platform** and only the filesystem-denied probe runs. Separately, the network-unlisted
+  probe is skipped on Windows, where AppContainer filtering makes the failure
+  indistinguishable from the unsandboxed case. A green run proves less than it looks like —
+  know which probes actually ran.
+- **The SDK harness alone does not sandbox-wrap the probe.** It forks it directly, so for
+  the run to assert real enforcement the probe must be invoked under a sandbox wrapper.
 - **`runProbe` and `platform` are injectable.** The probe runner and the platform reading
   are parameters, so the harness itself is testable — see the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
@@ -39,7 +59,12 @@ manifest whose declared permissions do not match what the sandbox actually enfor
 Validating the manifest and the tool surface:
 
 ```ts
-import { assertNoRowDataTools, type ExtensionManifest, runContractTests } from "@nimbus-dev/sdk";
+import {
+  assertNoRowDataTools,
+  ExtensionContractError,
+  type ExtensionManifest,
+  runContractTests,
+} from "@nimbus-dev/sdk";
 
 const manifest: ExtensionManifest = {
   id: "acme-notes",
@@ -54,12 +79,18 @@ const manifest: ExtensionManifest = {
   minNimbusVersion: "1.0.0",
 };
 
-export async function checkContract(): Promise<void> {
-  // Throws ExtensionContractError listing every problem it found.
-  await runContractTests(manifest);
+/** Every shape problem the manifest has, or `[]` if it is well-formed. */
+export async function checkContract(): Promise<string[]> {
+  try {
+    await runContractTests(manifest);
 
-  // `acme_rows` would be rejected here; `acme_schema` is fine.
-  assertNoRowDataTools([{ name: "acme_schema", description: "List note fields." }], manifest.id);
+    // `acme_rows` would be rejected here; `acme_schema` is fine.
+    assertNoRowDataTools([{ name: "acme_schema", description: "List note fields." }], manifest.id);
+    return [];
+  } catch (err) {
+    if (err instanceof ExtensionContractError) return err.message.split("; ");
+    throw err;
+  }
 }
 ```
 
@@ -68,10 +99,17 @@ The sandbox probe and the gateway mock:
 ```ts
 import { MockGateway, runSandboxContractTests } from "@nimbus-dev/sdk/testing";
 
-export async function checkSandbox(manifestPath: string): Promise<void> {
-  await runSandboxContractTests(manifestPath);
+/** A plain `Error`, not an ExtensionContractError — do not narrow it away. */
+export async function checkSandbox(manifestPath: string): Promise<string | null> {
+  try {
+    await runSandboxContractTests(manifestPath);
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
+  }
 }
 
+/** Resolves to `{}` for every call — a null object, not a programmable mock. */
 export async function callThroughMock(): Promise<unknown> {
   const gateway = new MockGateway();
   return await gateway.callTool("acme_schema", { itemId: "note-1" });
@@ -82,5 +120,15 @@ export async function callThroughMock(): Promise<unknown> {
 
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the
 published contract. They are not repeated here, so there is only ever one copy to keep
-correct. `RunSandboxContractTestsOptions`, referenced by `runSandboxContractTests`, is
-structural and not itself exported: pass an object literal.
+correct.
+
+- **`contract-tests`** — `runContractTests` and `assertNoRowDataTools`, plus
+  `ROW_DATA_TOOL_SEGMENTS` (the segment blocklist the check consults, exported so you can
+  see what it will reject before it rejects it), `RowDataToolCandidate` (the
+  `{ name, description? }` shape it takes), and `ExtensionContractError`.
+- **`testing/index`** — `MockGateway`. `callTool` ignores both arguments and resolves to
+  `{}`. It is a null object that lets a call site compile and run, not a mock you can
+  script; substitute your own when a test needs a real answer.
+- **`testing/sandbox-contract`** — `runSandboxContractTests`.
+  `RunSandboxContractTestsOptions`, which carries `runProbe` and `platform`, is referenced
+  by it but is not itself exported: pass an object literal.

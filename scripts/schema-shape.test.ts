@@ -111,6 +111,34 @@ describe("parseMembers", () => {
   test("throws on a member it cannot parse, rather than dropping it", () => {
     expect(() => parseMembers("id string;")).toThrow(/could not parse interface member/);
   });
+
+  test("an arrow-function type does not unbalance the splitter", () => {
+    expect(parseMembers("handler: (e: Event) => void;\n id: string;")).toEqual([
+      { name: "handler", optional: false, nested: null },
+      { name: "id", optional: false, nested: null },
+    ]);
+  });
+
+  test("a generic containing an arrow type still splits correctly", () => {
+    expect(parseMembers("cb?: Array<(x: number) => string>;\n id: string;")).toEqual([
+      { name: "cb", optional: true, nested: null },
+      { name: "id", optional: false, nested: null },
+    ]);
+  });
+
+  test("a semicolon inside a string-literal type does not split the member", () => {
+    expect(parseMembers('tag: "x;y: z";\n id: string;')).toEqual([
+      { name: "tag", optional: false, nested: null },
+      { name: "id", optional: false, nested: null },
+    ]);
+  });
+
+  test("an escaped quote inside a string-literal type does not end the string", () => {
+    expect(parseMembers('tag: "a\\";b";\n id: string;')).toEqual([
+      { name: "tag", optional: false, nested: null },
+      { name: "id", optional: false, nested: null },
+    ]);
+  });
 });
 
 describe("tsShapeOf", () => {

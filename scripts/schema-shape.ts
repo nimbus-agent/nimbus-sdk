@@ -22,6 +22,13 @@
  * arrangement — `{ a: string }[]`, `{ a: string } | null`, `Array<{ a: string }>` — throws.
  * Both alternatives are worse: descending would silently drop the array or union wrapper,
  * and skipping would report agreement on a field that was never compared.
+ *
+ * Assumes comments were already stripped from the declaration text before it reaches here —
+ * in the real pipeline, by `stripComments` in `scripts/api-surface.ts`. A leading `//` or
+ * JSDoc comment inside a member list is not recognized and throws under the same
+ * throw-don't-drop rule as everything else this parser cannot read; it is simply never
+ * exercised in practice. `readonly` modifiers and method-shorthand members (`foo(): void;`)
+ * are likewise unrecognized and throw rather than being misread.
  */
 
 import { normalizeEol } from "./api-surface.ts";
@@ -115,15 +122,49 @@ function isObjectLiteralType(type: string): boolean {
  * generic argument list never causes a split mid-member. A member the pattern does not
  * recognize throws rather than being dropped: this module exists to detect drift, and a
  * silently skipped member is drift it would report as agreement.
+ *
+ * Two constructs need special handling before the generic depth counter ever sees them,
+ * because either one would otherwise unbalance it and silently swallow every later member
+ * with no throw:
+ *
+ * - `=>` (an arrow-function type) contains a `>` with no matching `<`. Treated naively, that
+ *   `>` decrements depth to −1, no `;` ever finds depth 0 again, and the rest of the body is
+ *   consumed into one member's type. It is consumed here as a single two-character token
+ *   that changes no depth.
+ * - A quoted string can contain any of `;`, `{`, `}`, `<`, `>` as literal text (a string
+ *   literal type, e.g. `tag: "x;y";`). String contents must not affect depth or be split on,
+ *   so `"`, `'`, and `` ` `` toggle a string-tracking state, and a backslash inside a string
+ *   escapes the next character rather than ending it.
  */
 export function parseMembers(body: string): PropertyShape[] {
   const text = normalizeEol(body);
   const members: string[] = [];
   let depth = 0;
   let start = 0;
+  let inString: string | null = null;
 
   for (let i = 0; i < text.length; i += 1) {
     const ch = text.charAt(i);
+
+    if (inString !== null) {
+      if (ch === "\\") {
+        i += 1;
+      } else if (ch === inString) {
+        inString = null;
+      }
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = ch;
+      continue;
+    }
+
+    if (ch === "=" && text.charAt(i + 1) === ">") {
+      i += 1;
+      continue;
+    }
+
     if (ch === "{" || ch === "[" || ch === "(" || ch === "<") depth += 1;
     else if (ch === "}" || ch === "]" || ch === ")" || ch === ">") depth -= 1;
     else if (ch === ";" && depth === 0) {

@@ -44,8 +44,8 @@ export async function echoHandler(input: { text: string }): Promise<{ text: stri
 
 const server = new NimbusExtensionServer({ manifest });
 
-server.registerTool("echo", {
-  description: "Echoes its input",
+server.registerTool(TOOLS[0].name, {
+  description: TOOLS[0].description,
   inputSchema: { type: "object", properties: { text: { type: "string" } } },
   handler: echoHandler,
 });

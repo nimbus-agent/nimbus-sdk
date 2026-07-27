@@ -135,8 +135,8 @@ export function bearer(privateKeyPem: string, nowSeconds: number): string {
 
 For the App Store Connect API, do not assemble that yourself: `signAppStoreConnectJwt` takes
 an `AppStoreConnectJwtParams` (`issuerId`, `keyId`, and the `.p8` `privateKeyPem`) and fills
-in the ES256 header, the `appstoreconnect-v1` audience, and the 10-minute TTL Apple caps
-tokens at.
+in the ES256 header, the `appstoreconnect-v1` audience, and a 10-minute expiry — the SDK's
+own choice, sitting well inside the 20-minute lifetime Apple's API allows.
 
 ## Every export
 

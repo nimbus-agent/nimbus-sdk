@@ -191,7 +191,10 @@ async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> 
     snippets.forEach((snippet, index) => {
       const name = `snippet-${String(index).padStart(3, "0")}.ts`;
       writeFileSync(join(scratch, name), snippet.code, "utf8");
-      fileToOrigin.set(name, `${snippet.file}:${snippet.line}`);
+      // tsc is spawned with cwd: repoRoot (below), so it prints this file's path
+      // cwd-relative — "SCRATCH_DIR/name" — not just the bare filename. Map the whole
+      // path, or the ".docs-snippets/" prefix survives the substitution below.
+      fileToOrigin.set(`${SCRATCH_DIR}/${name}`, `${snippet.file}:${snippet.line}`);
     });
 
     const paths = sdkPathsMapping(
@@ -250,7 +253,9 @@ async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> 
 
     // Map every scratch filename back to the document and line the fence came from, so a
     // failure names docs/modules/crypto.md:42 rather than .docs-snippets/snippet-007.ts.
-    let mapped = output;
+    // tsc can print the path with "\\" separators on Windows; normalize to "/" first so
+    // the "SCRATCH_DIR/name" keys above match regardless of platform.
+    let mapped = output.split("\\").join("/");
     for (const [name, origin] of fileToOrigin) {
       mapped = mapped.split(name).join(origin);
     }

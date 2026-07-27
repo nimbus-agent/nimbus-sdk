@@ -80,8 +80,9 @@ correct.
 
 - **Requests** — `buildListRequest`, `buildGetRequest`, and `buildSearchRequest` all build
   the same `Email/get` argument set from `EMAIL_PROPERTIES`, differing only in how they
-  reference the ids. The three capability URNs (`CORE_CAPABILITY`, `MAIL_CAPABILITY`,
-  `SUBMISSION_CAPABILITY`) are the `using` values those envelopes declare.
+  reference the ids. Each envelope declares `using: [CORE_CAPABILITY, MAIL_CAPABILITY]`.
+  `SUBMISSION_CAPABILITY` is exported alongside the other two URNs but is not declared by
+  any envelope built here — there is no `Email/submission` request in this module.
 - **Envelope** — `methodResponseArgs` pulls one named method's arguments out of a JMAP
   `methodResponses` array, and `extractEmailList` is the `Email/get` special case that
   returns its `list`. Both operate on the whole response envelope, before any single email

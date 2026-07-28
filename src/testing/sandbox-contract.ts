@@ -46,6 +46,7 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -128,8 +129,10 @@ export interface RunSandboxContractTestsOptions {
    * Deliberately a parameter and not an environment variable: the inclusion policy's purity
    * criterion requires a substitutable effect to be reachable through a parameter, and
    * `NIMBUS_SANDBOX_PROBE_PATH` would be precisely the ambient state it forbids.
+   *
+   * Ignored when `runProbe` is supplied — a custom runner owns probe location.
    */
-  probePath?: string;
+  probePath?: string | undefined;
 }
 
 /**
@@ -203,6 +206,13 @@ export function __defaultRunProbe(
   arg: string,
   binary: string = probePath(),
 ): ProbeResult {
+  if (binary === "" || !existsSync(binary) || statSync(binary).isDirectory()) {
+    throw new Error(
+      `sandbox probe not found at ${JSON.stringify(binary)} — this is a packaging or ` +
+        "configuration problem, not a sandbox failure. Point `probePath` at the probe " +
+        "script (`dist/testing/sandbox-probe.js` from the published package).",
+    );
+  }
   const result = spawnSync(process.execPath, [binary, `--probe=${probe}`, `--arg=${arg}`], {
     encoding: "utf8",
   });

@@ -150,6 +150,29 @@ describe("runSandboxContractTests", () => {
     ).rejects.toThrow(/fs-denied probe should have returned EACCES.*exit 2.*unexpected file read/s);
   });
 
+  it("`probePath: undefined` behaves identically to omitting the option", async () => {
+    // exactOptionalPropertyTypes makes `{ probePath: undefined }` — exactly what
+    // `{ probePath: cfg.probePath }` produces for a `string | undefined` config field — a
+    // compile error unless the declared type includes `| undefined`. Runtime already handled
+    // `undefined` correctly; this pins the behavior down. A stub `runProbe` keeps this from
+    // spawning the real probe binary.
+    const manifestPath = writeManifest({});
+    const { runner: runnerOmitted, calls: callsOmitted } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, { runProbe: runnerOmitted });
+
+    const { runner: runnerExplicit, calls: callsExplicit } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, {
+      runProbe: runnerExplicit,
+      probePath: undefined,
+    });
+
+    expect(callsExplicit).toEqual(callsOmitted);
+  });
+
   it("tolerates a manifest with `permissions: string[]` (legacy array form)", async () => {
     const manifestPath = writeManifest(["read-files", "trash"]);
     const { runner, calls } = makeProbeRunner([
@@ -253,5 +276,28 @@ describe("probe path override", () => {
     }).then(() => {
       expect(calls).toEqual([{ probe: "fs-denied", arg: "" }]);
     });
+  });
+
+  it("`__defaultRunProbe` throws instead of masquerading as a sandbox failure for an empty path", () => {
+    // Before the fix, "" reached spawnSync, which exited 0 with empty output — a probe that
+    // ran nothing, reported as a probe that succeeded.
+    expect(() => __defaultRunProbe("fs-denied", "", "")).toThrow(/sandbox probe not found/);
+  });
+
+  it("`__defaultRunProbe` throws instead of blaming the sandbox for a missing probe file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sdk-probe-missing-"));
+    tempDirs.push(dir);
+    const missing = join(dir, "does-not-exist.mjs");
+    expect(() => __defaultRunProbe("fs-denied", "", missing)).toThrow(/sandbox probe not found/);
+  });
+
+  it("`runSandboxContractTests` rejects with the packaging diagnostic for an empty `probePath`, not a vacuous pass", async () => {
+    // The important one: a manifest with a declared network host exercises the
+    // network-listed probe, whose check is `if (r.status !== 0) throw`. Before the fix,
+    // probePath: "" spawned nothing, exited 0, and that check passed vacuously.
+    const manifestPath = writeManifest({ network: ["example.com"] });
+    await expect(runSandboxContractTests(manifestPath, { probePath: "" })).rejects.toThrow(
+      /sandbox probe not found/,
+    );
   });
 });

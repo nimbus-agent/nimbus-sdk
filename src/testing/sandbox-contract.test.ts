@@ -1,5 +1,5 @@
-import { describe, expect, it } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { describe, expect, it, test } from "bun:test";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,8 @@ import {
   __defaultRunProbe,
   type ProbeResult,
   type ProbeRunner,
+  probeFileNameFor,
+  probePath,
   runSandboxContractTests,
 } from "./sandbox-contract.js";
 
@@ -143,4 +145,44 @@ describe("runSandboxContractTests", () => {
     expect(typeof r.stderr).toBe("string");
     expect(typeof r.stdout).toBe("string");
   }, 30_000);
+});
+
+describe("probePath", () => {
+  test("resolves to a file that exists in whichever tree is running", () => {
+    const path = probePath();
+    expect(
+      existsSync(path),
+      `probePath() returned ${path}, which does not exist. Under Bun this module runs ` +
+        "from src/ (where only sandbox-probe.ts exists); from the published package it " +
+        "runs from dist/ (where only sandbox-probe.js exists). The extension must follow " +
+        "whichever copy is executing.",
+    ).toBe(true);
+  });
+
+  test("names the probe beside the module that resolved it", () => {
+    expect(probePath().split(/[\\/]/).pop()).toMatch(/^sandbox-probe\.(ts|js)$/);
+  });
+});
+
+describe("probeFileNameFor", () => {
+  test("names the TypeScript probe beside a TypeScript module", () => {
+    expect(probeFileNameFor("/repo/src/testing/sandbox-contract.ts")).toBe("sandbox-probe.ts");
+  });
+
+  test("names the JavaScript probe beside an emitted module", () => {
+    expect(probeFileNameFor("/repo/dist/testing/sandbox-contract.js")).toBe("sandbox-probe.js");
+  });
+
+  test("handles Windows-style paths", () => {
+    expect(probeFileNameFor("C:\\repo\\dist\\testing\\sandbox-contract.js")).toBe(
+      "sandbox-probe.js",
+    );
+  });
+
+  test("defaults to .js for anything that is not TypeScript", () => {
+    // A bundler emitting .mjs is the plausible future case. Resolving to .js is the right
+    // default there: it is what ships in dist/, and a wrong guess fails loudly with a
+    // missing file rather than silently resolving to something unintended.
+    expect(probeFileNameFor("/repo/dist/testing/sandbox-contract.mjs")).toBe("sandbox-probe.js");
+  });
 });

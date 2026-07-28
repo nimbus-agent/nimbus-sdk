@@ -63,8 +63,26 @@ import { fileURLToPath } from "node:url";
  * happened to exist. Kept lazy, importing the root is inert; only an actual
  * probe run touches the path.
  */
-function probePath(): string {
-  return resolve(dirname(fileURLToPath(import.meta.url)), "sandbox-probe.ts");
+/**
+ * The probe filename to use beside a module at `modulePath`.
+ *
+ * Extracted so the `.js` branch is testable: `bun test` always runs the `src/` tree, so a
+ * test that only calls `probePath()` cannot distinguish a derived extension from one
+ * hardcoded to `.ts` — which is exactly the bug this guards against.
+ */
+export function probeFileNameFor(modulePath: string): string {
+  return modulePath.endsWith(".ts") ? "sandbox-probe.ts" : "sandbox-probe.js";
+}
+
+export function probePath(): string {
+  // The extension must follow whichever copy is executing: under the `bun` export
+  // condition this module runs from src/, where only sandbox-probe.ts exists; from the
+  // published package it runs from dist/, where only sandbox-probe.js does. A hardcoded
+  // extension is wrong from one side or the other, whichever one is chosen — and the
+  // previous hardcoded ".ts" made every dist/ consumer's probe spawn fail, reported as
+  // an fs-denied sandbox failure rather than as the packaging bug it was.
+  const here = fileURLToPath(import.meta.url);
+  return resolve(dirname(here), probeFileNameFor(here));
 }
 
 interface ManifestPermissions {

@@ -140,6 +140,38 @@ backslash escapes, so a template literal containing `//` is preserved intact rat
 truncated. Replacing it with a full JS tokenizer would add a parser this package does not
 need and cannot take as a dependency.
 
+#### Postscript: this is what this design proposed, not what shipped
+
+Reusing `stripComments` did not survive implementation review, and what eventually shipped
+took two more rounds to get right. Recorded here rather than silently edited out, because
+both rejections are genuinely useful to whoever touches this scan next — this document is a
+historical record of the design phase, not a description of the current code. For the
+committed algorithm, read `scripts/cjs-scan.ts`'s own docstring and `scripts/cjs-scan.test.ts`
+— that pairing is the sole source of truth.
+
+- **This design: reuse `stripComments`.** Rejected before implementation. The plan review
+  ([`2026-07-28-esm-correctness-review.md`](../plans/2026-07-28-esm-correctness-review.md))
+  pointed out that `stripComments` *deletes* block comments outright, newlines included, so a
+  construct after a JSDoc header — every emitted `dist/` file opens with one — reports a line
+  number short by the header's height.
+- **What the implementation plan built instead: `blankComments`,** a bespoke character-
+  scanning state machine that blanks comment characters to spaces while preserving every
+  newline and all string contents, fixing the line-drift defect above. This *did* ship, in
+  the first version of `scripts/cjs-scan.ts`. It did not last: a further review found it had
+  no regex-literal awareness, so `const re = /[/*]/;` read the `/*` inside the character
+  class as a block-comment opener with no closer and blanked everything after it to EOF —
+  including a real `require(` on a later line.
+- **What replaced it, and then what replaced that:** a stateless, per-line prefix check
+  (`isCommentOnlyLine`) closed the regex hole, at the cost of a narrower one — any line
+  trimming to a `*`-prefix was assumed to be JSDoc, so a wrapped multiplication continuation
+  carrying a `require(` was skipped. The version now committed tracks block-comment state
+  across lines again, same as `blankComments` did, but opens a block *only* on a line whose
+  trimmed form starts with `/*` — a rule a regex literal cannot satisfy and a `*`-prefixed
+  continuation line does not either, closing both holes at once. Its own tradeoff, stated
+  rather than hidden: a construct named in a *trailing* comment on a code line is reported,
+  because only a line's start decides whether it is comment-only. That is a loud false
+  positive, and over-refusal is the direction this repo's doctrine prefers.
+
 ### `require` is banned outright, including via `createRequire`
 
 `import { createRequire } from "node:module"` is the legitimate ESM escape hatch for loading

@@ -47,7 +47,7 @@ We recommend proceeding with the plan, subject to addressing the line-number dri
 
 ### Correction 3.1: Temporal Dead Zone (TDZ) for `const`
 - **Context:** The plan notes:
-  ```
+  ```text
   MANIFEST is declared after SMOKE_CALLS on purpose: const in a module is hoisted to the top of the module scope and only read inside run callbacks, which execute later.
   ```
 - **Correction:** In modern JavaScript, `const` and `let` declarations are block-scoped and are **not** hoisted to the top of the scope in a way that allows access before declaration (they trigger a ReferenceError due to the Temporal Dead Zone). 

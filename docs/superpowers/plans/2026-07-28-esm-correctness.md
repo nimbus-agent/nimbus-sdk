@@ -225,6 +225,11 @@ the extension now follows the running module's own."
 
 ### Task 2: The static CJS scan
 
+> **Superseded.** `blankComments` below shipped, then was replaced after a further review
+> found it had a regex-literal blind spot of its own. See "Postscript — `blankComments` did
+> not survive either" at the end of this document for what actually shipped and why. This
+> section is left as written for the historical record.
+
 **Files:**
 - Create: `scripts/cjs-scan.ts`
 - Create: `scripts/cjs-scan.test.ts`
@@ -931,3 +936,46 @@ The scanner no longer reuses `stripComments`. Verified empirically: that functio
 Every `SMOKE_CALLS` entry now asserts instead of touching. `void sdk.signJwt` cannot fail: a missing export is `undefined`, `void undefined` throws nothing, and the smoke prints `ok` for an export that does not exist — the same shape of silent pass this whole change exists to eliminate.
 
 The `MANIFEST` note's rationale was wrong. `const` is hoisted but sits in the temporal dead zone, so declaration order would matter if it were read during module evaluation. It works because the `run` closures execute after the module finishes loading — lazy evaluation, not hoisting.
+
+## Postscript — `blankComments` did not survive either
+
+This plan shipped `blankComments` — see Task 2 Step 3 above — as the fix for the line-drift
+defect a prior review found in reusing `stripComments`. It was a real improvement over that
+defect, and it merged. It was not the end of the story.
+
+A further whole-branch review found `blankComments` had no regex-literal awareness: it is a
+character-scanning state machine that opens a block comment the instant it sees `/*`
+anywhere in the source, with no notion of "this `/*` is actually inside a regex literal." Fed
+`const re = /[/*]/;`, it reads the `/*` inside the character class as an opener, finds no
+matching closer, and blanks everything after it to end of file — including a real `require(`
+on a later line. That is a silent under-report, the one failure mode this whole guard exists
+to prevent, so it could not stand.
+
+The fix that shipped, and is what `scripts/cjs-scan.ts` contains today, replaced the
+character-scanning state machine with a *line*-oriented one: block-comment state is still
+tracked across lines, but a block can only be **opened** by a line whose trimmed form starts
+with `/*`. A regex literal cannot satisfy that test no matter where in the line it sits —
+`const re = /[/*]/;` trims to `const re = …`, not `/*…` — so the hole above is closed without
+reusing a single line of `blankComments`.
+
+That fix itself first shipped as an even simpler, fully *stateless* version — no block
+tracking of any kind, just "does the trimmed line start with `//`, `/*`, `*`, or `*/`" — and
+that version had its own hole: it treated every `*`-prefixed line as comment-only, so a
+wrapped multiplication continuation carrying a `require(` (`const v = 2\n  *
+require("x");`) was skipped even though it is plain code. Restoring real block-comment state
+— open only via a line starting with `/*`, close on a line containing `*/` — closes that hole
+too, because a `*`-prefixed line is now comment-only *only when a block is already open*.
+
+**The committed algorithm, plus its tradeoff, in one place:** block-comment state is tracked
+across lines; a block opens only when a line's trimmed form starts with `/*`, and closes on a
+line containing `*/`, with whatever follows the closer on that line scanned as code. Every
+other line is scanned as code verbatim — including a `*`-prefixed line outside an open block,
+and including a trailing `//` comment on an otherwise-code line, which is why `const a = 1;
+// see require() docs` is reported: a construct named there is a **loud false positive**, not
+a silent miss, and this repo's doctrine prefers over-refusal to under-reporting every time
+the two are in tension.
+
+`scripts/cjs-scan.ts`'s own docstring and `scripts/cjs-scan.test.ts` are the authoritative,
+current source of truth for this algorithm — including the regression tests that pin both
+holes above shut. Treat every code sample in Task 2 above, and `blankComments` by name, as a
+historical record of how this guard evolved, not as a description of what ships.

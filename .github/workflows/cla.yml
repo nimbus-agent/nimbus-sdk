@@ -13,21 +13,34 @@ permissions:
   pull-requests: write
   statuses: write
 
-# Human accounts exempt from signing. Kept in one place because two jobs need it: the
-# CLA Assistant skips them, and `allowlisted-status` reports the `cla` check on their
-# behalf.
+# Accounts exempt from signing, for `allowlisted-status` below — and ONLY for it.
 #
-# Exact logins only, no globs. A previous `bot*` entry never matched anything — GitHub
-# App logins are suffixed, not prefixed (`nimbus-release-bot[bot]`, `dependabot[bot]`),
-# so it would only have matched a human whose name began with "bot". Writing it the
-# other way round is worse, not better: `[bot]` is a character class in both shell
-# `case` and minimatch, so `*[bot]` matches every login ending in b, o, or t — including
-# `robot` and `dependabot` — while still never matching a literal `[bot]` suffix.
+# Exact logins, no globs, because this list is compared with `=` in shell. Globbing it
+# would be actively harmful here: `[bot]` is a character class in shell `case`, so a
+# `*[bot]` pattern matches every login ending in b, o or t — `robot` included — while
+# never matching a literal `[bot]` suffix.
 #
-# Bots need no pattern at all. contributor-assistant exempts `type: Bot` accounts
-# independently of this list, and `allowlisted-status` mirrors that check directly.
+# Bots need no entry at all in THIS list: `allowlisted-status` exempts `user.type == "Bot"`
+# directly, which is exact and needs no pattern. The action's list is a separate variable
+# below, because it is a separate consumer with its own matching rules — see the comment
+# there for why conflating the two broke the release bot.
 env:
   CLA_ALLOWLIST: 'asafgolombek,claude'
+
+  # Passed to contributor-assistant, which is a DIFFERENT consumer with different matching
+  # semantics, so it gets its own value. Splitting these is not tidiness — collapsing them
+  # broke the release bot.
+  #
+  # PR #39 removed a `bot*` entry from the action's allowlist, reasoning that GitHub App
+  # logins are suffixed (`nimbus-release-bot[bot]`) so a prefix glob could never match. The
+  # reasoning was wrong: release PR #35 passed the CLA check with `bot*` present and release
+  # PR #41 failed without it, with nothing else changed. Whatever the action does with that
+  # pattern, it demonstrably covered the bot. Both forms are kept here so the fix does not
+  # depend on knowing which one the action honours.
+  #
+  # `allowlisted-status` below does NOT read this — it matches CLA_ALLOWLIST exactly and
+  # exempts `user.type == "Bot"` outright, which needs no pattern at all.
+  CLA_ASSISTANT_ALLOWLIST: 'bot*,*[bot],nimbus-release-bot[bot],dependabot[bot],asafgolombek,claude'
 
 # Keyed by head SHA for push events, so two commits pushed in quick succession do not
 # contend: previously both shared one group, and on PR #38 the newer commit's run was
@@ -94,7 +107,11 @@ jobs:
             -f context=cla \
             -f description="Allowlisted author — CLA not required"
 
-  cla:
+  # Named `cla-assistant`, not `cla`. A job named `cla` publishes a check-run called
+  # `cla`, which collides with the required commit status of the same name that
+  # `allowlisted-status` posts — two different things reporting under one required
+  # context. Exactly one thing should own that name, and it is the status.
+  cla-assistant:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     # Only run on the sign/recheck comment or on a PR event — never on other comments.
@@ -120,6 +137,6 @@ jobs:
           path-to-signatures: 'signatures/version1/cla.json'
           remote-repository-name: '.github'
           branch: 'cla-signatures'
-          allowlist: ${{ env.CLA_ALLOWLIST }}
+          allowlist: ${{ env.CLA_ASSISTANT_ALLOWLIST }}
           custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
           custom-notsigned-prcomment: 'Thanks for your PR. Before it can be merged, please sign the [Individual CLA](https://github.com/nimbus-agent/.github/blob/main/CLA/ICLA.md) by commenting exactly: **I have read the CLA Document and I hereby sign the CLA**. Contributing on behalf of an employer? See the [Corporate CLA](https://github.com/nimbus-agent/.github/blob/main/CLA/CCLA.md).'

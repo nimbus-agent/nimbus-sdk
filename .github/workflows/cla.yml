@@ -9,14 +9,91 @@ on:
 permissions:
   actions: write
   contents: read
+  issues: read
   pull-requests: write
   statuses: write
 
+# Human accounts exempt from signing. Kept in one place because two jobs need it: the
+# CLA Assistant skips them, and `allowlisted-status` reports the `cla` check on their
+# behalf.
+#
+# Exact logins only, no globs. A previous `bot*` entry never matched anything — GitHub
+# App logins are suffixed, not prefixed (`nimbus-release-bot[bot]`, `dependabot[bot]`),
+# so it would only have matched a human whose name began with "bot". Writing it the
+# other way round is worse, not better: `[bot]` is a character class in both shell
+# `case` and minimatch, so `*[bot]` matches every login ending in b, o, or t — including
+# `robot` and `dependabot` — while still never matching a literal `[bot]` suffix.
+#
+# Bots need no pattern at all. contributor-assistant exempts `type: Bot` accounts
+# independently of this list, and `allowlisted-status` mirrors that check directly.
+env:
+  CLA_ALLOWLIST: 'asafgolombek,claude'
+
+# Keyed by head SHA for push events, so two commits pushed in quick succession do not
+# contend: previously both shared one group, and on PR #38 the newer commit's run was
+# dropped, leaving the required `cla` status missing for the head that mattered. Signing
+# comments carry no head SHA and share a single per-PR group, which is what we want —
+# concurrent signature writes to the same file should serialize, not race.
 concurrency:
-  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}-${{ github.event.pull_request.head.sha || 'comment' }}
   cancel-in-progress: false
 
 jobs:
+  # `cla` is a required status check on main. contributor-assistant SKIPS allowlisted
+  # authors and posts no status at all, so for every allowlisted author — the maintainer
+  # and, critically, release-please and Dependabot — the required check simply never
+  # appeared and the PR could only be merged by an org-admin bypass. Every merged PR in
+  # this repository to date went that route, including the release bot's.
+  #
+  # This job closes that gap by reporting `cla` itself for allowlisted authors. Outside
+  # contributors are untouched: they are not allowlisted, so this job no-ops and the
+  # CLA Assistant posts the real (initially failing) status as before.
+  allowlisted-status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request_target'
+    steps:
+      - name: Report `cla` for an allowlisted author
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          matched=""
+
+          # A Bot account cannot comment to sign, so contributor-assistant exempts it
+          # regardless of the allowlist. Mirror that here rather than depending on a
+          # glob: this is the condition the action actually applies.
+          if [ "$AUTHOR_TYPE" = "Bot" ]; then
+            matched="type=Bot"
+          else
+            # Exact comparison, deliberately not glob matching. CLA_ALLOWLIST holds
+            # literal logins; treating them as patterns is how `*[bot]` would silently
+            # exempt `robot`, and over-exempting is the one direction that matters here.
+            IFS=',' read -ra entries <<< "$CLA_ALLOWLIST"
+            for raw in "${entries[@]}"; do
+              entry="$(echo "$raw" | tr -d '[:space:]')"
+              [ -z "$entry" ] && continue
+              if [ "$AUTHOR" = "$entry" ]; then
+                matched="$entry"
+                break
+              fi
+            done
+          fi
+
+          if [ -z "$matched" ]; then
+            echo "$AUTHOR is not allowlisted — CLA Assistant owns the \`cla\` status."
+            exit 0
+          fi
+
+          echo "$AUTHOR is exempt ($matched) — reporting cla=success."
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${HEAD_SHA}" \
+            -f state=success \
+            -f context=cla \
+            -f description="Allowlisted author — CLA not required"
+
   cla:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -43,6 +120,6 @@ jobs:
           path-to-signatures: 'signatures/version1/cla.json'
           remote-repository-name: '.github'
           branch: 'cla-signatures'
-          allowlist: 'bot*,asafgolombek,claude'
+          allowlist: ${{ env.CLA_ALLOWLIST }}
           custom-pr-sign-comment: 'I have read the CLA Document and I hereby sign the CLA'
           custom-notsigned-prcomment: 'Thanks for your PR. Before it can be merged, please sign the [Individual CLA](https://github.com/nimbus-agent/.github/blob/main/CLA/ICLA.md) by commenting exactly: **I have read the CLA Document and I hereby sign the CLA**. Contributing on behalf of an employer? See the [Corporate CLA](https://github.com/nimbus-agent/.github/blob/main/CLA/CCLA.md).'

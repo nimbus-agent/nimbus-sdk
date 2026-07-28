@@ -88,7 +88,10 @@ posture that every addition must justify its width.
 Independent of the four criteria, and non-negotiable because they are
 data-minimization guarantees the SDK already makes:
 
-- `jmap-fastmail` stays **headers-only**.
+- `jmap-fastmail` stays **headers, attachment metadata, and a server-truncated body
+  preview** — `maxBodyValueBytes` (2048) bounds what crosses the wire, `PREVIEW_MAX_CHARS`
+  (2000) bounds what is returned, and an attachment's `blobId` is never dereferenced.
+  Widening any of these three is contract-affecting.
 - `data-profile` stays **metadata-only** — never cell values.
 - No battery may place row or body data anywhere it could reach a log.
 

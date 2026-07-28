@@ -51,6 +51,11 @@
  *   *refusal*, a sharper edge than a false positive, and it is the price of refusing
  *   unterminated blocks at all. It is the right price here: the alternative it replaced was
  *   swallowing the rest of the file in silence. No file in the emitted package trips it.
+ * - When a block closes and another opens on the same line, the refusal names the line the
+ *   earlier block opened on rather than the still-open one. The refusal fires correctly;
+ *   only the line number is imprecise. Fixing it requires `codePortion` to report a
+ *   same-line reopen position, which is a change to the parser rule this module is built
+ *   around, not to the refusal added here.
  *
  * String and template literal *contents* are deliberately searched, not stripped: a
  * construct hidden in one is still reported. Comment-only lines are skipped in full;

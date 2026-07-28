@@ -16,6 +16,12 @@
  * Malformed input is refused, not skipped. A map this cannot read yields no targets, and no
  * targets is a vacuous pass — the exact silent under-report `scripts/api-surface.ts`'s
  * header forbids.
+ *
+ * Undeclared dependency, noted rather than hidden: the integration test below shells out to
+ * the `npm` CLI and fails rather than skips when it is absent, by design. `ci.yml`'s
+ * `build-test` job never runs `actions/setup-node` — it gets `npm` from whatever the
+ * GitHub-hosted runner image preinstalls, so a future image change is a thing that can
+ * break this guard.
  */
 
 /** Strip the leading `./` that exports values carry and npm's file list does not. */

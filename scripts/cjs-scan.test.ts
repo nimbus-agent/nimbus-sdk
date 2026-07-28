@@ -108,6 +108,13 @@ describe("findCjsConstructs", () => {
   test("the refusal names the line the block opened on, not the last line", () => {
     // A message naming the wrong line is a check that fires correctly and misdirects the
     // fix. The block opens on line 2 here and the file runs to line 4.
+    //
+    // One exception, verified and left standing: when a block closes and another opens on
+    // the SAME line (`*/ /* never closed`), the reported line is the earlier block's, not
+    // the still-open one's. Correcting that needs `codePortion` to report where a same-line
+    // reopen began, and this change may not touch `codePortion`. The refusal is still loud
+    // and still names a line inside the comment region — it is a diagnostic imprecision,
+    // not a path to a false pass.
     const src = ["const a = 1;", "/* opened here", "still inside", "and here"].join("\n");
     expect(() => findCjsConstructs(src)).toThrow("opened at line 2");
   });

@@ -52,6 +52,15 @@ describe("exportTargets", () => {
       'exports target at "." → "import" is not a string',
     );
   });
+
+  test("refuses a top-level entry that is neither a string nor an object", () => {
+    // Load-bearing, not symmetry. Delete the throw this asserts and `Object.entries(42)`
+    // returns [], silently dropping that entry from the surface being checked — the exact
+    // silent under-report the doctrine forbids. The anti-vacuity test would not catch it
+    // either: dropping one of three entries leaves six targets, still above its >5 floor.
+    expect(() => exportTargets({ ".": 42 })).toThrow("neither a string nor an object");
+    expect(() => exportTargets({ ".": [] })).toThrow("neither a string nor an object");
+  });
 });
 
 describe("missingPackedPaths", () => {
@@ -132,7 +141,10 @@ describe("every exports target is actually packed", () => {
       throw new Error("npm pack --json entry has no files array");
     }
     return files.map((entry) => {
-      const path: unknown = (entry as Record<string, unknown>)["path"];
+      const path: unknown =
+        typeof entry === "object" && entry !== null
+          ? (entry as Record<string, unknown>)["path"]
+          : undefined;
       if (typeof path !== "string") {
         throw new Error("npm pack --json file entry has no string path");
       }

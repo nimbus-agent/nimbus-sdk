@@ -382,16 +382,43 @@ parameter rather than a `??` in the caller. Reproducing the bundled failure in-r
 require building a bundle in the test, which is out of proportion to the risk. The limit is
 recorded here so a later reader does not mistake its absence for an oversight.
 
-### Contract change
+### Contract change — measured, not assumed
 
-This adds exported surface, so **`docs/api-surface.md` will change** — regenerate with
-`bun run api:surface` and let the diff be reviewed as the contract change it is. This is the
-only item in this spec that legitimately touches that file; on the other branches a diff
-there means something went wrong.
+**`docs/api-surface.md` does not change.** This was carried into the spec from the handoff
+brief as "this adds exported surface, so api-surface.md *will* change". It was checked
+rather than trusted: the change was applied in full, `bun run api:surface` regenerated the
+document, and the diff was **empty**.
 
-`docs/modules/testing.md` gains the option. Doc coverage is per exported symbol and
-`RunSandboxContractTestsOptions` is already covered, so the guard does not force this — it
-is the right thing to do anyway.
+The reason is already recorded at `docs/modules/testing.md:142-146`. `src/testing/index.ts`
+re-exports only `runSandboxContractTests` — neither `__defaultRunProbe` nor
+`RunSandboxContractTestsOptions` is in the published surface. The surface document carries
+the function signature by *reference*:
+
+```ts
+export declare function runSandboxContractTests(
+  manifestPath: string, opts?: RunSandboxContractTestsOptions,
+): Promise<void>;
+```
+
+and never expands the interface body, so adding a field to it moves nothing. Widening
+`__defaultRunProbe` moves nothing either, since that symbol is not published at all.
+
+**This inverts the instruction for this branch.** The step is not "regenerate and let the
+diff be reviewed" — it is *regenerate and confirm there is no diff*. A diff appearing means
+something unexpected happened (most likely the barrel was widened by accident) and must be
+explained before merge, exactly as on the other two branches.
+
+The change is still a `feat:` cutting a minor: it is a new capability a consumer can use,
+and semver tracks the contract, not the generated document.
+
+Also verified on the trial application: `bun run typecheck` passes clean. Passing
+`opts.probePath` (type `string | undefined` under `exactOptionalPropertyTypes`) into a
+parameter carrying a default is accepted, so no non-null assertion or extra guard is needed.
+
+`docs/modules/testing.md` gains the option. Doc coverage is per *published* symbol and the
+option is not one, so no guard forces this — it is documented because the module page is
+where a consumer would look, and it already explains that the options type cannot be
+imported by name.
 
 ---
 
@@ -401,11 +428,15 @@ Three branches. Item 4 lands separately because it is the only one that changes 
 published contract; mixing a `feat:` into a `test:`/`docs:` branch would cut a release for
 the guards.
 
-| # | Branch | Items | Commit types | Touches `api-surface.md` |
-|---|---|---|---|---|
-| 1 | guards | 1, 2 | `test:` | no |
-| 2 | docs | 3 | `docs:` | no |
-| 3 | probe-path | 4 | `feat:` | **yes** |
+| # | Branch | Items | Commit types | Cuts a release | Touches `api-surface.md` |
+|---|---|---|---|---|---|
+| 1 | guards | 1, 2 | `test:` | no | no |
+| 2 | docs | 3 | `docs:` | no | no |
+| 3 | probe-path | 4 | `feat:` | **minor** | no — *measured* |
+
+**No branch in this plan produces an `api-surface.md` diff.** That is a stronger invariant
+than the spec originally claimed, and it is uniform: on every one of the three branches, a
+diff in that file means something went wrong and must be explained before merge.
 
 Items 1 and 2 are independent of each other and share a branch only because they are both
 small guard work in `scripts/`.

@@ -45,7 +45,10 @@ Node ≥22.
 |---|---|---|---|
 | `test/packed-exports-and-cjs-refusal` | `main` | 1–3 | `test:` |
 | `docs/jmap-preview-policy` | `main` | 4 | `docs:` |
-| `feat/probe-path-override` | `main` | 5–6 | `feat:`, `docs:` |
+| `feat/probe-path-override` | `main` | 5a, 5, 6 | `test:`, `feat:`, `docs:` |
+
+Task 5a is the temp-directory cleanup added during plan review. It is preparatory, commits
+as `test:`, and lands before the feature work so the two are reviewable apart.
 
 Each branch is cut fresh from `main` (`f74609f`). They are independent and may be opened as
 PRs in any order. The design spec itself lives on `docs/esm-followups-spec` and is not a
@@ -72,7 +75,8 @@ prerequisite for any of them.
 
 - Modify `src/testing/sandbox-contract.ts` — options field, defaulted third parameter, call
   site.
-- Modify `src/testing/sandbox-contract.test.ts` — the executing test and the end-to-end test.
+- Modify `src/testing/sandbox-contract.test.ts` — first the temp-directory registry and
+  `afterAll` hook (Task 5a, its own commit), then the executing test and the end-to-end test.
 - Modify `docs/modules/testing.md` — document the option.
 
 ---

@@ -26,25 +26,33 @@ export const SMOKE_CALLS = [
   {
     module: "crypto/canonical-json",
     run: (sdk) => {
-      if (typeof sdk.canonicalizeManifest !== "function") throw new Error("missing export");
+      const bytes = sdk.canonicalizeManifest(MANIFEST);
+      if (!(bytes instanceof Uint8Array) || bytes.length === 0) {
+        throw new Error(`canonicalizeManifest did not return canonical bytes: ${bytes}`);
+      }
     },
   },
   {
     module: "crypto/jwt",
     run: (sdk) => {
-      if (typeof sdk.signJwt !== "function") throw new Error("signJwt is not a function");
+      const encoded = sdk.base64UrlJson({ a: 1 });
+      if (typeof encoded !== "string" || encoded.length === 0) {
+        throw new Error(`base64UrlJson returned an unexpected value: ${encoded}`);
+      }
     },
   },
   {
     module: "crypto/service-account-token",
     run: (sdk) => {
-      if (typeof sdk.mintGoogleAccessToken !== "function") {
-        throw new Error("mintGoogleAccessToken is not a function");
-      }
+      const result = sdk.parseServiceAccountJson("{}");
+      if (result !== null) throw new Error(`expected null for an empty object, got ${result}`);
     },
   },
   {
     module: "crypto/app-store-connect-jwt",
+    // Existence check only, like testing/sandbox-contract below: signAppStoreConnectJwt
+    // needs a real RSA private key PEM to produce a signature, and this smoke has no safe
+    // way to fabricate one.
     run: (sdk) => {
       if (typeof sdk.signAppStoreConnectJwt !== "function") {
         throw new Error("signAppStoreConnectJwt is not a function");
@@ -127,9 +135,8 @@ export const SMOKE_CALLS = [
   {
     module: "agents/guard-factory",
     run: (sdk) => {
-      if (typeof sdk.createBriefGuard !== "function") {
-        throw new Error("createBriefGuard is not a function");
-      }
+      const guard = sdk.createBriefGuard("x", () => true);
+      if (guard({}) !== false) throw new Error("createBriefGuard accepted an object with no kind");
     },
   },
   {
@@ -164,8 +171,11 @@ export const SMOKE_CALLS = [
   },
   {
     module: "testing/index",
-    run: (_sdk, testing) => {
-      if (typeof testing.MockGateway !== "function") throw new Error("MockGateway missing");
+    run: async (_sdk, testing) => {
+      const result = await new testing.MockGateway().callTool("x", {});
+      if (typeof result !== "object" || result === null || Object.keys(result).length !== 0) {
+        throw new Error(`callTool returned an unexpected value: ${JSON.stringify(result)}`);
+      }
     },
   },
   {
@@ -174,14 +184,18 @@ export const SMOKE_CALLS = [
       // Deliberately not spawned. Running the probe would pull process spawning and the
       // documented Windows platform asymmetry into a check that must stay deterministic
       // across the matrix — and its network probes skip on every platform anyway, so a
-      // real run would be closer to vacuous than reassuring. Asserting the probe file
-      // sits beside the module is what the shipped bug actually broke.
+      // real run would be closer to vacuous than reassuring.
+      //
+      // Calling probePath() itself — rather than re-deriving its expected filename here —
+      // is what proves the fix: a pure-string unit test of probeFileNameFor and a separate
+      // file-existence assertion don't prove probePath() actually calls it against its own
+      // import.meta.url. Importing the built dist/ module directly (not through the
+      // package-name-resolved barrel, since probePath is deliberately not in the `testing`
+      // barrel) and calling the real function closes that gap.
       const { existsSync } = await import("node:fs");
-      const { dirname, join } = await import("node:path");
-      const { fileURLToPath } = await import("node:url");
-      const entry = fileURLToPath(import.meta.resolve("@nimbus-dev/sdk/testing"));
-      const probe = join(dirname(entry), "sandbox-probe.js");
-      if (!existsSync(probe)) throw new Error(`sandbox probe missing beside the module: ${probe}`);
+      const mod = await import(new URL("../dist/testing/sandbox-contract.js", import.meta.url));
+      const resolved = mod.probePath();
+      if (!existsSync(resolved)) throw new Error(`probePath() → ${resolved} does not exist`);
       if (typeof testing.runSandboxContractTests !== "function") throw new Error("missing export");
     },
   },

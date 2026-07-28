@@ -84,6 +84,30 @@ describe("findCjsConstructs", () => {
     const src = 'import { x } from "node:fs";\nexport const y = () => x();';
     expect(findCjsConstructs(src)).toEqual([]);
   });
+
+  test("a regex literal does not blind the scanner", () => {
+    expect(findCjsConstructs("const re = /\\/*/g;\nconst c = require('node:fs');")).toHaveLength(1);
+  });
+
+  test("a character-class regex does not blind the scanner", () => {
+    expect(findCjsConstructs("const re = /[/*]/;\nconst c = require('node:fs');")).toHaveLength(1);
+  });
+
+  test("an unterminated block comment does not swallow the rest of the file", () => {
+    // A character-scanning implementation that tracks "inside a block comment" as state
+    // would never find the closer here and blank everything after it. The line-oriented
+    // scanner has no such state: each line is judged only by what it starts with.
+    const src = ["/* oops, never closed", "const c = require('x');"].join("\n");
+    expect(findCjsConstructs(src)).toHaveLength(1);
+  });
+
+  test("a construct named in a trailing comment is reported (documented false positive)", () => {
+    // The tradeoff called out in this module's docstring: a line is comment-only only when
+    // it *starts* with a comment token, so a trailing comment on a code line is searched
+    // along with the code. Loud over-refusal, not silent under-reporting — move the note to
+    // its own comment line to avoid it.
+    expect(findCjsConstructs("const a = 1; // see require() docs")).toHaveLength(1);
+  });
 });
 
 describe("the emitted dist/ contains no CJS constructs", () => {

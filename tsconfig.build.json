@@ -7,8 +7,14 @@
     "outDir": "./dist",
     "noEmit": false,
     "allowImportingTsExtensions": false,
+    "allowJs": false,
     "rootDir": "./src"
   },
+  // allowJs is pinned false here, NOT inherited from the base tsconfig.json's true: no
+  // effect today (src/ has no .js), but a future src/**/*.js would otherwise be *emitted*
+  // into dist/ under this build config, where the base config only ever typechecks it.
+  // Pinning bounds that scope expansion to typecheck, where it belongs.
+  //
   // Pinned, NOT inherited: the base include now also covers scripts/ so editors resolve
   // those files to a real project, but rootDir is ./src so they must not reach the build.
   // The *.test.ts exclude below is load-bearing — this package co-locates its tests in src/.

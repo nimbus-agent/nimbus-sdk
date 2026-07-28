@@ -51,6 +51,17 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
+ * The probe filename to use beside a module at `modulePath`.
+ *
+ * Extracted so the `.js` branch is testable: `bun test` always runs the `src/` tree, so a
+ * test that only calls `probePath()` cannot distinguish a derived extension from one
+ * hardcoded to `.ts` — which is exactly the bug this guards against.
+ */
+export function probeFileNameFor(modulePath: string): string {
+  return modulePath.endsWith(".ts") ? "sandbox-probe.ts" : "sandbox-probe.js";
+}
+
+/**
  * Resolved lazily, NOT at module scope.
  *
  * `src/index.ts` re-exports `MockGateway` from `./testing/index.js`, so anything
@@ -63,17 +74,6 @@ import { fileURLToPath } from "node:url";
  * happened to exist. Kept lazy, importing the root is inert; only an actual
  * probe run touches the path.
  */
-/**
- * The probe filename to use beside a module at `modulePath`.
- *
- * Extracted so the `.js` branch is testable: `bun test` always runs the `src/` tree, so a
- * test that only calls `probePath()` cannot distinguish a derived extension from one
- * hardcoded to `.ts` — which is exactly the bug this guards against.
- */
-export function probeFileNameFor(modulePath: string): string {
-  return modulePath.endsWith(".ts") ? "sandbox-probe.ts" : "sandbox-probe.js";
-}
-
 export function probePath(): string {
   // The extension must follow whichever copy is executing: under the `bun` export
   // condition this module runs from src/, where only sandbox-probe.ts exists; from the

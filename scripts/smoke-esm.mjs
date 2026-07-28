@@ -45,19 +45,26 @@ for (const specifier of specifiers) {
 // Phase 2: call real code. Loading an entry point proves the module resolves; it does not
 // prove the module runs. The defect this phase exists for was a `require(` inside a
 // function body, which every import-only check passed.
-const [sdk, testing, ipc] = await Promise.all([
-  import(pkg.name),
-  import(`${pkg.name}/testing`),
-  import(`${pkg.name}/ipc`),
-]);
+//
+// Gated on phase 1 succeeding: if an entry point failed to load, `import(pkg.name)` below
+// would reject at top level and the process would die on an unhandled rejection, discarding
+// the formatted `failures` report phase 1 already built. Exit code would still be non-zero,
+// but the diagnostic would regress.
+if (failures.length === 0) {
+  const [sdk, testing, ipc] = await Promise.all([
+    import(pkg.name),
+    import(`${pkg.name}/testing`),
+    import(`${pkg.name}/ipc`),
+  ]);
 
-for (const entry of SMOKE_CALLS) {
-  try {
-    await entry.run(sdk, testing, ipc);
-    process.stdout.write(`ok   call ${entry.module}\n`);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    failures.push(`call ${entry.module} — ${message}`);
+  for (const entry of SMOKE_CALLS) {
+    try {
+      await entry.run(sdk, testing, ipc);
+      process.stdout.write(`ok   call ${entry.module}\n`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      failures.push(`call ${entry.module} — ${message}`);
+    }
   }
 }
 

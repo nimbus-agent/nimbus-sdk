@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
-import { modulesInSurface } from "./docs-modules.ts";
+import { moduleKeyOf, modulesInSurface } from "./docs-modules.ts";
 import { SMOKE_CALLS } from "./smoke-calls.mjs";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,5 +39,47 @@ describe("smoke call coverage", () => {
     for (const entry of SMOKE_CALLS) {
       expect(typeof entry.run, `${entry.module}'s run is not a function`).toBe("function");
     }
+  });
+
+  test("a module with a non-type-only export has a run that calls one of its exports", () => {
+    // The coverage test above cannot tell a real call from `run: () => {}` — this can, for
+    // any module that has something callable to call. `SurfaceExport.typeOnly`
+    // (scripts/api-surface.ts) distinguishes a type-only export from one that has runtime
+    // behavior; a module with at least one non-type-only export must have a `run` whose
+    // `toString()` mentions at least one of that module's export names.
+    const entries = collectEntryPoints(readFromRoot("package.json"));
+    const surfaces = buildSurface(entries, readFromRoot);
+    const byLabel = new Map(entries.map((entry) => [entry.label, entry.file]));
+
+    const namesByModule = new Map<string, string[]>();
+    for (const surface of surfaces) {
+      const entryFile = byLabel.get(surface.label);
+      if (entryFile === undefined) continue;
+      for (const exported of surface.exports) {
+        if (exported.typeOnly) continue;
+        const key = moduleKeyOf(entryFile, exported.source);
+        const names = namesByModule.get(key) ?? [];
+        names.push(exported.name);
+        namesByModule.set(key, names);
+      }
+    }
+
+    const runByModule = new Map(SMOKE_CALLS.map((entry) => [entry.module, entry.run]));
+    const failures: string[] = [];
+    for (const [module, names] of namesByModule) {
+      const run = runByModule.get(module);
+      if (run === undefined) continue; // covered by the "every module has a smoke call" test
+      const body = run.toString();
+      if (!names.some((name) => body.includes(name))) {
+        failures.push(`${module}: run() mentions none of ${names.join(", ")}`);
+      }
+    }
+
+    expect(
+      failures,
+      "a run whose body never mentions one of its module's export names cannot be proven " +
+        "to execute real module code, which is exactly how a require() inside a function " +
+        "body shipped undetected.",
+    ).toEqual([]);
   });
 });

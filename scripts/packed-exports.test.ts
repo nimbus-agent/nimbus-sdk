@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import pkg from "../package.json";
-import { exportTargets, missingPackedPaths } from "./packed-exports.ts";
+import { exportTargets, missingPackedPaths, packedFilePaths } from "./packed-exports.ts";
 
 const EXPORTS = {
   ".": {
@@ -60,6 +60,66 @@ describe("exportTargets", () => {
     // either: dropping one of three entries leaves six targets, still above its >5 floor.
     expect(() => exportTargets({ ".": 42 })).toThrow("neither a string nor an object");
     expect(() => exportTargets({ ".": [] })).toThrow("neither a string nor an object");
+  });
+});
+
+describe("packedFilePaths", () => {
+  // Captured from real output. npm 12 moved the container from an array to an object keyed
+  // by package name; the inner entry is byte-identical. `build-test` runs the runner
+  // image's npm and `release.yml` installs npm@latest, so both shapes are live at once —
+  // understanding only one is what blocked the 1.8.0 publish after its tag was cut.
+  const NPM11 = [{ id: "@nimbus-dev/sdk@1.8.0", name: "@nimbus-dev/sdk", files: [] }];
+  const NPM12 = { "@nimbus-dev/sdk": { id: "@nimbus-dev/sdk@1.8.0", files: [] } };
+  const withFiles = (shape: unknown, paths: string[]): unknown => {
+    const files = paths.map((path) => ({ path, size: 1, mode: 420 }));
+    return Array.isArray(shape)
+      ? [{ ...(shape[0] as object), files }]
+      : { "@nimbus-dev/sdk": { ...(NPM12["@nimbus-dev/sdk"] as object), files } };
+  };
+
+  test("reads the npm <= 11 array shape", () => {
+    expect(
+      packedFilePaths(withFiles(NPM11, ["dist/index.js", "src/index.ts"]), "@nimbus-dev/sdk"),
+    ).toEqual(["dist/index.js", "src/index.ts"]);
+  });
+
+  test("reads the npm >= 12 name-keyed object shape", () => {
+    expect(
+      packedFilePaths(withFiles(NPM12, ["dist/index.js", "src/index.ts"]), "@nimbus-dev/sdk"),
+    ).toEqual(["dist/index.js", "src/index.ts"]);
+  });
+
+  test("both shapes yield identical output for identical files", () => {
+    // The property that matters: which npm ran must not change the guard's answer.
+    const files = ["dist/index.js", "dist/index.d.ts", "src/index.ts"];
+    expect(packedFilePaths(withFiles(NPM11, files), "@nimbus-dev/sdk")).toEqual(
+      packedFilePaths(withFiles(NPM12, files), "@nimbus-dev/sdk"),
+    );
+  });
+
+  test("picks the named package out of a multi-entry keyed object", () => {
+    const multi = {
+      "@nimbus-dev/other": { files: [{ path: "nope.js" }] },
+      "@nimbus-dev/sdk": { files: [{ path: "dist/index.js" }] },
+    };
+    expect(packedFilePaths(multi, "@nimbus-dev/sdk")).toEqual(["dist/index.js"]);
+  });
+
+  test("refuses a shape that is neither, naming what it got", () => {
+    expect(() => packedFilePaths("nope", "@nimbus-dev/sdk")).toThrow("neither the array shape");
+    expect(() => packedFilePaths(null, "@nimbus-dev/sdk")).toThrow("neither the array shape");
+    expect(() => packedFilePaths(42, "@nimbus-dev/sdk")).toThrow("neither the array shape");
+  });
+
+  test("refuses an empty container of either shape rather than reporting no files", () => {
+    // An empty result must never read as "nothing is missing" — that is the vacuous pass
+    // this whole guard exists to prevent.
+    expect(() => packedFilePaths([], "@nimbus-dev/sdk")).toThrow("no usable entry");
+    expect(() => packedFilePaths({}, "@nimbus-dev/sdk")).toThrow("no usable entry");
+  });
+
+  test("refuses an entry with no files array", () => {
+    expect(() => packedFilePaths([{ name: "x" }], "@nimbus-dev/sdk")).toThrow("no files array");
   });
 });
 
@@ -145,29 +205,31 @@ describe("every exports target is actually packed", () => {
         "a check that cannot fail, which is the failure mode this guard exists to prevent.",
     ).toBe(0);
 
-    const parsed: unknown = JSON.parse(result.stdout);
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      throw new Error("npm pack --json did not return a non-empty array");
+    // Every failure below reports what npm actually printed, and which npm printed it.
+    // The 1.8.0 release failed here with a bare "did not return a non-empty array" — no
+    // stdout, no version — and diagnosing it meant reproducing the runner's npm locally
+    // by guesswork. A guard that fails without saying what it saw costs more than it saves.
+    const context = () =>
+      `npm ${(spawnSync("npm", ["--version"], { encoding: "utf8", shell: process.platform === "win32" }).stdout ?? "?").trim()}` +
+      ` printed: ${result.stdout.slice(0, 400)}`;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(result.stdout);
+    } catch (err) {
+      throw new Error(
+        `npm pack --json did not emit valid JSON (${err instanceof Error ? err.message : String(err)}). ${context()}`,
+      );
     }
-    const first: unknown = parsed[0];
-    if (typeof first !== "object" || first === null) {
-      throw new Error("npm pack --json entry is not an object");
+
+    let paths: string[];
+    try {
+      paths = packedFilePaths(parsed, pkg.name);
+    } catch (err) {
+      throw new Error(`${err instanceof Error ? err.message : String(err)}. ${context()}`);
     }
-    const files: unknown = (first as Record<string, unknown>)["files"];
-    if (!Array.isArray(files)) {
-      throw new Error("npm pack --json entry has no files array");
-    }
-    cachedPaths = files.map((entry) => {
-      const path: unknown =
-        typeof entry === "object" && entry !== null
-          ? (entry as Record<string, unknown>)["path"]
-          : undefined;
-      if (typeof path !== "string") {
-        throw new Error("npm pack --json file entry has no string path");
-      }
-      return path;
-    });
-    return cachedPaths;
+    cachedPaths = paths;
+    return paths;
   }
 
   test("dist/ has been built", () => {

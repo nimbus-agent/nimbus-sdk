@@ -99,7 +99,24 @@ describe("every exports target is actually packed", () => {
    * suppressing it would have this guard compare against a file list no real publish ever
    * produces.
    */
+  let cachedPaths: string[] | undefined;
+
+  /**
+   * Memoized across the block. Two things forced this, both learned the hard way.
+   *
+   * Cost: a cold `npm pack` took 5010ms on the windows-2025 runner against bun's 5000ms
+   * default per-test timeout, so the guard shipped sitting on the boundary and failed on
+   * Windows only. Spawning npm once per block rather than once per test removes the second
+   * roll of that die; `PACK_TIMEOUT_MS` below removes the first.
+   *
+   * Correctness: without this, the non-emptiness assertion ran against a *different* npm
+   * invocation than the one the missing-targets assertion consumed — two samples of a thing
+   * being asserted as though they were one.
+   */
   function packedPaths(): string[] {
+    if (cachedPaths !== undefined) {
+      return cachedPaths;
+    }
     const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
       cwd: repoRoot,
       encoding: "utf8",
@@ -140,7 +157,7 @@ describe("every exports target is actually packed", () => {
     if (!Array.isArray(files)) {
       throw new Error("npm pack --json entry has no files array");
     }
-    return files.map((entry) => {
+    cachedPaths = files.map((entry) => {
       const path: unknown =
         typeof entry === "object" && entry !== null
           ? (entry as Record<string, unknown>)["path"]
@@ -150,6 +167,7 @@ describe("every exports target is actually packed", () => {
       }
       return path;
     });
+    return cachedPaths;
   }
 
   test("dist/ has been built", () => {
@@ -159,12 +177,27 @@ describe("every exports target is actually packed", () => {
     ).toBe(true);
   });
 
-  test("npm reports a non-empty file list", () => {
-    expect(
-      packedPaths().length,
-      "npm pack reported no files — the guard would pass vacuously",
-    ).toBeGreaterThan(0);
-  });
+  /**
+   * Spawning npm is slow enough to need its own budget. The default 5000ms was not a
+   * margin — the windows-2025 runner measured 5010ms — and a guard that fails on timing
+   * rather than on what it checks teaches maintainers to rerun CI until it passes, which
+   * is how a real signal gets trained away.
+   *
+   * Generous on purpose: nothing here is a performance assertion, so the only thing this
+   * number should catch is npm hanging outright.
+   */
+  const PACK_TIMEOUT_MS = 120_000;
+
+  test(
+    "npm reports a non-empty file list",
+    () => {
+      expect(
+        packedPaths().length,
+        "npm pack reported no files — the guard would pass vacuously",
+      ).toBeGreaterThan(0);
+    },
+    PACK_TIMEOUT_MS,
+  );
 
   test("the exports map has more than five targets", () => {
     expect(
@@ -173,14 +206,18 @@ describe("every exports target is actually packed", () => {
     ).toBeGreaterThan(5);
   });
 
-  test("no exports target is missing from the packed tarball", () => {
-    const missing = missingPackedPaths(pkg.exports, packedPaths());
-    expect(
-      missing,
-      "exports targets that package.json points at but `files` does not ship:\n  " +
-        missing.join("\n  ") +
-        '\n\nThe `bun` condition resolves into src/, so dropping "src" from `files` ' +
-        "breaks every Bun consumer while leaving every other guard green.",
-    ).toEqual([]);
-  });
+  test(
+    "no exports target is missing from the packed tarball",
+    () => {
+      const missing = missingPackedPaths(pkg.exports, packedPaths());
+      expect(
+        missing,
+        "exports targets that package.json points at but `files` does not ship:\n  " +
+          missing.join("\n  ") +
+          '\n\nThe `bun` condition resolves into src/, so dropping "src" from `files` ' +
+          "breaks every Bun consumer while leaving every other guard green.",
+      ).toEqual([]);
+    },
+    PACK_TIMEOUT_MS,
+  );
 });

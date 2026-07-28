@@ -46,6 +46,85 @@ function normalize(target: string): string {
 }
 
 /**
+ * The packed file paths from `npm pack --json`, across both of npm's output shapes.
+ *
+ * npm changed this container in a major version, and this repo runs both sides of the
+ * change at once:
+ *
+ *   npm <= 11   [ { id, name, files: [{ path }] } ]              — an array
+ *   npm >= 12   { "@scope/pkg": { id, name, files: [{ path }] } } — keyed by package name
+ *
+ * The inner entry is identical either way; only the container differs. That mattered more
+ * than it looks: `ci.yml`'s `build-test` uses whatever npm the runner image ships, while
+ * `release.yml` installs `npm@latest` because OIDC trusted publishing needs >= 11.5.1. So a
+ * guard that understands only the array shape passes every CI check and then fails the
+ * publish job — which is exactly what it did, blocking the 1.8.0 release after the tag had
+ * already been cut.
+ *
+ * Both shapes are accepted rather than pinning an npm version, because the version that
+ * runs here is chosen by the runner image and by `npm@latest`, neither of which this repo
+ * controls.
+ *
+ * `packageName` selects the entry from the keyed form; a single-entry object is accepted
+ * whatever its key, so a rename cannot silently zero the file list.
+ */
+export function packedFilePaths(parsed: unknown, packageName: string): string[] {
+  const entry = packEntry(parsed, packageName);
+
+  const files: unknown = entry["files"];
+  if (!Array.isArray(files)) {
+    throw new Error(
+      `npm pack --json entry for ${packageName} has no files array (keys: ` +
+        `${Object.keys(entry).join(", ") || "none"})`,
+    );
+  }
+
+  return files.map((file) => {
+    const path: unknown =
+      typeof file === "object" && file !== null
+        ? (file as Record<string, unknown>)["path"]
+        : undefined;
+    if (typeof path !== "string") {
+      throw new Error(`npm pack --json file entry has no string path: ${JSON.stringify(file)}`);
+    }
+    return path;
+  });
+}
+
+/** The single package entry, from either container shape. Refuses anything else. */
+function packEntry(parsed: unknown, packageName: string): Record<string, unknown> {
+  if (Array.isArray(parsed)) {
+    const first: unknown = parsed[0];
+    if (parsed.length === 0 || typeof first !== "object" || first === null) {
+      throw new Error(
+        "npm pack --json returned an array with no usable entry (npm <= 11 shape). " +
+          `Got ${parsed.length} element(s).`,
+      );
+    }
+    return first as Record<string, unknown>;
+  }
+
+  if (typeof parsed === "object" && parsed !== null) {
+    const byName = parsed as Record<string, unknown>;
+    const keys = Object.keys(byName);
+    const key = keys.includes(packageName) ? packageName : (keys[0] ?? "");
+    const entry: unknown = byName[key];
+    if (keys.length === 0 || typeof entry !== "object" || entry === null) {
+      throw new Error(
+        "npm pack --json returned an object with no usable entry (npm >= 12 shape). " +
+          `Keys: ${keys.join(", ") || "none"}.`,
+      );
+    }
+    return entry as Record<string, unknown>;
+  }
+
+  throw new Error(
+    `npm pack --json returned ${parsed === null ? "null" : typeof parsed}, which is neither ` +
+      "the array shape (npm <= 11) nor the name-keyed object shape (npm >= 12)",
+  );
+}
+
+/**
  * Every distinct file path the exports map points at, in first-seen order.
  *
  * Every string leaf is collected, not just one condition: `types` targets are checked too,

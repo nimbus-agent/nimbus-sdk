@@ -17,6 +17,22 @@
  * targets is a vacuous pass — the exact silent under-report `scripts/api-surface.ts`'s
  * header forbids.
  *
+ * Node's `exports` grammar is wider than what this parses, and the gap is deliberate. Only a
+ * flat object of string leaves and one level of condition objects is understood — today's
+ * `package.json` exactly. These four legal shapes THROW rather than being parsed:
+ *
+ *   - top-level string sugar   `"exports": "./dist/index.js"`
+ *   - nested conditions        `{".": {"node": {"import": "./x.js"}}}`
+ *   - array fallbacks          `{".": ["./a.js", "./b.js"]}`
+ *   - `null` exclusion         `{"./internal/*": null}`
+ *
+ * If you have just hit one of those errors after a legitimate `exports` edit, the guard is
+ * being conservative — your map is not broken. Widen this parser deliberately and add the
+ * covering cases. Recursing nested conditions is unambiguous; array fallbacks are not, since
+ * "all of these must ship" and "any one of these must ship" are different guarantees and
+ * nothing here can pick between them. Guessing at that semantic inside a guard whose purpose
+ * is not guessing is how a guard starts passing when it should fail.
+ *
  * Undeclared dependency, noted rather than hidden: the integration test below shells out to
  * the `npm` CLI and fails rather than skips when it is absent, by design. `ci.yml`'s
  * `build-test` job never runs `actions/setup-node` — it gets `npm` from whatever the

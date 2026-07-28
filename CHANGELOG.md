@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.7.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.7.0...sdk-v1.7.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* make generateEd25519Keypair and the sandbox probe work from dist/ ([#40](https://github.com/nimbus-agent/nimbus-sdk/issues/40)) ([91e17d1](https://github.com/nimbus-agent/nimbus-sdk/commit/91e17d1a659f0b76309ac76394a0b8460522df34))
+
 ## [1.7.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.6.0...sdk-v1.7.0) (2026-07-26)
 
 

@@ -15,6 +15,7 @@
  */
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { SMOKE_CALLS } from "./smoke-calls.mjs";
 
 const pkgPath = fileURLToPath(new URL("../package.json", import.meta.url));
 const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
@@ -41,10 +42,27 @@ for (const specifier of specifiers) {
   }
 }
 
+// Phase 2: call real code. Loading an entry point proves the module resolves; it does not
+// prove the module runs. The defect this phase exists for was a `require(` inside a
+// function body, which every import-only check passed.
+const [sdk, testing, ipc] = await Promise.all([
+  import(pkg.name),
+  import(`${pkg.name}/testing`),
+  import(`${pkg.name}/ipc`),
+]);
+
+for (const entry of SMOKE_CALLS) {
+  try {
+    await entry.run(sdk, testing, ipc);
+    process.stdout.write(`ok   call ${entry.module}\n`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    failures.push(`call ${entry.module} — ${message}`);
+  }
+}
+
 if (failures.length > 0) {
-  process.stderr.write(
-    `\n${failures.length} entry point(s) failed to load under Node ${process.version}:\n`,
-  );
+  process.stderr.write(`\n${failures.length} check(s) failed under Node ${process.version}:\n`);
   for (const failure of failures) {
     process.stderr.write(`  FAIL ${failure}\n`);
   }
@@ -52,5 +70,5 @@ if (failures.length > 0) {
 }
 
 process.stdout.write(
-  `\nall ${specifiers.length} entry points loaded under Node ${process.version}\n`,
+  `\nall ${specifiers.length} entry points loaded and ${SMOKE_CALLS.length} calls ran under Node ${process.version}\n`,
 );

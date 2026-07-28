@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/schemas/v1/extension-manifest.schema.json",
+  "title": "ExtensionManifest",
+  "description": "The manifest a Nimbus connector or extension ships. Contract version v1.",
+  "type": "object",
+  "required": [
+    "id",
+    "displayName",
+    "version",
+    "description",
+    "author",
+    "entrypoint",
+    "runtime",
+    "permissions",
+    "hitlRequired",
+    "minNimbusVersion"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional pointer to this schema, for editor completion."
+    },
+    "id": { "type": "string", "pattern": "\\S", "description": "Stable connector identifier." },
+    "displayName": { "type": "string", "pattern": "\\S" },
+    "version": {
+      "type": "string",
+      "pattern": "\\S",
+      "description": "Connector version. Deliberately unconstrained beyond non-empty: runContractTests applies no semver check here."
+    },
+    "description": { "type": "string", "pattern": "\\S" },
+    "author": { "type": "string", "pattern": "\\S" },
+    "homepage": { "type": "string" },
+    "icon": { "type": "string" },
+    "entrypoint": { "type": "string", "pattern": "\\S" },
+    "runtime": { "enum": ["bun", "node"] },
+    "permissions": {
+      "type": "array",
+      "items": { "enum": ["read", "write", "delete"] }
+    },
+    "hitlRequired": {
+      "type": "array",
+      "items": { "enum": ["write", "delete"] },
+      "description": "Operations that require human approval before the gateway will run them."
+    },
+    "oauth": {
+      "type": "object",
+      "required": ["provider", "scopes", "authUrl", "tokenUrl", "pkce"],
+      "properties": {
+        "provider": { "type": "string" },
+        "scopes": { "type": "array", "items": { "type": "string" } },
+        "authUrl": { "type": "string" },
+        "tokenUrl": { "type": "string" },
+        "pkce": { "type": "boolean" }
+      }
+    },
+    "syncInterval": { "type": "number" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "minNimbusVersion": {
+      "type": "string",
+      "pattern": "^\\s*\\d+\\.\\d+\\.\\d+",
+      "description": "Minimum gateway version. The pattern is unanchored at the end and tolerates leading whitespace, matching runContractTests, which tests /^\\d+\\.\\d+\\.\\d+/ against the trimmed value."
+    }
+  }
+}

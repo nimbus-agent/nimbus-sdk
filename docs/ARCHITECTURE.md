@@ -70,8 +70,8 @@ reinvented. Each is self-contained and independently testable:
 - `src/crypto/` — Ed25519 keygen + manifest signing/verification, JWT signing,
   Google service-account tokens, App Store Connect JWTs, canonical JSON.
 - `src/jmap-fastmail/` — JMAP session parsing + email header/preview extraction
-  (headers, attachment metadata, and a 2 KB server-truncated body preview — a hard scope
-  constraint keeps full bodies and attachment bytes out).
+  (headers, attachment metadata, and a server-truncated body preview capped at 2 KB per
+  email — a hard scope constraint keeps full bodies and attachment bytes out).
 - `src/icalendar.ts` — iCalendar VEVENT parsing + building.
 - `src/data-profile/` — column/shape profiling for CSV / JSON / JSONL / Parquet
   (metadata only — never cell values).

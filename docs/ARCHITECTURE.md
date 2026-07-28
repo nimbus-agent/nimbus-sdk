@@ -131,12 +131,13 @@ Key properties this model gives us:
 
 ## Target architecture: spec-first, one contract, many languages
 
-Today the contract *is* the TypeScript types. The roadmap lifts it out into a
-**language-neutral spec** — published JSON Schemas for `ExtensionManifest` /
-`NimbusItem` plus a written IPC wire-protocol spec — that becomes the single source
-of truth. TypeScript becomes the *reference binding*, not the definition, and every
-other official SDK is another binding validated against **one shared conformance
-suite**.
+Today the contract is still largely the TypeScript types, but the lift-out into a
+**language-neutral spec** has started: the v1 JSON Schemas for `ExtensionManifest` /
+`NimbusItem` are published and CI-pinned in [`spec/`](./spec/README.md); the written
+IPC wire-protocol spec and contract-version negotiation are what remain. Together
+they become the single source of truth. TypeScript becomes the *reference binding*,
+not the definition, and every other official SDK is another binding validated
+against **one shared conformance suite**.
 
 ```mermaid
 flowchart TD
@@ -171,9 +172,10 @@ Phase 3 scales to Go, Rust, and beyond.
 ## Evolving the contract
 
 Because the contract is depended on across products and languages, it changes under
-explicit rules rather than ad hoc. The `exports` map is to be guarded by an
-API-surface snapshot test (a [Phase 0](./ROADMAP.md#phase-0--a-solid-typescript-reference)
-task), so that an unintended surface change fails CI. Deprecations follow the
+explicit rules rather than ad hoc. The `exports` map is guarded by an API-surface
+snapshot test — [`api-surface.md`](./api-surface.md), regenerated with
+`bun run build && bun run api:surface` and enforced by `scripts/api-surface.test.ts` —
+so that an unintended surface change fails CI. Deprecations follow the
 [deprecation policy](./DEPRECATION-POLICY.md) (mark in a released minor → carried
 through a later, separate minor release → removal at a major bump), and once the spec
 exists, a **contract-version** is negotiated between connector and gateway so both

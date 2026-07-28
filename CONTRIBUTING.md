@@ -16,7 +16,7 @@ bun install
 
 ```bash
 bun run typecheck   # tsc --noEmit (strict)
-bun run lint        # biome check src/ scripts/
+bun run lint        # biome check src/ scripts/ examples/
 bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 ```
@@ -96,7 +96,8 @@ at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
 - Use [Conventional Commits](https://www.conventionalcommits.org/) — release-please
   derives the version bump and changelog from them.
 - `bun run typecheck && bun run lint && bun run build && bun test` must pass
-  (CI runs the same on Ubuntu).
+  (CI runs the same on Linux, macOS and Windows, plus a Node 22/24 ESM smoke of the
+  built `dist/` on each — see `.github/workflows/ci.yml`).
 
 ## Releases
 

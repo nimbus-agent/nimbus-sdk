@@ -16,10 +16,10 @@ published package.
 
 ## Public surface (the `exports` map)
 
-- `.` (`src/index.ts`) — the main contract: connector/extension types, the plugin
-  API (`plugin-api-v1`), `server`, `hitl-request`, `distribution-channel`,
-  `audit-logger`, `icalendar`, and the `agents` / `crypto` / `data-profile`
-  helper modules.
+- `.` (`src/index.ts`) — the main contract: connector/extension types, the Plugin
+  API v1 surface, `server`, `hitl-request`, `item-types`, `contract-tests`,
+  `distribution-channel`, `audit-logger`, `icalendar`, and the `agents` / `crypto` /
+  `data-profile` / `jmap-fastmail` / `flux-cd` / `storybook` helper modules.
 - `./testing` (`src/testing/index.ts`) — contract-test + sandbox-probe utilities
   connectors use in their own test suites.
 - `./ipc` (`src/ipc/index.ts`) — the NDJSON line-reader + IPC framing helpers.
@@ -32,9 +32,10 @@ the release-please bump.
 ```bash
 bun install
 bun run typecheck   # tsc --noEmit (strict)
-bun run lint        # biome check src/
+bun run lint        # biome check src/ scripts/ examples/
 bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
+bun run api:surface # regenerate docs/api-surface.md after any exports change
 ```
 
 ## Conventions / non-negotiables
@@ -46,6 +47,9 @@ bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
   `src/` (tests may log) — see `biome.json`.
 - **MIT license.** Do not change the license field.
 - Tests live alongside source as `*.test.ts` in `src/`.
+- A new/changed export requires regenerating `docs/api-surface.md` **and** a
+  `docs/modules/*.md` page claiming its module in `<!-- covers: -->` — both are CI
+  gates (`scripts/api-surface.test.ts`, `scripts/docs-coverage.test.ts`).
 
 ## Relationship to other repos
 

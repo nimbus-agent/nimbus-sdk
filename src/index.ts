@@ -1,5 +1,5 @@
 /**
- * @nimbus-dev/sdk v1.0.0 — Plugin API v1 (stable baseline)
+ * @nimbus-dev/sdk — Plugin API v1 (stable baseline)
  * MIT License
  *
  * Typed scaffolding for building Nimbus extensions (MCP connectors).

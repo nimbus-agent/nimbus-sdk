@@ -34,6 +34,10 @@ Copied from `CLAUDE.md` and the spec. Every task's requirements implicitly inclu
 
 **`stripComments` is a character scanner, not a regex.** `scripts/api-surface.ts` exports it; it tracks `"`, `'` and `` ` `` as string delimiters and honors backslash escapes, preserving string contents. Zero regex uses in the function.
 
+**But it does NOT preserve newlines inside block comments, contrary to its own docstring.** Verified empirically: a 5-line input containing a 3-line block comment comes back as 3 lines, and a `require(` on input line 5 is reported at line 3. Its docstring says *"Remove `//` and block comments, preserving newlines and string contents"* — the first half of that claim is false.
+
+This matters because every emitted `dist/` file opens with a JSDoc block, so **reusing it in the scan would misreport every line number in the repository.** Task 2 therefore writes a small newline-preserving stripper of its own rather than reusing this one, and corrects the false docstring where it stands.
+
 **`dist/testing/sandbox-contract.js:59` contains the literal text `require("@nimbus-dev/client")` inside a doc comment.** A scan that does not strip comments fails on this repository today.
 
 **Exact signatures for the smoke's calls, from `docs/api-surface.md` — do not guess these:**
@@ -224,10 +228,11 @@ the extension now follows the running module's own."
 **Files:**
 - Create: `scripts/cjs-scan.ts`
 - Create: `scripts/cjs-scan.test.ts`
+- Modify: `scripts/api-surface.ts` — one docstring line only, no behavior change
 
 **Interfaces:**
-- Consumes: `stripComments` from `./api-surface.ts`.
-- Produces: `CjsFinding`, `findCjsConstructs`, `CJS_CONSTRUCTS` — not consumed by later tasks.
+- Consumes: nothing. This task deliberately does **not** reuse `stripComments` — see Step 3.
+- Produces: `CjsFinding`, `findCjsConstructs`, `CJS_CONSTRUCTS`, `blankComments` — not consumed by later tasks.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -289,6 +294,24 @@ describe("findCjsConstructs", () => {
 
   test("reports 1-based line numbers", () => {
     expect(findCjsConstructs("const a = 1;\nconst b = 2;\nconst c = require('x');")[0]?.line).toBe(3);
+  });
+
+  test("line numbers survive a multi-line block comment", () => {
+    // api-surface.ts's stripComments collapses block comments to nothing, which would
+    // report this as line 3. Every emitted dist/ file opens with a JSDoc block, so getting
+    // this wrong would misreport every line number in the repository.
+    const src = ["const a = 1;", "/*", " * block", " */", "const b = require('x');"].join("\n");
+    expect(findCjsConstructs(src)[0]?.line).toBe(5);
+  });
+
+  test("line numbers survive a JSDoc block at the top of the file", () => {
+    const src = ["/**", " * Header.", " * @module x", " */", "", "const c = require('y');"].join("\n");
+    expect(findCjsConstructs(src)[0]?.line).toBe(6);
+  });
+
+  test("a block comment containing a quote does not swallow the rest of the file", () => {
+    const src = ["/* it's fine */", "const c = require('x');"].join("\n");
+    expect(findCjsConstructs(src)[0]?.line).toBe(2);
   });
 
   test("returns nothing for clean ESM", () => {
@@ -362,7 +385,7 @@ Create `scripts/cjs-scan.ts`:
  * This scan is the complete guard for the class. It catches a construct in code no test
  * ever calls, needs no curated list, and does not rot as the surface grows.
  *
- * Comments are stripped first, because `dist/testing/sandbox-contract.js` legitimately
+ * Comments are blanked first, because `dist/testing/sandbox-contract.js` legitimately
  * contains `require("@nimbus-dev/client")` inside a doc comment — the comment describing
  * the incident that made the probe path lazy. String *contents* are deliberately kept, so
  * a construct hidden in a string or template literal is still reported.
@@ -371,9 +394,14 @@ Create `scripts/cjs-scan.ts`:
  * helpers needs to load a CJS module, and the call site it produces is a `require(` like
  * any other. A genuine need is a deliberate amendment to this file, not a rename that
  * slips past it.
+ *
+ * This does NOT reuse `stripComments` from `./api-surface.ts`, despite the overlap.
+ * That function *deletes* block comments outright, newlines included — so a file whose
+ * first construct follows a JSDoc header reports a line number short by the height of that
+ * header. Since every emitted file here opens with one, every reported line would be
+ * wrong. `blankComments` below replaces comment characters with spaces and keeps every
+ * newline, so positions map 1:1 onto the original source.
  */
-
-import { stripComments } from "./api-surface.ts";
 
 export type CjsFinding = {
   /** The offending construct, exactly as searched for. */
@@ -381,6 +409,68 @@ export type CjsFinding = {
   /** 1-based line number in the original source. */
   line: number;
 };
+
+/**
+ * Replace comment characters with spaces, preserving every newline and all string
+ * contents, so line and column positions map 1:1 onto the input.
+ *
+ * String awareness is load-bearing in both directions: a `//` inside a string literal must
+ * not start a comment, and a construct inside a string must still be visible to the caller.
+ */
+export function blankComments(source: string): string {
+  let out = "";
+  let i = 0;
+  let inString: string | null = null;
+
+  while (i < source.length) {
+    const ch = source.charAt(i);
+    const next = source.charAt(i + 1);
+
+    if (inString !== null) {
+      out += ch;
+      if (ch === "\\") {
+        out += next;
+        i += 2;
+        continue;
+      }
+      if (ch === inString) inString = null;
+      i += 1;
+      continue;
+    }
+
+    if (ch === '"' || ch === "'" || ch === "`") {
+      inString = ch;
+      out += ch;
+      i += 1;
+      continue;
+    }
+
+    if (ch === "/" && next === "/") {
+      while (i < source.length && source.charAt(i) !== "\n") {
+        out += " ";
+        i += 1;
+      }
+      continue;
+    }
+
+    if (ch === "/" && next === "*") {
+      out += "  ";
+      i += 2;
+      while (i < source.length && !(source.charAt(i) === "*" && source.charAt(i + 1) === "/")) {
+        out += source.charAt(i) === "\n" ? "\n" : " ";
+        i += 1;
+      }
+      out += "  ";
+      i += 2;
+      continue;
+    }
+
+    out += ch;
+    i += 1;
+  }
+
+  return out;
+}
 
 /** Searched literally, after comments are stripped. */
 export const CJS_CONSTRUCTS: readonly string[] = [
@@ -393,10 +483,10 @@ export const CJS_CONSTRUCTS: readonly string[] = [
 /**
  * Every CommonJS construct in a source string, with 1-based line numbers.
  *
- * Line numbers survive comment stripping because `stripComments` preserves newlines.
+ * Line numbers are accurate because `blankComments` preserves newlines and length.
  */
 export function findCjsConstructs(source: string): CjsFinding[] {
-  const lines = stripComments(source).split("\n");
+  const lines = blankComments(source).split("\n");
   const findings: CjsFinding[] = [];
 
   for (let i = 0; i < lines.length; i += 1) {
@@ -412,14 +502,35 @@ export function findCjsConstructs(source: string): CjsFinding[] {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [ ] **Step 4: Correct the false docstring on `stripComments`**
+
+In `scripts/api-surface.ts`, that function's docstring opens:
+
+```
+ * Remove `//` and block comments, preserving newlines and string contents.
+```
+
+The newline half is false — block comments are deleted outright, newlines included. Replace that line with:
+
+```
+ * Remove `//` and block comments, preserving string contents.
+ *
+ * Newlines inside a block comment are NOT preserved: a multi-line block collapses to
+ * nothing, so positions after one do not map onto the original source. That is harmless
+ * for this file's callers, which split into statements rather than counting lines — but
+ * it is why scripts/cjs-scan.ts blanks comments itself instead of reusing this.
+```
+
+**Change the comment only.** Do not alter the function's behavior: `splitTopLevelStatements` and the API-surface golden file depend on it exactly as it is, and `docs/api-surface.md` must stay byte-identical.
+
+- [ ] **Step 5: Run the tests**
 
 Run: `bun run build && bun test scripts/cjs-scan.test.ts`
 Expected: PASS, including the integration test over the real `dist/` — which is a real assertion, not a formality, because Task 1 removed the only genuine `require(` and `dist/testing/sandbox-contract.js` still has one in a comment.
 
 If the integration test fails naming `dist/testing/sandbox-contract.js` at the comment, `stripComments` is not being applied. If it fails naming `dist/crypto/verify-signature.js`, Task 1 was not completed or `dist/` is stale — rebuild.
 
-- [ ] **Step 5: Prove the guard actually fails when it should**
+- [ ] **Step 6: Prove the guard actually fails when it should**
 
 Temporarily add `const x = require("node:fs");` inside any function body in `src/crypto/canonical-json.ts`, then run:
 
@@ -429,13 +540,13 @@ bun run build && bun test scripts/cjs-scan.test.ts
 
 Expected: FAIL, naming `dist/crypto/canonical-json.js` and the line. Revert the edit and rebuild. Report what the message said — a guard nobody has seen fail is a guard nobody knows works.
 
-- [ ] **Step 6: Verify and commit**
+- [ ] **Step 7: Verify and commit**
 
 Run: `bun run typecheck && bun run lint && git diff --exit-code docs/api-surface.md`
 Expected: all exit 0.
 
 ```bash
-git add scripts/cjs-scan.ts scripts/cjs-scan.test.ts
+git add scripts/cjs-scan.ts scripts/cjs-scan.test.ts scripts/api-surface.ts
 git commit -m "test(scripts): fail CI on CommonJS constructs in the emitted ESM"
 ```
 
@@ -488,9 +599,28 @@ export const SMOKE_CALLS = [
       if (typeof sdk.canonicalizeManifest !== "function") throw new Error("missing export");
     },
   },
-  { module: "crypto/jwt", run: (sdk) => void sdk.signJwt },
-  { module: "crypto/service-account-token", run: (sdk) => void sdk.mintGoogleAccessToken },
-  { module: "crypto/app-store-connect-jwt", run: (sdk) => void sdk.signAppStoreConnectJwt },
+  {
+    module: "crypto/jwt",
+    run: (sdk) => {
+      if (typeof sdk.signJwt !== "function") throw new Error("signJwt is not a function");
+    },
+  },
+  {
+    module: "crypto/service-account-token",
+    run: (sdk) => {
+      if (typeof sdk.mintGoogleAccessToken !== "function") {
+        throw new Error("mintGoogleAccessToken is not a function");
+      }
+    },
+  },
+  {
+    module: "crypto/app-store-connect-jwt",
+    run: (sdk) => {
+      if (typeof sdk.signAppStoreConnectJwt !== "function") {
+        throw new Error("signAppStoreConnectJwt is not a function");
+      }
+    },
+  },
   {
     module: "icalendar",
     run: (sdk) => {
@@ -563,12 +693,25 @@ export const SMOKE_CALLS = [
       if (sdk.isExpertBrief({}) !== false) throw new Error("accepted an empty object");
     },
   },
-  { module: "agents/guard-factory", run: (sdk) => void sdk.createBriefGuard },
+  {
+    module: "agents/guard-factory",
+    run: (sdk) => {
+      if (typeof sdk.createBriefGuard !== "function") {
+        throw new Error("createBriefGuard is not a function");
+      }
+    },
+  },
   { module: "agents/agent-names", run: (sdk) => { if (sdk.AGENT_NAMES.length === 0) throw new Error("empty"); } },
   { module: "agents/brief-types", run: () => {} },
   { module: "agents/brief-composites", run: () => {} },
   { module: "types", run: () => {} },
-  { module: "server", run: (sdk) => void new sdk.NimbusExtensionServer({ manifest: MANIFEST }) },
+  {
+    module: "server",
+    run: (sdk) => {
+      const server = new sdk.NimbusExtensionServer({ manifest: MANIFEST });
+      server.start();
+    },
+  },
   {
     module: "contract-tests",
     run: async (sdk) => {
@@ -623,9 +766,11 @@ const MANIFEST = {
 };
 ```
 
-**Verify every export name against `docs/api-surface.md` before running.** Names such as `canonicalizeManifest`, `signJwt`, `mintGoogleAccessToken`, `signAppStoreConnectJwt` and `createBriefGuard` are used here as `void sdk.X` touches; if any name is wrong, that entry silently reads `undefined` instead of failing. Where a name does not match, correct it — do not delete the entry.
+**Every entry asserts, none merely touches.** An earlier draft wrote the harder-to-call exports as `void sdk.signJwt`, which is worthless: a missing or misspelled export evaluates to `undefined`, `void undefined` is `undefined`, nothing throws, and the smoke reports `ok` for an export that does not exist. Every entry now checks `typeof … !== "function"` and throws by name.
 
-`MANIFEST` is declared after `SMOKE_CALLS` on purpose: `const` in a module is hoisted to the top of the module scope and only read inside `run` callbacks, which execute later.
+**Still verify each name against `docs/api-surface.md` before running.** `canonicalizeManifest`, `signJwt`, `mintGoogleAccessToken`, `signAppStoreConnectJwt` and `createBriefGuard` are written from the surface listing but not individually confirmed. With the assertions above a wrong name now fails loudly rather than passing silently — so if one fails, correct the name; do not delete the entry.
+
+`MANIFEST` is declared after `SMOKE_CALLS` and that is safe — but not because of hoisting. `const` bindings are hoisted into the temporal dead zone, so reading one before its declaration is evaluated throws `ReferenceError`. This works because `MANIFEST` is read only inside `run` closures, which the smoke invokes after the module has finished evaluating. If you ever read it at module scope above its declaration, it will throw.
 
 - [ ] **Step 2: Write the coverage test**
 
@@ -777,4 +922,12 @@ modulesInSurface(), so a new battery fails until it has one."
 
 **Type consistency.** `CjsFinding` is defined in Task 2 and used only there. `SMOKE_CALLS` entries are `{ module: string, run: (sdk, testing, ipc) => void | Promise<void> }` in Task 3 Step 1 and consumed with that exact shape in Steps 2 and 4. `probePath(): string` is exported in Task 1 Step 3 and imported in Step 1's test. `modulesInSurface(entries, surfaces)` keeps its argument order from `scripts/docs-modules.ts`.
 
-**Two things the plan deliberately does not resolve, both flagged inline.** The `module` keys in `smoke-calls.mjs` are my best reading of what `modulesInSurface()` produces; Task 3 Step 3 tells the implementer to trust the guard's output over this plan if they differ. And several `void sdk.X` touches name exports I have not individually verified against `docs/api-surface.md`; Step 1 tells the implementer to check each and correct rather than delete. Both are places where a wrong guess degrades silently, which is why each carries an instruction rather than a hope.
+**One thing the plan deliberately does not resolve, flagged inline.** The `module` keys in `smoke-calls.mjs` are my best reading of what `modulesInSurface()` produces; Task 3 Step 3 tells the implementer to trust the guard's output over this plan if they differ, and the coverage test fails loudly until they match.
+
+**Revised after review.** Three changes, two of which removed silent-failure modes rather than adding capability.
+
+The scanner no longer reuses `stripComments`. Verified empirically: that function deletes block comments outright, newlines included, so a 5-line input reports its `require(` at line 3. Every emitted `dist/` file opens with a JSDoc header, so *every* line number the scan reported would have been wrong. Task 2 now carries its own `blankComments`, which replaces comment characters with spaces and keeps newlines, and four tests pin line accuracy across block comments and JSDoc headers. The false docstring on `stripComments` is corrected in place — comment only, since `splitTopLevelStatements` and the golden file depend on its behavior exactly as it is.
+
+Every `SMOKE_CALLS` entry now asserts instead of touching. `void sdk.signJwt` cannot fail: a missing export is `undefined`, `void undefined` throws nothing, and the smoke prints `ok` for an export that does not exist — the same shape of silent pass this whole change exists to eliminate.
+
+The `MANIFEST` note's rationale was wrong. `const` is hoisted but sits in the temporal dead zone, so declaration order would matter if it were read during module evaluation. It works because the `run` closures execute after the module finishes loading — lazy evaluation, not hoisting.

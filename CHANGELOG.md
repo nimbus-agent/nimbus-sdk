@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.8.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.8.0...sdk-v1.8.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* **test:** read both npm pack --json shapes, and say what npm printed ([#50](https://github.com/nimbus-agent/nimbus-sdk/issues/50)) ([b2443ac](https://github.com/nimbus-agent/nimbus-sdk/commit/b2443ac42ca55be9643e2064b99594afe96fed78))
+
 ## [1.8.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.7.1...sdk-v1.8.0) (2026-07-28)
 
 

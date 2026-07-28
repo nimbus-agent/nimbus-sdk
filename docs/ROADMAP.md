@@ -11,9 +11,11 @@ they prefer and know it speaks exactly the same contract. The contract is define
 once as a spec; every language binds to it and proves conformance against one
 shared suite.
 
-The product / cross-surface plan (client surfaces, delivery, the wider agent
-ecosystem) lives in the gateway repo's
-**[Nimbus Ecosystem Roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/ecosystem-roadmap.md)**.
+Product sequencing — what the gateway does, and the order in which surfaces
+land — lives in the gateway repo's
+**[roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/roadmap.md)**. How the
+ecosystem fits together is described at org level in
+**[ECOSYSTEM.md](https://github.com/nimbus-agent/.github/blob/main/ECOSYSTEM.md)**.
 This document owns everything SDK-shaped. See also
 [ARCHITECTURE.md](./ARCHITECTURE.md) (how it's built), [RELEASING.md](./RELEASING.md)
 (how each language SDK is published), [SECURITY.md](./SECURITY.md) (the trust model),
@@ -295,6 +297,6 @@ honest:
 - **Changes go through the process.** Contract-affecting changes follow the RFC path
   in [GOVERNANCE.md](./GOVERNANCE.md). For anything smaller, open an issue or PR
   against this file. Cross-surface / product bets belong in the
-  [Nimbus Ecosystem Roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/ecosystem-roadmap.md);
+  [Nimbus Ecosystem Roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/roadmap.md);
   anything about the contract, the batteries, the language SDKs, versioning,
   observability, or governance belongs here.

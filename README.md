@@ -84,8 +84,9 @@ Changing an exported type is a semver-relevant change.
   deprecated and how long it survives before removal.
 - [Glossary](./docs/GLOSSARY.md) — the shared vocabulary (narrow waist, binding,
   conformance suite, …).
-- [Contract spec](./docs/spec/) — the future home of the language-neutral spec
-  (planned; Phase 1).
+- [Contract spec](./docs/spec/) — the versioned v1 JSON Schemas for
+  `ExtensionManifest` / `NimbusItem` and the language-neutral conformance fixtures
+  every binding validates against.
 
 ## Contributing
 

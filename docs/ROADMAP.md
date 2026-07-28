@@ -239,7 +239,8 @@ Nimbus connector or app.*
 - [ ] A published **stability / support matrix** per export tier and language — *Pillars 6, 7*
 - [ ] The **third-party connector / app registry** design, including the trust and
   signature-verification model — *Pillar 6 (see [SECURITY.md](./SECURITY.md))*
-- [ ] A lightweight **RFC process** for contract changes — *Pillar 9*
+- [x] A lightweight **RFC process** for contract changes — *Pillar 9 (see
+  [GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process))*
 - [ ] A **manifest signature path proven end-to-end** (sign → publish → gateway
   verify) — *Pillar 6 (see [SECURITY.md](./SECURITY.md))*
 

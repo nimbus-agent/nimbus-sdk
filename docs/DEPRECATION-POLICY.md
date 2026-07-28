@@ -84,9 +84,8 @@ cheap.
 ### `engines: ">=22"` merged as `feat:` — a minor, not a major
 
 Introducing an engine constraint where none existed narrows what the package claims to
-support, which is superficially breaking. It merged as a `feat:` commit — classified as
-a minor, not shipped as one yet: `package.json` is still `1.6.0` as of this writing, so
-the bump lands whenever release-please next cuts a release off `main`. It is classified
+support, which is superficially breaking. It merged as a `feat:` commit and shipped in
+**1.7.0** (2026-07-26), the minor its classification called for. It is classified
 as a minor because:
 
 1. **Nothing stops working.** The SDK is dependency-free types and pure helpers with no

@@ -56,12 +56,14 @@ function writeManifest(perms: unknown): string {
 describe("runSandboxContractTests", () => {
   it("rejects when the manifest file does not exist", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-contract-missing-"));
+    tempDirs.push(dir);
     const manifestPath = join(dir, "missing.json");
     await expect(runSandboxContractTests(manifestPath)).rejects.toThrow();
   });
 
   it("rejects when the manifest is not valid JSON", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-contract-bad-"));
+    tempDirs.push(dir);
     const manifestPath = join(dir, "nimbus.extension.json");
     writeFileSync(manifestPath, "{not-json");
     await expect(runSandboxContractTests(manifestPath)).rejects.toThrow();
@@ -69,6 +71,7 @@ describe("runSandboxContractTests", () => {
 
   it("handles a manifest with no declared network hosts without crashing", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-contract-empty-"));
+    tempDirs.push(dir);
     const manifestPath = join(dir, "nimbus.extension.json");
     writeFileSync(manifestPath, JSON.stringify({ id: "test.empty", permissions: {} }));
     let outcome: "pass" | "fail" = "pass";

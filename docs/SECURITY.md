@@ -91,7 +91,7 @@ registry trust model (roadmap Phase 4). The intended end state:
   the SDK provides `signManifest` / `verifyManifestSignature` and canonical JSON,
   but never holds private keys or decides trust on its own.
 - **The trust model is designed openly** with the
-  [ecosystem roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/ecosystem-roadmap.md)
+  [ecosystem overview](https://github.com/nimbus-agent/.github/blob/main/ECOSYSTEM.md)
   before third-party publishing is opened, so key rotation, revocation, and
   provenance are settled up front rather than retrofitted.
 

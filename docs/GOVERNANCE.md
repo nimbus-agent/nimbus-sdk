@@ -36,7 +36,7 @@ Not every change needs the same ceremony. Match the process to the blast radius.
 | **Editorial** | docs, comments, tests, internal refactors | Normal PR + review. |
 | **Additive** | new optional field, new export, new battery | PR + review; must satisfy the [inclusion policy](./INCLUSION-POLICY.md) and not break the `exports` snapshot unexpectedly. Minor bump. |
 | **Contract-affecting** | changing an exported type, the wire protocol, the schemas, or a conformance invariant | **RFC required** (below). Potentially a major bump. |
-| **Cross-ecosystem** | a new official language, the registry, the trust model | RFC **and** alignment with the [ecosystem roadmap](https://github.com/nimbus-agent/Nimbus/blob/main/docs/ecosystem-roadmap.md). |
+| **Cross-ecosystem** | a new official language, the registry, the trust model | RFC **and** alignment with the [ecosystem overview](https://github.com/nimbus-agent/.github/blob/main/ECOSYSTEM.md). |
 
 ## The RFC process
 
@@ -74,7 +74,7 @@ As the registry opens ([Phase 4](./ROADMAP.md#phase-4--open-the-ecosystem)),
 third-party connectors are trusted via **verifiable signatures**, not review alone:
 a connector carries an Ed25519 signature over its canonical manifest, and the gateway
 verifies it before load. Key custody, rotation, and revocation are settled up front
-with the ecosystem roadmap. See [SECURITY.md](./SECURITY.md) for the trust model.
+with the ecosystem overview. See [SECURITY.md](./SECURITY.md) for the trust model.
 
 ## Amending this document
 

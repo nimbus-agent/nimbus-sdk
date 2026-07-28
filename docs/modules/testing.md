@@ -65,7 +65,11 @@ manifest's declared permissions against what a forked probe actually observes.
   the `bun` condition and for `dist/` from the published package. A bundler that inlines the
   module replaces `import.meta.url` with the build machine's path, and the resolution throws
   `ERR_INVALID_FILE_URL_PATH`. Pass `probePath` with the probe's real location. It is a
-  parameter, not an environment variable, on purpose.
+  parameter, not an environment variable, on purpose. Point it at
+  `dist/testing/sandbox-probe.js` — it does ship (`files` includes `dist`) — and reference it
+  unbundled: if your build relocates or inlines the rest of the package, copy this file out of
+  `node_modules` first rather than letting a bundle step touch it. It is spawned with
+  `process.execPath`, so a `.ts` path fails under a Node runtime; point at the compiled `.js`.
 
 ## Example
 

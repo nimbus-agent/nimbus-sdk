@@ -1,5 +1,17 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.8.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.7.1...sdk-v1.8.0) (2026-07-28)
+
+
+### Features
+
+* **testing:** let callers override the sandbox probe path ([#46](https://github.com/nimbus-agent/nimbus-sdk/issues/46)) ([6fbe4c5](https://github.com/nimbus-agent/nimbus-sdk/commit/6fbe4c520bb2f9f535745ed75305c4be124b1fb6))
+
+
+### Bug Fixes
+
+* **test:** give the npm pack guard its own timeout and one spawn ([#49](https://github.com/nimbus-agent/nimbus-sdk/issues/49)) ([ff20938](https://github.com/nimbus-agent/nimbus-sdk/commit/ff2093818352c5fe4ab05f0726aa183574ff1685))
+
 ## [1.7.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.7.0...sdk-v1.7.1) (2026-07-28)
 
 

@@ -163,12 +163,12 @@ cross-OS × Node-LTS matrix; inclusion + deprecation policies are published.
 *Goal: turn the TypeScript contract into a language-neutral spec that anything can
 bind to.*
 
-- [ ] Publish **JSON Schemas** for `ExtensionManifest` and `NimbusItem`, versioned
+- [x] Publish **JSON Schemas** for `ExtensionManifest` and `NimbusItem`, versioned
   alongside the package, into [`spec/`](./spec/) — *Pillars 1, 7*
 - [ ] Write the **IPC wire-protocol spec** for the NDJSON framing in `src/ipc/` — *Pillar 1*
 - [ ] Extract the **conformance suite** as language-neutral fixtures, seeded from
   `runContractTests` + the sandbox probe — *Pillars 2, 5*
-- [ ] Validate the TypeScript SDK **against its own spec** in CI — *Pillars 2, 5*
+- [x] Validate the TypeScript SDK **against its own spec** in CI — *Pillars 2, 5*
 - [ ] Define **contract-version negotiation** (how a connector and gateway agree on
   a contract version) — *Pillar 7*
 

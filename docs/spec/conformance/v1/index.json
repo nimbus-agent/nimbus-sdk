@@ -1,0 +1,22 @@
+{
+  "fixtures": [
+    { "file": "manifest/valid-minimal.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "Every required field present and well-formed." },
+    { "file": "manifest/valid-prerelease-min-version.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "minNimbusVersion is unanchored at the end, so a prerelease suffix is accepted." },
+    { "file": "manifest/valid-leading-space-min-version.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "runContractTests trims minNimbusVersion before matching." },
+    { "file": "manifest/invalid-missing-id.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "id is required." },
+    { "file": "manifest/invalid-whitespace-id.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "id must contain a non-whitespace character; isNonEmptyString trims." },
+    { "file": "manifest/invalid-runtime.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "runtime must be bun or node." },
+    { "file": "manifest/invalid-permission.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "admin is not a permission." },
+    { "file": "manifest/schema-only-bad-sync-interval.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "schema-only", "reason": "syncInterval must be a number. runContractTests never inspects it, so only the schema rejects this." },
+    { "file": "manifest/valid-unknown-extra-key.json", "shape": "ExtensionManifest", "expect": "valid", "class": "equivalence", "reason": "Neither the schema nor runContractTests sets additionalProperties: false, so an undeclared extra key must still validate on both sides. Pins the manifest schema's openness." },
+    { "file": "manifest/invalid-short-min-version.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "minNimbusVersion missing its patch component is rejected by both the pattern and runContractTests. Pins that the pattern actually constrains the value, not just tolerates whitespace and prerelease suffixes." },
+    { "file": "manifest/invalid-hitl-required.json", "shape": "ExtensionManifest", "expect": "invalid", "class": "equivalence", "reason": "read is not a valid hitlRequired entry; rejected by both the enum and runContractTests. Pins that hitlRequired's enum is exercised at all." },
+    { "file": "manifest/valid-maximal.json", "shape": "ExtensionManifest", "expect": "valid", "class": "schema-only", "reason": "Every optional field populated, including a fully and correctly typed oauth object. Pins the types of oauth's five properties, syncInterval, tags, homepage, and icon, none of which runContractTests inspects." },
+    { "file": "item/valid-minimal.json", "shape": "NimbusItem", "expect": "valid", "class": "schema-only", "reason": "Every required field present. No runtime validator exists for items." },
+    { "file": "item/valid-unknown-item-type.json", "shape": "NimbusItem", "expect": "valid", "class": "schema-only", "reason": "itemType is an open vocabulary; an unknown type must validate." },
+    { "file": "item/invalid-missing-name.json", "shape": "NimbusItem", "expect": "invalid", "class": "schema-only", "reason": "name is required." },
+    { "file": "item/invalid-size-bytes-type.json", "shape": "NimbusItem", "expect": "invalid", "class": "schema-only", "reason": "sizeBytes must be a number. TypeScript would catch this at compile time; nothing catches it at runtime." },
+    { "file": "item/valid-unknown-extra-key.json", "shape": "NimbusItem", "expect": "valid", "class": "schema-only", "reason": "The item schema is open; an undeclared extra key must still validate. No runtime validator exists for items, so this is schema-only, not equivalence." },
+    { "file": "item/valid-maximal.json", "shape": "NimbusItem", "expect": "valid", "class": "schema-only", "reason": "Every optional field populated (mimeType, sizeBytes, createdAt, modifiedAt, url, parentId, rawMeta). No runtime validator exists for items." }
+  ]
+}

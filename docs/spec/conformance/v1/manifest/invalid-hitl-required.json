@@ -1,0 +1,12 @@
+{
+  "id": "example-connector",
+  "displayName": "Example Connector",
+  "version": "0.1.0",
+  "description": "hitlRequired containing read is rejected by both the enum and runContractTests.",
+  "author": "Nimbus Contributors",
+  "entrypoint": "./index.ts",
+  "runtime": "bun",
+  "permissions": ["read"],
+  "hitlRequired": ["read"],
+  "minNimbusVersion": "0.1.0"
+}

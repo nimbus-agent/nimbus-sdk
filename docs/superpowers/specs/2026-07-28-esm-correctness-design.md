@@ -133,6 +133,26 @@ exact problem and already unit tested. The guard reuses it rather than growing a
 parser. That also means a `require(` appearing inside a *string literal* is still caught,
 because `stripComments` preserves string contents deliberately.
 
+It is worth being precise about what that stripper is, because the obvious worry — that a
+regex-based stripper mangles template literals — does not apply. It is a character-scanning
+state machine, not a regex: it tracks `"`, `'` and `` ` `` as string delimiters and honors
+backslash escapes, so a template literal containing `//` is preserved intact rather than
+truncated. Replacing it with a full JS tokenizer would add a parser this package does not
+need and cannot take as a dependency.
+
+### `require` is banned outright, including via `createRequire`
+
+`import { createRequire } from "node:module"` is the legitimate ESM escape hatch for loading
+CJS or JSON, and this guard deliberately does not exempt it. Nothing in a dependency-free
+package of types and pure helpers needs to load a CJS module, and the call site a
+`createRequire` produces is a `require(` like any other — so the scan catches it without a
+special case.
+
+The guard's failure message names `createRequire` explicitly, so that someone with a genuine
+need is told to amend the guard deliberately rather than guessing that a rename would slip
+past it. That follows the doctrine `api-surface.ts` states for its own parser: refuse the
+construct rather than quietly permit it.
+
 ## Component 4 — The invocation phase in `smoke-esm.mjs`
 
 `scripts/smoke-esm.mjs` currently imports every published entry point by package name and
@@ -182,12 +202,28 @@ also be closer to vacuous than reassuring: the probe's network checks already sk
 platform, because `sandbox-contract.ts` reads `permissions` in object form while
 `ExtensionManifest.permissions` is an array — so only `fs-denied` ever runs.
 
-### The cost, stated plainly
+### Drift is detected, not merely acknowledged
 
-This list must be extended when a battery is added, and nothing forces that. Component 3 is
-what stays complete for free; Component 4 buys execution depth in exchange for maintenance.
-Both are worth having because they fail differently: the scan catches constructs, the
-invocation catches resolution and runtime errors.
+An earlier draft accepted that this list would rot and left it there. It does not have to.
+
+The call list becomes a **machine-readable export** — an array of `{ module, run }` rather
+than inline statements — and a `bun test` asserts it covers every module the published
+surface reaches, by diffing against `modulesInSurface()` from `scripts/docs-modules.ts`.
+That is the same 25-module set the doc-coverage guard already derives from
+`buildSurface()`, so adding a battery fails this test until it has a smoke call, exactly as
+it already fails until it has a documentation page.
+
+Note the unit that matters here is the **module**, not the entry point. Asserting coverage
+of `package.json`'s three `exports` entries would be nearly free and would catch almost
+nothing, since the smoke already derives and loads all three. Drift happens per battery.
+
+### The residual cost, stated plainly
+
+Coverage is enforced, but *quality* is not: a `run` that touches a binding without executing
+anything would satisfy the diff. Component 3 is the guard that stays complete with no
+judgement at all; Component 4 buys execution depth and asks a reviewer to check the calls do
+real work. Both are worth having because they fail differently — the scan catches
+constructs, the invocation catches resolution and runtime errors.
 
 ---
 
@@ -202,13 +238,26 @@ not something larger, and the existing API-surface guard enforces it.
 
 ## Testing
 
-- **Unit, on synthetic input:** the CJS scanner's pure half, including the two cases that
-  separate a correct implementation from a plausible one — a `require(` inside a comment
-  (must be ignored) and a `require(` inside a string literal (must be caught).
-- **Integration:** the scanner over the real `dist/`.
+- **Unit, on synthetic input:** the CJS scanner's pure half, including the cases that
+  separate a correct implementation from a plausible one:
+  - a `require(` inside a line comment and inside a block comment — **ignored**;
+  - a `require(` inside a string literal and inside a template literal — **caught**;
+  - `require(` nested in a function body, behind a conditional, and with a computed
+    specifier — **caught** in every position, since a scan that only matched top-level
+    calls would have missed the defect this change exists for;
+  - `__dirname`, `__filename`, and `module.exports` — **caught**;
+  - a `createRequire` import followed by a call — **caught**, and the message names
+    `createRequire`.
+- **Integration:** the scanner over the real `dist/`. This must pass today, which is a real
+  assertion rather than a formality: `dist/testing/sandbox-contract.js` contains
+  `require("@nimbus-dev/client")` inside a doc comment, so a naive implementation fails here.
+- **Coverage:** the smoke's call list covers every module `modulesInSurface()` reports, so a
+  new battery cannot ship without one.
 - **`probePath` resolves to a file that exists.** In-repo tests run under the `bun`
   condition, so this covers the `src/` side; the smoke covers the `dist/` side. Both trees
-  are proven, which is the entire point of the fix.
+  are proven, which is the entire point of the fix. Both halves run on the full CI matrix
+  already — `bun test` on three operating systems, the smoke on three × two Node versions —
+  so no new workflow wiring is needed to get cross-platform coverage of this check.
 - **The smoke's invocation phase** runs on the existing 3 OS × 2 Node matrix — the
   environment that would have caught the original bug.
 - The existing crypto suite continues to cover `generateEd25519Keypair`'s behavior; this
@@ -223,6 +272,26 @@ the guard that does not depend on anyone remembering.
 `.ts` or `.js`, which is true of both trees this package ships. A future bundler emitting
 `.mjs` would need it revisited — cheap to fix, and it fails loudly (file not found) rather
 than silently.
+
+**A bundled consumer can still break `probePath`, and this change does not fix that.**
+If a consumer bundles the SDK with webpack, rollup, esbuild or tsup, `import.meta.url`
+points at the bundle, and `sandbox-probe.js` — a separate file the bundler has no reason to
+emit — will not sit beside it. This is not hypothetical for this repo: the comment above
+`probePath` records a bundler inlining this very module and breaking `@nimbus-dev/client`.
+
+It is deliberately out of scope, for two reasons. It is a `feat:` — any remedy adds public
+configuration surface, and this change must stay a patch. And the obvious remedy is the
+wrong one: an environment variable such as `NIMBUS_SANDBOX_PROBE_PATH` is precisely the
+ambient state [`INCLUSION-POLICY.md`](../../INCLUSION-POLICY.md) forbids, which says an
+effect a caller would want to substitute must be reachable **through a parameter**. The
+right shape is an optional `probePath` on the existing `RunSandboxContractTestsOptions`,
+defaulting to today's resolution — recorded here so whoever picks it up does not reach for
+the env var.
+
+The practical exposure is also narrow: this is a test utility that spawns a subprocess, so
+it already assumes a real filesystem, and bundling a spawning test harness is unusual.
+Failing loudly with a missing-file path is an acceptable interim behavior — which is exactly
+what this change restores, since today it names a file that never existed in `dist/` at all.
 
 **This is the first PR to exercise the CLA fix from #39.** If the required `cla` check still
 does not report, that is the fix being wrong, not this change.

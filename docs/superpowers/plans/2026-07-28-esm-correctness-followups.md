@@ -354,6 +354,22 @@ describe("every exports target is actually packed", () => {
       encoding: "utf8",
       shell: process.platform === "win32",
     });
+
+    // A missing npm binary is reported differently from a failed npm run, and only this
+    // branch names it. Measured: with the executable absent, `status` is `undefined`,
+    // `stderr` is `null`, and the reason exists solely on `result.error`. Reporting only
+    // the exit code would print "exit undefined" with an empty stderr and never mention
+    // npm. (On Windows `shell: true` means a missing npm surfaces through the shell's own
+    // non-zero exit instead, which the assertion below covers.)
+    if (result.error !== undefined) {
+      throw new Error(
+        `could not run npm: ${result.error.message}. This guard needs the npm CLI, which ` +
+          "ships with Node. It fails rather than skips when npm is unavailable: a " +
+          "conditional skip is a check that cannot fail, which is the failure mode this " +
+          "guard exists to prevent.",
+      );
+    }
+
     expect(
       result.status,
       `npm pack failed (exit ${result.status}); stderr: ${(result.stderr ?? "").trim()}. ` +
@@ -741,27 +757,82 @@ bun install --frozen-lockfile
 bun run build
 ```
 
+- [ ] **Step 2a: Give the file's temp directories an owner**
+
+`src/testing/sandbox-contract.test.ts` creates temp directories at five call sites (all via
+`writeManifest`) and removes none of them, so every suite run leaves five directories behind
+in the system temp folder. The new tests below add more. Fix the file rather than only the
+new helper — a cleanup hook covering just the new code would leave the existing five and make
+the file inconsistent with itself.
+
+Add `afterAll` to the `bun:test` import and `rmSync` to the `node:fs` import, then add near
+the top of the file, immediately after the existing imports:
+
+```ts
+/**
+ * Every temp directory this file creates, removed once the suite finishes.
+ *
+ * Registered centrally rather than per-helper so a new helper cannot quietly reintroduce
+ * the leak. Every probe spawn here is `spawnSync`, so the child has always exited by the
+ * time this runs and nothing holds the files open. `force: true` makes a directory a test
+ * already removed a no-op.
+ */
+const tempDirs: string[] = [];
+
+afterAll(() => {
+  for (const dir of tempDirs) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+```
+
+and change the existing `writeManifest` helper to register its directory — one added line:
+
+```ts
+function writeManifest(perms: unknown): string {
+  const dir = mkdtempSync(join(tmpdir(), "sdk-contract-stub-"));
+  tempDirs.push(dir);
+  const manifestPath = join(dir, "nimbus.extension.json");
+  writeFileSync(manifestPath, JSON.stringify({ id: "test", permissions: perms }));
+  return manifestPath;
+}
+```
+
+Run `bun test src/testing/sandbox-contract.test.ts` — expected: PASS, unchanged behaviour.
+Commit this separately so it is reviewable on its own:
+
+```bash
+git add src/testing/sandbox-contract.test.ts
+git commit -m "test(testing): clean up the temp directories the sandbox tests create"
+```
+
 - [ ] **Step 2: Write the failing tests**
 
 Append to `src/testing/sandbox-contract.test.ts`. It already imports `mkdtempSync`,
-`writeFileSync`, `join`, `tmpdir`, `__defaultRunProbe`, and `runSandboxContractTests`; add
-`makeProbeRunner` usage as shown (it is already defined at the top of that file).
+`writeFileSync`, `join`, `tmpdir`, `__defaultRunProbe`, and `runSandboxContractTests`, and
+`makeProbeRunner` and `writeManifest` are already defined at the top of the file.
 
 ```ts
 describe("probe path override", () => {
-  /** A stand-in probe that exits with a code no real probe returns. */
-  function writeStubProbe(): string {
+  /**
+   * A stand-in probe that exits with a code no real probe returns.
+   *
+   * Created once for the block: the two tests below need the same stub, and one directory
+   * is one fewer to clean up. Registered in `tempDirs` (Step 2a) like every other.
+   */
+  const stubProbe = (() => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-probe-stub-"));
+    tempDirs.push(dir);
     const probe = join(dir, "stub-probe.mjs");
     writeFileSync(probe, "process.stdout.write('stub ran');\nprocess.exit(37);\n");
     return probe;
-  }
+  })();
 
   it("`__defaultRunProbe` spawns the binary it is given", () => {
     // Falsifiability: 37 is a code no real probe returns (they use 0/10/11), and the real
     // probe is what would run if the third parameter were ignored. A test that merely
     // asserted the call typechecks would pass with the parameter dropped.
-    const r = __defaultRunProbe("fs-denied", "", writeStubProbe());
+    const r = __defaultRunProbe("fs-denied", "", stubProbe);
     expect(r.status).toBe(37);
     expect(r.stdout).toContain("stub ran");
   });
@@ -772,7 +843,7 @@ describe("probe path override", () => {
     // proving the stub, not the real probe, is what ran.
     const manifestPath = writeManifest({ network: [] });
     return expect(
-      runSandboxContractTests(manifestPath, { probePath: writeStubProbe() }),
+      runSandboxContractTests(manifestPath, { probePath: stubProbe }),
     ).rejects.toThrow("got exit 37");
   });
 
@@ -977,6 +1048,36 @@ guard branch that leaves the count unchanged has added no check.
 when the code was wrong?"** Each task above names the specific way to break it. Running that
 step is part of the task, not an optional extra — three checks in the preceding work shipped
 green and unfalsifiable, and none were caught by careful writing.
+
+## Plan review disposition
+
+Reviewed in
+[`2026-07-28-esm-correctness-followups-review.md`](./2026-07-28-esm-correctness-followups-review.md).
+
+| Item | Disposition | Basis |
+|---|---|---|
+| 2.1 temp-dir cleanup | **accepted, widened** | Real leak. The file already had five uncleaned `mkdtempSync` sites before this work; fixing only the new helper would leave those and make the file inconsistent. Now Task 5 Step 2a, committed separately. |
+| 2.2 path separators in the test | **deferred** | Neither side of the comparison comes from the filesystem — see below. |
+| 3.1 npm-missing diagnostics | **accepted** | Correct, and the drafted message was worse than the review knew: with npm absent, `status` is `undefined` and `stderr` is `null`, so the reason lives only on `result.error`. |
+
+### Why 2.2 stays deferred
+
+This is the second review to raise path normalization; the first raised it against
+`missingPackedPaths` and it was deferred with measurements (zero backslashes across npm's
+full output on Windows 11, and `\` being legal in a POSIX filename, so blanket replacement
+could make a genuinely wrong path compare equal — converting a caught regression into a
+silent pass).
+
+The stronger reason, which applies to the test just as much as to the helper: **neither side
+of the comparison is derived from the filesystem.** One side is `package.json`'s exports
+strings — authored by hand, always `./`-prefixed POSIX. The other is npm's `--json` output,
+which npm normalizes. No `path.join`, no `readdirSync`, nothing OS-shaped ever enters the
+comparison, so there is no code path on any platform that could introduce a backslash.
+
+Contrast the dist walker in `scripts/cjs-scan.test.ts`, which *does* normalize separators —
+correctly, because it builds its paths with `join()` from `readdirSync` output, so on Windows
+they genuinely contain backslashes. The distinction is where a path comes from, not which OS
+is running.
 
 ## Review dispatch note
 

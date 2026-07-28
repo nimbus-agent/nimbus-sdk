@@ -116,6 +116,20 @@ export interface RunSandboxContractTestsOptions {
    * branch. Default is the live `process.platform`.
    */
   platform?: NodeJS.Platform;
+  /**
+   * Absolute path to the probe script. Default derives it from `import.meta.url`, which
+   * assumes the probe sits beside this module — true for `src/` under the `bun` condition
+   * and for `dist/` from the published package, false for a consumer who bundles the SDK.
+   *
+   * Bundling is the case this exists for: `@nimbus-dev/client` builds its CJS entry with
+   * `bun build --bundle --conditions=bun`, which inlines this module and replaces
+   * `import.meta.url` with the build machine's path. Pass the probe's real location here.
+   *
+   * Deliberately a parameter and not an environment variable: the inclusion policy's purity
+   * criterion requires a substitutable effect to be reachable through a parameter, and
+   * `NIMBUS_SANDBOX_PROBE_PATH` would be precisely the ambient state it forbids.
+   */
+  probePath?: string;
 }
 
 /**
@@ -130,7 +144,15 @@ export async function runSandboxContractTests(
   manifestPath: string,
   opts: RunSandboxContractTestsOptions = {},
 ): Promise<void> {
-  const runProbe = opts.runProbe ?? __defaultRunProbe;
+  // The default is wrapped rather than passed directly so `opts.probePath` reaches it. The
+  // wrapping also carries the laziness that makes the option work at all: a default
+  // parameter expression is evaluated only when its argument is absent, so `probePath()`
+  // never runs when an override is supplied — and `probePath()` throwing
+  // ERR_INVALID_FILE_URL_PATH under a bundler is the exact failure this option exists to
+  // route around. Writing `opts.probePath ?? probePath()` here would throw before the
+  // override could take effect.
+  const runProbe =
+    opts.runProbe ?? ((p: string, a: string) => __defaultRunProbe(p, a, opts.probePath));
   const platform = opts.platform ?? process.platform;
 
   const raw = await readFile(manifestPath, "utf8");
@@ -176,8 +198,12 @@ export async function runSandboxContractTests(
  * that wants to assert the production wiring without re-implementing the
  * `spawnSync` envelope.
  */
-export function __defaultRunProbe(probe: string, arg: string): ProbeResult {
-  const result = spawnSync(process.execPath, [probePath(), `--probe=${probe}`, `--arg=${arg}`], {
+export function __defaultRunProbe(
+  probe: string,
+  arg: string,
+  binary: string = probePath(),
+): ProbeResult {
+  const result = spawnSync(process.execPath, [binary, `--probe=${probe}`, `--arg=${arg}`], {
     encoding: "utf8",
   });
   return {

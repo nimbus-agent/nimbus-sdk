@@ -93,12 +93,18 @@ describe("findCjsConstructs", () => {
     expect(findCjsConstructs("const re = /[/*]/;\nconst c = require('node:fs');")).toHaveLength(1);
   });
 
-  test("an unterminated block comment does not swallow the rest of the file", () => {
-    // A character-scanning implementation that tracks "inside a block comment" as state
-    // would never find the closer here and blank everything after it. The line-oriented
-    // scanner has no such state: each line is judged only by what it starts with.
+  test("an unterminated block comment swallows the rest of the file, and that is fine", () => {
+    // An earlier revision of this test asserted the opposite, guarding a design that had no
+    // block-comment state at all — so it had nothing to lose track of. Closing the
+    // *-prefix-continuation hole (see "a multiplication continuation line is not mistaken
+    // for a comment" above) requires tracking real block state across lines, and once state
+    // is real, an unclosed block has nothing to end it: swallowing to EOF is the direct
+    // consequence, not a reintroduced hole. Unlike the regex-literal and multiplication
+    // cases, this input is not valid code that a comment token was misread inside — a file
+    // with an unterminated block comment is not valid JavaScript at all, and `tsc` would
+    // never emit one to `dist/`.
     const src = ["/* oops, never closed", "const c = require('x');"].join("\n");
-    expect(findCjsConstructs(src)).toHaveLength(1);
+    expect(findCjsConstructs(src)).toEqual([]);
   });
 
   test("a construct named in a trailing comment is reported (documented false positive)", () => {
@@ -107,6 +113,33 @@ describe("findCjsConstructs", () => {
     // along with the code. Loud over-refusal, not silent under-reporting — move the note to
     // its own comment line to avoid it.
     expect(findCjsConstructs("const a = 1; // see require() docs")).toHaveLength(1);
+  });
+
+  test("a multiplication continuation line is not mistaken for a comment", () => {
+    // The stateless prefix heuristic this replaced assumed any `*`-leading line was
+    // comment-only, so a wrapped multiplication continuation carrying a require() was
+    // skipped even though it is plain code, not a comment.
+    expect(findCjsConstructs('const v = 2\n  * require("x");')).toHaveLength(1);
+  });
+
+  test("code after an inline block comment is scanned", () => {
+    // A line that both opens and closes a block comment — `/* note */ code` — must still
+    // have the code after `*/` searched, not the whole line skipped.
+    expect(findCjsConstructs('/* note */ const c = require("x");')).toHaveLength(1);
+  });
+
+  test("a regex literal still cannot open a block comment", () => {
+    // Regression guard for the hole the prefix heuristic itself replaced: block state may
+    // only open on a line whose trimmed form starts with `/*`. `const re = /[/*]/;` trims
+    // to `const re = …`, so it never opens a block, and the require() on the next line is
+    // still found.
+    expect(findCjsConstructs('const re = /[/*]/;\nconst c = require("x");')).toHaveLength(1);
+  });
+
+  test("a genuine JSDoc block is still ignored", () => {
+    // Regression guard: a real block comment must still suppress everything inside it,
+    // including a require() named in prose.
+    expect(findCjsConstructs('/**\n * see require("x")\n */\nconst a = 1;')).toEqual([]);
   });
 });
 

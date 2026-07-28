@@ -50,13 +50,18 @@ export const SMOKE_CALLS = [
   },
   {
     module: "crypto/app-store-connect-jwt",
-    // Existence check only, like testing/sandbox-contract below: signAppStoreConnectJwt
-    // needs a real RSA private key PEM to produce a signature, and this smoke has no safe
-    // way to fabricate one.
-    run: (sdk) => {
-      if (typeof sdk.signAppStoreConnectJwt !== "function") {
-        throw new Error("signAppStoreConnectJwt is not a function");
-      }
+    // ES256 = ECDSA over P-256 (see the module's own docstring), and it takes a `.p8`
+    // PEM — nothing Apple-issued. An ephemeral EC P-256 key generated on the spot satisfies
+    // it, so this can be a real call rather than an existence check.
+    run: async (sdk) => {
+      const { generateKeyPairSync } = await import("node:crypto");
+      const { privateKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+      const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" });
+      const jwt = sdk.signAppStoreConnectJwt(
+        { issuerId: "smoke-issuer", keyId: "smoke-key", privateKeyPem },
+        1_700_000_000_000,
+      );
+      if (jwt.split(".").length !== 3) throw new Error(`expected a three-part JWT, got ${jwt}`);
     },
   },
   {

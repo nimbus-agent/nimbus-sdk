@@ -1,5 +1,5 @@
-import { describe, expect, it, test } from "bun:test";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { afterAll, describe, expect, it, test } from "bun:test";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,6 +11,22 @@ import {
   probePath,
   runSandboxContractTests,
 } from "./sandbox-contract.js";
+
+/**
+ * Every temp directory this file creates, removed once the suite finishes.
+ *
+ * Registered centrally rather than per-helper so a new helper cannot quietly reintroduce
+ * the leak. Every probe spawn here is `spawnSync`, so the child has always exited by the
+ * time this runs and nothing holds the files open. `force: true` makes a directory a test
+ * already removed a no-op.
+ */
+const tempDirs: string[] = [];
+
+afterAll(() => {
+  for (const dir of tempDirs) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 function makeProbeRunner(
   responses: ReadonlyArray<{ probe: string; arg?: string; result: ProbeResult }>,
@@ -31,6 +47,7 @@ function makeProbeRunner(
 
 function writeManifest(perms: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), "sdk-contract-stub-"));
+  tempDirs.push(dir);
   const manifestPath = join(dir, "nimbus.extension.json");
   writeFileSync(manifestPath, JSON.stringify({ id: "test", permissions: perms }));
   return manifestPath;

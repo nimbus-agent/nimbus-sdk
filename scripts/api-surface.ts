@@ -41,7 +41,12 @@ export function normalizeEol(text: string): string {
 }
 
 /**
- * Remove `//` and block comments, preserving newlines and string contents.
+ * Remove `//` and block comments, preserving string contents.
+ *
+ * Newlines inside a block comment are NOT preserved: a multi-line block collapses to
+ * nothing, so positions after one do not map onto the original source. That is harmless
+ * for this file's callers, which split into statements rather than counting lines — but
+ * it is why scripts/cjs-scan.ts blanks comments itself instead of reusing this.
  * String awareness matters: `"https://x"` must not lose its tail.
  */
 export function stripComments(src: string): string {

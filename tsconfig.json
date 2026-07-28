@@ -25,6 +25,7 @@
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowJs": true,
 
     "skipLibCheck": true,
     "declaration": true,

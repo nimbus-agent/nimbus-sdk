@@ -4,6 +4,8 @@
  * at install + every startup (I16 wiring sites).
  */
 
+import { generateKeyPairSync } from "node:crypto";
+
 import { canonicalizeManifest } from "./canonical-json.js";
 
 export class PublisherKeyMismatch extends Error {
@@ -112,13 +114,16 @@ export async function signManifest(
 }
 
 /**
- * Generate a fresh Ed25519 keypair via WebCrypto and export both halves as
- * raw 32-byte arrays. Used by `nimbus extension keygen` and by every test
- * fixture (no committed crypto material — see spec §6.3).
+ * Generate a fresh Ed25519 keypair and export both halves as raw 32-byte arrays.
+ * Used by `nimbus extension keygen` and by every test fixture (no committed crypto
+ * material — see spec §6.3).
+ *
+ * Uses `node:crypto` rather than WebCrypto because this function is synchronous and
+ * WebCrypto's `generateKey` is async; the rest of this module uses `crypto.subtle`.
+ * Changing that would alter the signature, which is a breaking change.
  */
 export function generateEd25519Keypair(): { privkey: Uint8Array; pubkey: Uint8Array } {
-  const nodeCrypto: typeof import("node:crypto") = require("node:crypto");
-  const { privateKey, publicKey } = nodeCrypto.generateKeyPairSync("ed25519");
+  const { privateKey, publicKey } = generateKeyPairSync("ed25519");
   const privJwk = privateKey.export({ format: "jwk" }) as { d: string };
   const pubJwk = publicKey.export({ format: "jwk" }) as { x: string };
   const privkey = new Uint8Array(Buffer.from(privJwk.d, "base64url"));

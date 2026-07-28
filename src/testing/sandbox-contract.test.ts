@@ -1,5 +1,5 @@
-import { describe, expect, it, test } from "bun:test";
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
+import { afterAll, describe, expect, it, test } from "bun:test";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -11,6 +11,22 @@ import {
   probePath,
   runSandboxContractTests,
 } from "./sandbox-contract.js";
+
+/**
+ * Every temp directory this file creates, removed once the suite finishes.
+ *
+ * Registered centrally rather than per-helper so a new helper cannot quietly reintroduce
+ * the leak. Every probe spawn here is `spawnSync`, so the child has always exited by the
+ * time this runs and nothing holds the files open. `force: true` makes a directory a test
+ * already removed a no-op.
+ */
+const tempDirs: string[] = [];
+
+afterAll(() => {
+  for (const dir of tempDirs) {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
 
 function makeProbeRunner(
   responses: ReadonlyArray<{ probe: string; arg?: string; result: ProbeResult }>,
@@ -31,6 +47,7 @@ function makeProbeRunner(
 
 function writeManifest(perms: unknown): string {
   const dir = mkdtempSync(join(tmpdir(), "sdk-contract-stub-"));
+  tempDirs.push(dir);
   const manifestPath = join(dir, "nimbus.extension.json");
   writeFileSync(manifestPath, JSON.stringify({ id: "test", permissions: perms }));
   return manifestPath;
@@ -39,12 +56,14 @@ function writeManifest(perms: unknown): string {
 describe("runSandboxContractTests", () => {
   it("rejects when the manifest file does not exist", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-contract-missing-"));
+    tempDirs.push(dir);
     const manifestPath = join(dir, "missing.json");
     await expect(runSandboxContractTests(manifestPath)).rejects.toThrow();
   });
 
   it("rejects when the manifest is not valid JSON", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-contract-bad-"));
+    tempDirs.push(dir);
     const manifestPath = join(dir, "nimbus.extension.json");
     writeFileSync(manifestPath, "{not-json");
     await expect(runSandboxContractTests(manifestPath)).rejects.toThrow();
@@ -52,6 +71,7 @@ describe("runSandboxContractTests", () => {
 
   it("handles a manifest with no declared network hosts without crashing", async () => {
     const dir = mkdtempSync(join(tmpdir(), "sdk-contract-empty-"));
+    tempDirs.push(dir);
     const manifestPath = join(dir, "nimbus.extension.json");
     writeFileSync(manifestPath, JSON.stringify({ id: "test.empty", permissions: {} }));
     let outcome: "pass" | "fail" = "pass";
@@ -130,6 +150,29 @@ describe("runSandboxContractTests", () => {
     ).rejects.toThrow(/fs-denied probe should have returned EACCES.*exit 2.*unexpected file read/s);
   });
 
+  it("`probePath: undefined` behaves identically to omitting the option", async () => {
+    // exactOptionalPropertyTypes makes `{ probePath: undefined }` — exactly what
+    // `{ probePath: cfg.probePath }` produces for a `string | undefined` config field — a
+    // compile error unless the declared type includes `| undefined`. Runtime already handled
+    // `undefined` correctly; this pins the behavior down. A stub `runProbe` keeps this from
+    // spawning the real probe binary.
+    const manifestPath = writeManifest({});
+    const { runner: runnerOmitted, calls: callsOmitted } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, { runProbe: runnerOmitted });
+
+    const { runner: runnerExplicit, calls: callsExplicit } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    await runSandboxContractTests(manifestPath, {
+      runProbe: runnerExplicit,
+      probePath: undefined,
+    });
+
+    expect(callsExplicit).toEqual(callsOmitted);
+  });
+
   it("tolerates a manifest with `permissions: string[]` (legacy array form)", async () => {
     const manifestPath = writeManifest(["read-files", "trash"]);
     const { runner, calls } = makeProbeRunner([
@@ -184,5 +227,77 @@ describe("probeFileNameFor", () => {
     // default there: it is what ships in dist/, and a wrong guess fails loudly with a
     // missing file rather than silently resolving to something unintended.
     expect(probeFileNameFor("/repo/dist/testing/sandbox-contract.mjs")).toBe("sandbox-probe.js");
+  });
+});
+
+describe("probe path override", () => {
+  /**
+   * A stand-in probe that exits with a code no real probe returns.
+   *
+   * Created once for the block: the two tests below need the same stub, and one directory
+   * is one fewer to clean up. Registered in `tempDirs` (Step 2a) like every other.
+   */
+  const stubProbe = (() => {
+    const dir = mkdtempSync(join(tmpdir(), "sdk-probe-stub-"));
+    tempDirs.push(dir);
+    const probe = join(dir, "stub-probe.mjs");
+    writeFileSync(probe, "process.stdout.write('stub ran');\nprocess.exit(37);\n");
+    return probe;
+  })();
+
+  it("`__defaultRunProbe` spawns the binary it is given", () => {
+    // Falsifiability: 37 is a code no real probe returns (they use 0/10/11), and the real
+    // probe is what would run if the third parameter were ignored. A test that merely
+    // asserted the call typechecks would pass with the parameter dropped.
+    const r = __defaultRunProbe("fs-denied", "", stubProbe);
+    expect(r.status).toBe(37);
+    expect(r.stdout).toContain("stub ran");
+  });
+
+  it("`runSandboxContractTests` routes `probePath` to the default runner", () => {
+    // End-to-end: the option must reach the spawn, not merely exist on the interface. The
+    // stub exits 37, so the fs-denied assertion (which wants 10) fails and names it —
+    // proving the stub, not the real probe, is what ran.
+    const manifestPath = writeManifest({ network: [] });
+    return expect(runSandboxContractTests(manifestPath, { probePath: stubProbe })).rejects.toThrow(
+      "got exit 37",
+    );
+  });
+
+  it("an explicit `runProbe` still wins over `probePath`", () => {
+    // Regression guard: threading the new option must not disturb the existing seam.
+    const { runner, calls } = makeProbeRunner([
+      { probe: "fs-denied", result: { status: 10, stderr: "", stdout: "" } },
+    ]);
+    const manifestPath = writeManifest({ network: [] });
+    return runSandboxContractTests(manifestPath, {
+      runProbe: runner,
+      probePath: "/nonexistent/should-never-be-spawned.mjs",
+    }).then(() => {
+      expect(calls).toEqual([{ probe: "fs-denied", arg: "" }]);
+    });
+  });
+
+  it("`__defaultRunProbe` throws instead of masquerading as a sandbox failure for an empty path", () => {
+    // Before the fix, "" reached spawnSync, which exited 0 with empty output — a probe that
+    // ran nothing, reported as a probe that succeeded.
+    expect(() => __defaultRunProbe("fs-denied", "", "")).toThrow(/sandbox probe not found/);
+  });
+
+  it("`__defaultRunProbe` throws instead of blaming the sandbox for a missing probe file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "sdk-probe-missing-"));
+    tempDirs.push(dir);
+    const missing = join(dir, "does-not-exist.mjs");
+    expect(() => __defaultRunProbe("fs-denied", "", missing)).toThrow(/sandbox probe not found/);
+  });
+
+  it("`runSandboxContractTests` rejects with the packaging diagnostic for an empty `probePath`, not a vacuous pass", async () => {
+    // The important one: a manifest with a declared network host exercises the
+    // network-listed probe, whose check is `if (r.status !== 0) throw`. Before the fix,
+    // probePath: "" spawned nothing, exited 0, and that check passed vacuously.
+    const manifestPath = writeManifest({ network: ["example.com"] });
+    await expect(runSandboxContractTests(manifestPath, { probePath: "" })).rejects.toThrow(
+      /sandbox probe not found/,
+    );
   });
 });

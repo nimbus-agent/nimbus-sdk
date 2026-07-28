@@ -93,18 +93,30 @@ describe("findCjsConstructs", () => {
     expect(findCjsConstructs("const re = /[/*]/;\nconst c = require('node:fs');")).toHaveLength(1);
   });
 
-  test("an unterminated block comment swallows the rest of the file, and that is fine", () => {
-    // An earlier revision of this test asserted the opposite, guarding a design that had no
-    // block-comment state at all — so it had nothing to lose track of. Closing the
-    // *-prefix-continuation hole (see "a multiplication continuation line is not mistaken
-    // for a comment" above) requires tracking real block state across lines, and once state
-    // is real, an unclosed block has nothing to end it: swallowing to EOF is the direct
-    // consequence, not a reintroduced hole. Unlike the regex-literal and multiplication
-    // cases, this input is not valid code that a comment token was misread inside — a file
-    // with an unterminated block comment is not valid JavaScript at all, and `tsc` would
-    // never emit one to `dist/`.
+  test("an unterminated block comment is refused, not silently swallowed", () => {
+    // This asserted the opposite until now, on the reasoning that swallowing to EOF is the
+    // direct consequence of tracking real block state and that `tsc` would never emit an
+    // unterminated block to dist/. Both remain true; neither earns an exemption. It was the
+    // module's last silent-under-report path, and `scripts/api-surface.ts`'s header — "the
+    // parser either understands a construct or refuses it ... never silently under-report"
+    // — has no unreachable-in-practice clause. Refusal is what that doctrine looks like
+    // applied here.
     const src = ["/* oops, never closed", "const c = require('x');"].join("\n");
-    expect(findCjsConstructs(src)).toEqual([]);
+    expect(() => findCjsConstructs(src)).toThrow("unterminated block comment");
+  });
+
+  test("the refusal names the line the block opened on, not the last line", () => {
+    // A message naming the wrong line is a check that fires correctly and misdirects the
+    // fix. The block opens on line 2 here and the file runs to line 4.
+    //
+    // One exception, verified and left standing: when a block closes and another opens on
+    // the SAME line (`*/ /* never closed`), the reported line is the earlier block's, not
+    // the still-open one's. Correcting that needs `codePortion` to report where a same-line
+    // reopen began, and this change may not touch `codePortion`. The refusal is still loud
+    // and still names a line inside the comment region — it is a diagnostic imprecision,
+    // not a path to a false pass.
+    const src = ["const a = 1;", "/* opened here", "still inside", "and here"].join("\n");
+    expect(() => findCjsConstructs(src)).toThrow("opened at line 2");
   });
 
   test("a construct named in a trailing comment is reported (documented false positive)", () => {
@@ -176,8 +188,15 @@ describe("the emitted dist/ contains no CJS constructs", () => {
         .slice(repoRoot.length + 1)
         .split("\\")
         .join("/");
-      for (const finding of findCjsConstructs(readFileSync(file, "utf8"))) {
-        offenders.push(`${rel}:${finding.line} — ${finding.construct}`);
+      try {
+        for (const finding of findCjsConstructs(readFileSync(file, "utf8"))) {
+          offenders.push(`${rel}:${finding.line} — ${finding.construct}`);
+        }
+      } catch (err) {
+        // The scan refuses a file it cannot read reliably. Unwrapped, the throw escapes
+        // mid-loop and the test dies before the offenders report is built, naming no file
+        // at all — a strictly worse diagnostic than the one it replaces.
+        offenders.push(`${rel} — ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 

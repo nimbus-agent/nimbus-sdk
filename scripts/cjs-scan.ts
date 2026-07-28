@@ -41,6 +41,22 @@
  * is exactly what the regex case above did, and that is the one direction this scan will
  * not repeat.
  *
+ * Two further consequences of the trimmed-prefix rule, stated for the same reason:
+ *
+ * - A block comment opened *mid-line* never opens a block. `const x = 1; /* note` followed
+ *   by `require("foo")` reports the require, because the comment body is read as code.
+ *   Over-refusal again; the fix is to move the comment onto its own line.
+ * - A template literal whose line begins with `/*` *does* open a block — and if it never
+ *   closes, the scan now throws on input that is valid JavaScript. That is a false
+ *   *refusal*, a sharper edge than a false positive, and it is the price of refusing
+ *   unterminated blocks at all. It is the right price here: the alternative it replaced was
+ *   swallowing the rest of the file in silence. No file in the emitted package trips it.
+ * - When a block closes and another opens on the same line, the refusal names the line the
+ *   earlier block opened on rather than the still-open one. The refusal fires correctly;
+ *   only the line number is imprecise. Fixing it requires `codePortion` to report a
+ *   same-line reopen position, which is a change to the parser rule this module is built
+ *   around, not to the refusal added here.
+ *
  * String and template literal *contents* are deliberately searched, not stripped: a
  * construct hidden in one is still reported. Comment-only lines are skipped in full;
  * every other line — string contents included — is searched as-is.
@@ -68,7 +84,9 @@ export type CjsFinding = {
 
 /**
  * The code portion of a line, given whether a block comment is already open when the line
- * starts, plus whether a block comment is still open once the line ends.
+ * starts, plus whether a block comment is still open once the line ends. `inBlock` still true
+ * after the last line is not a terminal state here — `findCjsConstructs` converts a block
+ * still open at EOF into a refusal, rather than treating it as clean.
  *
  * A block comment can only be opened by a line whose *trimmed* form starts with `/*` — never
  * mid-line, and never by a bare `*`. That single rule is what makes this immune to both
@@ -123,16 +141,28 @@ export function findCjsConstructs(source: string): CjsFinding[] {
   const lines = source.split("\n");
   const findings: CjsFinding[] = [];
   let inBlock = false;
+  let blockOpenedAt = 0;
 
   for (let i = 0; i < lines.length; i += 1) {
     const text = lines[i] ?? "";
+    const wasInBlock = inBlock;
     const result = codePortion(text, inBlock);
     inBlock = result.inBlock;
+    if (!wasInBlock && inBlock) {
+      blockOpenedAt = i + 1;
+    }
     for (const construct of CJS_CONSTRUCTS) {
       if (result.code.includes(construct)) {
         findings.push({ construct, line: i + 1 });
       }
     }
+  }
+
+  if (inBlock) {
+    throw new Error(
+      `unterminated block comment opened at line ${blockOpenedAt} — the scan cannot see ` +
+        "past it, and reporting the remainder as clean would be a silent under-report",
+    );
   }
 
   return findings;

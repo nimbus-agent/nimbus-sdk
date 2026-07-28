@@ -56,9 +56,20 @@ manifest's declared permissions against what a forked probe actually observes.
   know which probes actually ran.
 - **The SDK harness alone does not sandbox-wrap the probe.** It forks it directly, so for
   the run to assert real enforcement the probe must be invoked under a sandbox wrapper.
-- **`runProbe` and `platform` are injectable.** The probe runner and the platform reading
-  are parameters, so the harness itself is testable — see the
+- **`runProbe`, `probePath` and `platform` are injectable.** The probe runner, the probe's
+  location, and the platform reading are all parameters, so the harness itself is testable —
+  see the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
+- **Bundling the SDK breaks the default probe path; `probePath` is the fix.** By default the
+  probe is resolved beside this module via `import.meta.url`, which holds for `src/` under
+  the `bun` condition and for `dist/` from the published package. A bundler that inlines the
+  module replaces `import.meta.url` with the build machine's path, and the resolution throws
+  `ERR_INVALID_FILE_URL_PATH`. Pass `probePath` with the probe's real location. It is a
+  parameter, not an environment variable, on purpose. Point it at
+  `dist/testing/sandbox-probe.js` — it does ship (`files` includes `dist`) — and reference it
+  unbundled: if your build relocates or inlines the rest of the package, copy this file out of
+  `node_modules` first rather than letting a bundle step touch it. It is spawned with
+  `process.execPath`, so a `.ts` path fails under a Node runtime; point at the compiled `.js`.
 
 ## Example
 
@@ -139,7 +150,7 @@ correct.
   `{}`. It is a null object that lets a call site compile and run, not a mock you can
   script; substitute your own when a test needs a real answer.
 - **`testing/sandbox-contract`** — `runSandboxContractTests`.
-  `RunSandboxContractTestsOptions`, which carries `runProbe` and `platform`, *is* an
+  `RunSandboxContractTestsOptions`, which carries `runProbe`, `probePath` and `platform`, *is* an
   `export interface` in that module, but the `./testing` barrel does not re-export it — so it
   is absent from the package's public surface and appears in
   [`api-surface.md`](../api-surface.md) only inside the function's signature. You cannot

@@ -341,16 +341,22 @@ describe("every exports target is actually packed", () => {
   const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
   /**
-   * npm's own answer to "what would publish ship". `--dry-run` writes no tarball and needs
-   * no network.
+   * npm's own answer to "which files would publish ship". `--dry-run` writes no tarball and
+   * needs no network.
+   *
+   * Scope, stated so it is not over-read: this verifies the packlist, not `npm publish` as a
+   * whole. `prepublishOnly` does not run under `npm pack`, so anything only that hook would
+   * surface stays invisible here. Which files reach the tarball is this guard's entire
+   * subject, so that is the right boundary — but it is a boundary.
    *
    * `--ignore-scripts` is deliberately absent. A design review proposed it on the theory
    * that `prepublishOnly` (`bun run build && bun run typecheck`) would fire and nest a build
    * inside `bun test`; it does not — npm runs that hook only on `npm publish`, verified by
    * dist/index.js's mtime being unchanged across a pack. `prepack` and `prepare` *do* run
-   * here, and that is wanted: if one is ever added that generates a shipped file,
-   * suppressing it would have this guard compare against a file list no real publish ever
-   * produces.
+   * here — including under `--dry-run`, measured by adding both hooks and watching each
+   * write a sentinel — and that is wanted: if one is ever added that generates a shipped
+   * file, suppressing it would have this guard compare against a file list no real publish
+   * ever produces.
    */
   function packedPaths(): string[] {
     const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
@@ -650,8 +656,10 @@ explain it.
 stays *"headers-only"* and `docs/ARCHITECTURE.md:73` says *"headers only — a hard scope
 constraint keeps row/body data out"*. Neither is true: `src/jmap-fastmail/index.ts:221-230`
 sends `fetchTextBodyValues: true` and `maxBodyValueBytes: 2048`, and `EMAIL_PROPERTIES`
-requests `textBody`, `bodyValues`, and `preview`. Up to 2 KB of body crosses the wire on
-every list/get/search. The module's own header (lines 8-14) and
+requests `textBody`, `bodyValues`, and `preview`. Body text crosses the wire on every
+list/get/search — up to 2 KB *per body value*, which `buildListRequest` and
+`buildSearchRequest` multiply by the `limit` emails they ask for. The module's own header
+(lines 8-14) and
 `docs/modules/jmap-fastmail.md` already describe this accurately.
 
 The decision recorded in the spec is that the shipped behaviour is correct and the two policy
@@ -678,10 +686,17 @@ with:
 
 ```markdown
 - `jmap-fastmail` stays **headers, attachment metadata, and a server-truncated body
-  preview** — `maxBodyValueBytes` (2048) bounds what crosses the wire, `PREVIEW_MAX_CHARS`
-  (2000) bounds what is returned, and an attachment's `blobId` is never dereferenced.
-  Widening any of these three is contract-affecting.
+  preview**. The two caps are **per email, not per response**: `maxBodyValueBytes` (2048)
+  bounds each body value the server returns, and `PREVIEW_MAX_CHARS` (2000) bounds each
+  preview handed back — so a list or search request for `limit` emails carries them once
+  per email, not once in total. An attachment's `blobId` is never dereferenced. Widening
+  either cap, or dereferencing a `blobId`, is contract-affecting.
 ```
+
+The per-email framing is not optional phrasing. "Bounds what crosses the wire" reads as a
+single 2 KB total, and the real figure for a 50-email list request is 50× that — a
+data-minimization guarantee that understates volume by the batch size is worse than the
+vague claim it replaces.
 
 Leave the surrounding list items (`data-profile`, the no-row-data-in-logs rule) and the
 RFC-path sentence below the list untouched — the gate still applies to all three.

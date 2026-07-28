@@ -86,6 +86,32 @@ genuinely wrong path compare equal and turn a caught regression into a silent pa
 platform is ever found that does emit backslashes, normalize then, with that platform's
 output as the test fixture.
 
+### Which `exports` shapes are refused, and why that is the answer
+
+Node's `exports` grammar is wider than the shape this package uses. `exportTargets` handles
+a flat object of string leaves and one level of condition objects — today's `package.json`
+exactly. Four legal shapes are **refused with a throw**, not parsed:
+
+| shape | example |
+|---|---|
+| top-level string sugar | `"exports": "./dist/index.js"` |
+| nested condition objects | `{".": {"node": {"import": "./x.js"}}}` |
+| array fallbacks | `{".": ["./a.js", "./b.js"]}` |
+| `null` exclusion | `{"./internal/*": null}` |
+
+Refusing is the doctrine-correct direction: each throws loudly and immediately rather than
+returning an empty set that would read as "nothing missing". A reviewer proposed supporting
+the full grammar. Deferred, for two reasons. Recursing nested conditions is unambiguous, but
+array fallbacks are not — "all of these must ship" and "any one of these must ship" are
+different guarantees, and this package has no basis to pick one, so implementing it means
+guessing at a semantic in a guard whose whole purpose is not guessing. And every added shape
+is a code path needing its own falsifiable test; adding four to serve a `package.json` that
+uses none of them is cost without a caught defect.
+
+The obligation this creates is that the refusal must explain itself. The helper's docstring
+names all four shapes, so an author who adds one meets a message identifying the guard as
+conservative rather than their `exports` map as broken.
+
 ### The file list comes from npm, not from us
 
 `npm pack --dry-run --json` reports the exact set of files npm would publish:
@@ -109,10 +135,20 @@ would fire and nest a build inside `bun test`. It does not: npm runs `prepublish
 invocation takes 2.4s, which a build plus typecheck could not.
 
 Adding the flag defensively would be worse than neutral. `prepack` and `prepare` *do* fire on
-`npm pack`, so if either is ever added and generates a file that ships, `--ignore-scripts`
-would have the guard compare against a file list no real publish ever produces — a silent
-under-report, which is the one direction this repo does not go. The guard's value is fidelity
-to what `npm publish` would do; suppressing the hooks publish runs discards exactly that.
+`npm pack`, **including under `--dry-run`** — measured directly by adding both hooks to
+`package.json` and watching each write a sentinel file. (A later review cited npm
+documentation claiming `prepare` is skipped under `--dry-run`; on the npm this repo uses,
+it is not. The measurement governs.) So if either hook is ever added and generates a file
+that ships, `--ignore-scripts` would have the guard compare against a file list no real
+publish ever produces — a silent under-report, which is the one direction this repo does
+not go.
+
+**What the guard does and does not stand in for.** It verifies the *packlist* — the set of
+files a publish would ship — and nothing beyond it. It is not a stand-in for `npm publish`
+as a whole: `prepublishOnly` does not run under `npm pack`, so a defect that only that hook
+would surface stays invisible here. That is the correct scope for this guard, whose entire
+subject is which files reach the tarball, but the boundary is stated rather than left to be
+inferred from the word "fidelity".
 
 ### Test structure
 
@@ -272,8 +308,11 @@ Three places disagree about what `jmap-fastmail` ships:
 The decisive fact is that the preview is not a view-layer choice that could be toggled off
 cheaply. `emailGetArgs` (`src/jmap-fastmail/index.ts:221-230`) sends
 `fetchTextBodyValues: true` and `maxBodyValueBytes: 2048`, and `EMAIL_PROPERTIES` requests
-`textBody`, `bodyValues`, and `preview`. **Up to 2 KB of body crosses the wire on every
-list/get/search, before `viewEmail` is ever called.** An opt-in bolted onto `viewEmail`
+`textBody`, `bodyValues`, and `preview`. **Body text crosses the wire on every
+list/get/search, before `viewEmail` is ever called** — up to 2 KB *per body value*, which
+`buildListRequest` and `buildSearchRequest` multiply by the `limit` emails they ask for.
+`maxBodyValueBytes` is a per-`EmailBodyValue` bound, not an aggregate cap on the response.
+An opt-in bolted onto `viewEmail`
 would discard body data that had already arrived and was sitting in the raw response object
 — which is what `INCLUSION-POLICY.md:97` forbids. Minimization after the bytes arrive is not
 minimization.
@@ -296,9 +335,16 @@ broke.
 document carries a checkable guarantee rather than a vaguer one:
 
 > `jmap-fastmail` stays **headers, attachment metadata, and a server-truncated body
-> preview** — `maxBodyValueBytes` (2048) bounds what crosses the wire, `PREVIEW_MAX_CHARS`
-> (2000) bounds what is returned, and `blobId` is never dereferenced. Widening any of these
-> three is contract-affecting and takes the RFC path.
+> preview**. The two caps are **per email, not per response**: `maxBodyValueBytes` (2048)
+> bounds each body value the server returns, and `PREVIEW_MAX_CHARS` (2000) bounds each
+> preview handed back — so a list or search request for `limit` emails carries them once
+> per email, not once in total. An attachment's `blobId` is never dereferenced. Widening
+> either cap, or dereferencing a `blobId`, is contract-affecting.
+
+The per-email framing is deliberate and was corrected after review. "Bounds what crosses
+the wire" reads as a single 2 KB total; the real figure for a 50-email list request is
+50× that. A data-minimization guarantee that understates the volume by the batch size is
+worse than the vague claim it replaced.
 
 `docs/ARCHITECTURE.md:73` gets the one-line version of the same. The RFC gate is preserved:
 the next proposal to raise a cap or dereference a blob still hits it.

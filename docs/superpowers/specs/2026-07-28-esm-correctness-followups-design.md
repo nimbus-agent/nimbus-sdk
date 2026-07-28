@@ -76,9 +76,15 @@ cross-boundary rule. A malformed map is a refusal, not a silent zero-leaf pass �
 anti-vacuity guards.
 
 Normalization: exports values carry a leading `./` (`"./dist/index.js"`), npm's file list
-does not (`"dist/index.js"`). Strip the prefix on both sides before comparing. npm emits
-POSIX separators on all three runner OSes, so no path-separator handling is needed — and
-adding speculative `\\` handling would create a branch no test could exercise.
+does not (`"dist/index.js"`). Strip the prefix on both sides before comparing.
+
+**No path-separator handling.** Verified on a Windows 11 checkout: `npm pack --dry-run
+--json` emits POSIX separators throughout — zero backslashes in the entire 165-entry output.
+Blanket `\\` → `/` replacement is not merely unnecessary, it is unsafe in the guard's own
+direction: `\` is a legal character in a POSIX filename, so the replacement could make a
+genuinely wrong path compare equal and turn a caught regression into a silent pass. If a
+platform is ever found that does emit backslashes, normalize then, with that platform's
+output as the test fixture.
 
 ### The file list comes from npm, not from us
 
@@ -96,15 +102,33 @@ one, and the disagreement would always resolve in favour of the guard passing.
 the same precondition the dist walker and the API-surface guard already carry, and it
 reuses their error string: ``dist/ is missing — run `bun run build` before `bun test` ``.
 
+**`--ignore-scripts` is deliberately absent, and the code comment must say so.** A design
+review raised it, on the theory that `prepublishOnly` (`bun run build && bun run typecheck`)
+would fire and nest a build inside `bun test`. It does not: npm runs `prepublishOnly` only on
+`npm publish`. Verified — `dist/index.js`'s mtime is unchanged across a pack, and the whole
+invocation takes 2.4s, which a build plus typecheck could not.
+
+Adding the flag defensively would be worse than neutral. `prepack` and `prepare` *do* fire on
+`npm pack`, so if either is ever added and generates a file that ships, `--ignore-scripts`
+would have the guard compare against a file list no real publish ever produces — a silent
+under-report, which is the one direction this repo does not go. The guard's value is fidelity
+to what `npm publish` would do; suppressing the hooks publish runs discards exactly that.
+
 ### Test structure
 
 Two halves, deliberately:
 
 1. **Synthetic unit cases** over `missingPackedPaths` — a map whose `src` target is absent
-   from the file list returns exactly that target; a complete list returns `[]`; a
-   malformed map throws. These are falsifiable by construction: the inputs are literals in
-   the test, so they exercise the failure path on every run rather than hoping the real
-   repo is broken.
+   from the file list returns exactly that target (the dropped-`"src"`-from-`files`
+   regression); a map with a target in neither `dist/` nor `src/` returns it (the typo'd
+   export target); a complete list returns `[]`; a malformed map throws. These are
+   falsifiable by construction: the inputs are literals in the test, so they exercise the
+   failure path on every run rather than hoping the real repo is broken.
+
+   **These cases pass synthetic values to the pure function; they never mutate the real
+   `package.json`.** Writing to it on disk to provoke a failure would leave the checkout
+   dirty on any early exit and would race the other guards in the same `bun test` run,
+   several of which read `package.json` themselves.
 2. **One integration case** running `npm pack --dry-run --json` against the real checkout
    and asserting `missingPackedPaths(pkg.exports, packed) === []`.
 
@@ -193,6 +217,26 @@ line whose trimmed form starts with `/*`** — is what closes both that hole and
 | `const v = 2` / `  * require("x");` | 1 finding |
 | `/* note */ const c = require("x");` | 1 finding |
 | genuine JSDoc block | 0 findings |
+
+### Two consequences the module header must state
+
+The header already documents one false positive — a construct named in a *trailing* comment
+on a code line. The trimmed-prefix rule has two more, both surfaced during design review and
+both verified by running the scanner:
+
+1. **A block comment opened mid-line never opens a block.** For
+   `const x = 1; /* note` / `require("foo")` / `*/`, the scanner reports one finding on
+   line 2 — it reads the comment body as code. Over-refusal, consistent with the doctrine,
+   and the fix at a call site is to move the comment onto its own line.
+2. **A template literal whose line begins with `/*` *does* open a block** — and with this
+   item's change, an unclosed one now makes the scan **throw on valid JavaScript**. This is
+   a false *refusal*, which is a sharper edge than a false positive, and it is the direct
+   price of item 2. It is the right price under the doctrine: the alternative is the silent
+   swallow being replaced.
+
+   Checked before landing: of the 112 emitted `.js` files in `dist/`, **zero** would throw.
+   That check is a one-off design-time verification, not a test — the dist walker covers it
+   continuously by construction, since it runs the scanner over every emitted file.
 
 ### Tests
 
@@ -325,6 +369,19 @@ the feature is absent.
 A second test drives the option end-to-end through `runSandboxContractTests` with a stub
 manifest, confirming the option reaches the runner rather than only the signature.
 
+**The laziness itself is not test-covered, and no test should pretend otherwise.** Design
+review suggested asserting that supplying `probePath` "does not throw
+`ERR_INVALID_FILE_URL_PATH`". That check cannot fail: in-repo `import.meta.url` is always a
+valid file URL, so `probePath()` never throws here and an eagerly-evaluated implementation
+would pass it just as happily. It is the same shape as the three unfalsifiable checks this
+spec exists to prevent.
+
+The property is guaranteed structurally instead — a default parameter expression is
+evaluated only when its argument is absent — and that is why the seam is built as a default
+parameter rather than a `??` in the caller. Reproducing the bundled failure in-repo would
+require building a bundle in the test, which is out of proportion to the risk. The limit is
+recorded here so a later reader does not mistake its absence for an oversight.
+
 ### Contract change
 
 This adds exported surface, so **`docs/api-surface.md` will change** — regenerate with
@@ -366,6 +423,20 @@ leaves the count unchanged has added no check.
 For each new check, the acceptance question is not "does it pass" but **"did I watch it
 fail when the code was wrong?"** Every check in this spec has a stated way to make it fail;
 running that is part of the work, not an optional extra.
+
+## Design review disposition
+
+Reviewed in
+[`2026-07-28-esm-correctness-followups-design-review.md`](./2026-07-28-esm-correctness-followups-design-review.md).
+
+| Item | Disposition | Basis |
+|---|---|---|
+| Q1 `--ignore-scripts` | **deferred** | Premise incorrect — `prepublishOnly` does not run on `npm pack` (mtime unchanged, 2.4s run). The flag would suppress `prepack`/`prepare`, which publish *does* run, costing fidelity. |
+| Q2 mid-line comment opener | **accepted** | Reproduced; undocumented. Header gains it, plus the template-literal false-refusal the review did not reach. |
+| 3.1 path normalization | **deferred** | Zero backslashes in npm's output on Windows 11. `\` is legal in a POSIX filename, so blanket replacement risks a silent pass. |
+| 3.2 track opening line | **already specified** | Item 2 already describes exactly this. |
+| 4.1–4.2 test coverage | **accepted** | Already specified; wording sharpened to forbid mutating the real `package.json`. |
+| 4.3 laziness assertion | **rejected, limit recorded** | The suggested check cannot fail in-repo; the property is structural. |
 
 ## Review dispatch note
 

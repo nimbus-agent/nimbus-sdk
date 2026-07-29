@@ -1,7 +1,8 @@
 # RFC-0004 — A protocol for the sandbox probe
 
-- **Status:** draft
+- **Status:** accepted
 - **Opened:** 2026-07-29
+- **Landed:** 2026-07-29 in [#61](https://github.com/nimbus-agent/nimbus-sdk/pull/61)
 - **Affects:** `docs/spec/`, `@nimbus-dev/sdk` (`testing/sandbox-probe`, `testing/sandbox-contract`)
 - **Roadmap:** [Phase 1](../ROADMAP.md#phase-1--lift-the-contract-out-of-typescript), box 3 — *Extract the conformance suite as language-neutral fixtures* (third and last part)
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 5 (quality & release)

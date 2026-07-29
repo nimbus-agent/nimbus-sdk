@@ -170,8 +170,11 @@ bind to.*
 - [x] Write the **IPC wire-protocol spec** for the NDJSON framing in `src/ipc/`, published
   as [`spec/wire/v1/framing.md`](./spec/wire/v1/framing.md) with a behavioral conformance
   corpus gating CI under both Bun and Node — *Pillar 1*
-- [ ] Extract the **conformance suite** as language-neutral fixtures, seeded from
-  `runContractTests` + the sandbox probe — *Pillars 2, 5*
+- [~] Extract the **conformance suite** as language-neutral fixtures, seeded from
+  `runContractTests` + the sandbox probe — *Pillars 2, 5*. Three parts: the
+  [manifest rule registry](./spec/rules/v1/) is published and gating CI; the pure predicates
+  (`isHitlRequest`, `assertNoRowDataTools`) and the sandbox probe's exit-code protocol
+  follow, each under its own RFC.
 - [x] Validate the TypeScript SDK **against its own spec** in CI — *Pillars 2, 5*
 - [ ] Define **contract-version negotiation** (how a connector and gateway agree on
   a contract version) — *Pillar 7*

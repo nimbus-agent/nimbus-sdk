@@ -3,8 +3,10 @@ import { describe, expect, test } from "bun:test";
 import {
   assertNoRowDataTools,
   ExtensionContractError,
+  MANIFEST_RULES,
   ROW_DATA_TOOL_SEGMENTS,
   runContractTests,
+  validateManifest,
 } from "./contract-tests.js";
 import type { ExtensionManifest } from "./types.js";
 
@@ -199,5 +201,93 @@ describe("assertNoRowDataTools — Tier-3 no-row-data contract", () => {
 
   test("ignores blank tool names", () => {
     expect(() => assertNoRowDataTools([{ name: "" }, { name: "   " }])).not.toThrow();
+  });
+});
+
+describe("validateManifest", () => {
+  test("returns no violations for a valid manifest", () => {
+    expect(validateManifest(base())).toEqual([]);
+  });
+
+  test("attributes each bad permission entry to its own index", () => {
+    const m = { ...base(), permissions: ["read", "admin", "execute"] };
+    expect(validateManifest(m)).toEqual([
+      {
+        rule: "manifest.permissions.entry",
+        path: "/permissions/1",
+        message: "invalid manifest.permissions entry: admin",
+      },
+      {
+        rule: "manifest.permissions.entry",
+        path: "/permissions/2",
+        message: "invalid manifest.permissions entry: execute",
+      },
+    ]);
+  });
+
+  test("accumulates violations across fields rather than stopping at the first", () => {
+    const rules = validateManifest({ runtime: "deno", permissions: "read" }).map((v) => v.rule);
+    expect(rules).toEqual([
+      "manifest.id.required",
+      "manifest.displayName.required",
+      "manifest.version.required",
+      "manifest.description.required",
+      "manifest.author.required",
+      "manifest.entrypoint.required",
+      "manifest.runtime.enum",
+      "manifest.permissions.type",
+      "manifest.hitlRequired.type",
+      "manifest.minNimbusVersion.required",
+    ]);
+  });
+
+  test("a superseding rule suppresses the rule it supersedes", () => {
+    const pairs: ReadonlyArray<readonly [string, string]> = [
+      ["manifest.permissions.type", "manifest.permissions.entry"],
+      ["manifest.hitlRequired.type", "manifest.hitlRequired.entry"],
+      ["manifest.minNimbusVersion.required", "manifest.minNimbusVersion.semver"],
+    ];
+    const rules = validateManifest({}).map((v) => v.rule);
+    for (const [coarse, fine] of pairs) {
+      expect(
+        rules.includes(coarse) && rules.includes(fine),
+        `${coarse} and ${fine} both fired`,
+      ).toBe(false);
+    }
+  });
+
+  test("rejects a minNimbusVersion written in non-ASCII digits", () => {
+    const m = { ...base(), minNimbusVersion: "\u0661.\u0662.\u0663" };
+    expect(validateManifest(m).map((v) => v.rule)).toEqual(["manifest.minNimbusVersion.semver"]);
+  });
+
+  test("treats U+0085 NEL as blank, though JavaScript's trim does not", () => {
+    const m = { ...base(), id: "\u0085" };
+    expect(validateManifest(m).map((v) => v.rule)).toEqual(["manifest.id.required"]);
+  });
+
+  test("does not treat U+200B as blank — it is not White_Space", () => {
+    const m = { ...base(), id: "\u200b" };
+    expect(validateManifest(m)).toEqual([]);
+  });
+
+  test("reports every required field when handed a non-object", () => {
+    expect(validateManifest(null).map((v) => v.rule)).toContain("manifest.id.required");
+  });
+});
+
+describe("the rule table", () => {
+  test("declares thirteen rules with unique ids", () => {
+    const ids = MANIFEST_RULES.map((r) => r.id);
+    expect(ids.length).toBe(13);
+    expect(new Set(ids).size).toBe(13);
+  });
+
+  test("runContractTests still joins messages in the table's order", async () => {
+    const bad = { runtime: "deno" } as unknown as ExtensionManifest;
+    const expected = validateManifest(bad)
+      .map((v) => v.message)
+      .join("; ");
+    await expect(runContractTests(bad)).rejects.toThrow(expected);
   });
 });

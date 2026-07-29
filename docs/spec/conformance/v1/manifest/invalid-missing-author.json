@@ -1,0 +1,13 @@
+{
+  "id": "example-connector",
+  "displayName": "Example Connector",
+  "version": "0.1.0",
+  "description": "A minimal manifest that satisfies every required field.",
+  "entrypoint": "./index.ts",
+  "runtime": "bun",
+  "permissions": [
+    "read"
+  ],
+  "hitlRequired": [],
+  "minNimbusVersion": "0.1.0"
+}

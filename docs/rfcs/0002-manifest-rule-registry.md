@@ -1,7 +1,8 @@
 # RFC-0002 — A published rule registry for manifest validation
 
-- **Status:** draft
+- **Status:** accepted
 - **Opened:** 2026-07-29
+- **Landed:** 2026-07-29 in [#57](https://github.com/nimbus-agent/nimbus-sdk/pull/57)
 - **Affects:** `docs/spec/`, `@nimbus-dev/sdk` (`contract-tests`)
 - **Roadmap:** [Phase 1](../ROADMAP.md#phase-1--lift-the-contract-out-of-typescript), box 3 — *Extract the conformance suite as language-neutral fixtures* (first of three parts)
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 5 (quality & release)

@@ -1,7 +1,8 @@
 # RFC-0001 — A normative wire spec for NDJSON framing
 
-- **Status:** draft
+- **Status:** accepted
 - **Opened:** 2026-07-28
+- **Landed:** 2026-07-29 in [#56](https://github.com/nimbus-agent/nimbus-sdk/pull/56)
 - **Affects:** `docs/spec/`, `@nimbus-dev/sdk/ipc`
 - **Roadmap:** [Phase 1](../ROADMAP.md#phase-1--lift-the-contract-out-of-typescript), box 2 — *Write the IPC wire-protocol spec for the NDJSON framing in `src/ipc/`*
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 5 (quality & release)

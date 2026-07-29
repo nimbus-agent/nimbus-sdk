@@ -12,6 +12,7 @@ widening the contract.
 | RFC | Title | Status |
 |-----|-------|--------|
 | [0001](./0001-ipc-framing-spec.md) | A normative wire spec for NDJSON framing | draft |
+| [0002](./0002-manifest-rule-registry.md) | A published rule registry for manifest validation | draft |
 
 Not everything needs an RFC. A new battery is governed by the
 [inclusion policy](../INCLUSION-POLICY.md); retiring an export is governed by the

@@ -1,0 +1,15 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "export precedes query in the name, so export is reported even though query is listed first in the set",
+  "tools": [
+    {
+      "name": "svc_export_query"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "svc_export_query",
+      "segment": "export"
+    }
+  ]
+}

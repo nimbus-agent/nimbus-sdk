@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   assertNoRowDataTools,
   ExtensionContractError,
+  findRowDataTools,
   MANIFEST_RULES,
   ROW_DATA_TOOL_SEGMENTS,
   runContractTests,
@@ -201,6 +202,93 @@ describe("assertNoRowDataTools — Tier-3 no-row-data contract", () => {
 
   test("ignores blank tool names", () => {
     expect(() => assertNoRowDataTools([{ name: "" }, { name: "   " }])).not.toThrow();
+  });
+
+  test("ignores blank names whose blankness JavaScript and Python disagree on", () => {
+    // RFC-0003 §3: the contract defines no trimming here, because it does not need to.
+    // U+0085 NEL and U+200B ZWSP survive JavaScript's `trim`, reach the split, and still
+    // produce no segments — so the skip branch is unobservable and the `trim` call is gone.
+    expect(() =>
+      assertNoRowDataTools([{ name: "\u0085" }, { name: "\u200B" }, { name: "\uFEFF" }]),
+    ).not.toThrow();
+    expect(findRowDataTools([{ name: "\u0085" }, { name: "\u200B" }])).toEqual([]);
+  });
+
+  test("throws the same message it throws today, byte for byte", () => {
+    // RFC-0003 §1 refactors this onto findRowDataTools. Connector authors read this string;
+    // a refactor that quietly reworded it would be a worse outcome than not refactoring.
+    expect(() =>
+      assertNoRowDataTools([{ name: "bigquery_list" }, { name: "bigquery_get_rows" }]),
+    ).toThrow(
+      "no-row-data contract violated: connector must expose only schema/metadata tools, " +
+        "but these look like row/cell/result fetchers: bigquery_get_rows (row-data segment " +
+        '"rows"). Remove the tool, or — if a live-gated row tool is genuinely required — ' +
+        "raise it as a discrete I17 design discussion (out of scope for the no-row-data tier).",
+    );
+  });
+});
+
+describe("findRowDataTools — structured offenders (RFC-0003 §1)", () => {
+  test("returns no violations for a metadata-only surface", () => {
+    expect(findRowDataTools([{ name: "bigquery_list" }, { name: "bigquery_get" }])).toEqual([]);
+  });
+
+  test("attributes a violation to the tool and the segment that matched", () => {
+    expect(findRowDataTools([{ name: "bigquery_get_rows" }])).toEqual([
+      { tool: "bigquery_get_rows", segment: "rows" },
+    ]);
+  });
+
+  test("preserves input order rather than sorting", () => {
+    expect(
+      findRowDataTools([{ name: "zeta_scan" }, { name: "bigquery_list" }, { name: "alpha_rows" }]),
+    ).toEqual([
+      { tool: "zeta_scan", segment: "scan" },
+      { tool: "alpha_rows", segment: "rows" },
+    ]);
+  });
+
+  test("reports the FIRST matching segment in name order, and only one per tool", () => {
+    expect(findRowDataTools([{ name: "svc_rows_preview" }])).toEqual([
+      { tool: "svc_rows_preview", segment: "rows" },
+    ]);
+  });
+
+  test("skips a candidate whose name is not a string, rather than flagging or throwing", () => {
+    const tools = [{ name: 42 }, { name: null }, {}, { name: "svc_rows" }];
+    expect(findRowDataTools(tools as never)).toEqual([{ tool: "svc_rows", segment: "rows" }]);
+  });
+
+  test("never inspects the description", () => {
+    expect(
+      findRowDataTools([{ name: "bigquery_list", description: "does not fetch rows or cells" }]),
+    ).toEqual([]);
+  });
+});
+
+describe("case folding is ASCII-only (RFC-0003 §2)", () => {
+  test("folds ASCII A-Z", () => {
+    expect(findRowDataTools([{ name: "BIGQUERY_GET_ROWS" }])).toEqual([
+      { tool: "BIGQUERY_GET_ROWS", segment: "rows" },
+    ]);
+  });
+
+  test("treats U+212A KELVIN SIGN as a boundary, not as a lowercase k", () => {
+    // Unicode lowering maps U+212A to "k", joining it to `row` as `rowk` and hiding the
+    // segment. ASCII-only folding leaves it non-alphanumeric, so it separates instead.
+    expect(findRowDataTools([{ name: "svc_rowK" }])).toEqual([
+      { tool: "svc_rowK", segment: "row" },
+    ]);
+  });
+
+  test("treats U+0130 as a boundary — the verdict full lowering also reaches", () => {
+    // Full mapping gives "i"+U+0307 (`queri`+`es`), Go's simple mapping gives "i"
+    // (`queries` — an offender). ASCII folding agrees with the former: clean.
+    expect(findRowDataTools([{ name: "svc_querİes" }])).toEqual([]);
+  });
+
+  test("does not fold non-ASCII letters into the segment alphabet", () => {
+    expect(findRowDataTools([{ name: "分析_list" }])).toEqual([]);
   });
 });
 

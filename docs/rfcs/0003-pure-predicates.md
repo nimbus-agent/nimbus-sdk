@@ -18,8 +18,8 @@ exactly. `assertNoRowDataTools` decides whether a connector's registered tool su
 contains a tool that pulls row data. Neither is discoverable without reading `src/`.
 
 **The row-data check is contract *data* wearing a function's clothes.**
-`ROW_DATA_TOOL_SEGMENTS` is twenty-two exported strings. A binding in any other language
-must hand-copy all twenty-two, and nothing anywhere would notice if it copied twenty-one.
+`ROW_DATA_TOOL_SEGMENTS` is twenty-three exported strings. A binding in any other language
+must hand-copy all twenty-three, and nothing anywhere would notice if it copied twenty-two.
 That is the same failure RFC-0002 found in the manifest rules, one level down, and it has
 the same fix: publish the data, and guard the TypeScript against drifting from it.
 
@@ -208,7 +208,7 @@ only properties declared in the same subschema so it validates under `ajv`'s str
 `scripts/predicates-guard.test.ts` carries both guards and refuses to pass vacuously:
 
 - **Drift** — `ROW_DATA_TOOL_SEGMENTS` and the published set declare exactly the same
-  members: none missing, none extra. This is what stops a twenty-third segment being added
+  members: none missing, none extra. This is what stops a twenty-fourth segment being added
   to the TypeScript that no binding is ever told about.
 - **Coverage** — every published segment is matched by at least one case. A segment no
   fixture exercises is a segment no binding is held to.

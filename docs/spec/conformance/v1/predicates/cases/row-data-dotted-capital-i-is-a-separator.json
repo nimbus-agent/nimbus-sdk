@@ -1,0 +1,10 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "U+0130 is left unfolded, so quer and es are separate runs and neither is a segment",
+  "tools": [
+    {
+      "name": "svc_quer\u0130es"
+    }
+  ],
+  "violations": []
+}

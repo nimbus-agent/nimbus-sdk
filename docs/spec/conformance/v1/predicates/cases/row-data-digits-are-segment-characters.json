@@ -1,0 +1,15 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "digits form runs alongside letters",
+  "tools": [
+    {
+      "name": "svc_v2_rows"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "svc_v2_rows",
+      "segment": "rows"
+    }
+  ]
+}

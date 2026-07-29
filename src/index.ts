@@ -62,9 +62,11 @@ export { createScopedAuditLogger } from "./audit-logger.js";
 export {
   assertNoRowDataTools,
   ExtensionContractError,
+  findRowDataTools,
   type ManifestViolation,
   ROW_DATA_TOOL_SEGMENTS,
   type RowDataToolCandidate,
+  type RowDataViolation,
   runContractTests,
   validateManifest,
 } from "./contract-tests.js";

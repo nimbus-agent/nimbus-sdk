@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/predicates/index.schema.json",
+  "title": "Predicate conformance index",
+  "description": "Machine-readable manifest of the predicate corpus, so a runner in any language consumes it without parsing prose. Separate from the document-fixture index alongside it: admitting these cases there would have to widen a published enum and a published pattern, which an older validator would reject outright rather than ignore.",
+  "type": "object",
+  "required": ["cases"],
+  "additionalProperties": false,
+  "properties": {
+    "spec": {
+      "type": "string",
+      "description": "Relative path to the normative document this corpus is the executable form of."
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["file", "section", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "pattern": "^cases/[A-Za-z0-9._-]+\\.json$",
+            "description": "Case path relative to this directory. Constrained to cases/ with no path separators in the filename, so an entry cannot reach outside the corpus."
+          },
+          "section": {
+            "type": "string",
+            "pattern": "^[0-9]+$",
+            "description": "The section of the predicates README this case pins, so a failure points at the sentence it violates."
+          },
+          "reason": { "type": "string", "pattern": "\\S" }
+        }
+      }
+    }
+  }
+}

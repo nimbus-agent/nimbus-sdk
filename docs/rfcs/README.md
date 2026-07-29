@@ -13,6 +13,7 @@ widening the contract.
 |-----|-------|--------|--------|
 | [0001](./0001-ipc-framing-spec.md) | A normative wire spec for NDJSON framing | accepted | [#56](https://github.com/nimbus-agent/nimbus-sdk/pull/56) |
 | [0002](./0002-manifest-rule-registry.md) | A published rule registry for manifest validation | accepted | [#57](https://github.com/nimbus-agent/nimbus-sdk/pull/57) |
+| [0003](./0003-pure-predicates.md) | Publishing the pure predicates | draft | — |
 
 ## Statuses
 

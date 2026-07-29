@@ -31,6 +31,16 @@ manifest's declared permissions against what a forked probe actually observes.
   reading "does not fetch rows" cannot produce a false positive. The service prefix must be
   a single token — `bigquery_list`, not `big_query_list`, which would split into a spurious
   `query`.
+- **Case folding is ASCII-only, not `toLowerCase`.** Only `A`–`Z` fold. Published as
+  contract, "lowercase" is a trap — Java's is locale-sensitive and Go's uses simple case
+  mapping, so both diverge — and exactly two code points in Unicode lower into ASCII
+  (U+0130, U+212A), so narrowing costs almost nothing. See
+  [`docs/spec/predicates/v1/`](../spec/predicates/v1/README.md).
+- **`findRowDataTools` is the non-throwing form.** It returns `{ tool, segment }` pairs in
+  **input order**, one at most per tool, naming the *first* segment that matched in name
+  order; `assertNoRowDataTools` is a wrapper that throws when the list is non-empty. Prefer
+  it when you want to report offenders yourself rather than catch an exception and split its
+  message — the same relationship `validateManifest` has to `runContractTests`.
 - **Only the `contract-tests` entry points throw `ExtensionContractError`.**
   `runContractTests` and `assertNoRowDataTools` do. **`runSandboxContractTests` throws a
   plain `Error` on all three of its failure paths.** Catching only `ExtensionContractError`
@@ -143,9 +153,13 @@ published contract. They are not repeated here, so there is only ever one copy t
 correct.
 
 - **`contract-tests`** — `runContractTests` and `assertNoRowDataTools`, plus
-  `ROW_DATA_TOOL_SEGMENTS` (the segment blocklist the check consults, exported so you can
-  see what it will reject before it rejects it), `RowDataToolCandidate` (the
-  `{ name, description? }` shape it takes), and `ExtensionContractError`.
+  `findRowDataTools` and `RowDataViolation` (the non-throwing form and the `{ tool, segment }`
+  pair it returns), `ROW_DATA_TOOL_SEGMENTS` (the segment blocklist the check consults,
+  exported so you can see what it will reject before it rejects it — and published as
+  language-neutral data at
+  [`docs/spec/predicates/v1/`](../spec/predicates/v1/row-data-segments.json), with a drift
+  guard holding the two together), `RowDataToolCandidate` (the `{ name, description? }` shape
+  it takes), and `ExtensionContractError`.
 - **`testing/index`** — `MockGateway`. `callTool` ignores both arguments and resolves to
   `{}`. It is a null object that lets a call site compile and run, not a mock you can
   script; substitute your own when a test needs a real answer.

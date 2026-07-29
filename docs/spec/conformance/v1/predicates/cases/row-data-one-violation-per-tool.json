@@ -1,0 +1,15 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "a name matching two segments still yields exactly one violation",
+  "tools": [
+    {
+      "name": "svc_rows_cells"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "svc_rows_cells",
+      "segment": "rows"
+    }
+  ]
+}

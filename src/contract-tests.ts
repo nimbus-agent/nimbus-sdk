@@ -21,8 +21,8 @@ const HITL: ReadonlySet<string> = new Set(["write", "delete"]);
  * U+FEFF — and published in `docs/spec/rules/v1/`. U+200B ZERO WIDTH SPACE is deliberately
  * outside it: invisible, but a character.
  */
-const ALL_BLANK = /^[\p{White_Space}﻿]*$/u;
-const EDGE_BLANK = /^[\p{White_Space}﻿]+|[\p{White_Space}﻿]+$/gu;
+const ALL_BLANK = /^[\p{White_Space}\uFEFF]*$/u;
+const EDGE_BLANK = /^[\p{White_Space}\uFEFF]+|[\p{White_Space}\uFEFF]+$/gu;
 
 /**
  * Spelled `[0-9]` and not `\d` on purpose. JavaScript's `\d` is ASCII; Python's and Rust's
@@ -271,11 +271,65 @@ export interface RowDataToolCandidate {
   readonly description?: string;
 }
 
+/**
+ * Case folding, spelled out in ASCII.
+ *
+ * `toLowerCase` is the most locale- and Unicode-table-dependent operation this check could
+ * perform, and published as contract it is a trap: Java's is locale-sensitive by default
+ * (under a Turkish locale "QUERIES" folds to "querıes", which segments as `quer`+`es` and
+ * misses the offender), and Go's uses *simple* case mapping where JavaScript, Python, and
+ * Rust use *full* (so U+0130 becomes "i" there and "i"+U+0307 here).
+ *
+ * Mapping only U+0041–U+005A needs no tables, has no locale, and admits no
+ * simple-versus-full question. A scan of U+0080–U+10FFFF finds exactly two code points
+ * whose lowercase mapping reaches ASCII — U+0130 and U+212A — so that is the entire
+ * difference, and only U+212A is behaviorally reachable. See `docs/spec/predicates/v1/`.
+ */
+function foldAscii(name: string): string {
+  return name.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+
 function toolNameSegments(name: string): string[] {
-  return name
-    .toLowerCase()
+  return foldAscii(name)
     .split(/[^a-z0-9]+/)
     .filter((s) => s.length > 0);
+}
+
+/** One tool whose name looks like a row/cell/result fetcher. */
+export interface RowDataViolation {
+  /** The offending tool's name, verbatim. Normative. */
+  readonly tool: string;
+  /** The matched segment, from the published set. Normative. */
+  readonly segment: string;
+}
+
+/**
+ * Every tool whose name looks like a row/cell fetcher, without throwing.
+ *
+ * The structured counterpart to {@link assertNoRowDataTools}, which is now a wrapper around
+ * it. A caller that wants to know *which* tool is wrong should not have to provoke and catch
+ * an exception to find out, and the conformance corpus asserts on these pairs rather than on
+ * message text — see `docs/spec/predicates/v1/`.
+ *
+ * Violations come out in **input order**, and at most one per candidate: a tool list is an
+ * ordered sequence every language iterates identically, so preserving that order pins more
+ * than sorting would. (The manifest rules sort, because an object's members have no order.)
+ */
+export function findRowDataTools(tools: ReadonlyArray<RowDataToolCandidate>): RowDataViolation[] {
+  const violations: RowDataViolation[] = [];
+  for (const tool of tools) {
+    // A tool surface is parsed JSON like anything else crossing this boundary: a candidate
+    // whose name is not a string is skipped, not flagged and not an error. No blankness
+    // check — a blank name yields no segments anyway, so the branch was unobservable.
+    if (typeof tool?.name !== "string") {
+      continue;
+    }
+    const segment = toolNameSegments(tool.name).find((s) => ROW_DATA_TOOL_SEGMENTS.has(s));
+    if (segment !== undefined) {
+      violations.push({ tool: tool.name, segment });
+    }
+  }
+  return violations;
 }
 
 /**
@@ -302,16 +356,9 @@ export function assertNoRowDataTools(
   tools: ReadonlyArray<RowDataToolCandidate>,
   context = "connector",
 ): void {
-  const offenders: string[] = [];
-  for (const tool of tools) {
-    if (typeof tool?.name !== "string" || tool.name.trim() === "") {
-      continue;
-    }
-    const hit = toolNameSegments(tool.name).find((s) => ROW_DATA_TOOL_SEGMENTS.has(s));
-    if (hit !== undefined) {
-      offenders.push(`${tool.name} (row-data segment "${hit}")`);
-    }
-  }
+  const offenders = findRowDataTools(tools).map(
+    (v) => `${v.tool} (row-data segment "${v.segment}")`,
+  );
   if (offenders.length > 0) {
     throw new ExtensionContractError(
       `no-row-data contract violated: ${context} must expose only schema/metadata tools, ` +

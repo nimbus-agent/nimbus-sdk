@@ -1,0 +1,10 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "a numeric diff is rejected",
+  "input": {
+    "actionId": "deploy-1",
+    "summary": "Deploy build 1",
+    "diff": 7
+  },
+  "expect": false
+}

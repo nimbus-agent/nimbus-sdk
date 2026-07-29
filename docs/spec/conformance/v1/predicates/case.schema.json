@@ -1,0 +1,76 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/predicates/case.schema.json",
+  "title": "Predicate conformance case",
+  "description": "One case: a named predicate, its input, and the result it must produce. Both predicates are pure functions of their input, so one runner serves both — it reads `predicate`, calls the named function, and compares.",
+  "type": "object",
+  "required": ["description", "predicate"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "predicate": {
+      "enum": ["isHitlRequest", "findRowDataTools"],
+      "description": "Which predicate this case drives. Carried in the case rather than only in the index so a case file is self-describing."
+    },
+    "input": {
+      "description": "isHitlRequest only. Any JSON value, including null — the predicate is total, and several cases assert it rejects a non-object rather than failing."
+    },
+    "expect": {
+      "type": "boolean",
+      "description": "isHitlRequest only. The verdict."
+    },
+    "tools": {
+      "type": "array",
+      "description": "findRowDataTools only. The tool surface under test. Entries are deliberately unconstrained: cases assert that a candidate whose name is not a string is skipped rather than flagged or fatal.",
+      "items": { "type": "object" }
+    },
+    "violations": {
+      "type": "array",
+      "description": "findRowDataTools only. Every offending tool, in INPUT order — not sorted. A tool list is an ordered sequence every language iterates identically, so preserving that order pins more than sorting would. At most one entry per candidate.",
+      "items": {
+        "type": "object",
+        "required": ["tool", "segment"],
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "The offending tool's name, verbatim — not folded."
+          },
+          "segment": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+$",
+            "description": "The matched segment from docs/spec/predicates/v1/row-data-segments.json. The FIRST match in name order, not in set order."
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "predicate": { "const": "isHitlRequest" } },
+        "required": ["predicate"]
+      },
+      "then": {
+        "required": ["input", "expect"],
+        "properties": {
+          "input": true,
+          "expect": { "type": "boolean" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "predicate": { "const": "findRowDataTools" } },
+        "required": ["predicate"]
+      },
+      "then": {
+        "required": ["tools", "violations"],
+        "properties": {
+          "tools": { "type": "array" },
+          "violations": { "type": "array" }
+        }
+      }
+    }
+  ]
+}

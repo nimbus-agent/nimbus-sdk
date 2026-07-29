@@ -1,0 +1,60 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/predicates/v1/row-data-segments.schema.json",
+  "title": "Row-data tool segment set",
+  "description": "The tool-name segments that mark a tool as a row/cell/query-result fetcher, as data. The tokenizer travels with the set deliberately: a binding that reads the segments and infers the folding and splitting rules from its own language's defaults is the failure mode this artifact exists to prevent.",
+  "type": "object",
+  "required": ["fold", "split", "segments"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "fold": {
+      "type": "object",
+      "description": "How a tool name is case-folded before splitting. Spelled as an explicit code-point range rather than as 'lowercase', because lowercasing is the most locale- and Unicode-table-dependent operation this check could perform.",
+      "required": ["description", "range", "to"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "pattern": "\\S" },
+        "range": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "string", "pattern": "^U\\+[0-9A-F]{4,6}$" },
+          "description": "Inclusive source range. Every code point outside it is left unchanged."
+        },
+        "to": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "string", "pattern": "^U\\+[0-9A-F]{4,6}$" },
+          "description": "Inclusive destination range, mapped one to one from `range`."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "split": {
+      "type": "object",
+      "description": "How the folded name divides into segments.",
+      "required": ["description", "pattern"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "pattern": "\\S" },
+        "pattern": {
+          "type": "string",
+          "description": "The normative separator expression, in a portable subset: no lookarounds, no backreferences, no Unicode property escapes, and no shorthand class whose meaning varies by language."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+$",
+        "description": "Spelled in the alphabet the split can actually produce. A segment containing anything else could never match."
+      }
+    }
+  }
+}

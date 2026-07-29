@@ -1,0 +1,9 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "actionId and summary alone are sufficient",
+  "input": {
+    "actionId": "deploy-1",
+    "summary": "Deploy build 1"
+  },
+  "expect": true
+}

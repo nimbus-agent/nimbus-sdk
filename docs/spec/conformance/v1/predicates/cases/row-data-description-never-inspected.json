@@ -1,0 +1,11 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "a description mentioning rows does not make the tool an offender",
+  "tools": [
+    {
+      "name": "bigquery_list",
+      "description": "lists tables; does not fetch rows or cells"
+    }
+  ],
+  "violations": []
+}

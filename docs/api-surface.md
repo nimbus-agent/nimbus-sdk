@@ -9,7 +9,7 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ## `.`
 
-137 exports.
+139 exports.
 
 ### `AGENT_KIND`
 
@@ -856,6 +856,19 @@ export interface RowDataToolCandidate {
 }
 ```
 
+### `RowDataViolation` *(type-only)*
+
+From `./contract-tests.js`.
+
+```ts
+export interface RowDataViolation {
+
+    readonly tool: string;
+
+    readonly segment: string;
+}
+```
+
 ### `SUBMISSION_CAPABILITY`
 
 From `./jmap-fastmail/index.js`.
@@ -1166,6 +1179,14 @@ From `./jmap-fastmail/index.js`.
 
 ```ts
 export declare function extractEmailList(parsed: unknown): unknown[];
+```
+
+### `findRowDataTools`
+
+From `./contract-tests.js`.
+
+```ts
+export declare function findRowDataTools(tools: ReadonlyArray<RowDataToolCandidate>): RowDataViolation[];
 ```
 
 ### `firstLineAndRows`

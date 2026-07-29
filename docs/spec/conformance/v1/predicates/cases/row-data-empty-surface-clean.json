@@ -1,0 +1,6 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "an empty tool surface produces no violations",
+  "tools": [],
+  "violations": []
+}

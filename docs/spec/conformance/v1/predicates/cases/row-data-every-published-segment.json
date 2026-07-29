@@ -1,0 +1,169 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "one tool per published segment, each attributed to its own segment",
+  "tools": [
+    {
+      "name": "svc_query"
+    },
+    {
+      "name": "svc_queries"
+    },
+    {
+      "name": "svc_row"
+    },
+    {
+      "name": "svc_rows"
+    },
+    {
+      "name": "svc_cell"
+    },
+    {
+      "name": "svc_cells"
+    },
+    {
+      "name": "svc_record"
+    },
+    {
+      "name": "svc_records"
+    },
+    {
+      "name": "svc_event"
+    },
+    {
+      "name": "svc_events"
+    },
+    {
+      "name": "svc_result"
+    },
+    {
+      "name": "svc_results"
+    },
+    {
+      "name": "svc_tabledata"
+    },
+    {
+      "name": "svc_scan"
+    },
+    {
+      "name": "svc_sample"
+    },
+    {
+      "name": "svc_samples"
+    },
+    {
+      "name": "svc_select"
+    },
+    {
+      "name": "svc_values"
+    },
+    {
+      "name": "svc_preview"
+    },
+    {
+      "name": "svc_head"
+    },
+    {
+      "name": "svc_dump"
+    },
+    {
+      "name": "svc_export"
+    },
+    {
+      "name": "svc_download"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "svc_query",
+      "segment": "query"
+    },
+    {
+      "tool": "svc_queries",
+      "segment": "queries"
+    },
+    {
+      "tool": "svc_row",
+      "segment": "row"
+    },
+    {
+      "tool": "svc_rows",
+      "segment": "rows"
+    },
+    {
+      "tool": "svc_cell",
+      "segment": "cell"
+    },
+    {
+      "tool": "svc_cells",
+      "segment": "cells"
+    },
+    {
+      "tool": "svc_record",
+      "segment": "record"
+    },
+    {
+      "tool": "svc_records",
+      "segment": "records"
+    },
+    {
+      "tool": "svc_event",
+      "segment": "event"
+    },
+    {
+      "tool": "svc_events",
+      "segment": "events"
+    },
+    {
+      "tool": "svc_result",
+      "segment": "result"
+    },
+    {
+      "tool": "svc_results",
+      "segment": "results"
+    },
+    {
+      "tool": "svc_tabledata",
+      "segment": "tabledata"
+    },
+    {
+      "tool": "svc_scan",
+      "segment": "scan"
+    },
+    {
+      "tool": "svc_sample",
+      "segment": "sample"
+    },
+    {
+      "tool": "svc_samples",
+      "segment": "samples"
+    },
+    {
+      "tool": "svc_select",
+      "segment": "select"
+    },
+    {
+      "tool": "svc_values",
+      "segment": "values"
+    },
+    {
+      "tool": "svc_preview",
+      "segment": "preview"
+    },
+    {
+      "tool": "svc_head",
+      "segment": "head"
+    },
+    {
+      "tool": "svc_dump",
+      "segment": "dump"
+    },
+    {
+      "tool": "svc_export",
+      "segment": "export"
+    },
+    {
+      "tool": "svc_download",
+      "segment": "download"
+    }
+  ]
+}

@@ -21,18 +21,18 @@
       "type": "string",
       "description": "Optional pointer to this schema, for editor completion."
     },
-    "id": { "type": "string", "pattern": "\\S", "description": "Stable connector identifier." },
-    "displayName": { "type": "string", "pattern": "\\S" },
+    "id": { "type": "string", "pattern": "[^\\s\\u0085]", "description": "Stable connector identifier." },
+    "displayName": { "type": "string", "pattern": "[^\\s\\u0085]" },
     "version": {
       "type": "string",
-      "pattern": "\\S",
+      "pattern": "[^\\s\\u0085]",
       "description": "Connector version. Deliberately unconstrained beyond non-empty: runContractTests applies no semver check here."
     },
-    "description": { "type": "string", "pattern": "\\S" },
-    "author": { "type": "string", "pattern": "\\S" },
+    "description": { "type": "string", "pattern": "[^\\s\\u0085]" },
+    "author": { "type": "string", "pattern": "[^\\s\\u0085]" },
     "homepage": { "type": "string" },
     "icon": { "type": "string" },
-    "entrypoint": { "type": "string", "pattern": "\\S" },
+    "entrypoint": { "type": "string", "pattern": "[^\\s\\u0085]" },
     "runtime": { "enum": ["bun", "node"] },
     "permissions": {
       "type": "array",
@@ -58,8 +58,8 @@
     "tags": { "type": "array", "items": { "type": "string" } },
     "minNimbusVersion": {
       "type": "string",
-      "pattern": "^\\s*\\d+\\.\\d+\\.\\d+",
-      "description": "Minimum gateway version. The pattern is unanchored at the end and tolerates leading whitespace, matching runContractTests, which tests /^\\d+\\.\\d+\\.\\d+/ against the trimmed value."
+      "pattern": "^[\\s\\u0085]*[0-9]+\\.[0-9]+\\.[0-9]+",
+      "description": "Minimum gateway version. Unanchored at the end, so a prerelease suffix is accepted, and tolerant of leading blank characters. Both classes are spelled out to match docs/spec/rules/v1: [\\s\\u0085] is exactly the blank set (Unicode White_Space plus U+FEFF), since JavaScript's \\s omits U+0085 and adds U+FEFF; and [0-9] rather than \\d, which is ASCII in JavaScript but Unicode-aware in Python and Rust."
     }
   }
 }

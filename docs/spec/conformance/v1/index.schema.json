@@ -26,6 +26,19 @@
               "required": ["file"]
             },
             "then": { "properties": { "shape": { "const": "NimbusItem" } } }
+          },
+          {
+            "if": {
+              "properties": {
+                "class": { "const": "equivalence" },
+                "shape": { "const": "ExtensionManifest" }
+              },
+              "required": ["class", "shape"]
+            },
+            "then": {
+              "required": ["violations"],
+              "properties": { "violations": { "type": "array" } }
+            }
           }
         ],
         "properties": {
@@ -39,6 +52,27 @@
           "class": {
             "enum": ["equivalence", "schema-only"],
             "description": "equivalence: the schema and runContractTests both cover these fields and must agree. schema-only: the field is one the runtime never inspects, so only the schema is asserted."
+          },
+          "violations": {
+            "type": "array",
+            "description": "Every rule the fixture violates, sorted by rule id and then by path. Required on equivalence-class manifest entries: optional alone would let a fixture skip the assertion and still look complete. A parameterized rule appears once per offending location, so two bad entries are two distinguishable violations rather than a duplicated id.",
+            "items": {
+              "type": "object",
+              "required": ["rule", "path"],
+              "additionalProperties": false,
+              "properties": {
+                "rule": {
+                  "type": "string",
+                  "pattern": "^manifest\\.[A-Za-z]+\\.[a-z]+$",
+                  "description": "An id from docs/spec/rules/v1/manifest-rules.json."
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z]+(/[0-9]+)?$",
+                  "description": "JSON Pointer to the location that violated the rule."
+                }
+              }
+            }
           },
           "reason": { "type": "string", "pattern": "\\S" }
         }

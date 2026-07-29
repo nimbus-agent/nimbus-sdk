@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.9.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.8.1...sdk-v1.9.0) (2026-07-29)
+
+
+### Features
+
+* **sdk:** publish the sandbox probe protocol, with a decision-table corpus ([#61](https://github.com/nimbus-agent/nimbus-sdk/issues/61)) ([4a6eba1](https://github.com/nimbus-agent/nimbus-sdk/commit/4a6eba1c28712f22b3f61e845a1aef005ac584cf))
+
 ## [1.8.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.8.0...sdk-v1.8.1) (2026-07-28)
 
 

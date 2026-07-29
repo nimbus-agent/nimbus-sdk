@@ -41,6 +41,14 @@ manifest's declared permissions against what a forked probe actually observes.
   order; `assertNoRowDataTools` is a wrapper that throws when the list is non-empty. Prefer
   it when you want to report offenders yourself rather than catch an exception and split its
   message — the same relationship `validateManifest` has to `runContractTests`.
+- **The probe is an inter-process protocol, and it is written down.**
+  [`docs/spec/probe/v1/`](../spec/probe/v1/sandbox-probe.md) specifies the `--probe=`/`--arg=`
+  syntax, the four exit codes, the two errno sets, and the harness decision table; a binding
+  in another language ships its own probe against it. `src/testing/sandbox-protocol.ts` holds
+  the same names and numbers for the TypeScript side, and a drift guard keeps the two equal.
+  **`runSandboxContractTests` does not sandbox-wrap the probe** — it spawns your runtime
+  directly — so a pass proves the harness's decision logic, never that a sandbox enforces
+  anything. See the spec's §7.
 - **Only the `contract-tests` entry points throw `ExtensionContractError`.**
   `runContractTests` and `assertNoRowDataTools` do. **`runSandboxContractTests` throws a
   plain `Error` on all three of its failure paths.** Catching only `ExtensionContractError`

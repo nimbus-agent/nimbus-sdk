@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EBUSY maps to fsDenied",
+  "classifier": "filesystem",
+  "code": "EBUSY",
+  "expectExit": 10
+}

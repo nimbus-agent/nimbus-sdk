@@ -1,0 +1,18 @@
+{
+  "kind": "harness",
+  "description": "with no hosts declared only fs-denied runs, even on Linux",
+  "platform": "linux",
+  "permissions": {},
+  "probeResults": {
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

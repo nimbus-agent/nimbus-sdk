@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "an absent code does NOT map to fsDenied",
+  "classifier": "filesystem",
+  "code": null,
+  "expectExit": 2
+}

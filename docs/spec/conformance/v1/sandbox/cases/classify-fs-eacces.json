@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EACCES maps to fsDenied",
+  "classifier": "filesystem",
+  "code": "EACCES",
+  "expectExit": 10
+}

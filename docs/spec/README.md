@@ -61,6 +61,18 @@ The document also states one obligation it deliberately does **not** publish a f
 that a connector's audit logger must be asynchronous — because "returns a Promise" asserts
 JavaScript rather than the contract.
 
+### `probe/v1/`
+
+The [sandbox probe protocol](./probe/v1/sandbox-probe.md) — the exit-code contract between a
+contract-test harness and the probe binary it forks, plus the harness decision table
+(permissions and platform in, an ordered sequence of probe invocations out). A binding ships
+its *own* probe, so this is an inter-process protocol rather than a function signature.
+
+Read [§7](./probe/v1/sandbox-probe.md#7-what-this-specification-does-not-give-you) before
+relying on a passing run: the SDK harness does **not** sandbox-wrap the probe, so the corpus
+proves the harness's decision logic and the probe's error classification, never that any
+sandbox enforces anything. That is the gateway's harness to demonstrate.
+
 ### `wire/v1/`
 
 The [NDJSON framing specification](./wire/v1/framing.md) — how a byte stream divides into
@@ -74,7 +86,7 @@ them.
 
 ### `conformance/v1/`
 
-Three corpora, because the contract has three kinds of assertion.
+Four corpora, because the contract has four kinds of assertion.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -105,6 +117,14 @@ a list of `{tool, segment}` pairs in **input order**, so a binding that flags th
 for the wrong reason still fails. Separate from the document index for the same reason the
 framing cases are: admitting them would have to widen a published `enum` and a published
 `pattern`, which an older validator rejects outright rather than ignoring.
+
+**Sandbox cases** — [`sandbox/`](./conformance/v1/sandbox/) is the executable form of the
+probe protocol. A `harness` case is the decision table written down: permissions and a
+platform in, an ordered sequence of probe invocations out, driven through a stubbed probe
+runner, so both skips — Windows, and no-declared-hosts — are pinned rather than described. A
+`classify` case drives the errno-to-exit-code mapping, the one part of a probe's own logic
+reproducible without a real sandbox. Neither proves a sandbox enforces anything; see the
+spec's own §7.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
@@ -139,7 +159,7 @@ validating against an older copy is therefore unaffected by additions.
 
 ## How this stays true
 
-Four guards run on every pull request as part of `bun run test` (see
+Five guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 `scripts/schema-guard.test.ts` compares each schema's declared properties and optionality
@@ -156,6 +176,14 @@ asserted by at least one fixture. A rule with no fixture is a rule no binding is
 reference implementation, and checks the `HitlRequest` schema reaches the same verdict as the
 runtime on every one of them — the same schema-versus-runtime equivalence the manifest corpus
 asserts.
+
+`scripts/sandbox-guard.test.ts` asserts the published probe protocol and
+`src/testing/sandbox-protocol.ts` declare the same probe names, exit codes, and error-code
+sets, replays every harness case against the real decision logic with a recording stub, and
+drives every classify case through the probe's classification. A companion,
+`scripts/probe-runtime.test.ts`, asserts the built probe calls no runtime-specific global —
+the harness spawns the *consumer's* runtime, and a Bun-only call failed under Node silently,
+because the resulting error carries no code and is classified as an unexpected outcome.
 
 `scripts/framing-guard.test.ts` validates the framing corpus against its schemas and drives
 every case through `NdjsonLineReader`. It also runs under plain Node against the built

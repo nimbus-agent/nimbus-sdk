@@ -51,6 +51,8 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { SANDBOX_PROBE_EXIT } from "./sandbox-protocol.js";
+
 /**
  * The probe filename to use beside a module at `modulePath`.
  *
@@ -168,7 +170,7 @@ export async function runSandboxContractTests(
   const firstHost = hosts[0];
   if (firstHost !== undefined) {
     const r = runProbe("network-listed", firstHost);
-    if (r.status !== 0) {
+    if (r.status !== SANDBOX_PROBE_EXIT.pass) {
       throw new Error(
         `network-listed probe failed for ${firstHost}: exit ${r.status}; stderr: ${r.stderr.trim()}`,
       );
@@ -177,7 +179,7 @@ export async function runSandboxContractTests(
 
   if (platform !== "win32" && hosts.length > 0) {
     const r = runProbe("network-unlisted", "");
-    if (r.status !== 11) {
+    if (r.status !== SANDBOX_PROBE_EXIT.networkBlocked) {
       throw new Error(
         `network-unlisted probe should have failed with ECONNREFUSED/EPERM/EHOSTUNREACH/ENETUNREACH; ` +
           `got exit ${r.status}; stderr: ${r.stderr.trim()}. ` +
@@ -187,7 +189,7 @@ export async function runSandboxContractTests(
   }
 
   const r3 = runProbe("fs-denied", "");
-  if (r3.status !== 10) {
+  if (r3.status !== SANDBOX_PROBE_EXIT.fsDenied) {
     throw new Error(
       `fs-denied probe should have returned EACCES (exit 10); got exit ${r3.status}; ` +
         `stderr: ${r3.stderr.trim()}.`,

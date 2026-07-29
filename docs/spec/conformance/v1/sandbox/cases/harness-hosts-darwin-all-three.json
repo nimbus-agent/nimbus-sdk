@@ -1,0 +1,32 @@
+{
+  "kind": "harness",
+  "description": "macOS runs every probe, like Linux",
+  "platform": "darwin",
+  "permissions": {
+    "network": [
+      "api.example.com"
+    ]
+  },
+  "probeResults": {
+    "network-listed": 0,
+    "network-unlisted": 11,
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": "api.example.com"
+      },
+      {
+        "probe": "network-unlisted",
+        "arg": ""
+      },
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

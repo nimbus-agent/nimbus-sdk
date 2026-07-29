@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "ENETUNREACH maps to networkBlocked",
+  "classifier": "network",
+  "code": "ENETUNREACH",
+  "expectExit": 11
+}

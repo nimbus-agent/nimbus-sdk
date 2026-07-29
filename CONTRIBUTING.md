@@ -99,9 +99,43 @@ at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
   (CI runs the same on Linux, macOS and Windows, plus a Node 22/24 ESM smoke of the
   built `dist/` on each — see `.github/workflows/ci.yml`).
 
+### Stacking a multi-part change
+
+A change too large for one PR may be stacked: open each part against a shared dev branch,
+then one aggregate PR from that branch to `main`. This repo merges by **squash only**, so
+the aggregate PR's *title* is the only commit subject that ever lands on `main` — every
+constituent subject is squashed one level below what release-please reads.
+
+That means the aggregate title carries the whole stack's semver signal, and it must not
+declare less than the stack contains:
+
+- It must be a Conventional Commit.
+- If any commit in the stack is a `feat`, the title must be a `feat`.
+- If any commit is breaking (`!` or a `BREAKING CHANGE:` footer), the title must carry `!`.
+
+Declaring *more* than the stack contains is fine — it only over-bumps. Declaring less
+publishes a feature in a patch release, or a breaking change in a minor.
+
+The `commit-guard` CI job enforces this on every PR targeting `main`. To check a PR before
+pushing:
+
+```bash
+GITHUB_REPOSITORY=nimbus-agent/nimbus-sdk GH_TOKEN=$(gh auth token) \
+  bun run scripts/conventional-commit-guard.ts --pr <number>
+```
+
+One residual gap the guard cannot close: a stack commit whose own subject is not a
+Conventional Commit is unreadable to it (and to release-please), so a feature hidden behind
+a `wip` subject is invisible. The job lists such commits as a note. Keep stack commits
+conventional, or land the part directly on `main`.
+
 ## Releases
 
 Releases are automated by [release-please](https://github.com/googleapis/release-please):
 merged Conventional Commits open a release PR; merging it tags the release and
 publishes `@nimbus-dev/sdk` to npm with provenance via GitHub OIDC (no long-lived
 npm token).
+
+Only the commits that reach `main` are parsed — see [Stacking a multi-part
+change](#stacking-a-multi-part-change) for why that distinction decides the version
+number, and `sdk 1.9.0` for what it costs when it is missed.

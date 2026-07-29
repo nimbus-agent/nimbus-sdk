@@ -4,12 +4,12 @@
   "title": "Sandbox conformance index",
   "description": "Machine-readable manifest of the sandbox corpus. Separate from the document and predicate indexes: a case here is a sequence of interactions with a stubbed probe runner, not a value in and a value out.",
   "type": "object",
-  "required": ["cases"],
+  "required": ["spec", "cases"],
   "additionalProperties": false,
   "properties": {
     "spec": {
       "type": "string",
-      "description": "Relative path to the normative document this corpus is the executable form of."
+      "description": "Relative path to the normative document this corpus is the executable form of. Required: the guard asserts this binding, so a schema that permitted its absence would let an index validate while claiming to be the executable form of nothing."
     },
     "cases": {
       "type": "array",

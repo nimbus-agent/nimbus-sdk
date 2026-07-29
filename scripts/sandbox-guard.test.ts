@@ -350,3 +350,66 @@ describe("sandbox guard — the errno classification", () => {
     expect(absent.length).toBeGreaterThan(1);
   });
 });
+
+/**
+ * A schema that accepts everything constrains nothing.
+ *
+ * The checks above only prove the corpus as it stands is *accepted*. These prove the case
+ * and index schemas actually *reject* the malformed shapes they claim to forbid — otherwise
+ * a future case could quietly opt out of an assertion and still look complete, which is the
+ * failure mode the whole corpus exists to prevent.
+ */
+describe("sandbox guard — the schemas reject what they claim to", () => {
+  const caseValidator = newAjv().compile(CASE_SCHEMA);
+  const indexValidator = newAjv().compile(INDEX_SCHEMA);
+
+  const harnessCase = (expectPatch: Record<string, unknown>): unknown => ({
+    kind: "harness",
+    description: "a case",
+    platform: "linux",
+    permissions: {},
+    probeResults: { "fs-denied": 10 },
+    expect: { calls: [{ probe: "fs-denied", arg: "" }], outcome: "pass", ...expectPatch },
+  });
+
+  const classifyCase = (patch: Record<string, unknown>): unknown => ({
+    kind: "classify",
+    description: "a case",
+    classifier: "network",
+    code: "ECONNREFUSED",
+    expectExit: 11,
+    ...patch,
+  });
+
+  test("a throwing harness case MUST name the probe it blames", () => {
+    // Without this the guard's attribution check skips silently: it only asserts when
+    // `failingProbe` is present, so an omitted field is an opted-out assertion.
+    expect(caseValidator(harnessCase({ outcome: "throw" }))).toBe(false);
+    expect(caseValidator(harnessCase({ outcome: "throw", failingProbe: "fs-denied" }))).toBe(true);
+  });
+
+  test("a passing harness case MUST NOT name a failing probe", () => {
+    expect(caseValidator(harnessCase({ failingProbe: "fs-denied" }))).toBe(false);
+  });
+
+  test("a harness case MUST NOT carry classify fields", () => {
+    expect(caseValidator({ ...(harnessCase({}) as object), expectExit: 2 })).toBe(false);
+    expect(caseValidator({ ...(harnessCase({}) as object), classifier: "network" })).toBe(false);
+  });
+
+  test("a classify case MUST NOT carry harness fields", () => {
+    expect(caseValidator(classifyCase({ probeResults: { "fs-denied": 10 } }))).toBe(false);
+    expect(caseValidator(classifyCase({ platform: "linux" }))).toBe(false);
+  });
+
+  test("the two shapes are each still accepted on their own", () => {
+    expect(caseValidator(harnessCase({}))).toBe(true);
+    expect(caseValidator(classifyCase({}))).toBe(true);
+  });
+
+  test("an index MUST bind itself to the normative document", () => {
+    const cases = [{ file: "cases/a.json", section: "5", reason: "why" }];
+    expect(indexValidator({ cases })).toBe(false);
+    expect(indexValidator({ spec: "../../../probe/v1/sandbox-probe.md", cases })).toBe(true);
+  });
+});

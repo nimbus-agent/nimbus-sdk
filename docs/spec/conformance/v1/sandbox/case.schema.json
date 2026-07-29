@@ -45,9 +45,22 @@
         "outcome": { "enum": ["pass", "throw"] },
         "failingProbe": {
           "type": "string",
-          "description": "When the outcome is `throw`, the probe the error message must name. A binding that throws for the wrong reason otherwise passes."
+          "description": "The probe the error message must name. Required when the outcome is `throw` and forbidden when it is `pass`: the guard only asserts attribution when this is present, so an optional field would let a throwing case skip the wrong-probe check while looking complete."
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "const": "throw" } },
+            "required": ["outcome"]
+          },
+          "then": {
+            "required": ["failingProbe"],
+            "properties": { "failingProbe": { "type": "string" } }
+          },
+          "else": { "properties": { "failingProbe": false } }
+        }
+      ]
     },
 
     "classifier": {
@@ -74,7 +87,10 @@
         "properties": {
           "platform": { "type": "string" },
           "probeResults": { "type": "object" },
-          "expect": { "type": "object" }
+          "expect": { "type": "object" },
+          "classifier": false,
+          "code": false,
+          "expectExit": false
         }
       }
     },
@@ -88,7 +104,11 @@
         "properties": {
           "classifier": { "type": "string" },
           "code": { "type": ["string", "null"] },
-          "expectExit": { "type": "integer" }
+          "expectExit": { "type": "integer" },
+          "platform": false,
+          "permissions": false,
+          "probeResults": false,
+          "expect": false
         }
       }
     }

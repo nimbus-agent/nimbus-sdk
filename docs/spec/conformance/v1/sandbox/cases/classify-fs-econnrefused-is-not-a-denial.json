@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "ECONNREFUSED does NOT map to fsDenied",
+  "classifier": "filesystem",
+  "code": "ECONNREFUSED",
+  "expectExit": 2
+}

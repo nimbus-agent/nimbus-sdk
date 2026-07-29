@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/probe/v1/probe-protocol.schema.json",
+  "title": "Sandbox probe protocol",
+  "description": "The inter-process contract between a contract-test harness and the probe binary it forks: the argument syntax, the exit codes, the probes, and the error codes each probe accepts. Published as data because a binding in another language ships its own probe, and the two only interoperate if they agree on the numbers.",
+  "type": "object",
+  "required": ["invocation", "exitCodes", "probes", "errorCodes"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "invocation": {
+      "type": "object",
+      "description": "How the harness passes the probe its instructions.",
+      "required": ["probeFlag", "argFlag", "repeated"],
+      "additionalProperties": false,
+      "properties": {
+        "probeFlag": { "type": "string", "description": "Prefix of the probe-name argument." },
+        "argFlag": { "type": "string", "description": "Prefix of the probe-value argument." },
+        "repeated": {
+          "enum": ["first", "last"],
+          "description": "Which occurrence wins if an argument is repeated. Normative: a binding using its language's default 'last wins' parser is otherwise quietly incompatible."
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "exitCodes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Every code the protocol assigns meaning to. A probe MUST NOT signal a contract outcome with any other code.",
+      "items": {
+        "type": "object",
+        "required": ["name", "code", "meaning"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-zA-Z]+$" },
+          "code": { "type": "integer", "minimum": 0, "maximum": 125 },
+          "meaning": { "type": "string", "pattern": "\\S" }
+        }
+      }
+    },
+    "probes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The probes, in the order the harness runs them.",
+      "items": {
+        "type": "object",
+        "required": ["name", "arg", "success", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z][a-z-]*$" },
+          "arg": {
+            "type": "string",
+            "description": "What the harness passes as --arg, or the empty string when the probe takes none."
+          },
+          "success": {
+            "type": "string",
+            "description": "The exit-code name this probe reports when the sandbox behaved as declared."
+          },
+          "description": { "type": "string", "pattern": "\\S" },
+          "skippedWhen": {
+            "type": "array",
+            "items": { "type": "string", "pattern": "\\S" },
+            "description": "Conditions under which the harness does not run this probe at all."
+          }
+        }
+      }
+    },
+    "errorCodes": {
+      "type": "object",
+      "description": "Which underlying failures count as the sandbox doing its job. The two sets are NOT disjoint.",
+      "required": ["networkBlocked", "fsDenied"],
+      "additionalProperties": false,
+      "properties": {
+        "networkBlocked": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^E[A-Z]+$" }
+        },
+        "fsDenied": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^E[A-Z]+$" }
+        },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

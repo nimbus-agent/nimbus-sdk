@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/sandbox/case.schema.json",
+  "title": "Sandbox conformance case",
+  "description": "One case, of two kinds. A `harness` case is the decision table written down: permissions and platform in, an ordered sequence of probe invocations out, driven through a stubbed probe runner. A `classify` case drives the pure errno-to-exit-code mapping, which is the one part of a probe's own logic reproducible without a real sandbox.",
+  "type": "object",
+  "required": ["kind", "description"],
+  "additionalProperties": false,
+  "properties": {
+    "kind": { "enum": ["harness", "classify"] },
+    "description": { "type": "string", "pattern": "\\S" },
+
+    "platform": {
+      "description": "harness only. The value of the harness's platform option.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+$"
+    },
+    "permissions": {
+      "description": "harness only. The manifest's `permissions` member, verbatim — any JSON value, because the harness must tolerate the legacy array form, null, and an absent object without failing."
+    },
+    "probeResults": {
+      "description": "harness only. Exit code the stubbed runner returns for each probe name. A probe the case does not declare here MUST NOT be invoked; the runner treats an undeclared invocation as a case authoring error.",
+      "type": "object",
+      "additionalProperties": { "type": "integer" }
+    },
+    "expect": {
+      "description": "harness only.",
+      "type": "object",
+      "required": ["calls", "outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "calls": {
+          "type": "array",
+          "description": "Every probe invocation, in order. An empty array asserts the harness invoked nothing.",
+          "items": {
+            "type": "object",
+            "required": ["probe", "arg"],
+            "additionalProperties": false,
+            "properties": {
+              "probe": { "type": "string", "pattern": "^[a-z][a-z-]*$" },
+              "arg": { "type": "string" }
+            }
+          }
+        },
+        "outcome": { "enum": ["pass", "throw"] },
+        "failingProbe": {
+          "type": "string",
+          "description": "When the outcome is `throw`, the probe the error message must name. A binding that throws for the wrong reason otherwise passes."
+        }
+      }
+    },
+
+    "classifier": {
+      "enum": ["network", "filesystem"],
+      "description": "classify only. Which of the two error-code sets applies."
+    },
+    "code": {
+      "type": ["string", "null"],
+      "description": "classify only. The error's code, or null for an error carrying none — the case that made the Bun.file defect silent, and the one a binding is most likely to leave undefined."
+    },
+    "expectExit": {
+      "type": "integer",
+      "description": "classify only. The exit code the classification must produce."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "kind": { "const": "harness" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "required": ["platform", "probeResults", "expect"],
+        "properties": {
+          "platform": { "type": "string" },
+          "probeResults": { "type": "object" },
+          "expect": { "type": "object" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "const": "classify" } },
+        "required": ["kind"]
+      },
+      "then": {
+        "required": ["classifier", "code", "expectExit"],
+        "properties": {
+          "classifier": { "type": "string" },
+          "code": { "type": ["string", "null"] },
+          "expectExit": { "type": "integer" }
+        }
+      }
+    }
+  ]
+}

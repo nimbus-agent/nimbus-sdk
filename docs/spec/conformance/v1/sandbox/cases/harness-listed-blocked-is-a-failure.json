@@ -1,0 +1,23 @@
+{
+  "kind": "harness",
+  "description": "network-listed returning networkBlocked is a failure",
+  "platform": "linux",
+  "permissions": {
+    "network": [
+      "api.example.com"
+    ]
+  },
+  "probeResults": {
+    "network-listed": 11
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": "api.example.com"
+      }
+    ],
+    "outcome": "throw",
+    "failingProbe": "network-listed"
+  }
+}

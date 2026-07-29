@@ -1,0 +1,18 @@
+{
+  "kind": "harness",
+  "description": "permissions: null runs only fs-denied",
+  "platform": "linux",
+  "permissions": null,
+  "probeResults": {
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EPERM maps to fsDenied",
+  "classifier": "filesystem",
+  "code": "EPERM",
+  "expectExit": 10
+}

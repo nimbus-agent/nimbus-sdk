@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EACCES does NOT map to networkBlocked",
+  "classifier": "network",
+  "code": "EACCES",
+  "expectExit": 2
+}

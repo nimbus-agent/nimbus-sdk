@@ -1,0 +1,28 @@
+{
+  "kind": "harness",
+  "description": "network-unlisted not returning networkBlocked stops before fs-denied",
+  "platform": "linux",
+  "permissions": {
+    "network": [
+      "api.example.com"
+    ]
+  },
+  "probeResults": {
+    "network-listed": 0,
+    "network-unlisted": 2
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": "api.example.com"
+      },
+      {
+        "probe": "network-unlisted",
+        "arg": ""
+      }
+    ],
+    "outcome": "throw",
+    "failingProbe": "network-unlisted"
+  }
+}

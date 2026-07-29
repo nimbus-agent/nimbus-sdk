@@ -1,0 +1,23 @@
+{
+  "kind": "harness",
+  "description": "network-listed exiting non-zero stops the sequence",
+  "platform": "linux",
+  "permissions": {
+    "network": [
+      "api.example.com"
+    ]
+  },
+  "probeResults": {
+    "network-listed": 2
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": "api.example.com"
+      }
+    ],
+    "outcome": "throw",
+    "failingProbe": "network-listed"
+  }
+}

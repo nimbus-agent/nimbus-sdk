@@ -1,0 +1,21 @@
+{
+  "kind": "harness",
+  "description": "permissions as an array of strings runs only fs-denied",
+  "platform": "linux",
+  "permissions": [
+    "read-files",
+    "trash"
+  ],
+  "probeResults": {
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

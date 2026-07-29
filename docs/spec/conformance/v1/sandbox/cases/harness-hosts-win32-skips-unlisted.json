@@ -1,0 +1,27 @@
+{
+  "kind": "harness",
+  "description": "Windows skips network-unlisted and runs the other two",
+  "platform": "win32",
+  "permissions": {
+    "network": [
+      "api.example.com"
+    ]
+  },
+  "probeResults": {
+    "network-listed": 0,
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": "api.example.com"
+      },
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

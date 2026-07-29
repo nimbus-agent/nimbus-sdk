@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EPERM maps to networkBlocked",
+  "classifier": "network",
+  "code": "EPERM",
+  "expectExit": 11
+}

@@ -20,6 +20,12 @@
  *   fs-denied        — read a known-protected path; succeed if EACCES
  */
 
+import { readFile } from "node:fs/promises";
+
+import { fsDeniedExit, networkBlockedExit, SANDBOX_PROBE_EXIT } from "./sandbox-protocol.js";
+
+// The first occurrence wins, which is what `find` does — and is normative, so that a
+// binding using a "last wins" argument parser is not quietly incompatible.
 const probe = process.argv.find((a) => a.startsWith("--probe="))?.slice(8);
 const arg = process.argv.find((a) => a.startsWith("--arg="))?.slice(6);
 
@@ -34,9 +40,13 @@ async function probeNetworkListed(): Promise<number> {
   const url = `https://${arg ?? ""}/`;
   try {
     const res = await fetch(url, { method: "HEAD" });
-    return res.status >= 200 && res.status < 500 ? 0 : 2;
+    // A reachability probe, not an authorization one: 401 and 404 both prove the host was
+    // reached, so only 5xx and transport failures count against it.
+    return res.status >= 200 && res.status < 500
+      ? SANDBOX_PROBE_EXIT.pass
+      : SANDBOX_PROBE_EXIT.unexpected;
   } catch {
-    return 2;
+    return SANDBOX_PROBE_EXIT.unexpected;
   }
 }
 
@@ -48,18 +58,9 @@ async function probeNetworkUnlisted(): Promise<number> {
     // below), well before any TLS handshake, so the scheme is behaviourally
     // irrelevant here and the secure one avoids modelling a cleartext call.
     await fetch("https://192.0.2.1");
-    return 2;
+    return SANDBOX_PROBE_EXIT.unexpected;
   } catch (e: unknown) {
-    const code = errorCode(e);
-    if (
-      code === "ECONNREFUSED" ||
-      code === "EPERM" ||
-      code === "EHOSTUNREACH" ||
-      code === "ENETUNREACH"
-    ) {
-      return 11;
-    }
-    return 2;
+    return networkBlockedExit(errorCode(e));
   }
 }
 
@@ -67,12 +68,15 @@ async function probeFsDenied(): Promise<number> {
   const path =
     process.platform === "win32" ? String.raw`C:\Windows\System32\config\SAM` : "/etc/passwd";
   try {
-    await Bun.file(path).text();
-    return 2;
+    // `node:fs/promises`, not `Bun.file`. The harness spawns the CONSUMER's `execPath`, and
+    // this package ships a dist/ that CI runs on a Node LTS matrix. Under Node the Bun
+    // global threw a ReferenceError that this very `catch` swallowed — and a ReferenceError
+    // carries no `code`, so it was classified as an unexpected outcome and surfaced to the
+    // author as a sandbox failure. See RFC-0004 §8.
+    await readFile(path, "utf8");
+    return SANDBOX_PROBE_EXIT.unexpected;
   } catch (e: unknown) {
-    const code = (e as { code?: string }).code;
-    if (code === "EACCES" || code === "EPERM" || code === "EBUSY") return 10;
-    return 2;
+    return fsDeniedExit(errorCode(e));
   }
 }
 
@@ -80,13 +84,9 @@ async function main(): Promise<void> {
   if (probe === "network-listed") process.exit(await probeNetworkListed());
   if (probe === "network-unlisted") process.exit(await probeNetworkUnlisted());
   if (probe === "fs-denied") process.exit(await probeFsDenied());
-  process.exit(2);
+  // Every outcome the protocol does not name — including an unknown probe and a missing
+  // --probe — is `unexpected`, never a code of the probe's own invention.
+  process.exit(SANDBOX_PROBE_EXIT.unexpected);
 }
-
-// This standalone probe has no imports/exports of its own, but the top-level
-// `await main()` below requires the file to be a module. `export {}` is the
-// canonical module marker for that. (Sonar S7787 flags the specifier-less
-// export, but removing it makes the top-level await a compile error — TS1375.)
-export {}; // NOSONAR S7787: specifier-less export is the module marker required for the top-level `await main()` below (removing it is TS1375).
 
 await main();

@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EHOSTUNREACH maps to networkBlocked",
+  "classifier": "network",
+  "code": "EHOSTUNREACH",
+  "expectExit": 11
+}

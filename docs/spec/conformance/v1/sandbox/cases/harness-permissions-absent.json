@@ -1,0 +1,17 @@
+{
+  "kind": "harness",
+  "description": "a manifest with no permissions member runs only fs-denied",
+  "platform": "linux",
+  "probeResults": {
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

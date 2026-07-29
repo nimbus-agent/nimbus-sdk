@@ -1,0 +1,20 @@
+{
+  "kind": "harness",
+  "description": "network: [] skips both network probes",
+  "platform": "linux",
+  "permissions": {
+    "network": []
+  },
+  "probeResults": {
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

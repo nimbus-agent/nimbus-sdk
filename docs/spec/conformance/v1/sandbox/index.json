@@ -1,0 +1,160 @@
+{
+  "spec": "../../../probe/v1/sandbox-probe.md",
+  "cases": [
+    {
+      "file": "cases/harness-hosts-posix-all-three.json",
+      "section": "5",
+      "reason": "with hosts declared on a POSIX platform, all three probes run in order"
+    },
+    {
+      "file": "cases/harness-hosts-darwin-all-three.json",
+      "section": "5",
+      "reason": "macOS behaves as Linux does \u2014 the skip is Windows-specific, not POSIX-specific"
+    },
+    {
+      "file": "cases/harness-hosts-win32-skips-unlisted.json",
+      "section": "5",
+      "reason": "the Windows skip: AppContainer makes the unlisted probe's failure indistinguishable from no sandbox"
+    },
+    {
+      "file": "cases/harness-no-hosts-posix-skips-both-network.json",
+      "section": "5",
+      "reason": "the no-declared-hosts skip removes BOTH network probes, on every platform"
+    },
+    {
+      "file": "cases/harness-no-hosts-win32-only-fs.json",
+      "section": "5",
+      "reason": "both skips at once leave a single probe"
+    },
+    {
+      "file": "cases/harness-empty-network-array-skips.json",
+      "section": "5",
+      "reason": "an empty network array is no hosts, not one blank host"
+    },
+    {
+      "file": "cases/harness-permissions-absent.json",
+      "section": "5",
+      "reason": "an absent permissions member must not fail the harness"
+    },
+    {
+      "file": "cases/harness-permissions-null.json",
+      "section": "5",
+      "reason": "null is not an object form, and must not throw"
+    },
+    {
+      "file": "cases/harness-permissions-legacy-array.json",
+      "section": "5",
+      "reason": "the legacy string[] permissions form declares no hosts"
+    },
+    {
+      "file": "cases/harness-only-first-host-probed.json",
+      "section": "5",
+      "reason": "only the FIRST declared host is probed, however many are listed"
+    },
+    {
+      "file": "cases/harness-empty-string-host-is-a-host.json",
+      "section": "5",
+      "reason": "an empty-string host is still a declared host \u2014 presence, not truthiness, decides"
+    },
+    {
+      "file": "cases/harness-listed-failure-stops-immediately.json",
+      "section": "5",
+      "reason": "a failing probe throws at once; later probes must not run"
+    },
+    {
+      "file": "cases/harness-unlisted-failure-stops-before-fs.json",
+      "section": "5",
+      "reason": "the second probe failing must not run the third"
+    },
+    {
+      "file": "cases/harness-fs-failure-throws.json",
+      "section": "5",
+      "reason": "the last probe failing still throws"
+    },
+    {
+      "file": "cases/harness-fs-pass-is-a-failure.json",
+      "section": "5",
+      "reason": "exit 0 from fs-denied means the read SUCCEEDED \u2014 the sandbox is not enforcing"
+    },
+    {
+      "file": "cases/harness-listed-blocked-is-a-failure.json",
+      "section": "5",
+      "reason": "network-listed must be reachable; a blocked declared host is a failure"
+    },
+    {
+      "file": "cases/classify-network-econnrefused.json",
+      "section": "4",
+      "reason": "a refused connection is the sandbox blocking egress"
+    },
+    {
+      "file": "cases/classify-network-eperm.json",
+      "section": "4",
+      "reason": "EPERM is in BOTH error sets \u2014 a binding deriving one from the other gets this wrong"
+    },
+    {
+      "file": "cases/classify-network-ehostunreach.json",
+      "section": "4",
+      "reason": "an unreachable host is a block"
+    },
+    {
+      "file": "cases/classify-network-enetunreach.json",
+      "section": "4",
+      "reason": "an unreachable network is a block"
+    },
+    {
+      "file": "cases/classify-network-etimedout-is-not-a-block.json",
+      "section": "4",
+      "reason": "a timeout is what an UNSANDBOXED connection to an unroutable address does \u2014 accepting it would let the probe pass with no sandbox"
+    },
+    {
+      "file": "cases/classify-network-econnreset-is-not-a-block.json",
+      "section": "4",
+      "reason": "a reset connection reached something, so it is not a block"
+    },
+    {
+      "file": "cases/classify-network-eacces-is-not-a-block.json",
+      "section": "4",
+      "reason": "the filesystem set does not leak into the network set"
+    },
+    {
+      "file": "cases/classify-network-no-code.json",
+      "section": "4",
+      "reason": "an error carrying no code is unexpected, never a block"
+    },
+    {
+      "file": "cases/classify-fs-eacces.json",
+      "section": "4",
+      "reason": "denied access is the sandbox doing its job"
+    },
+    {
+      "file": "cases/classify-fs-eperm.json",
+      "section": "4",
+      "reason": "EPERM is what Windows reports for a protected system file"
+    },
+    {
+      "file": "cases/classify-fs-ebusy.json",
+      "section": "4",
+      "reason": "EBUSY is Windows reporting a file the system already holds open"
+    },
+    {
+      "file": "cases/classify-fs-enoent-is-not-a-denial.json",
+      "section": "4",
+      "reason": "a missing file is not a denial \u2014 the probe would otherwise pass by naming a path that does not exist"
+    },
+    {
+      "file": "cases/classify-fs-eisdir-is-not-a-denial.json",
+      "section": "4",
+      "reason": "reading a directory is a different failure"
+    },
+    {
+      "file": "cases/classify-fs-econnrefused-is-not-a-denial.json",
+      "section": "4",
+      "reason": "the network set does not leak into the filesystem set"
+    },
+    {
+      "file": "cases/classify-fs-no-code.json",
+      "section": "4",
+      "reason": "the case that made the Bun.file defect silent: a ReferenceError carries no code and must be unexpected"
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "./row-data-segments.schema.json",
+  "fold": {
+    "description": "Map each code point in U+0041..U+005A to the code point 0x20 higher, in U+0061..U+007A. Leave every other code point unchanged.",
+    "range": ["U+0041", "U+005A"],
+    "to": ["U+0061", "U+007A"],
+    "notes": "Deliberately not 'lowercase the name'. Java's String.toLowerCase is locale-sensitive by default, so under a Turkish locale QUERIES folds to querıes and the offender is missed; Go's strings.ToLower uses simple case mapping where JavaScript, Python and Rust use full, so U+0130 becomes i there and i+U+0307 here. Exactly two code points in Unicode lower into ASCII (U+0130 and U+212A), so this rule differs from full lowering only at those two, and it can only ever add a segment boundary, never remove one."
+  },
+  "split": {
+    "description": "Divide the folded name into maximal runs of U+0061..U+007A and U+0030..U+0039. Discard empty runs. Every other code point is a separator.",
+    "pattern": "[^a-z0-9]+",
+    "notes": "A segment match is a whole-run match, never a substring match. This is what keeps a single-token service prefix such as bigquery from splitting into a spurious query."
+  },
+  "segments": [
+    "query",
+    "queries",
+    "row",
+    "rows",
+    "cell",
+    "cells",
+    "record",
+    "records",
+    "event",
+    "events",
+    "result",
+    "results",
+    "tabledata",
+    "scan",
+    "sample",
+    "samples",
+    "select",
+    "values",
+    "preview",
+    "head",
+    "dump",
+    "export",
+    "download"
+  ]
+}

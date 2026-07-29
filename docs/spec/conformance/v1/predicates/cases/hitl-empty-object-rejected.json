@@ -1,0 +1,6 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "an empty object is rejected",
+  "input": {},
+  "expect": false
+}

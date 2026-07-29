@@ -13,6 +13,7 @@ JSON Schemas, **draft-07**, for the two shapes the contract is built on:
 |--------|-------|
 | [`extension-manifest.schema.json`](./schemas/v1/extension-manifest.schema.json) | `ExtensionManifest` — what a connector ships |
 | [`nimbus-item.schema.json`](./schemas/v1/nimbus-item.schema.json) | `NimbusItem` — one indexed item |
+| [`hitl-request.schema.json`](./schemas/v1/hitl-request.schema.json) | `HitlRequest` — one approval request |
 
 Reference the manifest schema from your own manifest for editor completion:
 
@@ -27,12 +28,83 @@ Draft-07 rather than 2020-12 deliberately: these schemas use only draft-07 vocab
 draft-07 has the widest support across editors and across validators in the languages the
 roadmap targets next.
 
+### `rules/v1/`
+
+The [manifest rule registry](./rules/v1/) — the thirteen semantic checks
+`runContractTests` enforces, as data rather than as English strings inside five TypeScript
+functions. Each rule has a stable id (`manifest.minNimbusVersion.semver`), and a violation
+carries that id plus a JSON Pointer to the location that broke it.
+
+The schemas describe the manifest's *shape*; these describe the *checks*. A binding MUST NOT
+satisfy one by delegating to the other — the conformance corpus asserts the two agree, which
+only means something if they are computed separately.
+
+Two things the registry defines rather than leaving to a language's defaults, because both
+diverge in practice: what counts as **blank** (JavaScript's `trim` removes U+FEFF and not
+U+0085; Python's `strip` does the reverse) and the **semver pattern** (JavaScript's `\d` is
+ASCII; Python's and Rust's are Unicode-aware, so a transcribed `\d` would accept `"١.٢.٣"`).
+
+### `predicates/v1/`
+
+The [contract predicates](./predicates/v1/) — the two checks that are pure functions of
+their input: `isHitlRequest`, and the no-row-data tool check whose twenty-three
+[segments](./predicates/v1/row-data-segments.json) every binding would otherwise hand-copy.
+
+The segment set publishes its **tokenizer** alongside its data, because a binding that reads
+the list and infers folding and splitting from its own language's defaults is the failure
+mode. Case folding is defined as an ASCII range rather than as "lowercase": Java's
+`toLowerCase` is locale-sensitive (under a Turkish locale `QUERIES` misses), and Go's uses
+simple case mapping where JavaScript, Python, and Rust use full. Exactly two code points in
+Unicode lower into ASCII, so the portable rule costs almost nothing.
+
+The document also states one obligation it deliberately does **not** publish a fixture for —
+that a connector's audit logger must be asynchronous — because "returns a Promise" asserts
+JavaScript rather than the contract.
+
+### `wire/v1/`
+
+The [NDJSON framing specification](./wire/v1/framing.md) — how a byte stream divides into
+frames, in RFC-2119 language: the LF delimiter and CR handling, UTF-8 decoding (non-fatal
+and stream-aware), the BOM rule, the 1 MiB limit and what makes exceeding it terminal,
+end-of-stream and truncation, empty frames, and the payload encoding.
+
+Framing only. Message envelopes, request and response shapes, and liveness belong to the
+gateway and are out of scope — a binding that implements this document can carry any of
+them.
+
 ### `conformance/v1/`
 
-The fixture corpus, with [`index.json`](./conformance/v1/index.json) as its machine-readable
-manifest — every fixture carries a shape, an expected verdict, a class, and a reason, so a
+Three corpora, because the contract has three kinds of assertion.
+
+**Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
+manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
 runner in any language consumes the corpus without parsing prose. The index is itself
 validated against [`index.schema.json`](./conformance/v1/index.schema.json).
+
+Equivalence-class manifest fixtures additionally declare `violations` — every
+[rule](./rules/v1/) the document breaks, with its JSON Pointer, sorted by rule and then by
+path so a binding's evaluation order stays its own business. Agreeing on the verdict is not
+agreeing on the contract: without this, a binding could reject `invalid-missing-id.json`
+because it mistyped the `entrypoint` check and still pass the corpus.
+
+**Framing cases** — [`framing/`](./conformance/v1/framing/) is the executable form of the
+wire spec, with its own [`index.json`](./conformance/v1/framing/index.json) and
+[`case.schema.json`](./conformance/v1/framing/case.schema.json). A case is a stream rather
+than a value: it names a sequence of chunks and the frames each push must emit, so "a chunk
+is not a frame" is encoded structurally. Chunks are written as readable `utf8`, exact
+`base64` for ill-formed or deliberately split sequences, or a `repeat` descriptor so a case
+at the 1 MiB limit costs a few lines rather than megabytes. Kept separate from the document
+index deliberately: the two need different runners, and widening the published document
+index would make an older validator reject entries it cannot interpret.
+
+**Predicate cases** — [`predicates/`](./conformance/v1/predicates/) is the executable form of
+the predicate spec, with its own [`index.json`](./conformance/v1/predicates/index.json) and
+[`case.schema.json`](./conformance/v1/predicates/case.schema.json). A case names a predicate,
+an input, and the required result — a verdict for `isHitlRequest`, and for the row-data check
+a list of `{tool, segment}` pairs in **input order**, so a binding that flags the right tool
+for the wrong reason still fails. Separate from the document index for the same reason the
+framing cases are: admitting them would have to widen a published `enum` and a published
+`pattern`, which an older validator rejects outright rather than ignoring.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
@@ -53,28 +125,47 @@ is permitted — removing or narrowing a field requires a major. This spec's own
 resolves that as a new path segment rather than an edit to this one; the [deprecation
 policy](../DEPRECATION-POLICY.md) governs export deprecation windows, not this rule.
 
-Both schemas are **open**: neither sets `additionalProperties: false`. An older consumer
+All three schemas are **open**: none sets `additionalProperties: false`. An older consumer
 validating against an older copy is therefore unaffected by additions.
 
 ## What is not here yet
 
-- **The wire protocol.** `src/ipc/` currently provides only NDJSON line framing — UTF-8,
-  LF-delimited, trailing `\r` stripped, 1 MB per line, and blank lines dropped by `push()`
-  only (`flush()` returns whatever remains unfiltered, so a stream ending in a bare `"\r"`
-  yields `[""]`). The message envelopes and request/response shapes belong to the gateway,
-  not to this package, and are not specified here. Phase 1, box 2.
+- **Message envelopes.** The wire spec above covers framing; the request/response shapes
+  carried inside a frame belong to the gateway, not to this package, and are deliberately
+  unspecified here.
 - **Contract-version negotiation.** Nothing yet carries a contract version;
   `minNimbusVersion` is a floor, not a negotiation. Phase 1, box 5.
-- **Agent brief schemas.** The two shapes above prove the mechanism; the brief shapes
-  follow.
+- **Agent brief schemas.** The shapes above prove the mechanism; the brief shapes follow.
 
 ## How this stays true
 
-`scripts/schema-guard.test.ts` runs on every pull request as part of `bun run test` (see
-`.github/workflows/ci.yml`). It compares each schema's declared properties and optionality
+Four guards run on every pull request as part of `bun run test` (see
+`.github/workflows/ci.yml`).
+
+`scripts/schema-guard.test.ts` compares each schema's declared properties and optionality
 against the emitted TypeScript — descending into inline object types, so `oauth` is
 covered — and runs every fixture through `ajv`, plus through `runContractTests` for the
 `equivalence` class. A schema that drifts from the reference implementation fails CI.
+
+`scripts/rules-guard.test.ts` asserts the rule registry and the reference implementation's
+rule table declare the same ids — none missing, none extra — and that every published rule is
+asserted by at least one fixture. A rule with no fixture is a rule no binding is held to.
+
+`scripts/predicates-guard.test.ts` asserts the published segment set and
+`ROW_DATA_TOOL_SEGMENTS` declare the same members, drives every predicate case through the
+reference implementation, and checks the `HitlRequest` schema reaches the same verdict as the
+runtime on every one of them — the same schema-versus-runtime equivalence the manifest corpus
+asserts.
+
+`scripts/framing-guard.test.ts` validates the framing corpus against its schemas and drives
+every case through `NdjsonLineReader`. It also runs under plain Node against the built
+`dist/`, via `scripts/framing-node.mjs` in the cross-OS × Node-LTS matrix: framing bottoms
+out in `TextDecoder`, whose edge behavior is not identical across runtimes, and a corpus
+other languages are told to trust must not encode one runtime's quirk.
+
+Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
+index lists, a published rule or segment no fixture asserts, or a predicate corpus that only
+ever expects one answer, is itself a failure.
 
 Changes here follow the [RFC process](../GOVERNANCE.md#the-rfc-process): a change to the
 spec is a change to the contract every binding must honor.

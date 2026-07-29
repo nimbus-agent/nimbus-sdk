@@ -1,0 +1,8 @@
+{
+  "description": "a stream that carried nothing yields no frame and flags no truncation",
+  "chunks": [],
+  "expect": {
+    "push": [],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

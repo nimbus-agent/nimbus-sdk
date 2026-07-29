@@ -1,0 +1,8 @@
+{
+  "description": "an octet that cannot begin a sequence becomes U+FFFD rather than failing the stream",
+  "chunks": [{ "base64": "/wo=" }],
+  "expect": {
+    "push": [["�"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

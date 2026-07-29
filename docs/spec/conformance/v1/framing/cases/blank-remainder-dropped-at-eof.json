@@ -1,0 +1,8 @@
+{
+  "description": "the empty-frame rule holds at end-of-stream too: a bare CR remainder yields nothing and flags no truncation",
+  "chunks": [{ "utf8": "\r" }],
+  "expect": {
+    "push": [[]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

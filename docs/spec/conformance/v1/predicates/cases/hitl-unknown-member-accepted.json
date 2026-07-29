@@ -1,0 +1,10 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "an unknown member does not invalidate the request",
+  "input": {
+    "actionId": "deploy-1",
+    "summary": "Deploy build 1",
+    "correlationId": "abc"
+  },
+  "expect": true
+}

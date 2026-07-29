@@ -15,7 +15,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
-import { type ExtensionManifest, runContractTests } from "../src/index.ts";
+import { type ExtensionManifest, runContractTests, validateManifest } from "../src/index.ts";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
 import { diffShapes, isEmptyDiff, schemaShapeOf, tsShapeOf } from "./schema-shape.ts";
 
@@ -167,8 +167,16 @@ type FixtureEntry = {
   shape: "ExtensionManifest" | "NimbusItem";
   expect: "valid" | "invalid";
   class: "equivalence" | "schema-only";
+  violations?: { rule: string; path: string }[];
   reason: string;
 };
+
+/** Sorted by rule then path, so a binding's evaluation order is not part of the contract. */
+function sortViolations<T extends { rule: string; path: string }>(violations: readonly T[]): T[] {
+  return [...violations].sort(
+    (a, b) => a.rule.localeCompare(b.rule) || a.path.localeCompare(b.path),
+  );
+}
 
 /**
  * The index, validated against its own schema before anything trusts its contents.
@@ -257,6 +265,21 @@ describe("schema guard — fixtures", () => {
         `expected the schema to consider ${entry.file} ${entry.expect}. ${entry.reason}\n` +
           `ajv: ${ajv.errorsText(validate.errors)}`,
       ).toBe(entry.expect === "valid");
+    });
+  }
+
+  for (const entry of entries.filter((e) => e.violations !== undefined)) {
+    test(`${entry.file} — violates exactly the rules it claims`, () => {
+      const doc = readJson(`${CONFORMANCE_DIR}/${entry.file}`);
+      const actual = sortViolations(validateManifest(doc)).map((v) => ({
+        rule: v.rule,
+        path: v.path,
+      }));
+      expect(
+        actual,
+        `${entry.file} does not violate the rules it declares. ${entry.reason}\n` +
+          "  Rule ids and JSON Pointers are the contract; messages are not.",
+      ).toEqual(sortViolations(entry.violations ?? []));
     });
   }
 

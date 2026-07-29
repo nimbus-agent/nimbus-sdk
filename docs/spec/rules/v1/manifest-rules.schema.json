@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/rules/v1/manifest-rules.schema.json",
+  "title": "Manifest rule registry",
+  "description": "The semantic rules a manifest must satisfy, as data. Distinct from extension-manifest.schema.json, which describes the shape: these are the checks a binding runs and the ids it must report, so two bindings can be shown to enforce the same contract rather than merely reaching the same verdict.",
+  "type": "object",
+  "required": ["blank", "rules"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "blank": {
+      "type": "object",
+      "description": "What counts as blank. Defined here because no two languages' trim functions agree.",
+      "required": ["description", "unicodeProperty", "additional"],
+      "additionalProperties": false,
+      "properties": {
+        "description": { "type": "string", "pattern": "\\S" },
+        "unicodeProperty": { "const": "White_Space" },
+        "additional": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^U\\+[0-9A-F]{4,6}$" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "field", "requires", "parameterized"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^manifest\\.[A-Za-z]+\\.[a-z]+$",
+            "description": "manifest.<field>.<kind>. Namespaced so item rules can be added without renaming."
+          },
+          "field": { "type": "string", "pattern": "^[A-Za-z]+$" },
+          "requires": { "type": "string", "pattern": "\\S" },
+          "parameterized": {
+            "type": "boolean",
+            "description": "True when one manifest can violate this rule more than once — each violation carrying its own JSON Pointer."
+          },
+          "supersedes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^manifest\\.[A-Za-z]+\\.[a-z]+$" },
+            "description": "Rules that cannot meaningfully fire once this one has. If a rule fires, none of the rules it supersedes may appear in the same result — stated as a property of the output, so a binding may short-circuit while evaluating or filter afterwards."
+          },
+          "enum": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string" },
+            "description": "The permitted values, when the rule is a membership check."
+          },
+          "pattern": {
+            "type": "string",
+            "description": "The normative regular expression, in a portable subset: no lookarounds, no backreferences, no Unicode property escapes, and digit classes spelled [0-9] rather than \\d, which is ASCII in JavaScript but Unicode-aware in Python and Rust."
+          }
+        }
+      }
+    }
+  }
+}

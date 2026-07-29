@@ -1,0 +1,15 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "a row fetcher is attributed to the segment that caught it",
+  "tools": [
+    {
+      "name": "bigquery_get_rows"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "bigquery_get_rows",
+      "segment": "rows"
+    }
+  ]
+}

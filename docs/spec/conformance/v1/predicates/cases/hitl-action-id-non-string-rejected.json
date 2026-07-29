@@ -1,0 +1,9 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "a numeric actionId is rejected",
+  "input": {
+    "actionId": 1,
+    "summary": "Deploy build 1"
+  },
+  "expect": false
+}

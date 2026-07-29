@@ -1,0 +1,8 @@
+{
+  "description": "a two-octet sequence divided by a chunk boundary decodes intact, not as two replacements",
+  "chunks": [{ "base64": "ww==" }, { "base64": "qQo=" }],
+  "expect": {
+    "push": [[], ["é"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

@@ -9,79 +9,203 @@ export class ExtensionContractError extends Error {
   }
 }
 
-const PERMS = new Set<ExtensionManifest["permissions"][number]>(["read", "write", "delete"]);
-const HITL = new Set<ExtensionManifest["hitlRequired"][number]>(["write", "delete"]);
+const PERMS: ReadonlySet<string> = new Set(["read", "write", "delete"]);
+const HITL: ReadonlySet<string> = new Set(["write", "delete"]);
 
-function isNonEmptyString(v: unknown): v is string {
-  return typeof v === "string" && v.trim() !== "";
+/**
+ * Blankness, defined rather than delegated.
+ *
+ * No two languages' trim functions agree: JavaScript's removes U+FEFF and not U+0085,
+ * Python's does the reverse. A contract that says "trimmed" and leaves it there cannot be
+ * implemented identically twice, so the set is written out — Unicode `White_Space` plus
+ * U+FEFF — and published in `docs/spec/rules/v1/`. U+200B ZERO WIDTH SPACE is deliberately
+ * outside it: invisible, but a character.
+ */
+const ALL_BLANK = /^[\p{White_Space}\uFEFF]*$/u;
+const EDGE_BLANK = /^[\p{White_Space}\uFEFF]+|[\p{White_Space}\uFEFF]+$/gu;
+
+/**
+ * Spelled `[0-9]` and not `\d` on purpose. JavaScript's `\d` is ASCII; Python's and Rust's
+ * are Unicode-aware, so a binding transcribing `\d` would accept "١.٢.٣" — a version this
+ * implementation rejects — while passing every other fixture in the corpus.
+ */
+const SEMVER_PREFIX = /^[0-9]+\.[0-9]+\.[0-9]+/;
+
+function isNonBlankString(v: unknown): v is string {
+  return typeof v === "string" && !ALL_BLANK.test(v);
 }
 
-function validateRequiredStrings(manifest: ExtensionManifest): string[] {
-  const errors: string[] = [];
-  if (!isNonEmptyString(manifest.id)) {
-    errors.push("manifest.id is required");
-  }
-  if (!isNonEmptyString(manifest.displayName)) {
-    errors.push("manifest.displayName is required");
-  }
-  if (!isNonEmptyString(manifest.version)) {
-    errors.push("manifest.version is required");
-  }
-  if (!isNonEmptyString(manifest.description)) {
-    errors.push("manifest.description is required");
-  }
-  if (!isNonEmptyString(manifest.author)) {
-    errors.push("manifest.author is required");
-  }
-  if (!isNonEmptyString(manifest.entrypoint)) {
-    errors.push("manifest.entrypoint is required");
-  }
-  return errors;
+function trimBlank(s: string): string {
+  return s.replace(EDGE_BLANK, "");
 }
 
-function validateRuntime(manifest: ExtensionManifest): string[] {
-  if (manifest.runtime === "bun" || manifest.runtime === "node") {
-    return [];
-  }
-  return ['manifest.runtime must be "bun" or "node"'];
+/** One violated rule, attributed to the exact location that violated it. */
+export interface ManifestViolation {
+  /** Registry rule id, e.g. `manifest.permissions.entry`. Normative. */
+  readonly rule: string;
+  /** JSON Pointer into the manifest, e.g. `/permissions/2`. Normative. */
+  readonly path: string;
+  /** Human-facing text. Explicitly NOT part of the contract — free to improve. */
+  readonly message: string;
 }
 
-function validatePermissions(manifest: ExtensionManifest): string[] {
-  const errors: string[] = [];
-  if (!Array.isArray(manifest.permissions)) {
-    errors.push("manifest.permissions must be an array");
-    return errors;
-  }
-  for (const p of manifest.permissions) {
-    if (!PERMS.has(p)) {
-      errors.push(`invalid manifest.permissions entry: ${String(p)}`);
-    }
-  }
-  return errors;
+/**
+ * A rule from the published registry, paired with the check that detects it.
+ *
+ * Exported for `scripts/rules-guard.test.ts`, which asserts this table and
+ * `docs/spec/rules/v1/manifest-rules.json` declare the same ids. Deliberately not
+ * re-exported by `src/index.ts`, so it stays off the published surface.
+ */
+export interface ManifestRule {
+  readonly id: string;
+  readonly field: string;
+  /** Rules that cannot meaningfully fire once this one has. See the registry. */
+  readonly supersedes?: readonly string[];
+  readonly check: (manifest: Record<string, unknown>) => ManifestViolation[];
 }
 
-function validateHitlRequired(manifest: ExtensionManifest): string[] {
-  const errors: string[] = [];
-  if (Array.isArray(manifest.hitlRequired)) {
-    for (const h of manifest.hitlRequired) {
-      if (!HITL.has(h)) {
-        errors.push(`invalid manifest.hitlRequired entry: ${String(h)}`);
+const REQUIRED_STRING_FIELDS = [
+  "id",
+  "displayName",
+  "version",
+  "description",
+  "author",
+  "entrypoint",
+] as const;
+
+function requiredStringRule(field: string): ManifestRule {
+  const rule = `manifest.${field}.required`;
+  return {
+    id: rule,
+    field,
+    check: (manifest) =>
+      isNonBlankString(manifest[field])
+        ? []
+        : [{ rule, path: `/${field}`, message: `manifest.${field} is required` }],
+  };
+}
+
+function arrayTypeRule(field: string): ManifestRule {
+  const rule = `manifest.${field}.type`;
+  return {
+    id: rule,
+    field,
+    supersedes: [`manifest.${field}.entry`],
+    check: (manifest) =>
+      Array.isArray(manifest[field])
+        ? []
+        : [{ rule, path: `/${field}`, message: `manifest.${field} must be an array` }],
+  };
+}
+
+function arrayEntryRule(field: string, allowed: ReadonlySet<string>): ManifestRule {
+  const rule = `manifest.${field}.entry`;
+  return {
+    id: rule,
+    field,
+    check: (manifest) => {
+      const value = manifest[field];
+      if (!Array.isArray(value)) {
+        return [];
       }
-    }
-  } else {
-    errors.push("manifest.hitlRequired must be an array");
-  }
-  return errors;
+      const violations: ManifestViolation[] = [];
+      for (let i = 0; i < value.length; i++) {
+        const entry: unknown = value[i];
+        if (typeof entry === "string" && allowed.has(entry)) {
+          continue;
+        }
+        violations.push({
+          rule,
+          path: `/${field}/${i}`,
+          message: `invalid manifest.${field} entry: ${String(entry)}`,
+        });
+      }
+      return violations;
+    },
+  };
 }
 
-function validateMinNimbusVersion(manifest: ExtensionManifest): string[] {
-  if (!isNonEmptyString(manifest.minNimbusVersion)) {
-    return ["manifest.minNimbusVersion is required"];
+const RUNTIME_ENUM: ManifestRule = {
+  id: "manifest.runtime.enum",
+  field: "runtime",
+  check: (manifest) =>
+    manifest["runtime"] === "bun" || manifest["runtime"] === "node"
+      ? []
+      : [
+          {
+            rule: "manifest.runtime.enum",
+            path: "/runtime",
+            message: 'manifest.runtime must be "bun" or "node"',
+          },
+        ],
+};
+
+const MIN_VERSION_REQUIRED: ManifestRule = {
+  id: "manifest.minNimbusVersion.required",
+  field: "minNimbusVersion",
+  supersedes: ["manifest.minNimbusVersion.semver"],
+  check: (manifest) =>
+    isNonBlankString(manifest["minNimbusVersion"])
+      ? []
+      : [
+          {
+            rule: "manifest.minNimbusVersion.required",
+            path: "/minNimbusVersion",
+            message: "manifest.minNimbusVersion is required",
+          },
+        ],
+};
+
+const MIN_VERSION_SEMVER: ManifestRule = {
+  id: "manifest.minNimbusVersion.semver",
+  field: "minNimbusVersion",
+  check: (manifest) => {
+    const value = manifest["minNimbusVersion"];
+    if (!isNonBlankString(value) || SEMVER_PREFIX.test(trimBlank(value))) {
+      return [];
+    }
+    return [
+      {
+        rule: "manifest.minNimbusVersion.semver",
+        path: "/minNimbusVersion",
+        message: "manifest.minNimbusVersion must start with semver x.y.z",
+      },
+    ];
+  },
+};
+
+/**
+ * The thirteen manifest rules, in the order their messages are joined.
+ *
+ * That order is load-bearing: `runContractTests` concatenates the messages, and connector
+ * authors read the result. Reordering this table rewords every multi-error failure.
+ */
+export const MANIFEST_RULES: readonly ManifestRule[] = [
+  ...REQUIRED_STRING_FIELDS.map(requiredStringRule),
+  RUNTIME_ENUM,
+  arrayTypeRule("permissions"),
+  arrayEntryRule("permissions", PERMS),
+  arrayTypeRule("hitlRequired"),
+  arrayEntryRule("hitlRequired", HITL),
+  MIN_VERSION_REQUIRED,
+  MIN_VERSION_SEMVER,
+];
+
+/**
+ * Every rule a manifest violates, without throwing.
+ *
+ * Takes `unknown` because a manifest is parsed JSON: the declared type is a claim about a
+ * file on disk, not a guarantee. A non-object reports every required-field rule rather than
+ * failing, so a binding reaches the whole rule set however malformed the input is.
+ */
+export function validateManifest(manifest: unknown): ManifestViolation[] {
+  const record: Record<string, unknown> =
+    typeof manifest === "object" && manifest !== null ? (manifest as Record<string, unknown>) : {};
+  const violations: ManifestViolation[] = [];
+  for (const rule of MANIFEST_RULES) {
+    violations.push(...rule.check(record));
   }
-  if (!/^\d+\.\d+\.\d+/.test(manifest.minNimbusVersion.trim())) {
-    return ["manifest.minNimbusVersion must start with semver x.y.z"];
-  }
-  return [];
+  return violations;
 }
 
 function assertV1AuditLoggerShape(logger: AuditLogger, extensionId: string): void {
@@ -147,11 +271,65 @@ export interface RowDataToolCandidate {
   readonly description?: string;
 }
 
+/**
+ * Case folding, spelled out in ASCII.
+ *
+ * `toLowerCase` is the most locale- and Unicode-table-dependent operation this check could
+ * perform, and published as contract it is a trap: Java's is locale-sensitive by default
+ * (under a Turkish locale "QUERIES" folds to "querıes", which segments as `quer`+`es` and
+ * misses the offender), and Go's uses *simple* case mapping where JavaScript, Python, and
+ * Rust use *full* (so U+0130 becomes "i" there and "i"+U+0307 here).
+ *
+ * Mapping only U+0041–U+005A needs no tables, has no locale, and admits no
+ * simple-versus-full question. A scan of U+0080–U+10FFFF finds exactly two code points
+ * whose lowercase mapping reaches ASCII — U+0130 and U+212A — so that is the entire
+ * difference, and only U+212A is behaviorally reachable. See `docs/spec/predicates/v1/`.
+ */
+function foldAscii(name: string): string {
+  return name.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+
 function toolNameSegments(name: string): string[] {
-  return name
-    .toLowerCase()
+  return foldAscii(name)
     .split(/[^a-z0-9]+/)
     .filter((s) => s.length > 0);
+}
+
+/** One tool whose name looks like a row/cell/result fetcher. */
+export interface RowDataViolation {
+  /** The offending tool's name, verbatim. Normative. */
+  readonly tool: string;
+  /** The matched segment, from the published set. Normative. */
+  readonly segment: string;
+}
+
+/**
+ * Every tool whose name looks like a row/cell fetcher, without throwing.
+ *
+ * The structured counterpart to {@link assertNoRowDataTools}, which is now a wrapper around
+ * it. A caller that wants to know *which* tool is wrong should not have to provoke and catch
+ * an exception to find out, and the conformance corpus asserts on these pairs rather than on
+ * message text — see `docs/spec/predicates/v1/`.
+ *
+ * Violations come out in **input order**, and at most one per candidate: a tool list is an
+ * ordered sequence every language iterates identically, so preserving that order pins more
+ * than sorting would. (The manifest rules sort, because an object's members have no order.)
+ */
+export function findRowDataTools(tools: ReadonlyArray<RowDataToolCandidate>): RowDataViolation[] {
+  const violations: RowDataViolation[] = [];
+  for (const tool of tools) {
+    // A tool surface is parsed JSON like anything else crossing this boundary: a candidate
+    // whose name is not a string is skipped, not flagged and not an error. No blankness
+    // check — a blank name yields no segments anyway, so the branch was unobservable.
+    if (typeof tool?.name !== "string") {
+      continue;
+    }
+    const segment = toolNameSegments(tool.name).find((s) => ROW_DATA_TOOL_SEGMENTS.has(s));
+    if (segment !== undefined) {
+      violations.push({ tool: tool.name, segment });
+    }
+  }
+  return violations;
 }
 
 /**
@@ -178,16 +356,9 @@ export function assertNoRowDataTools(
   tools: ReadonlyArray<RowDataToolCandidate>,
   context = "connector",
 ): void {
-  const offenders: string[] = [];
-  for (const tool of tools) {
-    if (typeof tool?.name !== "string" || tool.name.trim() === "") {
-      continue;
-    }
-    const hit = toolNameSegments(tool.name).find((s) => ROW_DATA_TOOL_SEGMENTS.has(s));
-    if (hit !== undefined) {
-      offenders.push(`${tool.name} (row-data segment "${hit}")`);
-    }
-  }
+  const offenders = findRowDataTools(tools).map(
+    (v) => `${v.tool} (row-data segment "${v.segment}")`,
+  );
   if (offenders.length > 0) {
     throw new ExtensionContractError(
       `no-row-data contract violated: ${context} must expose only schema/metadata tools, ` +
@@ -202,15 +373,9 @@ export function assertNoRowDataTools(
  * Validates a {@link ExtensionManifest} for CI / `nimbus test` (no network, no Gateway).
  */
 export async function runContractTests(manifest: ExtensionManifest): Promise<void> {
-  const errors: string[] = [
-    ...validateRequiredStrings(manifest),
-    ...validateRuntime(manifest),
-    ...validatePermissions(manifest),
-    ...validateHitlRequired(manifest),
-    ...validateMinNimbusVersion(manifest),
-  ];
-  if (errors.length > 0) {
-    throw new ExtensionContractError(errors.join("; "));
+  const violations = validateManifest(manifest);
+  if (violations.length > 0) {
+    throw new ExtensionContractError(violations.map((v) => v.message).join("; "));
   }
   assertV1HitlRequestGuard();
   assertV1AuditLoggerShape(

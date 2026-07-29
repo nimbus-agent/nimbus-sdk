@@ -9,7 +9,7 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ## `.`
 
-135 exports.
+139 exports.
 
 ### `AGENT_KIND`
 
@@ -670,6 +670,21 @@ export declare class ManifestNestedTooDeep extends Error {
 }
 ```
 
+### `ManifestViolation` *(type-only)*
+
+From `./contract-tests.js`.
+
+```ts
+export interface ManifestViolation {
+
+    readonly rule: string;
+
+    readonly path: string;
+
+    readonly message: string;
+}
+```
+
 ### `MockGateway`
 
 From `./testing/index.js`.
@@ -838,6 +853,19 @@ From `./contract-tests.js`.
 export interface RowDataToolCandidate {
     readonly name: string;
     readonly description?: string;
+}
+```
+
+### `RowDataViolation` *(type-only)*
+
+From `./contract-tests.js`.
+
+```ts
+export interface RowDataViolation {
+
+    readonly tool: string;
+
+    readonly segment: string;
 }
 ```
 
@@ -1153,6 +1181,14 @@ From `./jmap-fastmail/index.js`.
 export declare function extractEmailList(parsed: unknown): unknown[];
 ```
 
+### `findRowDataTools`
+
+From `./contract-tests.js`.
+
+```ts
+export declare function findRowDataTools(tools: ReadonlyArray<RowDataToolCandidate>): RowDataViolation[];
+```
+
 ### `firstLineAndRows`
 
 From `./data-profile/index.js`.
@@ -1445,6 +1481,14 @@ From `./jmap-fastmail/index.js`.
 export declare function validateApiUrl(candidate: string, allowedBase: string): string;
 ```
 
+### `validateManifest`
+
+From `./contract-tests.js`.
+
+```ts
+export declare function validateManifest(manifest: unknown): ManifestViolation[];
+```
+
 ### `verifyManifestSignature`
 
 From `./crypto/verify-signature.js`.
@@ -1463,7 +1507,7 @@ export declare function viewEmail(raw: unknown): JmapEmailView | null;
 
 ## `./ipc`
 
-3 exports.
+4 exports.
 
 ### `IPC_MAX_LINE_BYTES`
 
@@ -1471,6 +1515,18 @@ From `./ndjson-line-reader.js`.
 
 ```ts
 export declare const IPC_MAX_LINE_BYTES: number;
+```
+
+### `NdjsonFlushResult` *(type-only)*
+
+From `./ndjson-line-reader.js`.
+
+```ts
+export type NdjsonFlushResult = {
+    frames: string[];
+
+    truncated: boolean;
+};
 ```
 
 ### `NdjsonLineReader`
@@ -1482,9 +1538,13 @@ export declare class NdjsonLineReader {
     private readonly lineLimitCtor;
     private readonly decoder;
     private pending;
+    private latched;
     constructor(opts?: NdjsonLineReaderOptions);
     private throwLineTooLong;
+    private failIfLatched;
     push(chunk: Uint8Array): string[];
+
+    flushFrames(): NdjsonFlushResult;
     flush(): string[];
 }
 ```

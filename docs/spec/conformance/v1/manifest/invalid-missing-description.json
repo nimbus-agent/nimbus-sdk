@@ -1,0 +1,13 @@
+{
+  "id": "example-connector",
+  "displayName": "Example Connector",
+  "version": "0.1.0",
+  "author": "Nimbus Contributors",
+  "entrypoint": "./index.ts",
+  "runtime": "bun",
+  "permissions": [
+    "read"
+  ],
+  "hitlRequired": [],
+  "minNimbusVersion": "0.1.0"
+}

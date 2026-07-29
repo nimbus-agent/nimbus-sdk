@@ -118,6 +118,12 @@ jobs:
       - name: Smoke the published ESM entry points
         run: node scripts/smoke-esm.mjs
 
+      # The Bun guard proves src/ conforms; this proves the artifact consumers receive
+      # conforms on the runtime they run it under. Not the same claim: framing bottoms
+      # out in TextDecoder, whose edge behavior differs between Bun and Node.
+      - name: Run the framing conformance corpus
+        run: node scripts/framing-node.mjs
+
   # The single required status check.
   #
   # `build-test` and `node-smoke` are matrices, so their job names carry the matrix

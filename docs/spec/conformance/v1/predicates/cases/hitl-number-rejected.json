@@ -1,0 +1,6 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "the number zero is rejected",
+  "input": 0,
+  "expect": false
+}

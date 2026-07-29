@@ -1,0 +1,8 @@
+{
+  "description": "only the CR immediately before the LF is a delimiter; a CR elsewhere is content",
+  "chunks": [{ "utf8": "a\rb\n" }],
+  "expect": {
+    "push": [["a\rb"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

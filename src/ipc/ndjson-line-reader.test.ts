@@ -61,4 +61,54 @@ describe("NdjsonLineReader", () => {
     expect(r.push(new Uint8Array([0xc3]))).toEqual([]);
     expect(r.flush()).toEqual(["�"]);
   });
+
+  test("flush() drops a remainder that is empty after stripping the carriage return", () => {
+    const r = new NdjsonLineReader();
+    r.push(new TextEncoder().encode("\r"));
+    expect(r.flush()).toEqual([]);
+  });
+
+  test("flushFrames() flags a final frame that had no newline", () => {
+    const r = new NdjsonLineReader();
+    r.push(new TextEncoder().encode("partial"));
+    expect(r.flushFrames()).toEqual({ frames: ["partial"], truncated: true });
+  });
+
+  test("flushFrames() does not flag a stream that ended on a newline", () => {
+    const r = new NdjsonLineReader();
+    r.push(new TextEncoder().encode("whole\n"));
+    expect(r.flushFrames()).toEqual({ frames: [], truncated: false });
+  });
+
+  test("flushFrames() does not flag a remainder that normalizes to empty", () => {
+    const r = new NdjsonLineReader();
+    r.push(new TextEncoder().encode("\r"));
+    expect(r.flushFrames()).toEqual({ frames: [], truncated: false });
+  });
+
+  test("a line-limit violation latches — a later push throws rather than resuming", () => {
+    const r = new NdjsonLineReader();
+    const huge = "x".repeat(IPC_MAX_LINE_BYTES + 1);
+    expect(() => r.push(new TextEncoder().encode(`good\n${huge}\ntail\n`))).toThrow(
+      "Message exceeds 1MB line limit",
+    );
+    expect(() => r.push(new TextEncoder().encode("after\n"))).toThrow(
+      "Message exceeds 1MB line limit",
+    );
+  });
+
+  test("a latched reader throws from flush() too", () => {
+    const r = new NdjsonLineReader();
+    const huge = `${"x".repeat(IPC_MAX_LINE_BYTES + 1)}\n`;
+    expect(() => r.push(new TextEncoder().encode(huge))).toThrow("Message exceeds 1MB line limit");
+    expect(() => r.flush()).toThrow("Message exceeds 1MB line limit");
+  });
+
+  test("the latch raises the custom lineLimitError constructor", () => {
+    class TooBig extends Error {}
+    const r = new NdjsonLineReader({ lineLimitError: TooBig });
+    const huge = `${"x".repeat(IPC_MAX_LINE_BYTES + 1)}\n`;
+    expect(() => r.push(new TextEncoder().encode(huge))).toThrow(TooBig);
+    expect(() => r.push(new TextEncoder().encode("after\n"))).toThrow(TooBig);
+  });
 });

@@ -1,0 +1,10 @@
+{
+  "description": "a complete frame of 1048577 octets is rejected, and the rejection is terminal",
+  "chunks": [
+    { "concat": [{ "repeat": { "byte": 97, "count": 1048577 } }, { "utf8": "\n" }] }
+  ],
+  "expect": {
+    "push": [{ "error": "frame-too-long" }],
+    "flush": { "error": "frame-too-long" }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "description": "a CRLF sender and an LF sender produce identical frames",
+  "chunks": [{ "utf8": "{\"a\":1}\r\n" }],
+  "expect": {
+    "push": [["{\"a\":1}"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

@@ -167,7 +167,9 @@ bind to.*
 
 - [x] Publish **JSON Schemas** for `ExtensionManifest` and `NimbusItem`, versioned
   alongside the package, into [`spec/`](./spec/) — *Pillars 1, 7*
-- [ ] Write the **IPC wire-protocol spec** for the NDJSON framing in `src/ipc/` — *Pillar 1*
+- [x] Write the **IPC wire-protocol spec** for the NDJSON framing in `src/ipc/`, published
+  as [`spec/wire/v1/framing.md`](./spec/wire/v1/framing.md) with a behavioral conformance
+  corpus gating CI under both Bun and Node — *Pillar 1*
 - [ ] Extract the **conformance suite** as language-neutral fixtures, seeded from
   `runContractTests` + the sandbox probe — *Pillars 2, 5*
 - [x] Validate the TypeScript SDK **against its own spec** in CI — *Pillars 2, 5*

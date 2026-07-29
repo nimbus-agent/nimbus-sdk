@@ -1,0 +1,8 @@
+{
+  "description": "the limit applies to the unterminated buffer, so a peer that never sends a newline cannot exhaust memory",
+  "chunks": [{ "repeat": { "byte": 97, "count": 1048577 } }],
+  "expect": {
+    "push": [{ "error": "frame-too-long" }],
+    "flush": { "error": "frame-too-long" }
+  }
+}

@@ -9,10 +9,27 @@ does rather than only what it says.
 The default posture on the narrow waist is *no*: the burden is on the proposal to justify
 widening the contract.
 
-| RFC | Title | Status |
-|-----|-------|--------|
-| [0001](./0001-ipc-framing-spec.md) | A normative wire spec for NDJSON framing | draft |
-| [0002](./0002-manifest-rule-registry.md) | A published rule registry for manifest validation | draft |
+| RFC | Title | Status | Landed |
+|-----|-------|--------|--------|
+| [0001](./0001-ipc-framing-spec.md) | A normative wire spec for NDJSON framing | accepted | [#56](https://github.com/nimbus-agent/nimbus-sdk/pull/56) |
+| [0002](./0002-manifest-rule-registry.md) | A published rule registry for manifest validation | accepted | [#57](https://github.com/nimbus-agent/nimbus-sdk/pull/57) |
+
+## Statuses
+
+Four, matching the [process](../GOVERNANCE.md#the-rfc-process) rather than adding to it:
+
+- **draft** — open for discussion. Nothing has been decided, and the proposal may still be
+  withdrawn or rewritten.
+- **accepted** — maintainers reached consensus, and the change has landed. Where it landed
+  is recorded in the RFC's header, so the decision and the code that implements it stay
+  connected.
+- **rejected** — decided against. The document stays: an RFC that was turned down records
+  why the contract does *not* work some way, which is as useful as recording why it does.
+- **superseded** — overtaken by a later RFC, which it links to. A superseded RFC is not
+  wrong, it is history.
+
+An accepted RFC is not frozen prose. If the contract it describes changes later, that is a
+new RFC — this one keeps describing the decision as it was made.
 
 Not everything needs an RFC. A new battery is governed by the
 [inclusion policy](../INCLUSION-POLICY.md); retiring an export is governed by the

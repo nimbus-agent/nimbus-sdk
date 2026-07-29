@@ -1,7 +1,8 @@
 # RFC-0003 — Publishing the pure predicates
 
-- **Status:** draft
+- **Status:** accepted
 - **Opened:** 2026-07-29
+- **Landed:** 2026-07-29 in [#60](https://github.com/nimbus-agent/nimbus-sdk/pull/60)
 - **Affects:** `docs/spec/`, `@nimbus-dev/sdk` (`contract-tests`, `hitl-request`)
 - **Roadmap:** [Phase 1](../ROADMAP.md#phase-1--lift-the-contract-out-of-typescript), box 3 — *Extract the conformance suite as language-neutral fixtures* (second of three parts)
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 5 (quality & release)

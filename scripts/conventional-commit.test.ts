@@ -193,9 +193,13 @@ describe("checkAggregate", () => {
   });
 
   test("allows over-declaring, which only over-bumps", () => {
+    // Two commits, so the title is what lands and `declared` is the title's own impact.
     const verdict = checkAggregate({
       title: "feat(sdk): a generous subject",
-      commits: [{ sha: "aaaaaaaa", message: "fix(sdk): a small fix" }],
+      commits: [
+        { sha: "aaaaaaaa", message: "fix(sdk): a small fix" },
+        { sha: "bbbbbbbb", message: "fix(sdk): another small fix" },
+      ],
     });
     expect(verdict.ok).toBe(true);
     expect(verdict.declared).toBe("minor");
@@ -221,6 +225,65 @@ describe("checkAggregate", () => {
       commits: [{ sha: "2b2304c0", message: "chore(main): release sdk 1.9.0" }],
     });
     expect(verdict.ok).toBe(true);
+  });
+
+  describe("the single-commit squash subject", () => {
+    // squash_merge_commit_title = COMMIT_OR_PR_TITLE: GitHub uses the PR title only when
+    // the PR has more than one commit. For exactly one, the commit's own subject lands.
+    test("fails a conventional title whose sole commit subject is not conventional", () => {
+      const verdict = checkAggregate({
+        title: "feat(sdk): publish the rule registry",
+        commits: [{ sha: "aaaaaaaa", message: "wip" }],
+      });
+      expect(verdict.ok).toBe(false);
+      expect(verdict.violations[0]).toContain("sole commit's subject");
+      expect(verdict.violations[0]).toContain("aaaaaaaa");
+    });
+
+    test("takes the weaker of the two when both parse", () => {
+      const verdict = checkAggregate({
+        title: "feat(sdk): publish the rule registry",
+        commits: [{ sha: "aaaaaaaa", message: "fix(sdk): publish the rule registry" }],
+      });
+      // `fix` is what would land, and a patch covers a patch — so this passes.
+      expect(verdict.ok).toBe(true);
+      expect(verdict.declared).toBe("patch");
+      expect(verdict.required).toBe("patch");
+    });
+
+    test("fails when the sole commit under-declares against its own body footer", () => {
+      const verdict = checkAggregate({
+        title: "feat(sdk)!: reshape the manifest",
+        commits: [
+          { sha: "aaaaaaaa", message: "feat(sdk): reshape it\n\nBREAKING CHANGE: ids must be NFC" },
+        ],
+      });
+      // The title carries `!`, but the commit subject that actually lands does not.
+      expect(verdict.ok).toBe(false);
+      expect(verdict.declared).toBe("minor");
+      expect(verdict.required).toBe("major");
+    });
+
+    test("does not double-report when title and sole commit subject agree", () => {
+      const verdict = checkAggregate({
+        title: "feat(sdk): publish the rule registry",
+        commits: [{ sha: "aaaaaaaa", message: "feat(sdk): publish the rule registry\n\nbody" }],
+      });
+      expect(verdict.ok).toBe(true);
+    });
+
+    test("checks only the title once the PR has more than one commit", () => {
+      const verdict = checkAggregate({
+        title: "feat(sdk): publish the rule registry",
+        commits: [
+          { sha: "aaaaaaaa", message: "wip" },
+          { sha: "bbbbbbbb", message: "feat(sdk): the registry" },
+        ],
+      });
+      // Two commits, so GitHub uses the title; `wip` is only an opaque note now.
+      expect(verdict.ok).toBe(true);
+      expect(verdict.opaque).toEqual(["aaaaaaaa wip"]);
+    });
   });
 
   test("reports unparseable commits as opaque without failing", () => {

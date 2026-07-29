@@ -129,6 +129,12 @@ export function compareImpact(a: ReleaseImpact, b: ReleaseImpact): number {
   return IMPACT_ORDER.indexOf(a) - IMPACT_ORDER.indexOf(b);
 }
 
+/** The first line of a commit message. */
+export function subjectOf(message: string): string {
+  const newline = message.indexOf("\n");
+  return (newline === -1 ? message : message.slice(0, newline)).trim();
+}
+
 /** One commit reached by an aggregate PR. */
 export interface CarriedCommit {
   /** Short or full SHA — used only to name the commit in a failure message. */
@@ -163,36 +169,73 @@ export interface AggregateInput {
 }
 
 /**
- * Check a `main`-targeting PR's subject against the commits it carries.
+ * Every subject that GitHub might use for the squash commit, weakest first.
  *
- * A single-commit PR is the same check with a one-element list, which is why this does not
- * special-case stacks: the rule "declare at least what you carry" is trivially satisfied
- * when the subject *is* the commit, and meaningful the moment it is not.
+ * With `squash_merge_commit_title = COMMIT_OR_PR_TITLE` — the repository's setting — GitHub
+ * uses the PR title only when the PR has more than one commit; a **single-commit** PR lands
+ * that commit's own subject instead. So checking the PR title alone leaves a hole exactly
+ * one commit wide: a PR titled `feat(sdk): …` whose only commit reads `wip` would pass while
+ * putting `wip` on `main`.
+ *
+ * Both candidates are therefore checked, which is also correct under
+ * `squash_merge_commit_title = PR_TITLE`, where only the title can land. A conforming
+ * single-commit PR normally has the same text in both places, so this costs nothing.
+ */
+function landingSubjects(input: AggregateInput): ReadonlyArray<{ label: string; subject: string }> {
+  const candidates = [{ label: "The PR title", subject: input.title.trim() }];
+  const only = input.commits.length === 1 ? input.commits[0] : undefined;
+  if (only !== undefined) {
+    const subject = subjectOf(only.message);
+    if (subject !== input.title.trim()) {
+      candidates.push({
+        label:
+          `The sole commit's subject (${only.sha.slice(0, 8)}), which a squash merge of a` +
+          ` one-commit PR uses in place of the title`,
+        subject,
+      });
+    }
+  }
+  return candidates;
+}
+
+/**
+ * Check a `main`-targeting PR against the commits it carries.
+ *
+ * A single-commit PR is mostly the same check with a one-element list — the rule "declare at
+ * least what you carry" is trivially satisfied when the subject *is* the commit — with the
+ * one wrinkle described on {@link landingSubjects}.
  */
 export function checkAggregate(input: AggregateInput): AggregateVerdict {
   const violations: string[] = [];
   const opaque: string[] = [];
 
-  const parsed = parseConventionalSubject(input.title);
-  const declared = parsed === null ? "none" : impactOfSubject(parsed);
-
-  if (parsed === null) {
-    violations.push(
-      `The subject that will land on \`main\` is not a Conventional Commit:\n` +
-        `    ${input.title}\n` +
-        `  release-please parses commits on \`main\`; a subject it cannot classify is ` +
-        `dropped from the changelog and contributes nothing to the version bump.\n` +
-        `  Expected \`type(optional-scope)!: description\` with a lowercase type, ` +
-        `e.g. \`feat(sdk): publish the manifest rule registry\`.`,
-    );
+  // The weakest thing that could land is what the release must survive.
+  let declared: ReleaseImpact = "major";
+  for (const candidate of landingSubjects(input)) {
+    const parsed = parseConventionalSubject(candidate.subject);
+    if (parsed === null) {
+      declared = "none";
+      violations.push(
+        `${candidate.label} is not a Conventional Commit:\n` +
+          `    ${candidate.subject}\n` +
+          `  release-please parses commits on \`main\`; a subject it cannot classify is ` +
+          `dropped from the changelog and contributes nothing to the version bump.\n` +
+          `  Expected \`type(optional-scope)!: description\` with a lowercase type, ` +
+          `e.g. \`feat(sdk): publish the manifest rule registry\`.`,
+      );
+      continue;
+    }
+    const impact = impactOfSubject(parsed);
+    if (compareImpact(impact, declared) < 0) {
+      declared = impact;
+    }
   }
 
   let required: ReleaseImpact = "none";
   const demanding: Map<ReleaseImpact, string[]> = new Map();
 
   for (const commit of input.commits) {
-    const newline = commit.message.indexOf("\n");
-    const subjectLine = newline === -1 ? commit.message : commit.message.slice(0, newline);
+    const subjectLine = subjectOf(commit.message);
     if (parseConventionalSubject(subjectLine) === null) {
       opaque.push(`${commit.sha.slice(0, 8)} ${subjectLine}`);
       continue;
@@ -209,9 +252,10 @@ export function checkAggregate(input: AggregateInput): AggregateVerdict {
   if (compareImpact(declared, required) < 0) {
     const offenders = demanding.get(required) ?? [];
     violations.push(
-      `The subject declares \`${declared}\` but the PR carries a \`${required}\` change.\n` +
-        `  A squash merge collapses these commits into the subject above, so the ` +
-        `subject is the only thing release-please will classify:\n` +
+      `The subject that will land declares \`${declared}\`, but the PR carries a ` +
+        `\`${required}\` change.\n` +
+        `  A squash merge collapses these commits into that one subject, so it is the ` +
+        `only thing release-please will classify:\n` +
         offenders.map((line) => `    ${line}`).join("\n") +
         `\n  ${remedyFor(required)}`,
     );

@@ -1463,7 +1463,7 @@ export declare function viewEmail(raw: unknown): JmapEmailView | null;
 
 ## `./ipc`
 
-3 exports.
+4 exports.
 
 ### `IPC_MAX_LINE_BYTES`
 
@@ -1471,6 +1471,18 @@ From `./ndjson-line-reader.js`.
 
 ```ts
 export declare const IPC_MAX_LINE_BYTES: number;
+```
+
+### `NdjsonFlushResult` *(type-only)*
+
+From `./ndjson-line-reader.js`.
+
+```ts
+export type NdjsonFlushResult = {
+    frames: string[];
+
+    truncated: boolean;
+};
 ```
 
 ### `NdjsonLineReader`
@@ -1482,9 +1494,13 @@ export declare class NdjsonLineReader {
     private readonly lineLimitCtor;
     private readonly decoder;
     private pending;
+    private latched;
     constructor(opts?: NdjsonLineReaderOptions);
     private throwLineTooLong;
+    private failIfLatched;
     push(chunk: Uint8Array): string[];
+
+    flushFrames(): NdjsonFlushResult;
     flush(): string[];
 }
 ```

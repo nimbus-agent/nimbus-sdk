@@ -1,0 +1,8 @@
+{
+  "description": "an incomplete multi-octet sequence at end-of-stream has no completion left to await and becomes U+FFFD",
+  "chunks": [{ "base64": "ww==" }],
+  "expect": {
+    "push": [[]],
+    "flush": { "frames": ["�"], "truncated": true }
+  }
+}

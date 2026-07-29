@@ -1,0 +1,125 @@
+{
+  "spec": "../../../wire/v1/framing.md",
+  "cases": [
+    {
+      "file": "cases/single-frame-lf.json",
+      "section": "3",
+      "reason": "the delimiter is not part of the frame"
+    },
+    {
+      "file": "cases/single-frame-crlf.json",
+      "section": "3",
+      "reason": "a CRLF sender and an LF sender must be indistinguishable"
+    },
+    {
+      "file": "cases/cr-inside-frame-preserved.json",
+      "section": "3",
+      "reason": "only the CR adjacent to the LF is a delimiter"
+    },
+    {
+      "file": "cases/frame-split-across-two-chunks.json",
+      "section": "3",
+      "reason": "a chunk boundary is not a frame boundary"
+    },
+    {
+      "file": "cases/frame-split-across-three-chunks.json",
+      "section": "3",
+      "reason": "buffering is not limited to a single carry-over"
+    },
+    {
+      "file": "cases/several-frames-in-one-chunk.json",
+      "section": "3",
+      "reason": "one push may yield many frames, in order"
+    },
+    {
+      "file": "cases/two-byte-sequence-split.json",
+      "section": "4",
+      "reason": "decoding must be stream-aware across a chunk boundary"
+    },
+    {
+      "file": "cases/emoji-split-1-3.json",
+      "section": "4",
+      "reason": "a four-octet sequence split after one octet must survive"
+    },
+    {
+      "file": "cases/emoji-split-2-2.json",
+      "section": "4",
+      "reason": "a four-octet sequence split in half must survive"
+    },
+    {
+      "file": "cases/emoji-split-3-1.json",
+      "section": "4",
+      "reason": "a four-octet sequence split before its last octet must survive"
+    },
+    {
+      "file": "cases/invalid-utf8-becomes-replacement.json",
+      "section": "4",
+      "reason": "decoding is non-fatal — ill-formed input yields U+FFFD, not an error"
+    },
+    {
+      "file": "cases/lone-continuation-byte.json",
+      "section": "4",
+      "reason": "a continuation octet without a lead octet is ill-formed, not fatal"
+    },
+    {
+      "file": "cases/bom-at-stream-start-ignored.json",
+      "section": "5",
+      "reason": "a leading BOM must not become payload content"
+    },
+    {
+      "file": "cases/frame-exactly-at-limit.json",
+      "section": "6",
+      "reason": "the limit is inclusive at 1048576 octets"
+    },
+    {
+      "file": "cases/frame-one-octet-over-limit.json",
+      "section": "6",
+      "reason": "a complete oversized frame is rejected"
+    },
+    {
+      "file": "cases/pending-over-limit-without-newline.json",
+      "section": "6",
+      "reason": "the limit also bounds the unterminated buffer — the anti-exhaustion property"
+    },
+    {
+      "file": "cases/limit-counts-octets-not-characters.json",
+      "section": "6",
+      "reason": "a reader counting characters would wrongly accept this frame"
+    },
+    {
+      "file": "cases/limit-violation-latches.json",
+      "section": "7",
+      "reason": "a violation is terminal, and frames parsed ahead of it are not delivered"
+    },
+    {
+      "file": "cases/empty-stream.json",
+      "section": "8",
+      "reason": "nothing buffered means no frame and no truncation"
+    },
+    {
+      "file": "cases/unterminated-final-frame.json",
+      "section": "8",
+      "reason": "a frame with no terminator is delivered and flagged"
+    },
+    {
+      "file": "cases/incomplete-sequence-at-eof.json",
+      "section": "8",
+      "reason": "an incomplete sequence at EOF is replaced rather than held"
+    },
+    {
+      "file": "cases/whitespace-only-frame-delivered.json",
+      "section": "9",
+      "reason": "empty means zero-length, not blank"
+    },
+    {
+      "file": "cases/blank-frames-dropped-mid-stream.json",
+      "section": "9",
+      "reason": "zero-length frames are ignored, not delivered and not an error"
+    },
+    {
+      "file": "cases/blank-remainder-dropped-at-eof.json",
+      "section": "9",
+      "reason": "the rule holds identically at end-of-stream"
+    }
+  ]
+}

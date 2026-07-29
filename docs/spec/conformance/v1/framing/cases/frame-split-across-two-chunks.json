@@ -1,0 +1,8 @@
+{
+  "description": "a frame split across two pushes emits nothing until the LF arrives",
+  "chunks": [{ "utf8": "{\"a\":1" }, { "utf8": "}\n" }],
+  "expect": {
+    "push": [[], ["{\"a\":1}"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

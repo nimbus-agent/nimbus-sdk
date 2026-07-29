@@ -1,0 +1,8 @@
+{
+  "description": "zero-length frames are ignored rather than delivered or treated as an error",
+  "chunks": [{ "utf8": "a\n\n\r\nb\n" }],
+  "expect": {
+    "push": [["a", "b"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

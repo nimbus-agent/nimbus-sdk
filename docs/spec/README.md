@@ -27,12 +27,35 @@ Draft-07 rather than 2020-12 deliberately: these schemas use only draft-07 vocab
 draft-07 has the widest support across editors and across validators in the languages the
 roadmap targets next.
 
+### `wire/v1/`
+
+The [NDJSON framing specification](./wire/v1/framing.md) — how a byte stream divides into
+frames, in RFC-2119 language: the LF delimiter and CR handling, UTF-8 decoding (non-fatal
+and stream-aware), the BOM rule, the 1 MiB limit and what makes exceeding it terminal,
+end-of-stream and truncation, empty frames, and the payload encoding.
+
+Framing only. Message envelopes, request and response shapes, and liveness belong to the
+gateway and are out of scope — a binding that implements this document can carry any of
+them.
+
 ### `conformance/v1/`
 
-The fixture corpus, with [`index.json`](./conformance/v1/index.json) as its machine-readable
-manifest — every fixture carries a shape, an expected verdict, a class, and a reason, so a
+Two corpora, because the contract has two kinds of assertion.
+
+**Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
+manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
 runner in any language consumes the corpus without parsing prose. The index is itself
 validated against [`index.schema.json`](./conformance/v1/index.schema.json).
+
+**Framing cases** — [`framing/`](./conformance/v1/framing/) is the executable form of the
+wire spec, with its own [`index.json`](./conformance/v1/framing/index.json) and
+[`case.schema.json`](./conformance/v1/framing/case.schema.json). A case is a stream rather
+than a value: it names a sequence of chunks and the frames each push must emit, so "a chunk
+is not a frame" is encoded structurally. Chunks are written as readable `utf8`, exact
+`base64` for ill-formed or deliberately split sequences, or a `repeat` descriptor so a case
+at the 1 MiB limit costs a few lines rather than megabytes. Kept separate from the document
+index deliberately: the two need different runners, and widening the published document
+index would make an older validator reject entries it cannot interpret.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
@@ -58,11 +81,9 @@ validating against an older copy is therefore unaffected by additions.
 
 ## What is not here yet
 
-- **The wire protocol.** `src/ipc/` currently provides only NDJSON line framing — UTF-8,
-  LF-delimited, trailing `\r` stripped, 1 MB per line, and blank lines dropped by `push()`
-  only (`flush()` returns whatever remains unfiltered, so a stream ending in a bare `"\r"`
-  yields `[""]`). The message envelopes and request/response shapes belong to the gateway,
-  not to this package, and are not specified here. Phase 1, box 2.
+- **Message envelopes.** The wire spec above covers framing; the request/response shapes
+  carried inside a frame belong to the gateway, not to this package, and are deliberately
+  unspecified here.
 - **Contract-version negotiation.** Nothing yet carries a contract version;
   `minNimbusVersion` is a floor, not a negotiation. Phase 1, box 5.
 - **Agent brief schemas.** The two shapes above prove the mechanism; the brief shapes
@@ -70,11 +91,22 @@ validating against an older copy is therefore unaffected by additions.
 
 ## How this stays true
 
-`scripts/schema-guard.test.ts` runs on every pull request as part of `bun run test` (see
-`.github/workflows/ci.yml`). It compares each schema's declared properties and optionality
+Two guards run on every pull request as part of `bun run test` (see
+`.github/workflows/ci.yml`).
+
+`scripts/schema-guard.test.ts` compares each schema's declared properties and optionality
 against the emitted TypeScript — descending into inline object types, so `oauth` is
 covered — and runs every fixture through `ajv`, plus through `runContractTests` for the
 `equivalence` class. A schema that drifts from the reference implementation fails CI.
+
+`scripts/framing-guard.test.ts` validates the framing corpus against its schemas and drives
+every case through `NdjsonLineReader`. It also runs under plain Node against the built
+`dist/`, via `scripts/framing-node.mjs` in the cross-OS × Node-LTS matrix: framing bottoms
+out in `TextDecoder`, whose edge behavior is not identical across runtimes, and a corpus
+other languages are told to trust must not encode one runtime's quirk.
+
+Both guards refuse to pass vacuously — an empty corpus, or a fixture on disk that no index
+lists, is itself a failure.
 
 Changes here follow the [RFC process](../GOVERNANCE.md#the-rfc-process): a change to the
 spec is a change to the contract every binding must honor.

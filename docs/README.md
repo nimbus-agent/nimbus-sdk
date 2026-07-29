@@ -41,5 +41,8 @@ A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 - [Deprecation policy](./DEPRECATION-POLICY.md) — how an export is retired
 - [Governance](./GOVERNANCE.md) · [Releasing](./RELEASING.md) · [Security](./SECURITY.md)
 - [API surface](./api-surface.md) — the generated snapshot of every public export
-- [Contract spec](./spec/) — versioned JSON Schemas and the conformance fixtures every
-  language binding validates against
+- [Contract spec](./spec/) — versioned JSON Schemas, the NDJSON
+  [wire spec](./spec/wire/v1/framing.md), and the conformance corpora every language
+  binding validates against
+- [RFCs](./rfcs/) — contract changes, with the compatibility impact and rationale that
+  produced them

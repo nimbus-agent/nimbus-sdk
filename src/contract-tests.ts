@@ -22,7 +22,9 @@ const HITL: ReadonlySet<string> = new Set(["write", "delete"]);
  * outside it: invisible, but a character.
  */
 const ALL_BLANK = /^[\p{White_Space}\uFEFF]*$/u;
-const EDGE_BLANK = /^[\p{White_Space}\uFEFF]+|[\p{White_Space}\uFEFF]+$/gu;
+
+/** The single-character form of {@link ALL_BLANK}'s class, for the scan in `trimBlank`. */
+const BLANK_CHAR = /[\p{White_Space}\uFEFF]/u;
 
 /**
  * Spelled `[0-9]` and not `\d` on purpose. JavaScript's `\d` is ASCII; Python's and Rust's
@@ -35,8 +37,31 @@ function isNonBlankString(v: unknown): v is string {
   return typeof v === "string" && !ALL_BLANK.test(v);
 }
 
+/**
+ * Trim the blank set from both ends, in one linear scan per end.
+ *
+ * Spelled as a scan rather than the obvious `/^BLANK+|BLANK+$/g` replace because that
+ * pattern's second alternative is unanchored at the start: the engine tries it at every
+ * position, and at each one inside a blank run it consumes the run greedily and then gives
+ * it back a character at a time looking for `$`. That is quadratic in the length of an
+ * *interior* run — measured at ~0.8s for 32k spaces and ~3.7s for 64k, doubling to
+ * quadruple — and every caller here feeds it an untrusted third-party manifest field.
+ *
+ * Indexing by code unit is safe for this set specifically: every character in it is BMP and
+ * none is a surrogate, so a scan can neither split a surrogate pair nor mistake half of one
+ * for a blank. It stops at the first non-blank code unit at each end, which is where a pair
+ * would begin.
+ */
 function trimBlank(s: string): string {
-  return s.replace(EDGE_BLANK, "");
+  let start = 0;
+  let end = s.length;
+  while (start < end && BLANK_CHAR.test(s.charAt(start))) {
+    start += 1;
+  }
+  while (end > start && BLANK_CHAR.test(s.charAt(end - 1))) {
+    end -= 1;
+  }
+  return s.slice(start, end);
 }
 
 /** One violated rule, attributed to the exact location that violated it. */
@@ -286,7 +311,10 @@ export interface RowDataToolCandidate {
  * difference, and only U+212A is behaviorally reachable. See `docs/spec/predicates/v1/`.
  */
 function foldAscii(name: string): string {
-  return name.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+  // `codePointAt`/`fromCodePoint` rather than the `charCode` pair purely to keep the
+  // surrogate-unsafe APIs out of the file. The match is `[A-Z]`, so the argument is always
+  // one ASCII code unit and the two spellings are identical here.
+  return name.replace(/[A-Z]/g, (c) => String.fromCodePoint((c.codePointAt(0) ?? 0) + 32));
 }
 
 function toolNameSegments(name: string): string[] {

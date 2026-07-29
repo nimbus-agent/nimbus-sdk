@@ -362,12 +362,31 @@ describe("validateManifest", () => {
   test("reports every required field when handed a non-object", () => {
     expect(validateManifest(null).map((v) => v.rule)).toContain("manifest.id.required");
   });
+
+  // The blank trim used to be `/^BLANK+|BLANK+$/g`, whose second alternative is unanchored
+  // at the start: on an interior blank run the engine consumed it at every position and gave
+  // it back a character at a time looking for `$`. That is quadratic — 64k spaces took ~3.7s,
+  // on a field that arrives from a third-party manifest. The bound is deliberately loose;
+  // the point is the difference between linear and quadratic, not a benchmark. The old form
+  // needed minutes at this size, the scan needs under a millisecond.
+  test("trims an interior blank run in linear time", () => {
+    // minNimbusVersion is the only field that reaches the trim. The run must be *interior*
+    // — leading and trailing blanks are cheap even in the old form; the quadratic case is a
+    // long run with non-blanks on both sides of it.
+    // 128k, not more: the old form needs ~12s at this size against a 2s bound, so the
+    // regression is caught decisively while a reintroduction fails fast instead of hanging
+    // CI for minutes. The scan does it in well under a millisecond.
+    const m = { ...base(), minNimbusVersion: `1.0.0${" ".repeat(128_000)}x` };
+    const started = performance.now();
+    expect(validateManifest(m)).toEqual([]);
+    expect(performance.now() - started).toBeLessThan(2_000);
+  });
 });
 
 describe("the rule table", () => {
   test("declares thirteen rules with unique ids", () => {
     const ids = MANIFEST_RULES.map((r) => r.id);
-    expect(ids.length).toBe(13);
+    expect(ids).toHaveLength(13);
     expect(new Set(ids).size).toBe(13);
   });
 

@@ -94,8 +94,6 @@ def negotiate_contract_version(
 ) -> NegotiationResult:
     """The largest major both sides speak, or a refusal."""
     for side in (local, remote):
-        if not side:
-            return NegotiationRefused(reason="no-common-version")
         for candidate in side:
             if not _is_contract_version(candidate):
                 return NegotiationRefused(reason="invalid-version")

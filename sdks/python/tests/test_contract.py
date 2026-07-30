@@ -97,6 +97,36 @@ def test_invalid_version_is_refused() -> None:
     )
 
 
+def test_validation_precedes_intersection() -> None:
+    """Every member of both sets is checked before the intersection is computed
+    (§6) — even when the sets would not have intersected anyway, and even when the
+    other side is empty. An early empty-side return would report `no-common-version`
+    for input that is actually malformed.
+
+    Neither the 18-case differential nor the conformance corpus reaches this: the
+    corpus's empty-side cases both pair the empty side with a *valid* counterpart.
+    """
+    assert negotiate_contract_version([], ["01"]) == NegotiationRefused(
+        reason="invalid-version"
+    )
+    assert negotiate_contract_version([], [1]) == NegotiationRefused(
+        reason="invalid-version"
+    )
+    assert negotiate_contract_version(["01"], []) == NegotiationRefused(
+        reason="invalid-version"
+    )
+    # Genuinely empty on both sides, or empty against a valid set, is not malformed.
+    assert negotiate_contract_version([], []) == NegotiationRefused(
+        reason="no-common-version"
+    )
+    assert negotiate_contract_version([], ["1"]) == NegotiationRefused(
+        reason="no-common-version"
+    )
+    assert negotiate_contract_version(["1"], []) == NegotiationRefused(
+        reason="no-common-version"
+    )
+
+
 def test_declaration_is_set_equality_not_containment() -> None:
     """The same members, no more and no fewer (§7.2).
 

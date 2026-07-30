@@ -11,9 +11,32 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError, version
 
+from nimbus_sdk.contract import (
+    CONTRACT_HANDSHAKE_EXIT,
+    CONTRACT_VERSION_PATTERN,
+    CONTRACT_VERSIONS,
+    NegotiationOk,
+    NegotiationRefused,
+    NegotiationResult,
+    declared_versions_match,
+    manifest_contract_versions,
+    negotiate_contract_version,
+)
+
 try:
     __version__ = version("nimbus-dev-sdk")
 except PackageNotFoundError:  # running from an uninstalled source tree
     __version__ = "0.0.0+unknown"
 
-__all__ = ["__version__"]
+__all__ = [
+    "CONTRACT_HANDSHAKE_EXIT",
+    "CONTRACT_VERSIONS",
+    "CONTRACT_VERSION_PATTERN",
+    "NegotiationOk",
+    "NegotiationRefused",
+    "NegotiationResult",
+    "__version__",
+    "declared_versions_match",
+    "manifest_contract_versions",
+    "negotiate_contract_version",
+]

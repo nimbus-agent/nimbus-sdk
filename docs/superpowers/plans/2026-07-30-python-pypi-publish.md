@@ -1306,17 +1306,13 @@ Append after the existing `publish` job. Copy every `harden-runner` and `checkou
             fi
             [ "$attempt" != 6 ] && sleep $(( attempt * 10 ))
           done
-          python - <<'PY'
-          import json, os, sys
-          data = json.load(open("/tmp/provenance.json"))
-          blob = json.dumps(data)
-          repo, sha = os.environ["EXPECTED_REPO"], os.environ["EXPECTED_SHA"]
-          if repo not in blob:
-              sys.exit(f"::error::provenance does not name {repo}")
-          if sha not in blob:
-              sys.exit(f"::error::provenance does not name commit {sha}")
-          print(f"provenance ok: names {repo} at {sha}")
-          PY
+          # NOTE: an earlier draft of this plan checked `sha not in json.dumps(doc)`.
+          # That can never pass: PEP 740 publish attestations carry a NULL predicate, so
+          # the commit SHA is absent from the provenance document entirely — verified
+          # against real PyPI data. It lives only inside the base64-DER Fulcio
+          # certificate. The check below asserts publisher fields, binds the attestation
+          # to the downloaded bytes by digest, and finds the commit in the certificate.
+          # See .github/workflows/release.yml for the authoritative implementation.
 ```
 
 - [ ] **Step 2: Confirm the publish action's pin — and mind the annotated-tag trap**

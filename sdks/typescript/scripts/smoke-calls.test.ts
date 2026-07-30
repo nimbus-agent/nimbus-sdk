@@ -1,18 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
 import { moduleKeyOf, modulesInSurface } from "./docs-modules.ts";
+import { readFromPackage } from "./paths.ts";
 import { SMOKE_CALLS } from "./smoke-calls.mjs";
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
 describe("smoke call coverage", () => {
   test("every module in the published surface has a smoke call", () => {
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const modules = modulesInSurface(entries, buildSurface(entries, readFromRoot));
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const modules = modulesInSurface(entries, buildSurface(entries, readFromPackage));
     const called = new Set(SMOKE_CALLS.map((entry) => entry.module));
 
     const uncovered = [...modules.keys()].filter((key) => !called.has(key)).sort();
@@ -25,8 +20,8 @@ describe("smoke call coverage", () => {
   });
 
   test("no smoke call names a module the surface does not reach", () => {
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const modules = modulesInSurface(entries, buildSurface(entries, readFromRoot));
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const modules = modulesInSurface(entries, buildSurface(entries, readFromPackage));
 
     const stale = SMOKE_CALLS.map((e) => e.module)
       .filter((m) => !modules.has(m))
@@ -47,8 +42,8 @@ describe("smoke call coverage", () => {
     // (scripts/api-surface.ts) distinguishes a type-only export from one that has runtime
     // behavior; a module with at least one non-type-only export must have a `run` whose
     // `toString()` mentions at least one of that module's export names.
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const surfaces = buildSurface(entries, readFromRoot);
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const surfaces = buildSurface(entries, readFromPackage);
     const byLabel = new Map(entries.map((entry) => [entry.label, entry.file]));
 
     const namesByModule = new Map<string, string[]>();

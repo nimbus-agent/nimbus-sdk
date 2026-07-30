@@ -20,13 +20,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import Ajv from "ajv";
 import { findRowDataTools, ROW_DATA_TOOL_SEGMENTS } from "../src/contract-tests.ts";
 import { isHitlRequest } from "../src/hitl-request.ts";
+import { repoRoot } from "./paths.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
 
 const PREDICATES_DIR = "docs/spec/predicates/v1";

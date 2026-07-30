@@ -15,6 +15,7 @@ bun install
 ## Develop
 
 ```bash
+cd sdks/typescript
 bun run typecheck   # tsc --noEmit (strict)
 bun run lint        # biome check src/ scripts/ examples/
 bun run test        # bun test
@@ -28,6 +29,7 @@ entry point. CI fails when it is stale, so if you add, remove, rename, or change
 the type of an export:
 
 ```bash
+cd sdks/typescript
 bun run build && bun run api:surface
 ```
 
@@ -48,14 +50,15 @@ that this file will not show; review those by hand.
 
 ## Adding a public export
 
-A new export must be documented before it can ship. `scripts/docs-coverage.test.ts`
+A new export must be documented before it can ship. `sdks/typescript/scripts/docs-coverage.test.ts`
 resolves every export to its source module and fails the pull request unless some page in
 [`docs/modules/`](./docs/modules/) claims that module in its `<!-- covers: ... -->`
 comment. If your export lives in a module that already has a page, the guard is already
 satisfied — but write the prose anyway, since that is the point of the page.
 
-Code examples in `docs/modules/` and `README.md` are typechecked against the built
-`dist/` by `scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
+Code examples in `docs/modules/` and [`sdks/typescript/README.md`](./sdks/typescript/README.md)
+are typechecked against the built `dist/` by
+`sdks/typescript/scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
 standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, its
 `./testing` and `./ipc` entry points, or `node:` builtins. Use ` ```text ` for anything
 that is not meant to compile.
@@ -78,7 +81,7 @@ at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
   least one minor shipped carrying the marker, removed only in a major.
 - **No `any`; TypeScript strict.** Use `unknown` for data crossing a boundary and
   narrow with a type guard. Biome enforces the rules in `biome.json`, including
-  `noExplicitAny` and `noConsole` in `src/`.
+  `noExplicitAny` and `noConsole` in `sdks/typescript/src/`.
 - **Public surface is the `exports` map.** The package exposes `.`, `./testing`,
   and `./ipc`. Changing an exported type is a semver-relevant change — bump
   accordingly (Conventional Commits drive release-please).
@@ -120,6 +123,7 @@ The `commit-guard` CI job enforces this on every PR targeting `main`. To check a
 pushing:
 
 ```bash
+cd sdks/typescript
 GITHUB_REPOSITORY=nimbus-agent/nimbus-sdk GH_TOKEN=$(gh auth token) \
   bun run scripts/conventional-commit-guard.ts --pr <number>
 ```

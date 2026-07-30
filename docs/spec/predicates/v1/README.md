@@ -10,9 +10,9 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 The TypeScript reference implementation is
-[`src/hitl-request.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/src/hitl-request.ts)
+[`sdks/typescript/src/hitl-request.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/typescript/src/hitl-request.ts)
 and
-[`src/contract-tests.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/src/contract-tests.ts);
+[`sdks/typescript/src/contract-tests.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/typescript/src/contract-tests.ts);
 the executable form of this document is the corpus at
 [`../../conformance/v1/predicates/`](../../conformance/v1/predicates/). Where prose and
 corpus appear to disagree, the corpus is the tiebreaker — it is what CI runs.

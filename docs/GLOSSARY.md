@@ -16,7 +16,7 @@ briefs + guards. Small on purpose so many things can depend on it safely.
 
 **Plugin API v1** — the frozen, semver-guaranteed surface first stabilized in
 `1.0.0`. Removing an export or adding a required field is a major bump; see
-[`../CHANGELOG.md`](../CHANGELOG.md).
+[`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md).
 
 **`ExtensionManifest`** — the declared identity + capabilities of a connector /
 extension (id, version, permissions, `hitlRequired`, entrypoint, runtime).
@@ -41,8 +41,8 @@ need, and drives consent. Lives in the
 [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, **not** here.
 
 **Wire protocol** — the language-agnostic message framing between a connector and
-the gateway: NDJSON (one JSON value per line) over stdio, via the `src/ipc/` helpers
-(shipped as the `@nimbus-dev/sdk/ipc` export).
+the gateway: NDJSON (one JSON value per line) over stdio, via the
+`sdks/typescript/src/ipc/` helpers (shipped as the `@nimbus-dev/sdk/ipc` export).
 Being a wire protocol is what makes the SDK polyglot-able.
 
 **HITL (human-in-the-loop)** — the consent mechanism. A tool returns a `HitlRequest`

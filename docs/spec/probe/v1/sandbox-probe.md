@@ -15,9 +15,9 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 The TypeScript reference implementation is
-[`src/testing/sandbox-probe.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/src/testing/sandbox-probe.ts)
+[`sdks/typescript/src/testing/sandbox-probe.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/typescript/src/testing/sandbox-probe.ts)
 and
-[`src/testing/sandbox-contract.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/src/testing/sandbox-contract.ts);
+[`sdks/typescript/src/testing/sandbox-contract.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/typescript/src/testing/sandbox-contract.ts);
 the machine-readable form of §2–§4 is
 [`probe-protocol.json`](./probe-protocol.json), and the executable form of §4–§5 is the
 corpus at [`../../conformance/v1/sandbox/`](../../conformance/v1/sandbox/). Where prose and

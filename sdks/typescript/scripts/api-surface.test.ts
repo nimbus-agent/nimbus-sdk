@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import {
   buildSurface,
   collectDeprecations,
@@ -16,6 +15,7 @@ import {
   splitTopLevelStatements,
   stripComments,
 } from "./api-surface.js";
+import { packageRoot, readFromPackage, readFromRepo } from "./paths.ts";
 
 describe("normalizeEol", () => {
   test("converts CRLF and lone CR to LF", () => {
@@ -496,19 +496,17 @@ describe("renderSurface", () => {
 
 describe("the committed API surface", () => {
   // Same root anchoring as the CLI, so `bun test` works from any cwd.
-  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
-  const pkgText = readFromRoot("package.json");
+  const pkgText = readFromPackage("package.json");
 
   test("dist/ has been built", () => {
     expect(
-      existsSync(join(repoRoot, "dist/index.d.ts")),
+      existsSync(join(packageRoot, "dist/index.d.ts")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });
 
   test("no entry point is empty — an empty surface would pass vacuously forever", () => {
-    for (const surface of buildSurface(collectEntryPoints(pkgText), readFromRoot)) {
+    for (const surface of buildSurface(collectEntryPoints(pkgText), readFromPackage)) {
       expect(
         surface.exports.length,
         `exports["${surface.label}"] extracted zero exports — the extractor is broken`,
@@ -517,8 +515,8 @@ describe("the committed API surface", () => {
   });
 
   test("matches docs/api-surface.md", () => {
-    const actual = renderSurface(buildSurface(collectEntryPoints(pkgText), readFromRoot));
-    const committed = normalizeEol(readFromRoot(GOLDEN_PATH));
+    const actual = renderSurface(buildSurface(collectEntryPoints(pkgText), readFromPackage));
+    const committed = normalizeEol(readFromRepo(GOLDEN_PATH));
 
     if (actual !== committed) {
       const actualLines = actual.split("\n");
@@ -537,7 +535,7 @@ describe("the committed API surface", () => {
   });
 
   test("covers every exports entry point", () => {
-    const committed = readFromRoot(GOLDEN_PATH);
+    const committed = readFromRepo(GOLDEN_PATH);
     for (const entry of collectEntryPoints(pkgText)) {
       expect(committed, `${GOLDEN_PATH} has no section for exports["${entry.label}"]`).toContain(
         `## \`${entry.label}\``,
@@ -548,7 +546,7 @@ describe("the committed API surface", () => {
   test("never bakes an unresolved-declaration placeholder into the committed baseline", () => {
     // A `(declaration not found)` sentinel here would mean some export's signature is
     // silently unguarded — see DECLARATION_NOT_FOUND and the CLI's pre-write refusal.
-    const committed = readFromRoot(GOLDEN_PATH);
+    const committed = readFromRepo(GOLDEN_PATH);
     expect(committed).not.toContain(DECLARATION_NOT_FOUND);
   });
 });

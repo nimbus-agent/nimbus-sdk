@@ -15,8 +15,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import Ajv from "ajv";
 import { NdjsonLineReader } from "../src/ipc/index.ts";
 import {
@@ -26,8 +25,7 @@ import {
   loadIndex,
   readCorpusJson,
 } from "./framing-corpus.mjs";
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+import { repoRoot } from "./paths.ts";
 
 const INDEX_PATH = `${CORPUS_DIR}/index.json`;
 const INDEX_SCHEMA_PATH = `${CORPUS_DIR}/index.schema.json`;

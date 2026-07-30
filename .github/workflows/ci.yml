@@ -20,6 +20,9 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: sdks/typescript
     timeout-minutes: 20
     steps:
       # harden-runner supports egress *blocking* on Linux only; Windows and macOS are
@@ -74,7 +77,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
-          path: dist/
+          # `uses:` steps ignore defaults.run.working-directory — this path is repo-relative.
+          path: sdks/typescript/dist/
           retention-days: 1
 
   node-smoke:
@@ -113,16 +117,16 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: dist
-          path: dist
+          path: sdks/typescript/dist
 
       - name: Smoke the published ESM entry points
-        run: node scripts/smoke-esm.mjs
+        run: node sdks/typescript/scripts/smoke-esm.mjs
 
       # The Bun guard proves src/ conforms; this proves the artifact consumers receive
       # conforms on the runtime they run it under. Not the same claim: framing bottoms
       # out in TextDecoder, whose edge behavior differs between Bun and Node.
       - name: Run the framing conformance corpus
-        run: node scripts/framing-node.mjs
+        run: node sdks/typescript/scripts/framing-node.mjs
 
   # release-please reads the commits that land on `main`, and this repo merges by squash
   # only — so for a PR that collects a stack, the PR title is the only subject the parser
@@ -164,7 +168,7 @@ jobs:
 
       # No `bun install` — the guard imports nothing outside scripts/.
       - name: Check the subject that will land on main
-        run: bun run scripts/conventional-commit-guard.ts
+        run: bun run sdks/typescript/scripts/conventional-commit-guard.ts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

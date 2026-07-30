@@ -15,7 +15,9 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 
-const CORPUS_URL = new URL("../docs/spec/conformance/v1/framing/", import.meta.url);
+// scripts/ -> sdks/typescript/ -> sdks/ -> repo root. Kept as a URL (not paths.ts) because
+// this file is loaded by plain Node in the node-smoke job, not by Bun.
+const CORPUS_URL = new URL("../../../docs/spec/conformance/v1/framing/", import.meta.url);
 
 /** Repo-relative, for error messages that a reader can paste into an editor. */
 export const CORPUS_DIR = "docs/spec/conformance/v1/framing";

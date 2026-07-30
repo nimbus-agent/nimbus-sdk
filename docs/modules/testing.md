@@ -15,9 +15,10 @@ manifest's declared permissions against what a forked probe actually observes.
 ## Constraints that are load-bearing
 
 - **`MockGateway` is reachable from both entry points, and that has bitten before.**
-  `src/index.ts` re-exports it, so [`api-surface.md`](../api-surface.md) lists `MockGateway`
-  under `.` as well as under `./testing`, and importing the package root pulls
-  `sandbox-contract.js` in with it. The module comment in `src/testing/sandbox-contract.ts`
+  `sdks/typescript/src/index.ts` re-exports it, so [`api-surface.md`](../api-surface.md) lists
+  `MockGateway` under `.` as well as under `./testing`, and importing the package root pulls
+  `sandbox-contract.js` in with it. The module comment in
+  `sdks/typescript/src/testing/sandbox-contract.ts`
   records the consequence: a bundler that inlined the source baked the build machine's
   absolute path into `import.meta.url`, and `require("@nimbus-dev/client")` then threw
   `ERR_INVALID_FILE_URL_PATH` on every machine that was not the CI runner — while passing
@@ -44,7 +45,8 @@ manifest's declared permissions against what a forked probe actually observes.
 - **The probe is an inter-process protocol, and it is written down.**
   [`docs/spec/probe/v1/`](../spec/probe/v1/sandbox-probe.md) specifies the `--probe=`/`--arg=`
   syntax, the four exit codes, the two errno sets, and the harness decision table; a binding
-  in another language ships its own probe against it. `src/testing/sandbox-protocol.ts` holds
+  in another language ships its own probe against it.
+  `sdks/typescript/src/testing/sandbox-protocol.ts` holds
   the same names and numbers for the TypeScript side, and a drift guard keeps the two equal.
   **`runSandboxContractTests` does not sandbox-wrap the probe** — it spawns your runtime
   directly — so a pass proves the harness's decision logic, never that a sandbox enforces
@@ -79,8 +81,9 @@ manifest's declared permissions against what a forked probe actually observes.
   see the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
 - **Bundling the SDK breaks the default probe path; `probePath` is the fix.** By default the
-  probe is resolved beside this module via `import.meta.url`, which holds for `src/` under
-  the `bun` condition and for `dist/` from the published package. A bundler that inlines the
+  probe is resolved beside this module via `import.meta.url`, which holds for
+  `sdks/typescript/src/` under the `bun` condition and for `dist/` from the published
+  package. A bundler that inlines the
   module replaces `import.meta.url` with the build machine's path, and the resolution throws
   `ERR_INVALID_FILE_URL_PATH`. Pass `probePath` with the probe's real location. It is a
   parameter, not an environment variable, on purpose. Point it at

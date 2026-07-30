@@ -16,19 +16,24 @@
 import type { EntryPoint } from "./api-surface.ts";
 import { normalizeEol } from "./api-surface.ts";
 
-/** Gitignored scratch directory, at the repo root so `tsc` reaches `node_modules/@types`. */
+/** Gitignored scratch directory, at the package root so `tsc` reaches `node_modules/@types`. */
 export const SCRATCH_DIR = ".docs-snippets";
 
 /**
- * The documents whose fences are typechecked, repo-relative.
+ * The documents whose fences are typechecked.
  *
- * `extra` is resolved from the repository root, so `README.md` names the root readme only.
- * `docs/README.md` is a different document and is listed separately: it has no `ts` fence
- * today, and this is what makes sure the first one added is checked rather than skipped.
+ * `modulesDir` and `extra` are repo-root-relative — resolve with `joinRepo` / `readFromRepo`
+ * from `./paths.ts`. `packageExtra` is package-root-relative — resolve with `joinPackage` /
+ * `readFromPackage` instead: `README.md` there names the npm package's own README, which
+ * moved with the package and is no longer reachable from the repository root.
  */
 export const SNIPPET_SOURCES = {
+  /** Repo-root-relative. */
   modulesDir: "docs/modules",
-  extra: ["README.md", "docs/README.md"],
+  /** Repo-root-relative. */
+  extra: ["docs/README.md"],
+  /** Package-root-relative — the npm README, which moved with the package. */
+  packageExtra: ["README.md"],
 } as const;
 
 export type Snippet = {

@@ -15,7 +15,10 @@
 import type { EntryPoint, EntrySurface } from "./api-surface.ts";
 import { normalizeEol, resolveSpecifier } from "./api-surface.ts";
 
-/** Where module pages live, repo-relative, always with `/`. */
+/**
+ * Where module pages live, repo-relative, always with `/`.
+ * Repo-root-relative — resolve with `joinRepo` / `readFromRepo` from `./paths.ts`.
+ */
 export const MODULES_DIR = "docs/modules";
 
 /**

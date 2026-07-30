@@ -43,7 +43,7 @@ briefs and their guards. Today it is expressed in TypeScript; the direction is t
 lift it *above* any single language — published JSON Schemas for the manifest and
 item shapes plus a written IPC wire-protocol spec — so TypeScript becomes one
 *binding* of the contract rather than the contract itself. The v1 surface stays
-semver-honest (see [`../CHANGELOG.md`](../CHANGELOG.md)).
+semver-honest (see [`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md)).
 
 ### 2. Polyglot SDKs — author in any language
 
@@ -167,7 +167,8 @@ bind to.*
 
 - [x] Publish **JSON Schemas** for `ExtensionManifest` and `NimbusItem`, versioned
   alongside the package, into [`spec/`](./spec/) — *Pillars 1, 7*
-- [x] Write the **IPC wire-protocol spec** for the NDJSON framing in `src/ipc/`, published
+- [x] Write the **IPC wire-protocol spec** for the NDJSON framing in
+  `sdks/typescript/src/ipc/`, published
   as [`spec/wire/v1/framing.md`](./spec/wire/v1/framing.md) with a behavioral conformance
   corpus gating CI under both Bun and Node — *Pillar 1*
 - [x] Extract the **conformance suite** as language-neutral fixtures, seeded from

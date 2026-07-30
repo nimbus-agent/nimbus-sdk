@@ -31,9 +31,9 @@
  * only ever catches an add, remove, rename, or change to an export's own declaration text.
  */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { joinRepo, readFromPackage } from "./paths.ts";
 
 /** Collapse CRLF and lone CR to LF, so a Windows checkout cannot shift the baseline. */
 export function normalizeEol(text: string): string {
@@ -676,10 +676,10 @@ if (import.meta.main) {
   // Anchor every path to the repo root so the command works from any cwd. Only the
   // I/O boundary is absolute — the pure functions keep operating on repo-relative
   // paths, so nothing machine-specific can reach the golden file.
-  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-  const readFromRoot: ReadFile = (path) => readFileSync(join(repoRoot, path), "utf8");
-
-  const surfaces = buildSurface(collectEntryPoints(readFromRoot("package.json")), readFromRoot);
+  const surfaces = buildSurface(
+    collectEntryPoints(readFromPackage("package.json")),
+    readFromPackage,
+  );
 
   // An empty entry point means the extractor is broken, not that the surface shrank.
   // Writing that baseline would make the guard pass vacuously from then on — the one
@@ -713,7 +713,7 @@ if (import.meta.main) {
     );
   }
 
-  writeFileSync(join(repoRoot, GOLDEN_PATH), renderSurface(surfaces), "utf8");
+  writeFileSync(joinRepo(GOLDEN_PATH), renderSurface(surfaces), "utf8");
   const total = surfaces.reduce((sum, surface) => sum + surface.exports.length, 0);
   process.stdout.write(
     `wrote ${GOLDEN_PATH} — ${total} exports across ${surfaces.length} entry points\n`,

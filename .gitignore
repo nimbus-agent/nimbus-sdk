@@ -1,6 +1,15 @@
 node_modules/
 dist/
 coverage/
+sdks/python/dist/
 *.tsbuildinfo
 .DS_Store
 .docs-snippets/
+
+# Git worktrees live inside the repo tree, so without these an entire worktree
+# shows up as untracked content and `git add -A` will happily commit it.
+.claude/worktrees/
+.worktrees/
+
+# Subagent-driven-development scratch (ledger, briefs, review packages).
+.superpowers/

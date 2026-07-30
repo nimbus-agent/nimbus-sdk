@@ -10,9 +10,9 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 The TypeScript reference implementation is
-[`src/contract-version.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/src/contract-version.ts)
+[`sdks/typescript/src/contract-version.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/typescript/src/contract-version.ts)
 (the algorithm) and
-[`src/ipc/hello.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/src/ipc/hello.ts)
+[`sdks/typescript/src/ipc/hello.ts`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/typescript/src/ipc/hello.ts)
 (the frame); the executable form of this document is the corpus at
 [`../../conformance/v1/negotiation/`](../../conformance/v1/negotiation/). Where prose and
 corpus appear to disagree, the corpus is the tiebreaker — it is what CI runs.
@@ -268,7 +268,8 @@ not in this package.
 **No proof that any process exits `20`.** This package performs no handshake of its own and
 owns no process to exit. The conformance corpus publishes the exit code as **data** on every
 refusal case instead, which is what holds a binding that *does* own a process to the correct
-number, and `scripts/negotiation-guard.test.ts` pins the runtime constant against drift.
+number, and `sdks/typescript/scripts/negotiation-guard.test.ts` pins the runtime constant
+against drift.
 Nothing in this package, or in its test suite, has ever actually exited with this code.
 
 **No capability negotiation.** A contract version is a major, not a feature list. Negotiating

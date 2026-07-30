@@ -21,8 +21,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import Ajv from "ajv";
 import {
   CONTRACT_HANDSHAKE_EXIT,
@@ -33,8 +32,8 @@ import {
   negotiateContractVersion,
 } from "../src/contract-version.ts";
 import { encodeHello, type HelloRefusalReason, parseHello } from "../src/ipc/hello.ts";
+import { repoRoot } from "./paths.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
 const readText = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 

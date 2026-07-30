@@ -4,7 +4,7 @@
     {
       "file": "cases/negotiate-v1-both.json",
       "section": "§6",
-      "reason": "The only agreement possible today, and the one every binding must reach."
+      "reason": "[\"1\"] is what a manifest omitting contractVersions resolves to, so this pins the absence-defaults-to-[\"1\"] assertion, not only that agreement is possible."
     },
     {
       "file": "cases/negotiate-largest-common.json",
@@ -122,6 +122,11 @@
       "reason": "A Unicode digit escaped inside the frame string must still be refused as invalid-version."
     },
     {
+      "file": "cases/hello-leading-zero.json",
+      "section": "§5",
+      "reason": "A leading zero in the announced set exercises the frame parser's own validation, distinct from the negotiate-kind case of the same shape."
+    },
+    {
       "file": "cases/declaration-match.json",
       "section": "§7",
       "reason": "The running peer announces exactly what its manifest declared."
@@ -145,6 +150,11 @@
       "file": "cases/declaration-absent-superset.json",
       "section": "§7",
       "reason": "The absent-manifest default is not a license for the running peer to announce more."
+    },
+    {
+      "file": "cases/declaration-manifest-not-array.json",
+      "section": "§7",
+      "reason": "A non-array manifest declaration reaches the comparison rather than being dropped, and case.schema.json's own manifest property promises exactly this is refused."
     }
   ]
 }

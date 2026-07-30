@@ -1375,6 +1375,8 @@ git commit -m "ci: publish the Python SDK to PyPI tokenlessly with attestations"
 
 - [ ] **Step 1: `docs/RELEASING.md` — Python moves from planned to shipping**
 
+**First, a stale line the release-config task left behind.** `docs/RELEASING.md:50` still reads *"Publish (only when `releases_created == true`)"*, describing a gate that no longer exists — the npm publish job is now gated per-component on `ts_released`. Correct it while you are in the file; it is the kind of inaccuracy that teaches the next reader the wrong mental model of how releases fire.
+
 In the at-a-glance table, change the Python row's `*(planned)*` to `*(shipping)*`. Then replace the "## Python → PyPI (planned)" section heading with "## Python → PyPI (implemented today)" and rewrite its body to describe what exists: the `python` component in `release-please-config.json`, `python -m build`, `pypa/gh-action-pypi-publish` with `attestations: true` and no password, the OIDC/version preflight, and the post-publish download plus PEP 740 provenance check against this repo and commit. State that tags are `python-vX.Y.Z`.
 
 - [ ] **Step 2: `docs/ROADMAP.md` — tick three boxes, honestly**

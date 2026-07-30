@@ -30,9 +30,22 @@ Changelog = "https://github.com/nimbus-agent/nimbus-sdk/blob/main/sdks/python/CH
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/nimbus_sdk"]
+# Hatchling selects files by VCS: anything git ignores is excluded, and `packages`
+# only narrows within that tracked set. `_data/` is generated at build time AND
+# gitignored, so without this it is silently absent from the built distribution —
+# producing a package that installs cleanly, imports fine, and carries no contract
+# data at all. `artifacts` is the escape hatch for exactly this case.
+artifacts = ["src/nimbus_sdk/_data/**"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.sdist]
 include = ["src/", "tests/", "README.md", "CHANGELOG.md", "pyproject.toml", "hatch_build.py"]
+artifacts = ["src/nimbus_sdk/_data/**"]
+
+[tool.hatch.build.targets.sdist.hooks.custom]
+path = "hatch_build.py"
 
 [tool.ruff]
 line-length = 88
@@ -44,7 +57,8 @@ select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests"]
+files = ["src", "tests", "hatch_build.py"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["slow: builds a distribution and installs it into a throwaway venv"]

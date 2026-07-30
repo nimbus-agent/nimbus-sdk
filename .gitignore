@@ -23,3 +23,6 @@ __pycache__/
 .ruff_cache/
 *.egg-info/
 .venv/
+
+# Copied from docs/spec/ at build time by sdks/python/hatch_build.py.
+sdks/python/src/nimbus_sdk/_data/

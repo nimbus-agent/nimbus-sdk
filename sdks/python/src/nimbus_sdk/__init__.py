@@ -22,6 +22,7 @@ from nimbus_sdk.contract import (
     manifest_contract_versions,
     negotiate_contract_version,
 )
+from nimbus_sdk.spec import load_corpus, load_schema, spec_root
 
 try:
     __version__ = version("nimbus-dev-sdk")
@@ -37,6 +38,9 @@ __all__ = [
     "NegotiationResult",
     "__version__",
     "declared_versions_match",
+    "load_corpus",
+    "load_schema",
     "manifest_contract_versions",
     "negotiate_contract_version",
+    "spec_root",
 ]

@@ -21,6 +21,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.extensions import UnrecognizedExtension
 from cryptography.x509.oid import NameOID
+from pyasn1.codec.der.encoder import encode as der_encode
+from pyasn1.type.char import UTF8String
 from pypi_attestations import Provenance
 from sigstore.verify.policy import AllOf
 from verify_publish import (
@@ -90,6 +92,20 @@ def test_a_certificate_without_the_environment_extension_raises() -> None:
         certificate_environment(_certificate_without_extensions())
 
 
+def test_trailing_octets_after_the_utf8string_are_rejected() -> None:
+    """A well-formed UTF8String followed by extra bytes must not pass silently.
+
+    `der_decode` returns whatever it manages to parse plus the unconsumed remainder;
+    without checking that remainder, a value that decodes to the expected 'pypi' but
+    carries trailer bytes after it — a malformed or tampered extension — would verify
+    as if it were clean.
+    """
+    raw = bytes(der_encode(UTF8String(ENVIRONMENT))) + b"\x00\x01"
+    certificate = _certificate_with_environment_extension(raw)
+    with pytest.raises(VerifyError, match="trailing octets"):
+        certificate_environment(certificate)
+
+
 def test_expected_policy_names_this_repository_workflow_and_commit() -> None:
     """The policy is built from OUR values, never from PyPI's publisher object.
 
@@ -134,6 +150,10 @@ def test_the_registry_publisher_is_never_used_as_input() -> None:
 
     accessed = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
     assert "publisher" not in accessed, "PyPI's publisher object must never be read"
+    assert "GitHubPublisher" not in accessed, (
+        "the publisher policy must not be reached via attribute access either, e.g. "
+        "`import pypi_attestations as pa; pa.GitHubPublisher(...)`"
+    )
 
 
 def _certificate_without_extensions() -> x509.Certificate:
@@ -149,5 +169,28 @@ def _certificate_without_extensions() -> x509.Certificate:
         .serial_number(x509.random_serial_number())
         .not_valid_before(start)
         .not_valid_after(start + datetime.timedelta(days=1))
+        .sign(key, hashes.SHA256())
+    )
+
+
+def _certificate_with_environment_extension(raw: bytes) -> x509.Certificate:
+    """A minimal self-signed certificate carrying `raw` as the environment extension.
+
+    `raw` is placed verbatim, unlike the real Fulcio certificate the `certificate`
+    fixture loads — this lets tests hand `certificate_environment` a value crafted
+    to be malformed in a specific, controlled way.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "test")])
+    start = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
+    return (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(start)
+        .not_valid_after(start + datetime.timedelta(days=1))
+        .add_extension(x509.UnrecognizedExtension(ENVIRONMENT_OID, raw), critical=False)
         .sign(key, hashes.SHA256())
     )

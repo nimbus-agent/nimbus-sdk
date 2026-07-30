@@ -83,6 +83,25 @@ def test_directory_members_are_not_counted_as_files(tmp_path: Path) -> None:
     assert sdist_data_files(str(path)) == names
 
 
+def test_directory_members_are_not_counted_as_files_in_the_wheel(
+    tmp_path: Path,
+) -> None:
+    """A zip directory entry must not inflate the wheel's file set.
+
+    ZIP marks a directory member by a trailing slash on its name
+    (`ZipInfo.is_dir()`), the mirror of the tar `DIRTYPE` case
+    `test_directory_members_are_not_counted_as_files` covers for the sdist side.
+    """
+    names = _data_set()
+    path = tmp_path / WHEEL_NAME
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr("nimbus_sdk/__init__.py", "")
+        archive.writestr("nimbus_sdk/_data/spec/", "")
+        for member in sorted(names):
+            archive.writestr(f"nimbus_sdk/_data/{member}", "{}")
+    assert wheel_data_files(str(path)) == names
+
+
 def test_matching_distributions_are_accepted() -> None:
     """The happy path, which is what makes the mutation tests below mean anything.
 

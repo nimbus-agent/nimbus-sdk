@@ -1,5 +1,17 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.10.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.9.0...sdk-v1.10.0) (2026-07-30)
+
+
+### Features
+
+* contract-version negotiation (RFC-0005) ([#67](https://github.com/nimbus-agent/nimbus-sdk/issues/67)) ([5c7fa9d](https://github.com/nimbus-agent/nimbus-sdk/commit/5c7fa9daf027fc232faba725008717c7e41f9c9a))
+
+
+### Bug Fixes
+
+* **sdk:** trim blank edges in linear time instead of quadratic ([#65](https://github.com/nimbus-agent/nimbus-sdk/issues/65)) ([77fac41](https://github.com/nimbus-agent/nimbus-sdk/commit/77fac416aa1a97032a12d04a94e5d400eeef9238)), closes [#64](https://github.com/nimbus-agent/nimbus-sdk/issues/64)
+
 ## [1.9.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.8.1...sdk-v1.9.0) (2026-07-29)
 
 

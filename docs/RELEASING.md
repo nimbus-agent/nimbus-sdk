@@ -21,20 +21,21 @@ Whatever the language, an official Nimbus SDK is released so that:
    `persist-credentials: false`, least-privilege `permissions`.
 5. **It is verified after publish.** The job re-fetches the released artifact from
    the registry and verifies it before going green — because most registries cannot
-   unpublish, so a post-publish failure must *report* damage, not cause it. The
-   strength of that check follows what each ecosystem offers: npm verifies the
-   registry signature and provenance attestation **cryptographically**
-   (`npm audit signatures`); PyPI's is currently a **claims check** — the publisher
-   identity in PyPI's integrity document, the commit in the signing certificate, and
-   a SHA-256 match against the bytes downloaded — with cryptographic verification via
-   `pypi-attestations` a tracked follow-up.
+   unpublish, so a post-publish failure must *report* damage, not cause it. Both
+   ecosystems verify **cryptographically**: npm through `npm audit signatures`, PyPI
+   through [`pypi-attestations`](https://github.com/trailofbits/pypi-attestations),
+   which checks the PEP 740 attestation's Sigstore signature against a policy naming
+   this issuer, this repository, this workflow ref, and this commit. In both cases the
+   expected values are derived from the running job's **own** GitHub context, never
+   from the registry's metadata — verifying a registry's claims against those same
+   claims would prove nothing.
 
 ### At a glance
 
 | SDK | Registry | Automation | Publish auth | Provenance | Post-publish verify |
 |---|---|---|---|---|---|
 | **TypeScript** *(shipping)* | npm | release-please `node` | OIDC Trusted Publisher — no token | `npm publish --provenance` (Sigstore) | install from npm + `npm audit signatures` + provenance attestation check |
-| **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | install from PyPI + verify attestation claims (not yet cryptographic) |
+| **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | download from PyPI + `pypi-attestations` **Sigstore verification** against a self-derived policy |
 | **Go** *(planned)* | none — module proxy | release-please `go` → semver tag + GitHub Release | tag push — no registry credential | signed tags + SLSA provenance on release artifacts | `GOSUMDB` checksum DB + `go mod verify` |
 
 ## TypeScript → npm (implemented today)
@@ -108,10 +109,22 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
    re-run as many times as propagation lag requires.
    - **Download** the published wheel from `pypi.org/simple` by exact version,
      retried to ride out CDN propagation lag.
-   - **Verify PEP 740 provenance** from PyPI's integrity API: the attested subject
-     digest (sha256) matches the downloaded wheel's bytes, PyPI's `publisher` object
-     in the integrity document names this repo, `release.yml`, and the `pypi`
-     environment, and the Fulcio signing certificate names this commit.
+   - **Verify the PEP 740 attestation cryptographically**
+     ([`sdks/python/scripts/verify_publish.py`](../sdks/python/scripts/verify_publish.py)),
+     using a `pypi-attestations` toolchain pinned by hash in
+     [`verify-requirements.txt`](../sdks/python/verify-requirements.txt). The Sigstore
+     signature is checked against a policy composed from this run's own context — the
+     GitHub OIDC issuer, `https://github.com/$GITHUB_REPOSITORY`, the Build Config URI
+     `https://github.com/$GITHUB_WORKFLOW_REF`, and `$GITHUB_SHA` — plus the attested
+     subject name and digest against the downloaded bytes.
+
+     Two details are load-bearing and easy to lose in a refactor. PyPI's own `publisher`
+     object is **not** an input: deriving the expectation from the document being checked
+     would prove nothing. And the GitHub **environment** is read from the signing
+     certificate rather than through the publisher policy, because
+     `pypi-attestations`' `GitHubPublisher` does not enforce it — a wrong environment
+     verifies successfully. `release-workflow-guard.test.ts` keeps the expected value in
+     step with `publish-python`'s `environment:` at PR time.
 
 This is the infrastructure half of
 [roadmap Phase 2](./ROADMAP.md#phase-2--prove-polyglot-with-python) — a Python

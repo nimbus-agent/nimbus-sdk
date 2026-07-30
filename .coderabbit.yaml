@@ -13,9 +13,9 @@ reviews:
     base_branches:
       - main
   path_filters:
-    - "!dist/**"
+    - "!sdks/typescript/dist/**"
   path_instructions:
-    - path: "src/**/*.ts"
+    - path: "sdks/typescript/src/**/*.ts"
       instructions: >-
         This is @nimbus-dev/sdk — the MIT-licensed, DEPENDENCY-FREE authoring
         contract that Nimbus MCP connectors/extensions compile against. Flag: any

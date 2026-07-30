@@ -12,8 +12,12 @@ test("package identity is standalone nimbus-sdk", () => {
   expect(pkg.license).toBe("MIT");
   expect(pkg.repository.url).toBe("git+https://github.com/nimbus-agent/nimbus-sdk.git");
   // Bracket access: noPropertyAccessFromIndexSignature forbids dot access on an
-  // index signature, and these two are asserted absent so they are not on the type.
-  expect((pkg.repository as Record<string, unknown>)["directory"]).toBeUndefined();
+  // index signature.
+  // The package lives in a monorepo subdirectory, so `directory` tells npm and GitHub
+  // where its README and sources actually are. It was asserted absent while the package
+  // sat at the repository root; the move to sdks/typescript inverted that.
+  expect((pkg.repository as Record<string, unknown>)["directory"]).toBe("sdks/typescript");
+  // Asserted absent: enforces the dependency-free rule for the published surface.
   expect((pkg as Record<string, unknown>)["dependencies"]).toBeUndefined();
 });
 

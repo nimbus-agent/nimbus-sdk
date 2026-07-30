@@ -4,7 +4,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nimbus-agent/nimbus-sdk.git"
+    "url": "git+https://github.com/nimbus-agent/nimbus-sdk.git",
+    "directory": "sdks/typescript"
   },
   "type": "module",
   "engines": {

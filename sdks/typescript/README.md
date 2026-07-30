@@ -67,30 +67,34 @@ Changing an exported type is a semver-relevant change.
 
 ## Documentation
 
-- [Documentation index](../../docs/README.md) — every module, every public export, and the
-  runnable examples.
-- [Roadmap](../../docs/ROADMAP.md) — the 9 pillars and the phased plan to make the SDK a
-  language-neutral, batteries-included authoring contract for all of Nimbus.
-- [Architecture](../../docs/ARCHITECTURE.md) — how the SDK is structured today and the
-  spec-first / polyglot target.
-- [Releasing](../../docs/RELEASING.md) — how each language SDK is published (npm today;
-  PyPI + Go module proxy planned) under one set of release-parity guarantees.
-- [Security](../../docs/SECURITY.md) — reporting, supply-chain posture, and the trust
-  model as the SDK grows.
-- [Governance](../../docs/GOVERNANCE.md) — how contract-affecting decisions are made
-  (the RFC process, how a language becomes official).
-- [Inclusion policy](../../docs/INCLUSION-POLICY.md) — the bar a new battery must clear.
-- [Deprecation policy](../../docs/DEPRECATION-POLICY.md) — how an export is marked
-  deprecated and how long it survives before removal.
-- [Glossary](../../docs/GLOSSARY.md) — the shared vocabulary (narrow waist, binding,
-  conformance suite, …).
-- [Contract spec](../../docs/spec/) — the versioned v1 JSON Schemas for
-  `ExtensionManifest` / `NimbusItem` and the language-neutral conformance fixtures
-  every binding validates against.
+- [Documentation index](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/README.md) —
+  every module, every public export, and the runnable examples.
+- [Roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md) — the 9
+  pillars and the phased plan to make the SDK a language-neutral, batteries-included
+  authoring contract for all of Nimbus.
+- [Architecture](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ARCHITECTURE.md) —
+  how the SDK is structured today and the spec-first / polyglot target.
+- [Releasing](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/RELEASING.md) — how
+  each language SDK is published (npm today; PyPI + Go module proxy planned) under one set
+  of release-parity guarantees.
+- [Security](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/SECURITY.md) —
+  reporting, supply-chain posture, and the trust model as the SDK grows.
+- [Governance](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md) — how
+  contract-affecting decisions are made (the RFC process, how a language becomes official).
+- [Inclusion policy](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/INCLUSION-POLICY.md) —
+  the bar a new battery must clear.
+- [Deprecation policy](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/DEPRECATION-POLICY.md) —
+  how an export is marked deprecated and how long it survives before removal.
+- [Glossary](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GLOSSARY.md) — the
+  shared vocabulary (narrow waist, binding, conformance suite, …).
+- [Contract spec](https://github.com/nimbus-agent/nimbus-sdk/tree/main/docs/spec/) — the
+  versioned v1 JSON Schemas for `ExtensionManifest` / `NimbusItem` and the language-neutral
+  conformance fixtures every binding validates against.
 
 ## Contributing
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md). In short: Bun v1.2+, TypeScript strict,
+See [CONTRIBUTING.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/CONTRIBUTING.md).
+In short: Bun v1.2+, TypeScript strict,
 Biome, **no `any`**, and **no runtime dependencies** — the published surface stays
 dependency-free.
 

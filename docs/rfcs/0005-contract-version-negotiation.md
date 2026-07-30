@@ -6,7 +6,7 @@
 - **Affects:** `docs/spec/`, `@nimbus-dev/sdk` (`contract-version`, `ipc/hello`), `ExtensionManifest`
 - **Roadmap:** [Phase 1](../ROADMAP.md#phase-1--lift-the-contract-out-of-typescript), box 5 — the last open task in the phase, and one of its exit criteria
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 7 (versioning & compatibility)
-- **Builds on:** [RFC-0001](./0001-ipc-framing-spec.md), which named this exact gap in `wire/v1/framing.md` §1 and established the normative-document-plus-corpus pattern this reuses; [RFC-0002](./0002-manifest-rule-registry.md), whose rule-registry id and `supersedes` conventions the three new manifest rules follow; [RFC-0004](./0004-sandbox-probe-protocol.md), whose reserved exit-code family (`0` / `2` / `10` / `11`) this claims `20` clear of
+- **Builds on:** [RFC-0001](./0001-ipc-framing-spec.md), which named this exact gap in `wire/v1/framing.md` §1 and established the normative-document-plus-corpus pattern this reuses; [RFC-0002](./0002-manifest-rule-registry.md), whose rule-registry id and `supersedes` conventions the three new manifest rules follow; [RFC-0003](./0003-pure-predicates.md), whose separate-corpus-and-index precedent — its own `index.json` rather than widening the published document index — this negotiation corpus reuses; [RFC-0004](./0004-sandbox-probe-protocol.md), whose reserved exit-code family (`0` / `2` / `10` / `11`) this claims `20` clear of
 
 ## Problem
 
@@ -212,10 +212,12 @@ comparison in §3 needs no numeric type and has no such failure mode.
   `parseHello`, and `declaredVersionsMatch` are each driven through their corresponding case kind,
   and the hello schema is asked to reach the same verdict as `parseHello` on every well-formed
   frame — agreeing on a verdict is only meaningful because the two are computed separately.
-- **Rule-registry coverage.** The three new rule ids are declared identically on both the
-  published registry and `src/contract-tests.ts`'s rule table — none missing, none extra — and
-  each is asserted by at least one fixture, extending the check `rules-guard` already makes for
-  the other thirteen rules.
+- **Rule-registry coverage, via the existing generic guard.** `scripts/rules-guard.test.ts` —
+  unchanged by this RFC — already asserts the published registry and
+  `src/contract-tests.ts`'s rule table declare the same ids, none missing, none extra, and that
+  every published rule is asserted by at least one fixture. That check reads both the registry
+  and the rule table generically, so the three new rule ids this RFC adds are covered by it
+  automatically; `negotiation-guard.test.ts` does not repeat the check.
 - **The exit code cannot drift.** The spec states `20`; `CONTRACT_HANDSHAKE_EXIT` holds it at
   runtime; and every refusal case in the corpus, across all three kinds, carries that same value
   as data. The guard compares all three, so the number cannot drift between the prose, the

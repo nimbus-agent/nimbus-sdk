@@ -7,7 +7,7 @@ reference implementation; this directory is what a binding in another language r
 
 ### `schemas/v1/`
 
-JSON Schemas, **draft-07**, for the two shapes the contract is built on:
+JSON Schemas, **draft-07**, for the three shapes the contract is built on:
 
 | Schema | Shape |
 |--------|-------|
@@ -175,7 +175,7 @@ is permitted — removing or narrowing a field requires a major. This spec's own
 resolves that as a new path segment rather than an edit to this one; the [deprecation
 policy](../DEPRECATION-POLICY.md) governs export deprecation windows, not this rule.
 
-All three schemas are **open**: none sets `additionalProperties: false`. An older consumer
+All four schemas are **open**: none sets `additionalProperties: false`. An older consumer
 validating against an older copy is therefore unaffected by additions.
 
 ## What is not here yet
@@ -220,15 +220,17 @@ out in `TextDecoder`, whose edge behavior is not identical across runtimes, and 
 other languages are told to trust must not encode one runtime's quirk.
 
 `scripts/negotiation-guard.test.ts` asserts the contract-version pattern is identical across
-its one TypeScript spelling and its four copies (the hello schema, the manifest schema, the
-rule registry, and the spec document's prose); that `hello.schema.json` stays outside any
-version directory, so the frozen-frame rule stays a failing test rather than only a comment;
-that the corpus validates against its schemas and every case agrees with
-`negotiateContractVersion`, `parseHello`, and `declaredVersionsMatch` respectively, with the
-hello schema reaching the same verdict as `parseHello` on every well-formed frame; that the
-three new rule ids are declared identically by the registry and `src/contract-tests.ts`'s
-rule table, each asserted by a fixture; and that the reserved exit code agrees across the
-spec's prose, the `CONTRACT_HANDSHAKE_EXIT` constant, and every refusal case in the corpus.
+its one TypeScript spelling and its five copies (the hello schema, the manifest schema, the
+rule registry, the spec document's prose, and the negotiation corpus's own case schema, which
+carries the pattern twice); that `hello.schema.json` stays outside any version directory, so
+the frozen-frame rule stays a failing test rather than only a comment; that the corpus
+validates against its schemas and every case agrees with `negotiateContractVersion`,
+`parseHello`, and `declaredVersionsMatch` respectively, with the hello schema reaching the
+same verdict as `parseHello` on every well-formed frame; and that the reserved exit code
+agrees across the spec's prose, the `CONTRACT_HANDSHAKE_EXIT` constant, and every refusal case
+in the corpus. The three new manifest rule ids are covered by `scripts/rules-guard.test.ts`
+instead, which already asserts every published rule — old and new alike — is declared
+identically by the registry and the rule table, and is asserted by at least one fixture.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

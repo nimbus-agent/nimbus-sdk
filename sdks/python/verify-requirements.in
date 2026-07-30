@@ -1,0 +1,32 @@
+# Post-publish attestation verification. NOT a package dependency: `[project]
+# dependencies` stays empty and this is never installed by `pip install -e .`.
+#
+# Regenerate the lockfile after editing this file:
+#
+#   python -m pip install uv
+#   cd sdks/python
+#   python -m uv pip compile --universal --generate-hashes \
+#       --python-version 3.12 --output-file=verify-requirements.txt \
+#       verify-requirements.in
+#
+# `--universal` is required: without it the resolution is specific to the machine that
+# ran it, and a lockfile generated on macOS or Windows can omit or misplace
+# platform-conditional dependencies for the ubuntu-24.04 runner that consumes it.
+#
+# Do NOT use pip-tools: it imports pip internals (`pip._internal.utils.compat`) and
+# breaks against current pip with `ImportError: cannot import name 'stdlib_pkgs'`.
+pypi-attestations==0.0.30
+
+# Declared because verify_publish.py imports it directly, not because anything here
+# lacks it: `sigstore` and `pypi-attestations` both depend on `pyasn1 ~= 0.6` today, so
+# it is already in the closure. Left undeclared, the day both switch ASN.1 libraries the
+# lockfile stops carrying it and our import breaks with no warning from the pin. Declare
+# what you import.
+pyasn1
+
+# pyasn1 ships no inline type information, so `mypy --strict` reports
+# `import-untyped` on it with no stub installed. This repo's `[tool.mypy]` carries no
+# `ignore_missing_imports` overrides on principle (see verify_publish.py's module
+# docstring) — an override would hollow out strict mode over the code that decides
+# whether a release is trustworthy, so the stub package is installed instead.
+types-pyasn1

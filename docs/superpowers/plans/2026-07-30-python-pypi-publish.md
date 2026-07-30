@@ -6,7 +6,7 @@
 
 **Architecture:** A small Python package at `sdks/python/` carries the language-neutral contract data from `docs/spec/` plus a second binding of the negotiation algorithm, proving two languages speak one contract. A hatchling build hook copies the spec JSON into the distribution at build time. release-please gains a second component; the release workflow gains a `publish-python` job mirroring the npm job's guarantees in Python-native tooling.
 
-**Tech Stack:** Python 3.11–3.13, hatchling (build backend only — zero runtime dependencies), ruff, mypy strict, pytest, release-please manifest config, `pypa/gh-action-pypi-publish` with PyPI Trusted Publishers.
+**Tech Stack:** Python 3.11–3.14, hatchling (build backend only — zero runtime dependencies), ruff, mypy strict, pytest, release-please manifest config, `pypa/gh-action-pypi-publish` with PyPI Trusted Publishers.
 
 **Spec:** [`docs/superpowers/specs/2026-07-30-phase-2-publish-infra-design.md`](../specs/2026-07-30-phase-2-publish-infra-design.md) — this plan implements §3 and §4.
 
@@ -133,6 +133,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Typing :: Typed",
 ]
 dependencies = []
@@ -945,7 +946,7 @@ Insert after the `node-smoke` job, before `commit-guard`. Copy the `harden-runne
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
-        python: ["3.11", "3.12", "3.13"]
+        python: ["3.11", "3.12", "3.13", "3.14"]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     defaults:
@@ -1462,7 +1463,7 @@ Verify after merge that the release PR proposes **0.0.1**, not 0.1.0.
 
 - [ ] **Step 7: Confirm CI is green across the full matrix**
 
-`ci-complete` must be green: 3 OSes × Bun, 3 OSes × Node 22/24, and 3 OSes × Python 3.11/3.12/3.13.
+`ci-complete` must be green: 3 OSes × Bun, 3 OSes × Node 22/24, and 3 OSes × Python 3.11/3.12/3.13/3.14.
 
 ---
 

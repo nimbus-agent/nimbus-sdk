@@ -1,13 +1,5 @@
 # @nimbus-dev/sdk — Changelog
 
-## [Unreleased]
-
-### Features
-
-* **sdk:** contract-version negotiation — an optional `contractVersions` manifest field
-  (absence means `["1"]`), the `contract-version` and `ipc/hello` module surfaces, and the
-  normative spec published under `docs/spec/negotiation/` ([RFC-0005](./docs/rfcs/0005-contract-version-negotiation.md))
-
 ## [1.9.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.8.1...sdk-v1.9.0) (2026-07-29)
 
 

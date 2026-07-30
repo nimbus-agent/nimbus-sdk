@@ -446,18 +446,20 @@ MIT — see [LICENSE](./LICENSE).
 
 - [ ] **Step 3: Repoint the doc-snippet source list**
 
-`sdks/typescript/scripts/docs-snippets.ts:30-31` lists the teaching surface whose `ts` fences get compiled. `README.md` in that list now means the package README, which is package-root-relative, while `docs/**` entries stay repo-root-relative. Update `DOC_SOURCES` so the distinction is explicit:
+`sdks/typescript/scripts/docs-snippets.ts` lists the teaching surface whose `ts` fences get compiled. The constant is **`SNIPPET_SOURCES`** (an earlier draft of this plan called it `DOC_SOURCES` — that identifier does not exist). `README.md` in that list now means the package README, which is package-root-relative, while `docs/**` entries stay repo-root-relative. Update it so the distinction is explicit:
 
 ```ts
-export const DOC_SOURCES = {
+export const SNIPPET_SOURCES = {
   /** Repo-root-relative. */
   modulesDir: "docs/modules",
   /** Repo-root-relative. */
   extra: ["docs/README.md"],
   /** Package-root-relative — the npm README, which moved with the package. */
   packageExtra: ["README.md"],
-};
+} as const;
 ```
+
+Keep the `as const` — the existing declaration has it, and dropping it widens the tuple types the consumers rely on.
 
 Then update `scripts/docs-snippets.test.ts` to resolve `packageExtra` entries with `readFromPackage` and everything else with `readFromRepo`.
 
@@ -800,10 +802,27 @@ Expected: FAIL — the config still declares package `"."`, whose `package.json`
 
 The key renames from `"."`; the version `1.10.0` is carried across unchanged, so the next release is `1.11.0`.
 
+- [ ] **Step 3b: Update the test that reads the old manifest key**
+
+Renaming the manifest key breaks an existing, unrelated-looking test. `sdks/typescript/scripts/check-package-identity.test.ts:31` asserts:
+
+```ts
+expect(pkg.version).toBe(manifest["."] as string);
+```
+
+`manifest["."]` is `undefined` the moment Step 3 lands, so the assertion fails. Change it to read the package's own key, and state why the key is what it is:
+
+```ts
+// The key is the package's path in release-please-config.json, which moved from "."
+// to "sdks/typescript" when the SDK moved. release-please owns both this manifest and
+// package.json and updates them in the same commit, so the two must agree.
+expect(pkg.version).toBe(manifest["sdks/typescript"] as string);
+```
+
 - [ ] **Step 4: Run it and confirm it passes**
 
-Run: `cd sdks/typescript && bun test scripts/release-config-guard.test.ts`
-Expected: PASS, 6 tests.
+Run: `cd sdks/typescript && bun test scripts/release-config-guard.test.ts scripts/check-package-identity.test.ts`
+Expected: PASS — 6 tests from the new guard, 2 from the identity test.
 
 > **Note for PR 2.** Adding `sdks/python` to the config will fail the "every declared release-type has a version reader" test until a `python` entry is added to `VERSION_READERS`. That is the intended forcing function. Its `read` must anchor to the `[project]` table rather than matching the first `version =` line in the file — `[tool.*]` tables can carry their own `version` keys, and a naive `/^version\s*=/m` would happily read one of those instead. It must also return `undefined` on no match, never silently pass.
 

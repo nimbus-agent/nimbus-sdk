@@ -30,9 +30,12 @@ describe("path anchors", () => {
     expect(joinRepo("a", "b")).toBe(join(repoRoot, "a", "b"));
   });
 
-  // Guards against a half-finished Task 2: if the package moves and repoRoot is not
-  // updated, docs/spec resolves under sdks/typescript and this fails loudly.
-  test("repoRoot is not inside packageRoot unless they are identical", () => {
-    expect(repoRoot === packageRoot || !repoRoot.startsWith(join(packageRoot, "/"))).toBe(true);
+  // Guards against a half-finished Task 2: if repoRoot is reverted to point at packageRoot
+  // (e.g. `join(here, "..")`), docs/spec would resolve under sdks/typescript instead of the
+  // repository root. The real post-move invariant is that packageRoot is strictly inside
+  // repoRoot, not merely "not deeper than" it — so assert containment in both directions.
+  test("packageRoot is strictly inside repoRoot", () => {
+    expect(repoRoot).not.toBe(packageRoot);
+    expect(packageRoot.startsWith(join(repoRoot, "/"))).toBe(true);
   });
 });

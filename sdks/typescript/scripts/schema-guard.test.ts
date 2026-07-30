@@ -16,7 +16,7 @@ import { join } from "node:path";
 import Ajv from "ajv";
 import { type ExtensionManifest, runContractTests, validateManifest } from "../src/index.ts";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
-import { readFromPackage, repoRoot } from "./paths.ts";
+import { packageRoot, readFromPackage, repoRoot } from "./paths.ts";
 import { diffShapes, isEmptyDiff, schemaShapeOf, tsShapeOf } from "./schema-shape.ts";
 
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
@@ -95,7 +95,7 @@ function makeAjv(): Ajv {
 describe("schema guard — structural", () => {
   test("dist/ has been built", () => {
     expect(
-      existsSync(join(repoRoot, "dist/index.d.ts")),
+      existsSync(join(packageRoot, "dist/index.d.ts")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });

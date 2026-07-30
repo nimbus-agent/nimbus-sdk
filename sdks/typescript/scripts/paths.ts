@@ -4,7 +4,7 @@
  * `packageRoot` is the npm package (`package.json`, `src/`, `dist/`). `repoRoot` is the
  * repository (`docs/`, and the language-neutral `docs/spec/` the guards validate against).
  *
- * The package lives at `sdks/typescript/` (three levels below the repository root), so
+ * The package lives at `sdks/typescript/` (two levels below the repository root), so
  * `packageRoot` and `repoRoot` resolve to different directories — which is the entire
  * reason this module exists.
  */

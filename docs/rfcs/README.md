@@ -15,7 +15,7 @@ widening the contract.
 | [0002](./0002-manifest-rule-registry.md) | A published rule registry for manifest validation | accepted | [#57](https://github.com/nimbus-agent/nimbus-sdk/pull/57) |
 | [0003](./0003-pure-predicates.md) | Publishing the pure predicates | accepted | [#60](https://github.com/nimbus-agent/nimbus-sdk/pull/60) |
 | [0004](./0004-sandbox-probe-protocol.md) | A protocol for the sandbox probe | accepted | [#61](https://github.com/nimbus-agent/nimbus-sdk/pull/61) |
-| [0005](./0005-contract-version-negotiation.md) | Contract-version negotiation | accepted | *(pending)* |
+| [0005](./0005-contract-version-negotiation.md) | Contract-version negotiation | accepted | [#67](https://github.com/nimbus-agent/nimbus-sdk/pull/67) |
 
 ## Statuses
 

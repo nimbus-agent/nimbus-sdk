@@ -20,13 +20,12 @@
 
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
+import { packageRoot } from "./paths.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PROBE = "dist/testing/sandbox-probe.js";
 
-const source = readFileSync(join(repoRoot, PROBE), "utf8");
+const source = readFileSync(join(packageRoot, PROBE), "utf8");
 
 /**
  * The same source with comments removed.

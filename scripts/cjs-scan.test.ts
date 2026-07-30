@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { findCjsConstructs } from "./cjs-scan.ts";
+import { packageRoot } from "./paths.ts";
 
 describe("findCjsConstructs", () => {
   test("finds a top-level require", () => {
@@ -156,8 +156,6 @@ describe("findCjsConstructs", () => {
 });
 
 describe("the emitted dist/ contains no CJS constructs", () => {
-  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-
   function emittedJsFiles(dir: string): string[] {
     const out: string[] = [];
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -170,13 +168,13 @@ describe("the emitted dist/ contains no CJS constructs", () => {
 
   test("dist/ has been built", () => {
     expect(
-      existsSync(join(repoRoot, "dist/index.js")),
+      existsSync(join(packageRoot, "dist/index.js")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });
 
   test("every emitted .js is free of require, __dirname, __filename and module.exports", () => {
-    const files = emittedJsFiles(join(repoRoot, "dist"));
+    const files = emittedJsFiles(join(packageRoot, "dist"));
     expect(
       files.length,
       "found no emitted .js files — the scan would pass vacuously",
@@ -185,7 +183,7 @@ describe("the emitted dist/ contains no CJS constructs", () => {
     const offenders: string[] = [];
     for (const file of files) {
       const rel = file
-        .slice(repoRoot.length + 1)
+        .slice(packageRoot.length + 1)
         .split("\\")
         .join("/");
       try {

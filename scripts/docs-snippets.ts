@@ -25,6 +25,8 @@ export const SCRATCH_DIR = ".docs-snippets";
  * `extra` is resolved from the repository root, so `README.md` names the root readme only.
  * `docs/README.md` is a different document and is listed separately: it has no `ts` fence
  * today, and this is what makes sure the first one added is checked rather than skipped.
+ *
+ * Repo-root-relative — resolve with `joinRepo` / `readFromRepo` from `./paths.ts`.
  */
 export const SNIPPET_SOURCES = {
   modulesDir: "docs/modules",

@@ -12,14 +12,13 @@
 
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import Ajv from "ajv";
 import { type ExtensionManifest, runContractTests, validateManifest } from "../src/index.ts";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
+import { repoRoot } from "./paths.ts";
 import { diffShapes, isEmptyDiff, schemaShapeOf, tsShapeOf } from "./schema-shape.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 const readJson = (path: string): unknown => JSON.parse(readFromRoot(path));
 

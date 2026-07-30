@@ -9,12 +9,11 @@
 
 import { describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { buildSurface, collectEntryPoints, normalizeEol } from "./api-surface.ts";
 import { MODULES_DIR, modulesInSurface, parseCovers, unclaimedModules } from "./docs-modules.ts";
+import { repoRoot } from "./paths.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
 const INDEX_PATH = "docs/README.md";

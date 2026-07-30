@@ -21,8 +21,7 @@
 import { afterAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import Ajv from "ajv";
 import {
   type ProbeResult,
@@ -37,8 +36,8 @@ import {
   SANDBOX_PROBE_EXIT,
   SANDBOX_PROBES,
 } from "../src/testing/sandbox-protocol.ts";
+import { repoRoot } from "./paths.ts";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
 
 const PROTOCOL_DIR = "docs/spec/probe/v1";

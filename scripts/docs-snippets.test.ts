@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { collectEntryPoints } from "./api-surface.ts";
 import {
   assertAllowedImports,
@@ -11,6 +10,7 @@ import {
   type Snippet,
   sdkPathsMapping,
 } from "./docs-snippets.ts";
+import { repoRoot } from "./paths.ts";
 
 describe("extractSnippets", () => {
   test("collects ts fences with their 1-based opening-fence line", () => {
@@ -153,7 +153,6 @@ describe("assertAllowedImports", () => {
   });
 });
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
 /** Every document in the teaching surface, repo-relative and sorted. */

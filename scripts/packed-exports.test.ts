@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import pkg from "../package.json";
 import { exportTargets, missingPackedPaths, packedFilePaths } from "./packed-exports.ts";
+import { packageRoot } from "./paths.ts";
 
 const EXPORTS = {
   ".": {
@@ -145,8 +145,6 @@ describe("missingPackedPaths", () => {
 });
 
 describe("every exports target is actually packed", () => {
-  const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-
   /**
    * npm's own answer to "what would publish ship". `--dry-run` writes no tarball and needs
    * no network.
@@ -178,7 +176,7 @@ describe("every exports target is actually packed", () => {
       return cachedPaths;
     }
     const result = spawnSync("npm", ["pack", "--dry-run", "--json"], {
-      cwd: repoRoot,
+      cwd: packageRoot,
       encoding: "utf8",
       shell: process.platform === "win32",
     });
@@ -234,7 +232,7 @@ describe("every exports target is actually packed", () => {
 
   test("dist/ has been built", () => {
     expect(
-      existsSync(join(repoRoot, "dist/index.js")),
+      existsSync(join(packageRoot, "dist/index.js")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });

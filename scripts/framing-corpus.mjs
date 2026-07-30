@@ -15,6 +15,9 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 
+// Plain ESM run directly by Node (see framing-node.mjs), so this anchors via import.meta.url
+// rather than importing the packageRoot/repoRoot split in ./paths.ts. Repo-root-relative,
+// one level up from scripts/ today — see ./paths.ts for the split this mirrors.
 const CORPUS_URL = new URL("../docs/spec/conformance/v1/framing/", import.meta.url);
 
 /** Repo-relative, for error messages that a reader can paste into an editor. */

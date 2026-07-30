@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.10.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.10.0...typescript-v1.10.1) (2026-07-30)
+
+
+### Bug Fixes
+
+* move the TypeScript SDK to sdks/typescript ([#70](https://github.com/nimbus-agent/nimbus-sdk/issues/70)) ([5fd7fe8](https://github.com/nimbus-agent/nimbus-sdk/commit/5fd7fe8b5745f655dcbfb309d1320d7b418c8706))
+
 ## [1.10.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdk-v1.9.0...sdk-v1.10.0) (2026-07-30)
 
 

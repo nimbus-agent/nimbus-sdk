@@ -1,11 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { assertNoRowDataTools, runContractTests } from "@nimbus-dev/sdk";
+import { joinPackage, joinRepo } from "../../scripts/paths.ts";
 import { echoHandler, manifest, TOOLS } from "./index.ts";
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 describe("quickstart connector", () => {
   test("its manifest passes the contract tests", async () => {
@@ -21,8 +18,8 @@ describe("quickstart connector", () => {
   });
 
   test("the README quickstart and this example have not drifted apart", () => {
-    const readme = readFileSync(join(repoRoot, "README.md"), "utf8");
-    const source = readFileSync(join(repoRoot, "examples/quickstart-connector/index.ts"), "utf8");
+    const readme = readFileSync(joinRepo("README.md"), "utf8");
+    const source = readFileSync(joinPackage("examples/quickstart-connector/index.ts"), "utf8");
 
     // Normalize what a checkout or an editor may legitimately change — line endings and
     // trailing whitespace — but never leading indentation, which is real content and

@@ -16,7 +16,7 @@ import { join } from "node:path";
 import Ajv from "ajv";
 import { type ExtensionManifest, runContractTests, validateManifest } from "../src/index.ts";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
-import { repoRoot } from "./paths.ts";
+import { readFromPackage, repoRoot } from "./paths.ts";
 import { diffShapes, isEmptyDiff, schemaShapeOf, tsShapeOf } from "./schema-shape.ts";
 
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
@@ -68,8 +68,8 @@ const ITEM_SCHEMA_ID = schemaIdOf(ITEM_SCHEMA_JSON, ITEM_SCHEMA);
 
 /** The emitted declaration text of one exported type, from the built dist/. */
 function declarationOf(name: string): string {
-  const entries = collectEntryPoints(readFromRoot("package.json"));
-  for (const surface of buildSurface(entries, readFromRoot)) {
+  const entries = collectEntryPoints(readFromPackage("package.json"));
+  for (const surface of buildSurface(entries, readFromPackage)) {
     for (const exported of surface.exports) {
       if (exported.name === name) return exported.declaration;
     }

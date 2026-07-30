@@ -1,6 +1,11 @@
 import { expect, test } from "bun:test";
-import manifest from "../.release-please-manifest.json";
 import pkg from "../package.json";
+import { readFromRepo } from "./paths.ts";
+
+const manifest = JSON.parse(readFromRepo(".release-please-manifest.json")) as Record<
+  string,
+  string
+>;
 
 test("package identity is standalone nimbus-sdk", () => {
   expect(pkg.name).toBe("@nimbus-dev/sdk");
@@ -21,5 +26,7 @@ test("package.json version tracks the release-please manifest baseline", () => {
   // passed until now only because this repo was extracted from the monorepo
   // already at 1.3.0, which made the first release a no-op bump and hid the
   // landmine. Mirrors nimbus-client's check-package-identity.test.ts.
-  expect(pkg.version).toBe(manifest["."]);
+  // noUncheckedIndexedAccess widens the lookup to `string | undefined`; the key is
+  // known present because release-please seeds every manifest with the root entry.
+  expect(pkg.version).toBe(manifest["."] as string);
 });

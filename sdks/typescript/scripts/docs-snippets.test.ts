@@ -10,7 +10,7 @@ import {
   type Snippet,
   sdkPathsMapping,
 } from "./docs-snippets.ts";
-import { repoRoot } from "./paths.ts";
+import { packageRoot, readFromPackage, repoRoot } from "./paths.ts";
 
 describe("extractSnippets", () => {
   test("collects ts fences with their 1-based opening-fence line", () => {
@@ -171,14 +171,15 @@ function snippetSources(): string[] {
  * One invocation, not one per snippet: the compiler's startup cost dominates, and this
  * runs on three operating systems on every pull request.
  *
- * The scratch directory sits at the repository root on purpose. `types: ["bun"]` resolves
+ * The scratch directory sits at the package root on purpose. `types: ["bun"]` resolves
  * by walking up from the tsconfig's own directory looking for `node_modules/@types/bun`,
- * which `@types/bun` in the root devDependencies provides. Moving this to the system temp
+ * which `@types/bun` in the package's devDependencies provides — the workspace root's
+ * `node_modules` does not hoist it. Moving this to the repository root or the system temp
  * directory breaks that walk and fails with `TS2688: Cannot find type definition file for
  * 'bun'` — the placement is load-bearing, not incidental.
  */
 async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> {
-  const scratch = join(repoRoot, SCRATCH_DIR);
+  const scratch = join(packageRoot, SCRATCH_DIR);
   rmSync(scratch, { recursive: true, force: true });
   mkdirSync(scratch, { recursive: true });
 
@@ -190,7 +191,7 @@ async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> 
     snippets.forEach((snippet, index) => {
       const name = `snippet-${String(index).padStart(3, "0")}.ts`;
       writeFileSync(join(scratch, name), snippet.code, "utf8");
-      // tsc is spawned with cwd: repoRoot (below), so it prints this file's path
+      // tsc is spawned with cwd: packageRoot (below), so it prints this file's path
       // cwd-relative — "SCRATCH_DIR/name" — not just the bare filename. Map the whole
       // path, or the ".docs-snippets/" prefix survives the substitution below.
       fileToOrigin.set(`${SCRATCH_DIR}/${name}`, `${snippet.file}:${snippet.line}`);
@@ -198,8 +199,8 @@ async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> 
 
     const paths = sdkPathsMapping(
       "@nimbus-dev/sdk",
-      collectEntryPoints(readFromRoot("package.json")),
-      repoRoot,
+      collectEntryPoints(readFromPackage("package.json")),
+      packageRoot,
     );
     writeFileSync(
       join(scratch, "tsconfig.json"),
@@ -232,7 +233,7 @@ async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> 
     // where this would otherwise be fragile on the windows-2025 CI runner.
     const result = Bun.spawnSync({
       cmd: [process.execPath, "x", "tsc", "--noEmit", "--project", join(scratch, "tsconfig.json")],
-      cwd: repoRoot,
+      cwd: packageRoot,
       stdout: "pipe",
       stderr: "pipe",
     });
@@ -267,7 +268,7 @@ async function typecheckSnippets(snippets: readonly Snippet[]): Promise<string> 
 describe("documentation snippets", () => {
   test("dist/ has been built", () => {
     expect(
-      existsSync(join(repoRoot, "dist/index.d.ts")),
+      existsSync(join(packageRoot, "dist/index.d.ts")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });
@@ -282,8 +283,8 @@ describe("documentation snippets", () => {
   });
 
   test("every snippet imports only SDK entry points and node: builtins", () => {
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const allowed = new Set(Object.keys(sdkPathsMapping("@nimbus-dev/sdk", entries, repoRoot)));
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const allowed = new Set(Object.keys(sdkPathsMapping("@nimbus-dev/sdk", entries, packageRoot)));
     for (const file of snippetSources()) {
       for (const snippet of extractSnippets(file, readFromRoot(file))) {
         assertAllowedImports(snippet, allowed);

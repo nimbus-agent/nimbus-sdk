@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+sdks/python/dist/
 *.tsbuildinfo
 .DS_Store
 .docs-snippets/

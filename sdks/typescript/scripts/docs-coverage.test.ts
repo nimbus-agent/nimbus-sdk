@@ -12,7 +12,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildSurface, collectEntryPoints, normalizeEol } from "./api-surface.ts";
 import { MODULES_DIR, modulesInSurface, parseCovers, unclaimedModules } from "./docs-modules.ts";
-import { repoRoot } from "./paths.ts";
+import { packageRoot, readFromPackage, repoRoot } from "./paths.ts";
 
 const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
@@ -28,7 +28,7 @@ function pageFiles(): string[] {
 describe("doc coverage", () => {
   test("dist/ has been built", () => {
     expect(
-      existsSync(join(repoRoot, "dist/index.d.ts")),
+      existsSync(join(packageRoot, "dist/index.d.ts")),
       "dist/ is missing — run `bun run build` before `bun test`",
     ).toBe(true);
   });
@@ -42,8 +42,8 @@ describe("doc coverage", () => {
   });
 
   test("the surface resolves to a non-empty set of modules", () => {
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const modules = modulesInSurface(entries, buildSurface(entries, readFromRoot));
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const modules = modulesInSurface(entries, buildSurface(entries, readFromPackage));
     expect(
       modules.size,
       "zero modules resolved — the extractor is broken and this guard would pass vacuously",
@@ -51,8 +51,8 @@ describe("doc coverage", () => {
   });
 
   test("every module in the published surface is claimed by exactly one page", () => {
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const modules = modulesInSurface(entries, buildSurface(entries, readFromRoot));
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const modules = modulesInSurface(entries, buildSurface(entries, readFromPackage));
 
     const claimedBy = new Map<string, string>();
     for (const file of pageFiles()) {
@@ -86,8 +86,8 @@ describe("doc coverage", () => {
   });
 
   test("every claim names a module that still exists", () => {
-    const entries = collectEntryPoints(readFromRoot("package.json"));
-    const modules = modulesInSurface(entries, buildSurface(entries, readFromRoot));
+    const entries = collectEntryPoints(readFromPackage("package.json"));
+    const modules = modulesInSurface(entries, buildSurface(entries, readFromPackage));
 
     const stale: string[] = [];
     for (const file of pageFiles()) {

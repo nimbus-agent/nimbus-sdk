@@ -16,7 +16,7 @@
 import type { EntryPoint } from "./api-surface.ts";
 import { normalizeEol } from "./api-surface.ts";
 
-/** Gitignored scratch directory, at the repo root so `tsc` reaches `node_modules/@types`. */
+/** Gitignored scratch directory, at the package root so `tsc` reaches `node_modules/@types`. */
 export const SCRATCH_DIR = ".docs-snippets";
 
 /**

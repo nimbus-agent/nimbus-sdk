@@ -168,8 +168,18 @@ jobs:
       # backend into this one, while `mypy --strict` type-checks `hatch_build.py`,
       # which imports it. Without this the CI lint step fails on a missing import that
       # never reproduces locally, because a developer who ran a build has it already.
+      #
+      # verify-requirements.txt is here for exactly the same reason one layer along:
+      # mypy also type-checks scripts/verify_publish.py, which imports
+      # pypi_attestations, sigstore, cryptography and pyasn1 — none of which
+      # `pip install -e .` provides, because this package is dependency-free by policy.
+      # Installing them beats an `ignore_missing_imports` override, which would hollow
+      # out strict mode over the code that decides whether a release is trustworthy.
       - name: Install
-        run: python -m pip install --upgrade pip build hatchling ruff mypy pytest && python -m pip install -e .
+        run: |
+          python -m pip install --upgrade pip build hatchling ruff mypy pytest
+          python -m pip install --require-hashes -r verify-requirements.txt
+          python -m pip install -e .
 
       - name: Lint
         run: python -m ruff check . && python -m ruff format --check .

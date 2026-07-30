@@ -22,3 +22,23 @@ updates:
       github-actions:
         patterns:
           - "*"
+
+  # The post-publish verification toolchain. Grouped for the same reason the
+  # github-actions block is: pypi-attestations and sigstore are version-coupled, and a
+  # split bump would land a combination neither project tests.
+  #
+  # Review these as release-infrastructure changes, not routine dependency noise — they
+  # change the tool that decides whether a published artifact is trustworthy.
+  #
+  # This ecosystem also sees pyproject.toml. `[project] dependencies` is empty by policy
+  # so there is nothing to bump there, but `[build-system] requires` is in scope and may
+  # produce a PR.
+  - package-ecosystem: "pip"
+    directory: "/sdks/python"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    groups:
+      verify-toolchain:
+        patterns:
+          - "*"

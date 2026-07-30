@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 import tarfile
@@ -121,3 +122,75 @@ def test_data_survives_sdist_to_wheel_to_install(tmp_path: Path) -> None:
     assert "docs" not in result.stdout, (
         f"loaded from a repository tree, not the installed package: {result.stdout!r}"
     )
+
+
+@pytest.mark.slow
+def test_sdist_ships_no_test_module_importing_from_scripts(tmp_path: Path) -> None:
+    """A downstream packager who unpacks the sdist and runs pytest must not hit a
+    collection error.
+
+    `scripts/` is deliberately excluded from the sdist — see `gate_dist.py` and
+    `verify_publish.py`'s own docstrings, "nothing here ships" — and its
+    dependencies (`pypi-attestations`, `sigstore`, `cryptography`, `pyasn1`) are not
+    `[project].dependencies` either. `test_gate_dist.py` and `test_verify_publish.py`
+    do a module-level `from gate_dist import ...` / `from verify_publish import ...`,
+    so if either shipped, `pytest` would fail to even collect it once unpacked
+    outside this repository. This check is static — it reads the archived source
+    rather than importing or running it — so it needs neither `scripts/` nor those
+    packages to run itself.
+    """
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "build",
+            "--sdist",
+            "--outdir",
+            str(dist),
+            str(PACKAGE_DIR),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    (sdist,) = dist.glob("*.tar.gz")
+
+    with tarfile.open(sdist) as archive:
+        test_members = {
+            member.name: member
+            for member in archive.getmembers()
+            if member.isfile() and re.search(r"/tests/test_[^/]+\.py$", member.name)
+        }
+        assert test_members, "sdist carries no test modules — this check is vacuous"
+
+        shipped_basenames = {Path(name).name for name in test_members}
+        assert "test_gate_dist.py" not in shipped_basenames, (
+            "test_gate_dist.py must be excluded from the sdist — it imports from "
+            "scripts/, which is not shipped"
+        )
+        assert "test_verify_publish.py" not in shipped_basenames, (
+            "test_verify_publish.py must be excluded from the sdist — it imports "
+            "from scripts/, which is not shipped"
+        )
+        still_shipping = {
+            "test_contract.py",
+            "test_negotiation_corpus.py",
+            "test_spec.py",
+        }
+        assert still_shipping <= shipped_basenames, (
+            f"expected {still_shipping} to keep shipping, got {shipped_basenames}"
+        )
+
+        forbidden_import = re.compile(
+            r"^\s*from\s+(gate_dist|verify_publish)\s+import", re.MULTILINE
+        )
+        offending = []
+        for name, member in test_members.items():
+            extracted = archive.extractfile(member)
+            assert extracted is not None
+            if forbidden_import.search(extracted.read().decode("utf-8")):
+                offending.append(name)
+        assert not offending, (
+            f"sdist ships test module(s) that import from scripts/: {offending} — "
+            "scripts/ is not shipped, so these cannot even be collected"
+        )

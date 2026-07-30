@@ -32,5 +32,8 @@ test("package.json version tracks the release-please manifest baseline", () => {
   // landmine. Mirrors nimbus-client's check-package-identity.test.ts.
   // noUncheckedIndexedAccess widens the lookup to `string | undefined`; the key is
   // known present because release-please seeds every manifest with the root entry.
-  expect(pkg.version).toBe(manifest["."] as string);
+  // The key is the package's path in release-please-config.json, which moved from "."
+  // to "sdks/typescript" when the SDK moved. release-please owns both this manifest and
+  // package.json and updates them in the same commit, so the two must agree.
+  expect(pkg.version).toBe(manifest["sdks/typescript"] as string);
 });

@@ -1,4 +1,5 @@
 import { type AuditLogger, createScopedAuditLogger } from "./audit-logger.js";
+import { CONTRACT_VERSION_PATTERN } from "./contract-version.js";
 import { type HitlRequest, isHitlRequest } from "./hitl-request.js";
 import type { ExtensionManifest } from "./types.js";
 
@@ -199,11 +200,82 @@ const MIN_VERSION_SEMVER: ManifestRule = {
   },
 };
 
+const CONTRACT_VERSIONS_TYPE: ManifestRule = {
+  id: "manifest.contractVersions.type",
+  field: "contractVersions",
+  supersedes: ["manifest.contractVersions.nonempty", "manifest.contractVersions.entry"],
+  check: (manifest) => {
+    const value = manifest["contractVersions"];
+    // Absent is valid: the field is optional in v1, and absence means ["1"].
+    return value === undefined || Array.isArray(value)
+      ? []
+      : [
+          {
+            rule: "manifest.contractVersions.type",
+            path: "/contractVersions",
+            message: "manifest.contractVersions must be an array",
+          },
+        ];
+  },
+};
+
+const CONTRACT_VERSIONS_NONEMPTY: ManifestRule = {
+  id: "manifest.contractVersions.nonempty",
+  field: "contractVersions",
+  check: (manifest) => {
+    const value = manifest["contractVersions"];
+    return Array.isArray(value) && value.length === 0
+      ? [
+          {
+            rule: "manifest.contractVersions.nonempty",
+            path: "/contractVersions",
+            message: "manifest.contractVersions must declare at least one version when present",
+          },
+        ]
+      : [];
+  },
+};
+
+const CONTRACT_VERSIONS_ENTRY: ManifestRule = {
+  id: "manifest.contractVersions.entry",
+  field: "contractVersions",
+  check: (manifest) => {
+    const value = manifest["contractVersions"];
+    if (!Array.isArray(value)) {
+      return [];
+    }
+    const violations: ManifestViolation[] = [];
+    const seen = new Set<string>();
+    for (let i = 0; i < value.length; i++) {
+      const entry: unknown = value[i];
+      if (typeof entry !== "string" || !CONTRACT_VERSION_PATTERN.test(entry)) {
+        violations.push({
+          rule: "manifest.contractVersions.entry",
+          path: `/contractVersions/${i}`,
+          message: `invalid manifest.contractVersions entry: ${String(entry)}`,
+        });
+        continue;
+      }
+      if (seen.has(entry)) {
+        violations.push({
+          rule: "manifest.contractVersions.entry",
+          path: `/contractVersions/${i}`,
+          message: `duplicate manifest.contractVersions entry: ${entry}`,
+        });
+        continue;
+      }
+      seen.add(entry);
+    }
+    return violations;
+  },
+};
+
 /**
- * The thirteen manifest rules, in the order their messages are joined.
+ * The sixteen manifest rules, in the order their messages are joined.
  *
  * That order is load-bearing: `runContractTests` concatenates the messages, and connector
- * authors read the result. Reordering this table rewords every multi-error failure.
+ * authors read the result. Reordering this table rewords every multi-error failure — which is
+ * why the contractVersions rules were appended rather than filed next to the other array rules.
  */
 export const MANIFEST_RULES: readonly ManifestRule[] = [
   ...REQUIRED_STRING_FIELDS.map(requiredStringRule),
@@ -214,6 +286,9 @@ export const MANIFEST_RULES: readonly ManifestRule[] = [
   arrayEntryRule("hitlRequired", HITL),
   MIN_VERSION_REQUIRED,
   MIN_VERSION_SEMVER,
+  CONTRACT_VERSIONS_TYPE,
+  CONTRACT_VERSIONS_NONEMPTY,
+  CONTRACT_VERSIONS_ENTRY,
 ];
 
 /**

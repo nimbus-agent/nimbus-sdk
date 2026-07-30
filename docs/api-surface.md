@@ -393,6 +393,8 @@ export interface ExtensionManifest {
     };
     syncInterval?: number;
     tags?: string[];
+
+    contractVersions?: string[];
     minNimbusVersion: string;
 }
 ```

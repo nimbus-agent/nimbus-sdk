@@ -26,6 +26,10 @@ describes your connector.
 - **`rawMeta` is metadata, not content.** It is a place for identifiers and structural
   hints, not for the body of the thing you indexed.
 
+`contractVersions?` — the contract majors the connector speaks. Optional; absence means `["1"]`.
+Distinct from `minNimbusVersion`, which is a product floor. See
+[`contract-version.md`](./contract-version.md).
+
 ## Example
 
 ```ts

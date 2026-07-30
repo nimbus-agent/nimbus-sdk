@@ -91,6 +91,26 @@
       "requires": "a value beginning with semver x.y.z, after blank characters are removed from both ends",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+",
       "parameterized": false
+    },
+    {
+      "id": "manifest.contractVersions.type",
+      "field": "contractVersions",
+      "requires": "an array, when the field is present. The field is optional in v1 and its absence means [\"1\"], so an absent value violates nothing.",
+      "parameterized": false,
+      "supersedes": ["manifest.contractVersions.nonempty", "manifest.contractVersions.entry"]
+    },
+    {
+      "id": "manifest.contractVersions.nonempty",
+      "field": "contractVersions",
+      "requires": "at least one member, when the field is present. Declaring an empty set is not the same as declaring nothing: absence has a default, an empty array has no meaning.",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.contractVersions.entry",
+      "field": "contractVersions",
+      "requires": "every member a distinct decimal major matching the pattern — ASCII digits, no leading zeros. A repeated member is a violation at the index of its second occurrence.",
+      "parameterized": true,
+      "pattern": "^[1-9][0-9]*$"
     }
   ]
 }

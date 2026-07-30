@@ -22,10 +22,7 @@ unrelated.
 ```ts
 import type { ExtensionManifest } from "@nimbus-dev/sdk";
 
-// `contractVersions` joins `ExtensionManifest` itself once it becomes required at the next
-// contract major; modeled here as an intersection so the example typechecks against today's
-// shape without waiting on that field.
-const manifest: ExtensionManifest & { contractVersions?: string[] } = {
+const manifest: ExtensionManifest = {
   id: "acme-notes",
   displayName: "Acme Notes",
   version: "1.0.0",

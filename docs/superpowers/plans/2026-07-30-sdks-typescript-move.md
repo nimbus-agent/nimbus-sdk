@@ -28,14 +28,26 @@
 These are maintainer actions, not code. Spec §2.0.
 
 - [ ] **P1.** Land or close the four branches that touch `src/` or `scripts/`, because they will conflict badly with the move: `origin/test/packed-exports-and-cjs-refusal`, `origin/docs/jmap-per-email-caps`, `feat/conventional-commit-guard` (local), `docs/promote-rfc-status` (local). `origin/feat/item-type-contract` is low risk (its files move but are not rewritten) and may be left.
-- [ ] **P2.** Push the bootstrap tag, **before** the release-please config change in Task 6 reaches `main`:
+- [x] **P2. Done 2026-07-30.** Bootstrap tag pushed.
+
+  The source tag is **`sdk-v1.10.0`**, not `v1.10.0`. Releases here have always carried a
+  component prefix, because release-please derives one from `package-name: "@nimbus-dev/sdk"`.
+  The bare `v0.x` tags end at `v0.20.0` and are pre-1.0 history. An earlier draft of this
+  plan said `git rev-list -n1 v1.10.0`, which resolves nothing.
 
 ```bash
-git tag -a typescript-v1.10.0 "$(git rev-list -n1 v1.10.0)" \
+git tag -a typescript-v1.10.0 44c9bf7181bf87678bfce4b3d5df95d0b18792a3 \
         -m "bootstrap component tag for the sdks/typescript move"
 git push origin typescript-v1.10.0
-git tag --list 'typescript-v*'   # expect: typescript-v1.10.0
 ```
+
+  `44c9bf7` = `chore(main): release sdk 1.10.0 (#66)`. Verified on the remote: annotated tag
+  `ff8ccb1` → `44c9bf7`.
+
+  **Consequence for Task 6:** this is a component *rename* (`sdk` → `typescript`), so the
+  config must set `component: "typescript"` **explicitly**. Omit it and release-please
+  re-derives `sdk` from the package name, silently keeping the old tag line and making the
+  bootstrap tag dead weight.
 
 ## File Structure
 
@@ -786,13 +798,14 @@ Expected: PASS, 6 tests.
 
 > **Note for PR 2.** Adding `sdks/python` to the config will fail the "every declared release-type has a version reader" test until a `python` entry is added to `VERSION_READERS`. That is the intended forcing function. Its `read` must anchor to the `[project]` table rather than matching the first `version =` line in the file — `[tool.*]` tables can carry their own `version` keys, and a naive `/^version\s*=/m` would happily read one of those instead. It must also return `undefined` on no match, never silently pass.
 
-- [ ] **Step 5: Verify the bootstrap tag is in place**
+- [ ] **Step 5: Verify the bootstrap tag and the explicit component**
 
 ```bash
 git ls-remote --tags origin 'refs/tags/typescript-v*'
+grep -n '"component"' release-please-config.json
 ```
 
-Expected: one line ending `refs/tags/typescript-v1.10.0`. If empty, prerequisite **P2** was skipped — stop and do it now. Merging this task without that tag makes the next release walk the entire history into one changelog.
+Expected: a line ending `refs/tags/typescript-v1.10.0` (already pushed — see P2), and `"component": "typescript"` present. Both matter, for different reasons. Without the tag, the next release walks the entire history into one changelog. Without an explicit `component`, release-please re-derives `sdk` from `package-name: "@nimbus-dev/sdk"` and keeps cutting `sdk-v*`, leaving the bootstrap tag unused and the rename silently undone.
 
 - [ ] **Step 6: Commit**
 
@@ -850,8 +863,10 @@ The first two describe the repository layout; update any tree diagram or path re
 `docs/RELEASING.md` needs one substantive addition, not just paths. Its *TypeScript → npm* section describes the release flow but predates component-prefixed tags, so add to step 1 of that section:
 
 ```markdown
-   Releases are tagged `typescript-vX.Y.Z`. Tags of the form `vX.Y.Z` are historical,
-   frozen at `v1.10.0` — the last release cut before the SDK moved to `sdks/typescript/`.
+   Releases are tagged `typescript-vX.Y.Z`. Tags of the form `sdk-vX.Y.Z` are historical,
+   frozen at `sdk-v1.10.0` — the last release cut before the SDK moved to `sdks/typescript/`
+   and its release-please component was renamed from `sdk` to `typescript`. The bare
+   `vX.Y.Z` tags are older still, ending at `v0.20.0`, and predate the component prefix.
 ```
 
 Its "Shared plumbing" section already states that the config grows one component per language SDK, which this PR makes true; leave that wording as-is.

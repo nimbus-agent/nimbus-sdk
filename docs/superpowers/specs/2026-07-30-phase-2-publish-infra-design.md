@@ -48,7 +48,7 @@ Each of these is something a reader will otherwise assume is included:
 | Question | Decision | Why |
 |---|---|---|
 | Repo layout | `sdks/typescript/` + `sdks/python/` | No language privileged; the tree matches the polyglot claim. Costs a large mechanical migration — accepted knowingly. |
-| Release tags | Component-prefixed for both, bootstrapped | Symmetric end state; one manual bootstrap tag. The TypeScript baseline at migration is **1.10.0** (`package.json`, the manifest, and the newest `v*` tag all agree), so the bootstrap tag is `typescript-v1.10.0` and the first tag the new scheme *cuts* is `typescript-v1.11.0`. Python starts at `python-v0.0.1`. |
+| Release tags | Component **renamed** `sdk` → `typescript`, bootstrapped | Tags were never bare: release-please already derives the component `sdk` from `package-name: "@nimbus-dev/sdk"`, so releases are tagged `sdk-vX.Y.Z` (`sdk-v1.10.0` is the newest; the bare `v0.x` tags end at `v0.20.0` and are pre-1.0 history). This is therefore a component *rename*, not a move from bare tags. Baseline **1.10.0** — `package.json`, the manifest, and `sdk-v1.10.0` all agree. Bootstrap tag `typescript-v1.10.0` aliases the same commit; the first tag the new scheme cuts is `typescript-v1.11.0`. Python starts at `python-v0.0.1`. Keeping `sdk` was the alternative — it needs no bootstrap at all — but was rejected for symmetry with `python-v*`. |
 | First Python artifact | Spec-carrier, not a stub | Something a conformance runner can import on day one; nothing gets built twice. |
 | PyPI distribution name | `nimbus-dev-sdk` | `nimbus-sdk` and `nimbus` are taken by an unrelated project. Flattens the npm scope `@nimbus-dev/sdk`. Import name stays `nimbus_sdk`. |
 | Sequencing | Two PRs: move, then publish | A red release job then has one candidate cause, not two. |
@@ -206,20 +206,33 @@ becomes `../../../docs/spec/…`.
 { "sdks/typescript": "1.10.0" }   // key renamed from "."; version preserved
 ```
 
-### 2.4 The bootstrap tag
+### 2.4 The bootstrap tag — **done**
 
 Pushed **before** this PR merges. Without it release-please finds no tag matching
 `typescript-v*`, falls back to walking the entire history, and produces one enormous
-changelog on the next release:
+changelog on the next release.
+
+The source tag is `sdk-v1.10.0`, **not** `v1.10.0` — an earlier draft of this spec assumed
+the latter and its command would have failed. Releases have always carried a component
+prefix here, because release-please derives one from `package-name: "@nimbus-dev/sdk"`:
 
 ```bash
-git tag -a typescript-v1.10.0 "$(git rev-list -n1 v1.10.0)" \
+# executed 2026-07-30
+git tag -a typescript-v1.10.0 44c9bf7181bf87678bfce4b3d5df95d0b18792a3 \
         -m "bootstrap component tag for the sdks/typescript move"
 git push origin typescript-v1.10.0
 ```
 
-The historical bare `v*` tags are left in place, frozen. They remain the correct references
-for everything released before the move.
+`44c9bf7` is `chore(main): release sdk 1.10.0 (#66)` — the commit `sdk-v1.10.0` points at.
+Verified on the remote as annotated tag `ff8ccb1` dereferencing to `44c9bf7`.
+
+Because the component is renamed rather than introduced, Task 6's config **must set
+`component: "typescript"` explicitly**. Omitting it would let release-please re-derive `sdk`
+from the package name and silently keep the old tag line.
+
+The historical `sdk-v*` tags are left in place, frozen at `sdk-v1.10.0`. They remain the
+correct references for everything released before the move, and the CHANGELOG's existing
+compare links point at them.
 
 ### 2.5 A guard against the failure this PR can silently cause
 

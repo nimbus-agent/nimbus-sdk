@@ -452,7 +452,7 @@ if __name__ == "__main__":
 - [ ] **Step 5: Run the tests to verify they pass**
 
 Run: `cd sdks/python && python -m pytest tests/test_gate_dist.py -q`
-Expected: **14 passed**.
+Expected: **13 passed**.
 
 - [ ] **Step 6: Prove the guards by mutation, not by passing**
 

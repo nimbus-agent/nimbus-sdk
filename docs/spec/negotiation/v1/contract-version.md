@@ -146,6 +146,26 @@ package specifies** — not one half of a request/response pair, and not a prece
 one. Because the §6 algorithm is deterministic, neither peer transmits its result: both peers
 compute the same answer from the same two sets, so no third frame is needed to carry it.
 
+### Refusal reasons
+
+Reading a hello can fail for one of seven reasons, and a reader **MUST** use these exact
+tokens — they are not diagnostic color, they are data the corpus pins per case. A conformant
+reader checks them in the order below: each row is reachable only once every row above it has
+passed.
+
+| Reason | Triggers when |
+|---|---|
+| `not-json` | The frame does not parse as JSON at all. |
+| `not-object` | The frame parses as JSON but is not a JSON object — `null`, an array, a string, a number, or a boolean. |
+| `wrong-message` | `nimbus` is absent, or present but not exactly the string `"hello"`. |
+| `missing-versions` | `contractVersions` is absent, or present but not a JSON array. Both read the same way: there is no array to inspect. |
+| `empty-versions` | `contractVersions` is a JSON array, but has no members. |
+| `invalid-version` | Some member of `contractVersions` is not a string matching the §3 pattern. |
+| `duplicate-version` | A member repeats one already seen earlier in the same array. |
+
+A frame that reaches none of these is accepted as a hello, announcing exactly the set
+`contractVersions` named — the §6 algorithm's remote input.
+
 ### The frame's shape is frozen
 
 The hello is the one frame in this contract that can never itself be versioned. A `v1`-only
@@ -183,6 +203,12 @@ closes that gap for the cost of one pass over each set.
 **Then intersect.** The agreed version is the member both sets share that is **numerically the
 largest**. If the intersection is empty, that is a refusal too, `no-common-version` (§7).
 
+A repeated member of either set is not this algorithm's concern: nothing here re-checks
+uniqueness, only that each member matches the §3 pattern above. `negotiateContractVersion(["1",
+"1"], ["1"])` still agrees on `"1"`. That is deliberate, not an oversight — a declared set's
+uniqueness is enforced one layer earlier, by §4's declaration rules and by §5's frame parsing,
+before either set ever reaches this algorithm.
+
 "Numerically largest" is defined as a comparison on the strings themselves, so that no binding
 needs a numeric type to compare arbitrarily long majors:
 
@@ -210,7 +236,9 @@ The handshake is refused when any of the following holds:
    equal as sets, since §4 makes order insignificant: the same members, no more and no fewer.
    The gateway holds both documents — the manifest at load time, the hello at handshake time —
    so this check is the gateway's to make. The connector's own obligation is narrower: its
-   hello MUST equal its own declaration.
+   hello MUST equal its own declaration. This cause's reason token is `declaration-mismatch` —
+   distinct from the seven §5 names, since this check is not about whether a frame parses, only
+   about whether two already-parsed sets agree.
 3. **The hello is malformed or absent, or anything was written to the frame stream before it**
    (§5).
 

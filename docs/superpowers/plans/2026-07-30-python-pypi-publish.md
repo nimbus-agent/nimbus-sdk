@@ -274,8 +274,10 @@ A second binding of the published negotiation spec — not a port of the TypeScr
   `NegotiationOk(version: str)`, `NegotiationRefused(reason: str)`, `NegotiationResult` (their union),
   `manifest_contract_versions(manifest: object) -> tuple[object, ...]`,
   `negotiate_contract_version(local: Sequence[object], remote: Sequence[object]) -> NegotiationResult`,
-  `declared_versions_match(manifest: object, hello: Sequence[object]) -> NegotiationResult`.
+  `declared_versions_match(manifest_versions: Sequence[object], hello_versions: Sequence[str]) -> bool`.
   Task 3's corpus test drives the last three.
+  Note `declared_versions_match` takes the **already-extracted** declared majors and returns a plain
+  `bool` — both deliberately mirroring the TypeScript binding rather than folding extraction in.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -345,14 +347,22 @@ def test_invalid_version_is_refused() -> None:
     )
 
 
-def test_declaration_mismatch_is_refused() -> None:
-    """A hello announcing more than the manifest declares is a mismatch."""
-    assert declared_versions_match({"contractVersions": ["1"]}, ["1", "2"]) == (
-        NegotiationRefused(reason="declaration-mismatch")
-    )
-    assert declared_versions_match({"contractVersions": ["1"]}, ["1"]) == NegotiationOk(
-        version="1"
-    )
+def test_declaration_is_set_equality_not_containment() -> None:
+    """The same members, no more and no fewer (§7.2).
+
+    Containment would pass a connector that declared two majors and announced one —
+    not the connector its manifest described. **No corpus case covers `declared ⊃
+    hello`** (the closest, `declaration-order`, uses equal sets), so an implementation
+    that only checked containment would pass all six corpus cases while diverging from
+    the TypeScript binding. That is why this is pinned here rather than left to the
+    corpus.
+    """
+    assert declared_versions_match(["1"], ["1"]) is True
+    assert declared_versions_match(["1", "2"], ["2", "1"]) is True  # order-independent
+    assert declared_versions_match(["1"], ["1", "2"]) is False  # announced more
+    assert declared_versions_match(["1", "2"], ["1"]) is False  # announced fewer
+    assert declared_versions_match([5], ["1"]) is False  # malformed declaration
+    assert declared_versions_match(["1"], ["1", "1"]) is True  # duplicates collapse
 ```
 
 - [ ] **Step 2: Run and confirm failure**
@@ -478,20 +488,31 @@ def negotiate_contract_version(
     return NegotiationOk(version=best)
 
 
-def declared_versions_match(manifest: object, hello: Sequence[object]) -> NegotiationResult:
-    """Whether a hello's announced majors match what the manifest declares.
+def declared_versions_match(
+    manifest_versions: Sequence[object], hello_versions: Sequence[str]
+) -> bool:
+    """Whether a connector's running hello announces exactly what its manifest declared.
 
-    The hello may not announce a major the manifest does not declare. Announcing fewer
-    is fine; announcing more is a ``declaration-mismatch``.
+    **Set equality, not containment** (§7.2): the same members, no more and no fewer.
+    Announcing *fewer* is as much a mismatch as announcing more — a connector that
+    declared two majors and announces one is not the connector its manifest described.
+    Order is irrelevant.
+
+    Duplicates in ``hello_versions`` are collapsed, not rejected: ``["1"]`` matches
+    ``["1", "1"]``, because the comparison is on sets and ``{"1"}`` is ``{"1"}`` however
+    many times the frame said it. A duplicate is refused one layer earlier by hello-frame
+    parsing, which this package does not yet carry; a caller that hand-builds the
+    announced set owns that obligation.
+
+    Takes the *already-extracted* declared majors — call
+    :func:`manifest_contract_versions` first — and returns ``bool``, both mirroring the
+    TypeScript binding. A result type would carry no information the boolean does not:
+    the only refusal this layer can express is ``declaration-mismatch``.
     """
-    declared = manifest_contract_versions(manifest)
-    for candidate in declared:
-        if not _is_contract_version(candidate):
-            return NegotiationRefused(reason="declaration-mismatch")
-    for candidate in hello:
-        if not _is_contract_version(candidate) or candidate not in declared:
-            return NegotiationRefused(reason="declaration-mismatch")
-    return negotiate_contract_version(declared, hello)
+    if not all(_is_contract_version(value) for value in manifest_versions):
+        return False
+    declared = {value for value in manifest_versions if isinstance(value, str)}
+    return declared == set(hello_versions)
 ```
 
 - [ ] **Step 4: Re-export from `__init__.py`**
@@ -659,10 +680,12 @@ from __future__ import annotations
 import pytest
 
 from nimbus_sdk import (
+    CONTRACT_HANDSHAKE_EXIT,
     NegotiationOk,
     NegotiationRefused,
     declared_versions_match,
     load_corpus,
+    manifest_contract_versions,
     negotiate_contract_version,
 )
 
@@ -709,13 +732,19 @@ def test_declaration_cases(case: dict[str, object]) -> None:
     if "manifest" in case:
         manifest = {"contractVersions": case["manifest"]}
 
+    # Two steps, matching the TypeScript binding: extract, then compare.
+    declared = manifest_contract_versions(manifest)
     expect = case["expect"]
     assert isinstance(expect, dict)
-    result = declared_versions_match(manifest, case["hello"])  # type: ignore[arg-type]
-    if expect["ok"]:
-        assert isinstance(result, NegotiationOk)
-    else:
-        assert result == NegotiationRefused(reason=str(expect["reason"]))
+
+    matched = declared_versions_match(declared, case["hello"])  # type: ignore[arg-type]
+    assert matched is bool(expect["ok"])
+    if not expect["ok"]:
+        # This layer has exactly one refusal to express; if the corpus ever grows a
+        # different reason for a declaration case, this fails rather than passing on a
+        # coincidentally-correct boolean.
+        assert expect["reason"] == "declaration-mismatch"
+        assert expect["exit"] == CONTRACT_HANDSHAKE_EXIT
 ```
 
 - [ ] **Step 2: Run and confirm failure**
@@ -1047,7 +1076,12 @@ In `sdks/typescript/scripts/release-config-guard.test.ts`, add to `VERSION_READE
       // `version` key inside any [tool.*] table and compare the wrong value; returning
       // undefined on no match keeps a missed parse a failure rather than a silent pass.
       read: (text) => {
-        const project = /^\[project\]$([\s\S]*?)(?=^\[|\z)/m.exec(text)?.[1] ?? "";
+        // `\s*(?:#.*)?` after the header: TOML permits trailing whitespace and an inline
+        // comment on a table line, and a bare `^\[project\]$` would miss both. A miss is
+        // loud rather than silent — the section comes back empty, no version is found,
+        // and the guard's toBeDefined() fails — but failing on a legal file is still a
+        // false alarm someone has to debug.
+        const project = /^\[project\]\s*(?:#.*)?$([\s\S]*?)(?=^\[|$(?![\s\S]))/m.exec(text)?.[1] ?? "";
         return /^version\s*=\s*["']([^"']+)["']/m.exec(project)?.[1];
       },
     },
@@ -1180,6 +1214,10 @@ Append after the existing `publish` job. Copy every `harden-runner` and `checkou
           # and reading either as a supply-chain failure turns a good release red. The
           # npm side learned this the hard way. --no-cache-dir is mandatory: pip caches
           # the negative index response, so plain retries replay the same 404.
+          # Start from an empty directory so the wheel picked below is unambiguously the
+          # one this run downloaded, not a leftover from an earlier attempt.
+          rm -rf /tmp/verify && mkdir -p /tmp/verify
+
           verified=""
           for attempt in 1 2 3 4 5 6 7 8; do
             if python -m pip download --no-deps --no-cache-dir \
@@ -1197,7 +1235,16 @@ Append after the existing `publish` job. Copy every `harden-runner` and `checkou
 
           # PEP 740 provenance, from PyPI's integrity API. Must name THIS repo and THIS
           # commit — the same three claims verify-npm-provenance gates on.
-          filename="$(basename "$(ls /tmp/verify/*.whl | head -n1)")"
+          #
+          # Insist on a wheel. `pip download` falls back to an sdist when no wheel
+          # matches, and an unguarded glob would then expand to nothing, silently
+          # building a malformed integrity URL that 404s and reads as a lag.
+          wheel="$(find /tmp/verify -maxdepth 1 -name '*.whl' | head -n1)"
+          if [ -z "$wheel" ]; then
+            echo "::error::no wheel downloaded for ${PUBLISHED_VERSION} — got: $(ls /tmp/verify)"
+            exit 1
+          fi
+          filename="$(basename "$wheel")"
           for attempt in 1 2 3 4 5 6; do
             if curl -fsSL --retry 0 \
                  "https://pypi.org/integrity/nimbus-dev-sdk/${PUBLISHED_VERSION}/${filename}/provenance" \

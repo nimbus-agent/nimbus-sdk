@@ -18,6 +18,9 @@ jobs:
     name: SonarQube Cloud analysis
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sdks/typescript
     # SONAR_TOKEN is optional: the analysis step is skipped when it's absent, so
     # the check passes until the project is imported into SonarCloud and the
     # secret is set. Once configured, the scan waits on the quality gate and

@@ -800,14 +800,38 @@ class SpecDataHook(BuildHookInterface):  # type: ignore[type-arg]
         shutil.copytree(source, target, ignore=shutil.ignore_patterns("*.md"))
 ```
 
-Register it in `pyproject.toml`:
+Register it in `pyproject.toml` — **and declare the generated files as artifacts**:
 
 ```toml
+[tool.hatch.build.targets.wheel]
+packages = ["src/nimbus_sdk"]
+# Hatchling selects files by VCS: anything git ignores is excluded, and `packages`
+# only narrows within that tracked set. `_data/` is generated at build time AND
+# gitignored, so without this it is silently absent from the built distribution —
+# producing a package that installs cleanly, imports fine, and carries no contract
+# data at all. `artifacts` is the escape hatch for exactly this case.
+artifacts = ["src/nimbus_sdk/_data/**"]
+
 [tool.hatch.build.targets.wheel.hooks.custom]
 path = "hatch_build.py"
 
+[tool.hatch.build.targets.sdist]
+include = ["src/", "tests/", "README.md", "CHANGELOG.md", "pyproject.toml", "hatch_build.py"]
+artifacts = ["src/nimbus_sdk/_data/**"]
+
 [tool.hatch.build.targets.sdist.hooks.custom]
 path = "hatch_build.py"
+```
+
+This **replaces** the `[tool.hatch.build.targets.wheel]` and `[tool.hatch.build.targets.sdist]` blocks written in Task 1 — merge into them rather than adding a second copy of either table, which is a TOML duplicate-key error.
+
+Also extend the mypy scope, which currently covers only `src` and `tests` and would silently skip the new top-level hook:
+
+```toml
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src", "tests", "hatch_build.py"]
 ```
 
 - [ ] **Step 4: Gitignore the generated data**
@@ -919,6 +943,20 @@ python -m ruff check . && python -m ruff format --check .
 python -m mypy
 ```
 Expected: all pass, including the packaging test. It takes ~30s — that is the point of it.
+
+If `test_data_survives_sdist_to_wheel_to_install` fails while every other test passes, the most likely cause is the `artifacts` declaration from Step 3 being absent or mis-globbed: the loader falls back to the repository tree everywhere else, so that test is the only one that can see an empty distribution. Confirm directly before changing anything else:
+
+```bash
+python -m build --wheel --outdir /tmp/probe . >/dev/null 2>&1
+python -c "
+import glob, zipfile
+names = zipfile.ZipFile(glob.glob('/tmp/probe/*.whl')[0]).namelist()
+data = [n for n in names if '_data/' in n]
+print(f'{len(data)} data files in the wheel')
+assert data, 'wheel carries no _data/ — check tool.hatch.build.targets.*.artifacts'
+"
+rm -rf /tmp/probe
+```
 
 - [ ] **Step 8: Commit**
 

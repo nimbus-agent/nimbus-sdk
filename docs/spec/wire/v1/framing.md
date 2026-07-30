@@ -11,7 +11,7 @@ The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted 
 described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
 The TypeScript reference implementation is
-[`src/ipc/`](https://github.com/nimbus-agent/nimbus-sdk/tree/main/src/ipc); the executable
+[`sdks/typescript/src/ipc/`](https://github.com/nimbus-agent/nimbus-sdk/tree/main/sdks/typescript/src/ipc); the executable
 form of this document is the fixture corpus at
 [`../../conformance/v1/framing/`](../../conformance/v1/framing/). Where prose and corpus
 appear to disagree, the corpus is the tiebreaker — it is what CI runs.

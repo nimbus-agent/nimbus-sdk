@@ -16,13 +16,14 @@ published package.
 
 ## Public surface (the `exports` map)
 
-- `.` (`src/index.ts`) — the main contract: connector/extension types, the Plugin
-  API v1 surface, `server`, `hitl-request`, `item-types`, `contract-tests`,
+- `.` (`sdks/typescript/src/index.ts`) — the main contract: connector/extension types,
+  the Plugin API v1 surface, `server`, `hitl-request`, `item-types`, `contract-tests`,
   `distribution-channel`, `audit-logger`, `icalendar`, and the `agents` / `crypto` /
   `data-profile` / `jmap-fastmail` / `flux-cd` / `storybook` helper modules.
-- `./testing` (`src/testing/index.ts`) — contract-test + sandbox-probe utilities
-  connectors use in their own test suites.
-- `./ipc` (`src/ipc/index.ts`) — the NDJSON line-reader + IPC framing helpers.
+- `./testing` (`sdks/typescript/src/testing/index.ts`) — contract-test + sandbox-probe
+  utilities connectors use in their own test suites.
+- `./ipc` (`sdks/typescript/src/ipc/index.ts`) — the NDJSON line-reader + IPC framing
+  helpers.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
@@ -48,9 +49,9 @@ bun run api:surface # regenerate docs/api-surface.md after any exports change
   a helper, inline it — never add a runtime dep to the published surface.
 - **No `any`; TypeScript strict.** Use `unknown` for external/cross-boundary data
   and narrow with a type guard. Biome enforces `noExplicitAny` + `noConsole` in
-  `src/` (tests may log) — see `biome.json`.
+  `sdks/typescript/src/` (tests may log) — see `biome.json`.
 - **MIT license.** Do not change the license field.
-- Tests live alongside source as `*.test.ts` in `src/`.
+- Tests live alongside source as `*.test.ts` in `sdks/typescript/src/`.
 - A new/changed export requires regenerating `docs/api-surface.md` **and** a
   `docs/modules/*.md` page claiming its module in `<!-- covers: -->` — both are CI
   gates (`sdks/typescript/scripts/api-surface.test.ts`,

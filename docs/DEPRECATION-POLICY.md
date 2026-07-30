@@ -38,8 +38,8 @@ export const oldThing = …;
 ```
 
 Mark the declaration in its own module, not the barrel re-export line (e.g. in
-`src/index.ts`) — that is where it lives for every consumer, whichever barrel
-re-exports it.
+`sdks/typescript/src/index.ts`) — that is where it lives for every consumer, whichever
+barrel re-exports it.
 
 Keep the message on the `@deprecated` tag. Any following tag (`@param`, `@see`) ends it.
 

@@ -1,7 +1,8 @@
 # nimbus-sdk — Contract spec
 
-The language-neutral contract every Nimbus binding implements. TypeScript in `src/` is the
-reference implementation; this directory is what a binding in another language reads.
+The language-neutral contract every Nimbus binding implements. TypeScript in
+`sdks/typescript/src/` is the reference implementation; this directory is what a binding in
+another language reads.
 
 ## What is here today
 
@@ -190,45 +191,48 @@ validating against an older copy is therefore unaffected by additions.
 Six guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
-`scripts/schema-guard.test.ts` compares each schema's declared properties and optionality
-against the emitted TypeScript — descending into inline object types, so `oauth` is
+`sdks/typescript/scripts/schema-guard.test.ts` compares each schema's declared properties and
+optionality against the emitted TypeScript — descending into inline object types, so `oauth` is
 covered — and runs every fixture through `ajv`, plus through `runContractTests` for the
 `equivalence` class. A schema that drifts from the reference implementation fails CI.
 
-`scripts/rules-guard.test.ts` asserts the rule registry and the reference implementation's
-rule table declare the same ids — none missing, none extra — and that every published rule is
-asserted by at least one fixture. A rule with no fixture is a rule no binding is held to.
+`sdks/typescript/scripts/rules-guard.test.ts` asserts the rule registry and the reference
+implementation's rule table declare the same ids — none missing, none extra — and that every
+published rule is asserted by at least one fixture. A rule with no fixture is a rule no binding
+is held to.
 
-`scripts/predicates-guard.test.ts` asserts the published segment set and
+`sdks/typescript/scripts/predicates-guard.test.ts` asserts the published segment set and
 `ROW_DATA_TOOL_SEGMENTS` declare the same members, drives every predicate case through the
 reference implementation, and checks the `HitlRequest` schema reaches the same verdict as the
 runtime on every one of them — the same schema-versus-runtime equivalence the manifest corpus
 asserts.
 
-`scripts/sandbox-guard.test.ts` asserts the published probe protocol and
-`src/testing/sandbox-protocol.ts` declare the same probe names, exit codes, and error-code
-sets, replays every harness case against the real decision logic with a recording stub, and
-drives every classify case through the probe's classification. A companion,
-`scripts/probe-runtime.test.ts`, asserts the built probe calls no runtime-specific global —
-the harness spawns the *consumer's* runtime, and a Bun-only call failed under Node silently,
-because the resulting error carries no code and is classified as an unexpected outcome.
+`sdks/typescript/scripts/sandbox-guard.test.ts` asserts the published probe protocol and
+`sdks/typescript/src/testing/sandbox-protocol.ts` declare the same probe names, exit codes, and
+error-code sets, replays every harness case against the real decision logic with a recording
+stub, and drives every classify case through the probe's classification. A companion,
+`sdks/typescript/scripts/probe-runtime.test.ts`, asserts the built probe calls no
+runtime-specific global — the harness spawns the *consumer's* runtime, and a Bun-only call
+failed under Node silently, because the resulting error carries no code and is classified as an
+unexpected outcome.
 
-`scripts/framing-guard.test.ts` validates the framing corpus against its schemas and drives
-every case through `NdjsonLineReader`. It also runs under plain Node against the built
-`dist/`, via `scripts/framing-node.mjs` in the cross-OS × Node-LTS matrix: framing bottoms
-out in `TextDecoder`, whose edge behavior is not identical across runtimes, and a corpus
-other languages are told to trust must not encode one runtime's quirk.
+`sdks/typescript/scripts/framing-guard.test.ts` validates the framing corpus against its
+schemas and drives every case through `NdjsonLineReader`. It also runs under plain Node against
+the built `dist/`, via `sdks/typescript/scripts/framing-node.mjs` in the cross-OS × Node-LTS
+matrix: framing bottoms out in `TextDecoder`, whose edge behavior is not identical across
+runtimes, and a corpus other languages are told to trust must not encode one runtime's quirk.
 
-`scripts/negotiation-guard.test.ts` asserts the contract-version pattern is identical across
-its one TypeScript spelling and its five copies (the hello schema, the manifest schema, the
-rule registry, the spec document's prose, and the negotiation corpus's own case schema, which
-carries the pattern twice); that `hello.schema.json` stays outside any version directory, so
-the frozen-frame rule stays a failing test rather than only a comment; that the corpus
-validates against its schemas and every case agrees with `negotiateContractVersion`,
-`parseHello`, and `declaredVersionsMatch` respectively, with the hello schema reaching the
-same verdict as `parseHello` on every well-formed frame; and that the reserved exit code
-agrees across the spec's prose, the `CONTRACT_HANDSHAKE_EXIT` constant, and every refusal case
-in the corpus. The three new manifest rule ids are covered by `scripts/rules-guard.test.ts`
+`sdks/typescript/scripts/negotiation-guard.test.ts` asserts the contract-version pattern is
+identical across its one TypeScript spelling and its five copies (the hello schema, the
+manifest schema, the rule registry, the spec document's prose, and the negotiation corpus's own
+case schema, which carries the pattern twice); that `hello.schema.json` stays outside any
+version directory, so the frozen-frame rule stays a failing test rather than only a comment;
+that the corpus validates against its schemas and every case agrees with
+`negotiateContractVersion`, `parseHello`, and `declaredVersionsMatch` respectively, with the
+hello schema reaching the same verdict as `parseHello` on every well-formed frame; and that the
+reserved exit code agrees across the spec's prose, the `CONTRACT_HANDSHAKE_EXIT` constant, and
+every refusal case in the corpus. The three new manifest rule ids are covered by
+`sdks/typescript/scripts/rules-guard.test.ts`
 instead, which already asserts every published rule — old and new alike — is declared
 identically by the registry and the rule table, and is asserted by at least one fixture.
 

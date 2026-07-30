@@ -43,7 +43,7 @@ agree on.
 - **Provenance publishing.** Releases are published with `npm publish --provenance`
   via GitHub Actions OIDC / npm trusted-publisher — there is no long-lived npm
   token in repository secrets, and each release carries a verifiable attestation.
-- **Signing primitives, not signing authority.** `src/crypto` ships Ed25519
+- **Signing primitives, not signing authority.** `sdks/typescript/src/crypto` ships Ed25519
   keygen and manifest sign/verify helpers (`signManifest`,
   `verifyManifestSignature`) plus canonical JSON. The SDK provides the *primitives*;
   the gateway decides *what to trust*. The SDK never carries keys.
@@ -82,7 +82,8 @@ binding that fails these does not ship.
 
 ### Manifest signing & connector trust
 
-The Ed25519 signing primitives already in `src/crypto` are the foundation for the
+The Ed25519 signing primitives already in `sdks/typescript/src/crypto` are the foundation for
+the
 registry trust model (roadmap Phase 4). The intended end state:
 
 - **Published connectors carry a verifiable signature** over a canonicalized

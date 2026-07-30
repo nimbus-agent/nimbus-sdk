@@ -45,7 +45,8 @@ fails.
 **Cryptographic primitives are carved out of the determinism requirement.** Key
 generation and signing are nondeterministic on purpose — that unpredictability is the
 security property, not an accident that a seam could fix. The worked example is
-`generateEd25519Keypair` (`src/crypto/verify-signature.ts`): it takes no parameters and
+`generateEd25519Keypair` (`sdks/typescript/src/crypto/verify-signature.ts`): it takes no
+parameters and
 calls Node's `generateKeyPairSync` directly, and there is no seam that would make two
 calls return the same keypair without destroying the reason the function exists. The
 same reasoning covers `signJwt`'s reliance on `crypto.sign` under ES256 (ECDSA signing

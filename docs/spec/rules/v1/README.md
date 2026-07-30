@@ -72,7 +72,7 @@ characters are removed from both ends.
 
 ## How this stays true
 
-`scripts/rules-guard.test.ts` runs on every pull request. It asserts the reference
+`sdks/typescript/scripts/rules-guard.test.ts` runs on every pull request. It asserts the reference
 implementation's rule table and this registry declare exactly the same ids — none missing,
 none extra — and that every registry rule is asserted by at least one fixture in
 [`../../conformance/v1/`](../../conformance/v1/). A rule with no fixture is a rule no binding

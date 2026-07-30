@@ -1561,7 +1561,37 @@ export declare function viewEmail(raw: unknown): JmapEmailView | null;
 
 ## `./ipc`
 
-4 exports.
+9 exports.
+
+### `HELLO_MESSAGE`
+
+From `./hello.js`.
+
+```ts
+export declare const HELLO_MESSAGE = "hello";
+```
+
+### `HelloParseResult` *(type-only)*
+
+From `./hello.js`.
+
+```ts
+export type HelloParseResult = {
+    readonly ok: true;
+    readonly contractVersions: readonly string[];
+} | {
+    readonly ok: false;
+    readonly reason: HelloRefusalReason;
+};
+```
+
+### `HelloRefusalReason` *(type-only)*
+
+From `./hello.js`.
+
+```ts
+export type HelloRefusalReason = "not-json" | "not-object" | "wrong-message" | "missing-versions" | "empty-versions" | "invalid-version" | "duplicate-version";
+```
 
 ### `IPC_MAX_LINE_BYTES`
 
@@ -1612,6 +1642,22 @@ export type NdjsonLineReaderOptions = {
 
     lineLimitError?: new (message: string) => Error;
 };
+```
+
+### `encodeHello`
+
+From `./hello.js`.
+
+```ts
+export declare function encodeHello(versions: readonly string[]): string;
+```
+
+### `parseHello`
+
+From `./hello.js`.
+
+```ts
+export declare function parseHello(frame: string): HelloParseResult;
 ```
 
 ## `./testing`

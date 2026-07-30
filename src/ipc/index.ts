@@ -1,4 +1,11 @@
 export {
+  encodeHello,
+  HELLO_MESSAGE,
+  type HelloParseResult,
+  type HelloRefusalReason,
+  parseHello,
+} from "./hello.js";
+export {
   IPC_MAX_LINE_BYTES,
   type NdjsonFlushResult,
   NdjsonLineReader,

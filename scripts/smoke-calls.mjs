@@ -184,6 +184,16 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "ipc/hello",
+    run: (_sdk, _testing, ipc) => {
+      const frame = ipc.encodeHello(["1"]);
+      const parsed = ipc.parseHello(frame);
+      if (!parsed.ok || parsed.contractVersions[0] !== "1") {
+        throw new Error(`unexpected parseHello result: ${JSON.stringify(parsed)}`);
+      }
+    },
+  },
+  {
     module: "testing/index",
     run: async (_sdk, testing) => {
       const result = await new testing.MockGateway().callTool("x", {});

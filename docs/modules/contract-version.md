@@ -1,4 +1,4 @@
-<!-- covers: contract-version -->
+<!-- covers: contract-version, ipc/hello -->
 
 # `contract-version`
 

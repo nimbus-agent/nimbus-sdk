@@ -197,15 +197,21 @@ same contract.*
 - [ ] `create-nimbus-connector` scaffolding for TypeScript **and** Python — *Pillar 4*
 - [ ] Per-language quickstarts — *Pillar 4*
 - [ ] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*
-- [ ] **Automated Python releases via release-please** — add a `python` component to
+- [x] **Automated Python releases via release-please** — add a `python` component to
   `release-please-config.json` so merged Conventional Commits open a release PR and
   maintain the Python `CHANGELOG`, exactly as the `node` component does today — *Pillars 5, 7*
-- [ ] **Tokenless publish to PyPI via Trusted Publishers** (OIDC) — build `sdist` +
+- [x] **Tokenless publish to PyPI via Trusted Publishers** (OIDC) — build `sdist` +
   `wheel`, publish with **PEP 740 attestations**, **no `PYPI_TOKEN` secret**,
   mirroring the npm `--provenance` guarantee — *Pillar 5*
-- [ ] **Harden + verify the Python release workflow** to match npm's — `harden-runner`,
+- [x] **Harden + verify the Python release workflow** to match npm's — `harden-runner`,
   an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
   confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
+
+> Boxes 5–7 are done: a Python release can be cut end-to-end from a merged commit —
+> release PR → PyPI publish with attestations, no long-lived token — and verified after
+> publish. That is one clause of the exit criteria, met early. The phase still needs a
+> Python-authored connector passing the conformance suite (boxes 1–4); what remains is
+> SDK work rather than infrastructure work.
 
 **Exit criteria:** a Python-authored connector runs against the gateway and passes
 the same suite as the TS reference; the suite is green for both languages in CI; a

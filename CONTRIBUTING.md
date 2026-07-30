@@ -22,6 +22,17 @@ bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 ```
 
+Python commands run from `sdks/python/`:
+
+```bash
+cd sdks/python
+python -m pip install -e .      # editable install
+python -m ruff check . && python -m ruff format --check .
+python -m mypy                  # strict
+python -m pytest -q
+python -m build                 # sdist + wheel into dist/
+```
+
 ### Changing the public API surface
 
 `docs/api-surface.md` is a generated snapshot of every export of every `exports`

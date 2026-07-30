@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { assertNoRowDataTools, runContractTests } from "@nimbus-dev/sdk";
-import { joinPackage, joinRepo } from "../../scripts/paths.ts";
+import { joinPackage } from "../../scripts/paths.ts";
 import { echoHandler, manifest, TOOLS } from "./index.ts";
 
 describe("quickstart connector", () => {
@@ -18,7 +18,7 @@ describe("quickstart connector", () => {
   });
 
   test("the README quickstart and this example have not drifted apart", () => {
-    const readme = readFileSync(joinRepo("README.md"), "utf8");
+    const readme = readFileSync(joinPackage("README.md"), "utf8");
     const source = readFileSync(joinPackage("examples/quickstart-connector/index.ts"), "utf8");
 
     // Normalize what a checkout or an editor may legitimately change — line endings and

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { collectEntryPoints } from "./api-surface.ts";
 import {
@@ -10,7 +10,7 @@ import {
   type Snippet,
   sdkPathsMapping,
 } from "./docs-snippets.ts";
-import { packageRoot, readFromPackage, repoRoot } from "./paths.ts";
+import { packageRoot, readFromPackage, readFromRepo, repoRoot } from "./paths.ts";
 
 describe("extractSnippets", () => {
   test("collects ts fences with their 1-based opening-fence line", () => {
@@ -153,15 +153,21 @@ describe("assertAllowedImports", () => {
   });
 });
 
-const readFromRoot = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
+/**
+ * `packageExtra` entries resolve against `packageRoot` (the npm README moved there);
+ * everything else — `extra` and the `modulesDir` pages — resolves against `repoRoot`.
+ */
+const packageExtraFiles = new Set<string>(SNIPPET_SOURCES.packageExtra);
+const readSnippetSource = (file: string): string =>
+  packageExtraFiles.has(file) ? readFromPackage(file) : readFromRepo(file);
 
-/** Every document in the teaching surface, repo-relative and sorted. */
+/** Every document in the teaching surface, sorted. */
 function snippetSources(): string[] {
   const pages = readdirSync(join(repoRoot, SNIPPET_SOURCES.modulesDir))
     .filter((name) => name.endsWith(".md"))
     .sort()
     .map((name) => `${SNIPPET_SOURCES.modulesDir}/${name}`);
-  return [...SNIPPET_SOURCES.extra, ...pages];
+  return [...SNIPPET_SOURCES.packageExtra, ...SNIPPET_SOURCES.extra, ...pages];
 }
 
 /**
@@ -274,7 +280,7 @@ describe("documentation snippets", () => {
   });
 
   test("the teaching surface contains snippets at all", () => {
-    const all = snippetSources().flatMap((file) => extractSnippets(file, readFromRoot(file)));
+    const all = snippetSources().flatMap((file) => extractSnippets(file, readSnippetSource(file)));
     expect(
       all.length,
       "zero ts fences found across README.md and docs/modules/ — either the extractor is " +
@@ -286,14 +292,14 @@ describe("documentation snippets", () => {
     const entries = collectEntryPoints(readFromPackage("package.json"));
     const allowed = new Set(Object.keys(sdkPathsMapping("@nimbus-dev/sdk", entries, packageRoot)));
     for (const file of snippetSources()) {
-      for (const snippet of extractSnippets(file, readFromRoot(file))) {
+      for (const snippet of extractSnippets(file, readSnippetSource(file))) {
         assertAllowedImports(snippet, allowed);
       }
     }
   });
 
   test("every snippet typechecks against the built dist/", async () => {
-    const all = snippetSources().flatMap((file) => extractSnippets(file, readFromRoot(file)));
+    const all = snippetSources().flatMap((file) => extractSnippets(file, readSnippetSource(file)));
     const output = await typecheckSnippets(all);
     expect(output, `documentation snippets failed to typecheck:\n\n${output}`).toBe("");
   }, 120_000);

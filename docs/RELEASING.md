@@ -19,17 +19,22 @@ Whatever the language, an official Nimbus SDK is released so that:
    attestable back to *this repo, this workflow, this commit*.
 4. **It runs on hardened CI.** `step-security/harden-runner`, pinned action SHAs,
    `persist-credentials: false`, least-privilege `permissions`.
-5. **It is verified after publish.** The job re-fetches the released artifact and
-   cryptographically verifies its signature / attestation before going green —
-   because most registries cannot unpublish, so a post-publish failure must *report*
-   damage, not cause it.
+5. **It is verified after publish.** The job re-fetches the released artifact from
+   the registry and verifies it before going green — because most registries cannot
+   unpublish, so a post-publish failure must *report* damage, not cause it. The
+   strength of that check follows what each ecosystem offers: npm verifies the
+   registry signature and provenance attestation **cryptographically**
+   (`npm audit signatures`); PyPI's is currently a **claims check** — the publisher
+   identity in PyPI's integrity document, the commit in the signing certificate, and
+   a SHA-256 match against the bytes downloaded — with cryptographic verification via
+   `pypi-attestations` a tracked follow-up.
 
 ### At a glance
 
 | SDK | Registry | Automation | Publish auth | Provenance | Post-publish verify |
 |---|---|---|---|---|---|
 | **TypeScript** *(shipping)* | npm | release-please `node` | OIDC Trusted Publisher — no token | `npm publish --provenance` (Sigstore) | install from npm + `npm audit signatures` + provenance attestation check |
-| **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | install from PyPI + verify attestation |
+| **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | install from PyPI + verify attestation claims (not yet cryptographic) |
 | **Go** *(planned)* | none — module proxy | release-please `go` → semver tag + GitHub Release | tag push — no registry credential | signed tags + SLSA provenance on release artifacts | `GOSUMDB` checksum DB + `go mod verify` |
 
 ## TypeScript → npm (implemented today)

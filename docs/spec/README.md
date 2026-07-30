@@ -30,7 +30,7 @@ roadmap targets next.
 
 ### `rules/v1/`
 
-The [manifest rule registry](./rules/v1/) — the thirteen semantic checks
+The [manifest rule registry](./rules/v1/) — the sixteen semantic checks
 `runContractTests` enforces, as data rather than as English strings inside five TypeScript
 functions. Each rule has a stable id (`manifest.minNimbusVersion.semver`), and a violation
 carries that id plus a JSON Pointer to the location that broke it.
@@ -107,7 +107,7 @@ accept or the exact-match violation out).
 
 ### `conformance/v1/`
 
-Four corpora, because the contract has four kinds of assertion.
+Five corpora, because the contract has five kinds of assertion.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -146,6 +146,15 @@ runner, so both skips — Windows, and no-declared-hosts — are pinned rather t
 `classify` case drives the errno-to-exit-code mapping, the one part of a probe's own logic
 reproducible without a real sandbox. Neither proves a sandbox enforces anything; see the
 spec's own §7.
+
+**Negotiation cases** — [`negotiation/`](./conformance/v1/negotiation/) is the executable form
+of the [contract-version negotiation specification](./negotiation/v1/contract-version.md)
+above, with its own [`index.json`](./conformance/v1/negotiation/index.json) and
+[`case.schema.json`](./conformance/v1/negotiation/case.schema.json). Three case kinds —
+`negotiate`, `hello`, and `declaration` — cover the algorithm, the frame, and the exact-match
+check respectively. Separate from the document index for the same reason the framing and
+predicate corpora are: widening the published document index would make an older validator
+reject entries it cannot interpret.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 

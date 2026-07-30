@@ -42,6 +42,22 @@ const VERSION_READERS: Record<
     file: "package.json",
     read: (text) => (JSON.parse(text) as { version?: string }).version,
   },
+  python: {
+    file: "pyproject.toml",
+    // Anchored to the [project] table. A naive /^version\s*=/m would happily match a
+    // `version` key inside any [tool.*] table and compare the wrong value; returning
+    // undefined on no match keeps a missed parse a failure rather than a silent pass.
+    read: (text) => {
+      // `\s*(?:#.*)?` after the header: TOML permits trailing whitespace and an inline
+      // comment on a table line, and a bare `^\[project\]$` would miss both. A miss is
+      // loud rather than silent — the section comes back empty, no version is found,
+      // and the guard's toBeDefined() fails — but failing on a legal file is still a
+      // false alarm someone has to debug.
+      const project =
+        /^\[project\]\s*(?:#.*)?$([\s\S]*?)(?=^\[|$(?![\s\S]))/m.exec(text)?.[1] ?? "";
+      return /^version\s*=\s*["']([^"']+)["']/m.exec(project)?.[1];
+    },
+  },
 };
 
 describe("the release-please configuration", () => {

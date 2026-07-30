@@ -9,7 +9,7 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ## `.`
 
-139 exports.
+145 exports.
 
 ### `AGENT_KIND`
 
@@ -153,6 +153,22 @@ export interface BuildEventInput {
 }
 ```
 
+### `CONTRACT_HANDSHAKE_EXIT`
+
+From `./contract-version.js`.
+
+```ts
+export declare const CONTRACT_HANDSHAKE_EXIT = 20;
+```
+
+### `CONTRACT_VERSIONS`
+
+From `./contract-version.js`.
+
+```ts
+export declare const CONTRACT_VERSIONS: readonly string[];
+```
+
 ### `CORE_CAPABILITY`
 
 From `./jmap-fastmail/index.js`.
@@ -245,6 +261,20 @@ From `./agents/brief-types.js`.
 
 ```ts
 export type ConflictType = "open_pr" | "assigned_ticket" | "recent_commit" | "open_branch";
+```
+
+### `ContractNegotiationResult` *(type-only)*
+
+From `./contract-version.js`.
+
+```ts
+export type ContractNegotiationResult = {
+    readonly ok: true;
+    readonly version: string;
+} | {
+    readonly ok: false;
+    readonly reason: "invalid-version" | "no-common-version";
+};
 ```
 
 ### `DataColumn` *(type-only)*
@@ -1141,6 +1171,14 @@ From `./audit-logger.js`.
 export declare function createScopedAuditLogger(extensionId: string, emit: AuditEmit): AuditLogger;
 ```
 
+### `declaredVersionsMatch`
+
+From `./contract-version.js`.
+
+```ts
+export declare function declaredVersionsMatch(manifestVersions: readonly unknown[], helloVersions: readonly string[]): boolean;
+```
+
 ### `decodeBase64`
 
 From `./crypto/verify-signature.js`.
@@ -1323,6 +1361,14 @@ From `./data-profile/index.js`.
 export declare function jsKind(v: unknown): string;
 ```
 
+### `manifestContractVersions`
+
+From `./contract-version.js`.
+
+```ts
+export declare function manifestContractVersions(manifest: unknown): readonly unknown[];
+```
+
 ### `methodResponseArgs`
 
 From `./jmap-fastmail/index.js`.
@@ -1337,6 +1383,14 @@ From `./crypto/service-account-token.js`.
 
 ```ts
 export declare function mintGoogleAccessToken(sa: GoogleServiceAccount, fetchFn?: FetchLike, nowMs?: number, scope?: string): Promise<string | null>;
+```
+
+### `negotiateContractVersion`
+
+From `./contract-version.js`.
+
+```ts
+export declare function negotiateContractVersion(local: readonly unknown[], remote: readonly unknown[]): ContractNegotiationResult;
 ```
 
 ### `parquetColumnsFromMetadata`

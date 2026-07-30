@@ -13,6 +13,7 @@ A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 |--------|------------|
 | [`server`](./modules/server.md) | `NimbusExtensionServer` — the connector entry point |
 | [`types`](./modules/types.md) | `ExtensionManifest`, `NimbusItem` — the core contract shapes |
+| [`contract-version`](./modules/contract-version.md) | Contract-version negotiation — the majors, the algorithm |
 | [`item-types`](./modules/item-types.md) | The item-type vocabulary and its guards |
 | [`agents`](./modules/agents.md) | Agent briefs, their guards, and the guard factory |
 | [`audit-logger`](./modules/audit-logger.md) | The scoped audit logger |

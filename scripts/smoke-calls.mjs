@@ -167,6 +167,15 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "contract-version",
+    run: (sdk) => {
+      const result = sdk.negotiateContractVersion(sdk.CONTRACT_VERSIONS, ["1"]);
+      if (!result.ok || result.version !== "1") {
+        throw new Error(`unexpected negotiation result: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
     module: "ipc/ndjson-line-reader",
     run: (_sdk, _testing, ipc) => {
       const reader = new ipc.NdjsonLineReader();

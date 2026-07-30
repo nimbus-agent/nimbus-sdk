@@ -71,6 +71,14 @@ export {
   validateManifest,
 } from "./contract-tests.js";
 export {
+  CONTRACT_HANDSHAKE_EXIT,
+  CONTRACT_VERSIONS,
+  type ContractNegotiationResult,
+  declaredVersionsMatch,
+  manifestContractVersions,
+  negotiateContractVersion,
+} from "./contract-version.js";
+export {
   type AppStoreConnectJwtParams,
   signAppStoreConnectJwt,
 } from "./crypto/app-store-connect-jwt.js";

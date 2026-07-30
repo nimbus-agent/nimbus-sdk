@@ -10,7 +10,7 @@ suite.
 | SDK | Package | Status |
 |---|---|---|
 | [TypeScript](./sdks/typescript/) | [`@nimbus-dev/sdk`](https://www.npmjs.com/package/@nimbus-dev/sdk) | Reference implementation |
-| Python | `nimbus-dev-sdk` | In progress |
+| [Python](./sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Spec-carrier |
 
 ## Documentation
 

@@ -13,3 +13,16 @@ sdks/python/dist/
 
 # Subagent-driven-development scratch (ledger, briefs, review packages).
 .superpowers/
+
+# Python build and tool artefacts. Without these a plain `pytest`/`mypy`/`ruff` run
+# leaves untracked caches behind, and `git add -A` sweeps them into a commit.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+
+# Copied from docs/spec/ at build time by sdks/python/hatch_build.py.
+sdks/python/src/nimbus_sdk/_data/

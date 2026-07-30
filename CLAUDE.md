@@ -43,6 +43,17 @@ bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 bun run api:surface # regenerate docs/api-surface.md after any exports change
 ```
 
+Python commands run from `sdks/python/`:
+
+```bash
+cd sdks/python
+python -m pip install -e .      # editable install
+python -m ruff check . && python -m ruff format --check .
+python -m mypy                  # strict
+python -m pytest -q
+python -m build                 # sdist + wheel into dist/
+```
+
 ## Conventions / non-negotiables
 
 - **Dependency-free at runtime.** No `dependencies` in `package.json`. If you need
@@ -61,6 +72,11 @@ bun run api:surface # regenerate docs/api-surface.md after any exports change
   `docs/spec/`). Scripts import from it rather than computing a root themselves.
 - The spec in `docs/spec/` and the docs surface in `docs/` are **language-neutral** and stay
   at the repository root. They are not TypeScript's to move.
+- **The Python distribution is `nimbus-dev-sdk`; the import is `nimbus_sdk`.** PyPI's
+  namespace is flat and `nimbus-sdk` belongs to an unrelated project — `pip install
+  nimbus-sdk` installs the wrong package rather than failing.
+- **Zero runtime dependencies in Python too.** `[project].dependencies` stays empty;
+  `hatchling` is a build backend, not a dependency.
 
 ## Relationship to other repos
 

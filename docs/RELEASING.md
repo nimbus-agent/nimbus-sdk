@@ -1,9 +1,9 @@
 # nimbus-sdk — Releasing
 
-How each official SDK is published. Today only the TypeScript SDK ships; the Python
-and Go pipelines are a [roadmap](./ROADMAP.md) Phase 2 / Phase 3 deliverable and are
-described here as the target so every binding is held to the **same guarantees**,
-even where the mechanics differ.
+How each official SDK is published. TypeScript and Python both ship today; the Go
+pipeline is a [roadmap](./ROADMAP.md) Phase 3 deliverable and is described here as
+the target so every binding is held to the **same guarantees**, even where the
+mechanics differ.
 
 ## Release parity — the guarantees every SDK meets
 
@@ -19,17 +19,22 @@ Whatever the language, an official Nimbus SDK is released so that:
    attestable back to *this repo, this workflow, this commit*.
 4. **It runs on hardened CI.** `step-security/harden-runner`, pinned action SHAs,
    `persist-credentials: false`, least-privilege `permissions`.
-5. **It is verified after publish.** The job re-fetches the released artifact and
-   cryptographically verifies its signature / attestation before going green —
-   because most registries cannot unpublish, so a post-publish failure must *report*
-   damage, not cause it.
+5. **It is verified after publish.** The job re-fetches the released artifact from
+   the registry and verifies it before going green — because most registries cannot
+   unpublish, so a post-publish failure must *report* damage, not cause it. The
+   strength of that check follows what each ecosystem offers: npm verifies the
+   registry signature and provenance attestation **cryptographically**
+   (`npm audit signatures`); PyPI's is currently a **claims check** — the publisher
+   identity in PyPI's integrity document, the commit in the signing certificate, and
+   a SHA-256 match against the bytes downloaded — with cryptographic verification via
+   `pypi-attestations` a tracked follow-up.
 
 ### At a glance
 
 | SDK | Registry | Automation | Publish auth | Provenance | Post-publish verify |
 |---|---|---|---|---|---|
 | **TypeScript** *(shipping)* | npm | release-please `node` | OIDC Trusted Publisher — no token | `npm publish --provenance` (Sigstore) | install from npm + `npm audit signatures` + provenance attestation check |
-| **Python** *(planned)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | install from PyPI + verify attestation |
+| **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | install from PyPI + verify attestation claims (not yet cryptographic) |
 | **Go** *(planned)* | none — module proxy | release-please `go` → semver tag + GitHub Release | tag push — no registry credential | signed tags + SLSA provenance on release artifacts | `GOSUMDB` checksum DB + `go mod verify` |
 
 ## TypeScript → npm (implemented today)
@@ -47,7 +52,9 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
    frozen at `sdk-v1.10.0` — the last release cut before the SDK moved to `sdks/typescript/`
    and its release-please component was renamed from `sdk` to `typescript`. The bare
    `vX.Y.Z` tags are older still, ending at `v0.20.0`, and predate the component prefix.
-2. **Publish** (only when `releases_created == true`), with `id-token: write`:
+2. **Publish** (only when `ts_released == 'true'`, the `typescript` component's own
+   release flag — the npm job is gated per-component, not on the release-please run
+   as a whole), with `id-token: write`:
    - Hardened runner (egress `audit`, so the Sigstore signing chain isn't blocked),
      build + typecheck + test.
    - `npm` is upgraded to `>= 11.5.1` (the floor for OIDC trusted publishing).
@@ -64,27 +71,53 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 
 This is the reference pipeline the other languages mirror.
 
-## Python → PyPI (planned)
+## Python → PyPI (implemented today)
 
-*Target: the npm guarantees, expressed in Python-native tooling.*
+Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 
-- **Automation:** add a `python` component to `release-please-config.json` (a second
-  package alongside the `node` one), so the Python SDK gets its own release PR and
-  `CHANGELOG` on the same merge-driven flow.
-- **Build:** produce `sdist` + `wheel` (e.g. `python -m build`).
-- **Publish:** [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish)
-  with **PyPI Trusted Publishers** — OIDC, `id-token: write`, **no `PYPI_TOKEN`** —
-  emitting **PEP 740 attestations** (Sigstore). This is the direct analogue of npm's
-  `--provenance`.
-- **Harden + preflight:** same `harden-runner`, and a preflight that fails if the
-  OIDC token is absent (a token-less misconfigure would publish *without*
-  attestations).
-- **Post-publish verify:** install the exact version from PyPI and verify its
-  attestation before the job goes green.
+1. **Release PR.** The `python` component in
+   [`release-please-config.json`](../release-please-config.json)
+   (`release-type: "python"`, package `nimbus-dev-sdk`) gives the Python SDK its own
+   release PR and `CHANGELOG`, independent of the `typescript` component.
 
-**Exit bar:** a Python release cut end-to-end from a merged commit, tokenless, with
-attestations, verified after publish. See
-[roadmap Phase 2](./ROADMAP.md#phase-2--prove-polyglot-with-python).
+   Releases are tagged `python-vX.Y.Z`.
+2. **Publish** (`publish-python`, only when `py_released == 'true'`), running in the
+   `pypi` GitHub Environment with `id-token: write`:
+   - Hardened runner, then install + lint (`ruff`) + typecheck (`mypy`, strict) +
+     test (`pytest`) — `release.yml` and `ci.yml` fire independently off the same
+     push, so this job re-runs the checks rather than trusting CI already ran
+     against this exact tree, mirroring the npm publish job.
+   - **Preflight** asserts the OIDC token is present and that `pyproject.toml`'s
+     declared version matches the version release-please released — because PyPI
+     can never re-upload a version, even after deletion, so this must fail *before*
+     anything is built.
+   - `python -m build` produces the sdist + wheel. A **gate step** then refuses to
+     publish unless `dist/` holds exactly one wheel and one sdist at the released
+     version, the wheel is pure Python (`py3-none-any` — this package has no
+     compiled extensions), and both artifacts ship the `_data/` contract fixtures
+     above a floor count.
+   - [`pypa/gh-action-pypi-publish`](https://github.com/pypa/gh-action-pypi-publish)
+     publishes with **`attestations: true`** and **no password** — the PyPI Trusted
+     Publisher binding (this repo, `release.yml`, the `pypi` environment)
+     authenticates via GitHub OIDC and attaches **PEP 740 attestations** (Sigstore),
+     the direct analogue of npm's `--provenance`.
+3. **Verify** (`verify-python-publish`, needs `publish-python`): split into its own
+   job so a post-publish failure has a green re-run path — re-running
+   `publish-python` itself would retry the upload and die on PyPI's 400 "File
+   already exists," while this job only downloads and reads, so it is safe to
+   re-run as many times as propagation lag requires.
+   - **Download** the published wheel from `pypi.org/simple` by exact version,
+     retried to ride out CDN propagation lag.
+   - **Verify PEP 740 provenance** from PyPI's integrity API: the attested subject
+     digest (sha256) matches the downloaded wheel's bytes, PyPI's `publisher` object
+     in the integrity document names this repo, `release.yml`, and the `pypi`
+     environment, and the Fulcio signing certificate names this commit.
+
+This is the infrastructure half of
+[roadmap Phase 2](./ROADMAP.md#phase-2--prove-polyglot-with-python) — a Python
+release ships tokenless, attested, and verified end-to-end. The phase's other exit
+criterion, a Python-authored connector passing the conformance suite, is separate
+and still open.
 
 ## Go → module proxy (planned)
 

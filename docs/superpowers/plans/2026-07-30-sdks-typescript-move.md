@@ -19,8 +19,9 @@
 - **Tests live alongside source** as `*.test.ts`.
 - **Conventional Commits.** This repo squash-merges, so the PR title is the only subject release-please ever parses. PR 1's title is `refactor: move the TypeScript SDK to sdks/typescript` — `refactor:` triggers no release, which is intended.
 - **Line endings are LF** (`.gitattributes` + `biome.json` `lineEnding: lf`).
-- **All GitHub Actions are pinned by full commit SHA** with a trailing `# vX.Y.Z` comment. Never replace a SHA with a tag.
+- **All GitHub Actions are pinned by full commit SHA** with a trailing `# vX.Y.Z` comment. Never replace a SHA with a tag, and do not "correct" a version comment against remembered version numbers — these actions release faster than intuition tracks. Verify with `gh api repos/<owner>/<repo>/tags --paginate --jq '.[] | select(.commit.sha=="<sha>") | .name'` before changing one. Every SHA in this plan is copied verbatim from the workflow it already appears in.
 - **Node `>=22`** per `engines`.
+- **Shell: POSIX `sh`** (Git Bash on Windows, which this repo's maintainers use). Commands are written for it. Two steps delete things and have PowerShell equivalents given inline; the rest are read-only or git operations that behave identically under Git Bash.
 
 ## Prerequisites — must be true before Task 1
 
@@ -329,6 +330,8 @@ sdks/python/dist/
 rm -rf node_modules
 bun install
 ```
+
+PowerShell equivalent of the first line: `Remove-Item -Recurse -Force node_modules`. Do **not** substitute `git clean -fdx` — it also deletes untracked files, which at this point includes anything you have not yet committed in this task.
 
 A workspace root changes the lockfile's shape; a stale `bun.lock` fails `bun install --frozen-lockfile` in CI on all three OSes.
 
@@ -674,10 +677,21 @@ const config = JSON.parse(readFromRepo("release-please-config.json")) as {
 };
 const manifest = JSON.parse(readFromRepo(".release-please-manifest.json")) as Record<string, string>;
 
-const MANIFEST_FILE: Record<string, string> = {
-  node: "package.json",
-  python: "pyproject.toml",
-};
+/**
+ * How to find the version inside each release-type's own manifest file.
+ *
+ * A package whose release-type has no reader here FAILS rather than being skipped. That is
+ * deliberate: a `continue` for unhandled types would let `sdks/python` join the config in a
+ * later PR with its version silently unchecked, and a guard that quietly covers less than it
+ * appears to is worse than no guard. Adding a package means adding its reader.
+ */
+const VERSION_READERS: Record<string, { file: string; read: (text: string) => string | undefined }> =
+  {
+    node: {
+      file: "package.json",
+      read: (text) => (JSON.parse(text) as { version?: string }).version,
+    },
+  };
 
 describe("the release-please configuration", () => {
   test("declares at least one package", () => {
@@ -688,20 +702,34 @@ describe("the release-please configuration", () => {
     expect(Object.keys(manifest).sort()).toEqual(Object.keys(config.packages).sort());
   });
 
+  test("every declared release-type has a version reader", () => {
+    for (const [path, pkg] of Object.entries(config.packages)) {
+      expect(
+        VERSION_READERS[pkg["release-type"]],
+        `no version reader for release-type "${pkg["release-type"]}" (${path}) — add one to ` +
+          "VERSION_READERS in the same change that adds the package",
+      ).toBeDefined();
+    }
+  });
+
   test("every package path exists and holds the manifest its release-type implies", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
-      const file = MANIFEST_FILE[pkg["release-type"]];
-      expect(file, `unhandled release-type "${pkg["release-type"]}" for ${path}`).toBeDefined();
-      expect(existsSync(joinRepo(path, file as string)), `${path}/${file} is missing`).toBe(true);
+      const reader = VERSION_READERS[pkg["release-type"]];
+      if (!reader) continue; // reported by the test above
+      expect(existsSync(joinRepo(path, reader.file)), `${path}/${reader.file} is missing`).toBe(
+        true,
+      );
     }
   });
 
   test("the manifest version matches each package's own manifest file", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
-      if (pkg["release-type"] !== "node") continue;
-      const onDisk = JSON.parse(readFromRepo(`${path}/package.json`)) as { version: string };
-      expect(onDisk.version, `${path}/package.json disagrees with the release manifest`).toBe(
-        manifest[path],
+      const reader = VERSION_READERS[pkg["release-type"]];
+      if (!reader) continue; // reported above
+      const onDisk = reader.read(readFromRepo(`${path}/${reader.file}`));
+      expect(onDisk, `${path}/${reader.file} declares no version`).toBeDefined();
+      expect(onDisk, `${path}/${reader.file} disagrees with the release manifest`).toBe(
+        manifest[path] as string,
       );
     }
   });
@@ -754,7 +782,9 @@ The key renames from `"."`; the version `1.10.0` is carried across unchanged, so
 - [ ] **Step 4: Run it and confirm it passes**
 
 Run: `cd sdks/typescript && bun test scripts/release-config-guard.test.ts`
-Expected: PASS, 5 tests.
+Expected: PASS, 6 tests.
+
+> **Note for PR 2.** Adding `sdks/python` to the config will fail the "every declared release-type has a version reader" test until a `python` entry is added to `VERSION_READERS`. That is the intended forcing function. Its `read` must anchor to the `[project]` table rather than matching the first `version =` line in the file — `[tool.*]` tables can carry their own `version` keys, and a naive `/^version\s*=/m` would happily read one of those instead. It must also return `undefined` on no match, never silently pass.
 
 - [ ] **Step 5: Verify the bootstrap tag is in place**
 
@@ -862,6 +892,9 @@ No new files. This is the gate the spec calls PR 1's exit criteria (§2.6).
 rm -rf node_modules sdks/typescript/dist sdks/typescript/coverage
 bun install --frozen-lockfile
 ```
+
+PowerShell equivalent of the first line:
+`Remove-Item -Recurse -Force node_modules, sdks/typescript/dist, sdks/typescript/coverage`
 
 Expected: succeeds. A failure here means Task 2 Step 6's lockfile regeneration was not committed.
 

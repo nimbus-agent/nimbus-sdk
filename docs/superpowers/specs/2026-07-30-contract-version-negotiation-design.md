@@ -141,11 +141,18 @@ segment is absent, so a later maintainer does not "fix" it.
 
 ## 4. The algorithm
 
-Intersect the two sets. The agreed version is the **numerically largest** common member.
+Intersect the two sets. The agreed version is the **numerically largest** common member, and
+"numerically" is defined as a comparison on the strings so that no binding needs a number type:
 
-Numerically, not lexicographically: `"10"` is greater than `"9"`, and string comparison gets
-that backwards. This is the one portability trap in the design, and it gets a fixture whose
-only job is to fail a binding that sorts as strings.
+> The longer string is greater. Between two of equal length, the greater is the one that is
+> greater as a plain character comparison.
+
+Because §1 forbids leading zeros, that is exactly numeric order. Plain lexicographic comparison
+alone gets `"10"` versus `"9"` backwards, which is the trap the length step removes — and
+parsing to a number instead would be worse, since a 20-digit major silently loses precision in
+any language whose default numeric type is a float, JavaScript included. Two fixtures: the
+`"10"`-versus-`"9"` case, and a 25-digit major that a float-parsing binding rounds and gets
+wrong.
 
 An empty intersection is a refusal (§5).
 
@@ -211,14 +218,20 @@ A new sibling directory, because the wire spec pushed this out of its own scope:
 - `docs/spec/rules/v1/manifest-rules.json` — three new rules, following the existing id and
   `supersedes` conventions:
 
-  | Rule | Requires |
-  |------|----------|
-  | `manifest.contractVersions.array` | an array, when the field is present |
-  | `manifest.contractVersions.nonEmpty` | at least one member |
-  | `manifest.contractVersions.entry` | every member unique and matching the §1 pattern |
+  | Rule | Requires | Parameterized |
+  |------|----------|---------------|
+  | `manifest.contractVersions.type` | an array, when the field is present | no |
+  | `manifest.contractVersions.nonempty` | at least one member, when the field is present | no |
+  | `manifest.contractVersions.entry` | every member a unique major matching the §1 pattern | yes |
 
-  `manifest.contractVersions.array` supersedes the other two: a non-array has no members to
+  `manifest.contractVersions.type` supersedes the other two: a non-array has no members to
   check, the same relationship `minNimbusVersion.required` already has with its semver rule.
+
+  The kinds are `.type` / `.nonempty` / `.entry` rather than `.array` / `.nonEmpty` because the
+  published id pattern is `^manifest\.[A-Za-z]+\.[a-z]+$` — asserted in both
+  `rules/v1/manifest-rules.schema.json` and `conformance/v1/index.schema.json`, so a capital
+  letter in the kind fails two schemas. `.type` and `.entry` are also what `permissions` and
+  `hitlRequired` already call the same two checks.
 
 ### Corpus
 

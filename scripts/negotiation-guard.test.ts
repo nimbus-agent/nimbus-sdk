@@ -5,9 +5,10 @@
  * The sixth guard in the family `docs/spec/README.md` documents. Three properties this file owns
  * that no fixture can assert about itself:
  *
- * **Drift.** The contract-version pattern is spelled in five places — the two runtime modules,
- * the manifest schema, the rule registry, and the hello schema. All five must be identical
- * strings, or a binding written from one of them under- or over-accepts.
+ * **Drift.** The contract-version pattern is spelled in six places — the one TypeScript module,
+ * the manifest schema, the rule registry, the hello schema, and twice more inside the negotiation
+ * corpus's own case schema (the agreed-version pattern and the parsed-set item pattern). All six
+ * must be identical strings, or a binding written from one of them under- or over-accepts.
  *
  * **The frozen frame.** `hello.schema.json` must stay outside any version directory. The
  * frozen-shape rule (spec §5) is exactly the kind of constraint a later maintainer tidies away
@@ -31,27 +32,48 @@ import {
   manifestContractVersions,
   negotiateContractVersion,
 } from "../src/contract-version.ts";
-import { encodeHello, parseHello } from "../src/ipc/hello.ts";
+import { encodeHello, type HelloRefusalReason, parseHello } from "../src/ipc/hello.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
 const readText = (path: string): string => readFileSync(join(repoRoot, path), "utf8");
 
 const SPEC_PATH = "docs/spec/negotiation/v1/contract-version.md";
+const NEGOTIATION_DIR = "docs/spec/negotiation";
 const HELLO_SCHEMA_PATH = "docs/spec/negotiation/hello.schema.json";
 const MANIFEST_SCHEMA_PATH = "docs/spec/schemas/v1/extension-manifest.schema.json";
 const REGISTRY_PATH = "docs/spec/rules/v1/manifest-rules.json";
+const CORPUS_DIR = "docs/spec/conformance/v1/negotiation";
+const CORPUS_INDEX_PATH = `${CORPUS_DIR}/index.json`;
+const CORPUS_INDEX_SCHEMA_PATH = `${CORPUS_DIR}/index.schema.json`;
+const CASE_SCHEMA_PATH = `${CORPUS_DIR}/case.schema.json`;
 
 const GITHUB_RAW_PREFIX = "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/";
 
 /** The one normative spelling. Every other copy is compared against this. */
 const VERSION_PATTERN = "^[1-9][0-9]*$";
 
+/**
+ * Exhaustive against the union type: an eighth reason added to `HelloRefusalReason` fails
+ * `tsc --noEmit` right here — TypeScript rejects a `Record` missing one of its keys — instead of
+ * silently going uncovered by the corpus-coverage check below.
+ */
+const ALL_HELLO_REFUSAL_REASONS: Record<HelloRefusalReason, true> = {
+  "not-json": true,
+  "not-object": true,
+  "wrong-message": true,
+  "missing-versions": true,
+  "empty-versions": true,
+  "invalid-version": true,
+  "duplicate-version": true,
+};
+
 const HELLO_SCHEMA = readJson(HELLO_SCHEMA_PATH) as Record<string, unknown>;
 const MANIFEST_SCHEMA = readJson(MANIFEST_SCHEMA_PATH) as Record<string, unknown>;
 const REGISTRY = readJson(REGISTRY_PATH) as {
   rules: { id: string; pattern?: string }[];
 };
+const CASE_SCHEMA = readJson(CASE_SCHEMA_PATH) as Record<string, unknown>;
 
 const newAjv = (): Ajv => new Ajv({ allErrors: true, strict: true });
 
@@ -66,6 +88,25 @@ describe("negotiation guard — the published documents exist", () => {
 
   test("the specification states the version pattern verbatim", () => {
     expect(readText(SPEC_PATH)).toContain(VERSION_PATTERN);
+  });
+
+  test("the spec tree's version directories agree with CONTRACT_VERSIONS", () => {
+    // Design spec §7: "asserts CONTRACT_VERSIONS and the current version stated by the spec
+    // section agree, so a future v2 path cannot land without the runtime noticing." §3 of the
+    // normative document claims a one-to-one correspondence between a contract version and a
+    // published docs/spec/<area>/v1/ segment — this is the test that holds that claim to CI. A
+    // new spec-tree major must not land while the runtime's supported set stays behind.
+    const versionDirs = readdirSync(join(repoRoot, NEGOTIATION_DIR), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && /^v[0-9]+$/.test(entry.name))
+      .map((entry) => entry.name)
+      .sort();
+    const expected = [...CONTRACT_VERSIONS].map((v) => `v${v}`).sort();
+    expect(
+      versionDirs,
+      "docs/spec/negotiation/'s version directories and CONTRACT_VERSIONS disagree — §3 claims " +
+        "a one-to-one correspondence between a contract version and a published v<major>/ " +
+        "segment, and a new spec-tree major must not land while the runtime stays behind it.",
+    ).toEqual(expected);
   });
 });
 
@@ -106,10 +147,10 @@ describe("negotiation guard — the hello schema", () => {
   });
 });
 
-describe("negotiation guard — one pattern, four spellings", () => {
+describe("negotiation guard — one pattern, six spellings", () => {
   test("the single TypeScript spelling is the normative one", () => {
     // One constant, imported by src/ipc/hello.ts and src/contract-tests.ts, so the runtime cannot
-    // disagree with itself. The three JSON copies below cannot import it, which is why they are
+    // disagree with itself. The five copies below cannot import it, which is why they are
     // compared here.
     expect(CONTRACT_VERSION_PATTERN.source).toBe(VERSION_PATTERN);
   });
@@ -131,6 +172,31 @@ describe("negotiation guard — one pattern, four spellings", () => {
   test("the rule registry declares it", () => {
     const entry = REGISTRY.rules.find((r) => r.id === "manifest.contractVersions.entry");
     expect(entry?.pattern).toBe(VERSION_PATTERN);
+  });
+
+  test("the case schema declares it for the agreed version", () => {
+    const expectSchema = (CASE_SCHEMA["properties"] as Record<string, Record<string, unknown>>)[
+      "expect"
+    ];
+    const expectProps = expectSchema?.["properties"] as
+      | Record<string, Record<string, unknown>>
+      | undefined;
+    expect(expectProps?.["version"]?.["pattern"]).toBe(VERSION_PATTERN);
+  });
+
+  test("the case schema declares it for the parsed hello set", () => {
+    const expectSchema = (CASE_SCHEMA["properties"] as Record<string, Record<string, unknown>>)[
+      "expect"
+    ];
+    const expectProps = expectSchema?.["properties"] as
+      | Record<string, Record<string, unknown>>
+      | undefined;
+    const contractVersions = expectProps?.["contractVersions"] as
+      | Record<string, unknown>
+      | undefined;
+    expect((contractVersions?.["items"] as Record<string, unknown> | undefined)?.["pattern"]).toBe(
+      VERSION_PATTERN,
+    );
   });
 
   test("the spellings agree behaviorally, not only textually", () => {
@@ -156,11 +222,6 @@ describe("negotiation guard — one pattern, four spellings", () => {
   });
 });
 
-const CORPUS_DIR = "docs/spec/conformance/v1/negotiation";
-const CORPUS_INDEX_PATH = `${CORPUS_DIR}/index.json`;
-const CORPUS_INDEX_SCHEMA_PATH = `${CORPUS_DIR}/index.schema.json`;
-const CASE_SCHEMA_PATH = `${CORPUS_DIR}/case.schema.json`;
-
 interface CorpusEntry {
   file: string;
   section: string;
@@ -185,7 +246,6 @@ interface NegotiationCase {
 }
 
 const CORPUS_INDEX_SCHEMA = readJson(CORPUS_INDEX_SCHEMA_PATH) as Record<string, unknown>;
-const CASE_SCHEMA = readJson(CASE_SCHEMA_PATH) as Record<string, unknown>;
 const CORPUS_INDEX = readJson(CORPUS_INDEX_PATH) as { spec: string; cases: CorpusEntry[] };
 
 const CASES: { entry: CorpusEntry; body: NegotiationCase }[] = CORPUS_INDEX.cases.map((entry) => ({
@@ -217,9 +277,14 @@ describe("negotiation guard — the corpus", () => {
   test("every case validates against the case schema", () => {
     const ajv = newAjv();
     const validate = ajv.compile(CASE_SCHEMA);
-    const invalid = CASES.filter(({ body }) => !validate(body)).map(
-      ({ entry }) => `${entry.file}: ${ajv.errorsText(validate.errors)}`,
-    );
+    // Capture each case's errors inline, in the same pass that validates it. Reading
+    // `validate.errors` only after the whole filter has run reflects just the last case checked
+    // overall, not the failing one — which misleads exactly when someone is using this message
+    // to find the failure.
+    const invalid = CASES.map(({ entry, body }) => {
+      const ok = validate(body);
+      return ok ? null : `${entry.file}: ${ajv.errorsText(validate.errors)}`;
+    }).filter((m): m is string => m !== null);
     expect(invalid).toEqual([]);
   });
 
@@ -275,21 +340,15 @@ describe("negotiation guard — the corpus", () => {
   });
 
   test("every refusal reason parseHello can produce is exercised by a case", () => {
-    // A reason with no case is a reason no binding is held to.
+    // A reason with no case is a reason no binding is held to. The required list is exhaustive
+    // against HelloRefusalReason (above), so an eighth reason fails typecheck rather than
+    // silently slipping past this check uncovered.
     const covered = new Set(
       casesOfKind("hello")
         .filter(({ body }) => !body.expect.ok)
         .map(({ body }) => body.expect.reason),
     );
-    const required = [
-      "not-json",
-      "not-object",
-      "wrong-message",
-      "missing-versions",
-      "empty-versions",
-      "invalid-version",
-      "duplicate-version",
-    ];
+    const required = Object.keys(ALL_HELLO_REFUSAL_REASONS);
     expect(required.filter((reason) => !covered.has(reason))).toEqual([]);
   });
 });
@@ -333,10 +392,17 @@ describe("negotiation guard — the reference implementation agrees with every c
         const declared = manifestContractVersions(
           "manifest" in body ? { contractVersions: body.manifest } : {},
         );
-        const actual = declaredVersionsMatch(declared, body.hello ?? []);
-        return actual === body.expect.ok
+        const actualOk = declaredVersionsMatch(declared, body.hello ?? []);
+        // declaredVersionsMatch returns a bare boolean — it has no reason vocabulary of its own —
+        // so the corpus's one refusal reason for this kind, declaration-mismatch, is asserted
+        // here as a literal rather than read back from the runtime. Without this, a fixture's
+        // expect.reason could be any string, including a typo, and nothing would notice: a green
+        // suite would say nothing about whether it actually said "declaration-mismatch".
+        const actual = actualOk ? { ok: true } : { ok: false, reason: "declaration-mismatch" };
+        const expected = body.expect.ok ? { ok: true } : { ok: false, reason: body.expect.reason };
+        return JSON.stringify(actual) === JSON.stringify(expected)
           ? null
-          : `${entry.file}: expected ${body.expect.ok}, got ${actual}`;
+          : `${entry.file}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`;
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);

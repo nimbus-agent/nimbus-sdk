@@ -596,6 +596,13 @@ Create `sdks/python/verify-requirements.in`:
 # Do NOT use pip-tools: it imports pip internals (`pip._internal.utils.compat`) and
 # breaks against current pip with `ImportError: cannot import name 'stdlib_pkgs'`.
 pypi-attestations==0.0.30
+
+# Declared because verify_publish.py imports it directly, not because anything here
+# lacks it: `sigstore` and `pypi-attestations` both depend on `pyasn1 ~= 0.6` today, so
+# it is already in the closure. Left undeclared, the day both switch ASN.1 libraries the
+# lockfile stops carrying it and our import breaks with no warning from the pin. Declare
+# what you import.
+pyasn1
 ```
 
 - [ ] **Step 2: Generate the hash-locked lockfile**
@@ -1303,7 +1310,42 @@ env:
   PYPI_ENVIRONMENT: pypi
 ```
 
-- [ ] **Step 8: Replace the verification step**
+- [ ] **Step 8a: Stop hardcoding the distribution name**
+
+`verify-python-publish` names `nimbus-dev-sdk` as a literal in two places. If the distribution is ever renamed, both go stale and the job fails **after** a successful publish with `PyPI returned no provenance ... it was published WITHOUT attestations` — an actively misleading message about an artifact that is perfectly fine. That is the same failure class this sub-project exists to remove, so it is fixed here rather than left as the one remaining literal.
+
+In `.github/workflows/release.yml`, insert this step in `verify-python-publish` immediately **before** `Download the published wheel from PyPI`:
+
+```yaml
+      # pyproject.toml is the single source of truth for the distribution name — the
+      # same file the publish preflight reads the version from. Normalised per PEP 503
+      # because that is the form PyPI's URLs use.
+      - name: Resolve the distribution name
+        run: |
+          set -euo pipefail
+          name="$(python - <<'PY'
+          import re, tomllib
+          raw = tomllib.load(open("pyproject.toml", "rb"))["project"]["name"]
+          print(re.sub(r"[-_.]+", "-", raw).lower())
+          PY
+          )"
+          echo "DIST_NAME=$name" >> "$GITHUB_ENV"
+          echo "resolved distribution name: $name"
+```
+
+Then, in the existing `Download the published wheel from PyPI` step, change the `pip download` target from the literal to the resolved name:
+
+```bash
+                 --dest /tmp/verify "${DIST_NAME}==${PUBLISHED_VERSION}"
+```
+
+and update that step's failure message:
+
+```bash
+            echo "::error::${DIST_NAME}==${PUBLISHED_VERSION} was not installable from PyPI after 8 attempts."
+```
+
+- [ ] **Step 8b: Replace the verification step**
 
 In `.github/workflows/release.yml`, replace the entire `Verify PEP 740 provenance names this repo and commit` step (from `- name: Verify PEP 740 provenance` through the closing `PY` at the end of the file) with:
 
@@ -1319,7 +1361,7 @@ In `.github/workflows/release.yml`, replace the entire `Verify PEP 740 provenanc
           provenance_ok=""
           for attempt in 1 2 3 4 5 6; do
             if curl -fsSL --retry 0 \
-                 "https://pypi.org/integrity/nimbus-dev-sdk/${PUBLISHED_VERSION}/${WHEEL_NAME}/provenance" \
+                 "https://pypi.org/integrity/${DIST_NAME}/${PUBLISHED_VERSION}/${WHEEL_NAME}/provenance" \
                  -o /tmp/provenance.json; then
               provenance_ok=1
               break
@@ -1361,9 +1403,13 @@ except ImportError:
     sys.exit('pip install pyyaml to run this check')
 data = yaml.safe_load(open('.github/workflows/release.yml', encoding='utf-8'))
 assert data['env']['PYPI_ENVIRONMENT'] == 'pypi', data['env']
-assert data['jobs']['publish-python']['environment'] == data['env']['PYPI_ENVIRONMENT']
+env = data['jobs']['publish-python']['environment']
+name = env['name'] if isinstance(env, dict) else env   # both forms are legal YAML here
+assert name == data['env']['PYPI_ENVIRONMENT'], (name, data['env'])
 steps = [s['name'] for s in data['jobs']['verify-python-publish']['steps']]
+assert 'Resolve the distribution name' in steps, steps
 assert 'Verify the PEP 740 attestation (cryptographic)' in steps, steps
+assert steps.index('Resolve the distribution name') < steps.index('Download the published wheel from PyPI')
 print('release.yml ok:', steps)
 "
 ```
@@ -1396,6 +1442,11 @@ What actually changes:
     publisher object; GitHubPublisher does not enforce it, so a naive
     library swap would have dropped the check silently.
 
+The distribution name is now read from pyproject.toml instead of being
+written literally in two places. Stale, it failed after a successful
+publish claiming the artifact shipped without attestations — a
+misleading message about bytes that were perfectly fine.
+
 The verify job is unchanged in shape: it still only downloads and reads,
 so it stays safe to re-run against propagation lag.
 
@@ -1415,7 +1466,7 @@ nothing and `slow` already runs on every PR."
 
 **Interfaces:**
 - Consumes: `readFromRepo` from `sdks/typescript/scripts/paths.ts`; the `env.PYPI_ENVIRONMENT` key added in Task 3.
-- Produces: nothing consumed by later tasks.
+- Produces: `environmentName(environment: JobEnvironment): string | undefined`, exported so its own unit test can reach it. Nothing later consumes it.
 
 **Context you need.** `sdks/typescript/scripts/release-config-guard.test.ts` is the model: it asserts structural relationships between config files at every commit, and it already guards *Python* release configuration from the TypeScript suite (its `VERSION_READERS` table reads `sdks/python/pyproject.toml`). Placing this guard alongside it is the consistent choice, and was reviewed and upheld — see the spec's *Considered and deferred* section.
 
@@ -1450,9 +1501,34 @@ import { describe, expect, test } from "bun:test";
 import { parse } from "yaml";
 import { readFromRepo } from "./paths.ts";
 
+/** `jobs.<id>.environment` is a bare string OR a map carrying `name` and optionally `url`. */
+type JobEnvironment = string | { name?: string; url?: string } | undefined;
+
 interface ReleaseWorkflow {
   env?: Record<string, string>;
-  jobs: Record<string, { environment?: string; steps?: { name?: string }[] }>;
+  jobs: Record<string, { environment?: JobEnvironment; steps?: { name?: string }[] }>;
+}
+
+/**
+ * The environment *name* a job deploys to, from either legal form.
+ *
+ * Adding `url:` alongside `name:` — which makes the deployment link clickable in the
+ * GitHub UI — is an ordinary change, and a guard that understood only the string form
+ * would reject it. That is a false alarm someone has to debug, which this repo's
+ * existing guards are explicit about avoiding.
+ *
+ * Anything else yields `undefined` and fails the assertion loudly, rather than
+ * comparing falsely equal to something.
+ */
+export function environmentName(environment: JobEnvironment): string | undefined {
+  if (typeof environment === "string") {
+    return environment;
+  }
+  // `typeof null === "object"`, so this null check is load-bearing, not defensive noise.
+  if (typeof environment === "object" && environment !== null) {
+    return environment.name;
+  }
+  return undefined;
 }
 
 const workflow = parse(readFromRepo(".github/workflows/release.yml")) as ReleaseWorkflow;
@@ -1471,9 +1547,19 @@ describe("the release workflow", () => {
     // GitHub gives no way to state it once; if they diverge, the publish succeeds and
     // the verification fails on an artifact that is perfectly fine.
     expect(
-      workflow.jobs["publish-python"]?.environment,
-      "publish-python's `environment:` must equal env.PYPI_ENVIRONMENT",
+      environmentName(workflow.jobs["publish-python"]?.environment),
+      "publish-python's environment name must equal env.PYPI_ENVIRONMENT",
     ).toBe(workflow.env?.PYPI_ENVIRONMENT as string);
+  });
+
+  test("the environment name is read from either legal form", () => {
+    // Pins the robustness above, so a later simplification back to a bare property read
+    // fails here instead of on the PR that adds a `url:`.
+    expect(environmentName("pypi")).toBe("pypi");
+    expect(environmentName({ name: "pypi", url: "https://pypi.org/p/nimbus-dev-sdk" })).toBe(
+      "pypi",
+    );
+    expect(environmentName(undefined)).toBeUndefined();
   });
 
   test("verify-python-publish still runs the cryptographic verification step", () => {
@@ -1497,7 +1583,17 @@ Restore `pypi`.
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run: `cd sdks/typescript && bun test scripts/release-workflow-guard.test.ts`
-Expected: **3 pass**.
+Expected: **4 pass**.
+
+Then prove the map form really is handled, rather than trusting the unit test. Temporarily rewrite `publish-python`'s environment in `.github/workflows/release.yml` as:
+
+```yaml
+    environment:
+      name: pypi
+      url: https://pypi.org/p/nimbus-dev-sdk
+```
+
+Re-run: **4 pass** — the guard must accept both forms. Restore `environment: pypi`.
 
 - [ ] **Step 5: Run the full TypeScript suite**
 
@@ -1640,6 +1736,18 @@ is no longer true."
 **Residual risk to watch during execution.** Task 3 Step 6's integration run is the only step that depends on Sigstore's live trust root. If it fails, distinguish the two causes before debugging: a network/TUF error means retry, while `checkpoint: Signature not found for log ID` means the provenance was decoded as text under a non-UTF-8 locale and `load_provenance` is not using `read_bytes`.
 
 ---
+
+## Plan-review disposition
+
+Reviewed in [`2026-07-30-release-pipeline-loose-ends-review.md`](./2026-07-30-release-pipeline-loose-ends-review.md).
+
+| # | Point | Disposition |
+|---|---|---|
+| 1 | `pyasn1` is imported directly but only resolved transitively | **Fixed** — declared in `verify-requirements.in` (Task 2 Step 1). The stated risk is smaller than the review implies: `sigstore` *and* `pypi-attestations` each declare `pyasn1 ~= 0.6`, so both would have to drop it. Declared anyway, because we import it. |
+| 2 | `nimbus-dev-sdk` hardcoded in the provenance URL | **Fixed, with a different derivation** (Task 2 Step 8a). The review's scenario — renaming to `nimbus-sdk` — cannot happen: that name belongs to an unrelated project on PyPI, which is why the distribution is `nimbus-dev-sdk`. But the underlying defect is real and is exactly this sub-project's target class: a stale literal fails *after* a good publish, with a message claiming the artifact shipped without attestations. Derived from `pyproject.toml`'s `[project] name` rather than by reversing the wheel filename — PEP 503 normalisation is not invertible (`nimbus_dev_sdk` could come from `nimbus.dev.sdk`), and `pyproject.toml` is the source of truth the publish preflight already reads. The `pip download` literal is fixed in the same step; fixing one and not the other would be worse than fixing neither. |
+| 3 | `jobs.<id>.environment` may be a map, not a string | **Fixed** — Task 4 Step 2 reads either form via `environmentName`, with the review's `typeof x === "object"` corrected to also exclude `null`. Adding a `url:` is an ordinary change, and rejecting it would be the "false alarm someone has to debug" the repo's existing guards call out. Task 4 Step 4 proves it by rewriting the workflow into map form and re-running. |
+
+None of the three changed the plan's shape: no task was added, split, or reordered.
 
 ## Execution Handoff
 

@@ -200,3 +200,129 @@ jobs:
           expected-workflow: .github/workflows/release.yml
           expected-sha: ${{ github.sha }}
           severity: gate
+
+  publish-python:
+    needs: release-please
+    if: needs.release-please.outputs.py_released == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    # Must match the PyPI Trusted Publisher binding exactly, and this environment
+    # restricts deployments to `main`, so no branch or fork can mint the OIDC identity.
+    environment: pypi
+    permissions:
+      contents: read
+      # The entire authentication story. There is no PyPI token.
+      id-token: write
+    defaults:
+      run:
+        working-directory: sdks/python
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          # Publishing reaches PyPI plus the Sigstore attestation endpoints; audit (not
+          # block) avoids brittle allowlist drift on the signing chain, matching npm.
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      # PyPI can never re-upload a version, even after deletion, so both of these must
+      # fail BEFORE anything is published rather than reporting damage afterwards.
+      - name: Preflight — OIDC available and version matches the release
+        env:
+          RELEASED_VERSION: ${{ needs.release-please.outputs.py_version }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::ACTIONS_ID_TOKEN_REQUEST_TOKEN is unset — the job lacks 'id-token: write'."
+            echo "::error::Publishing now would succeed WITHOUT attestations and cannot be undone."
+            exit 1
+          fi
+          declared="$(python -c "import tomllib;print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          if [ "$declared" != "$RELEASED_VERSION" ]; then
+            echo "::error::pyproject.toml declares $declared but release-please released $RELEASED_VERSION."
+            exit 1
+          fi
+          echo "preflight ok: OIDC token present, version $declared"
+
+      - name: Build sdist and wheel
+        run: python -m pip install --upgrade build && python -m build
+
+      # No password: the pending publisher binds this repo + workflow + environment via
+      # OIDC. `attestations` defaults to true for Trusted Publishing, but is set
+      # explicitly so an action upgrade cannot silently drop provenance.
+      - name: Publish to PyPI with attestations
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: sdks/python/dist
+          attestations: true
+
+      - name: Verify the published artifact and its attestation
+        env:
+          PUBLISHED_VERSION: ${{ needs.release-please.outputs.py_version }}
+          EXPECTED_REPO: ${{ github.repository }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          # A publish is followed by CDN and attestation-availability propagation lags,
+          # and reading either as a supply-chain failure turns a good release red. The
+          # npm side learned this the hard way. --no-cache-dir is mandatory: pip caches
+          # the negative index response, so plain retries replay the same 404.
+          # Start from an empty directory so the wheel picked below is unambiguously the
+          # one this run downloaded, not a leftover from an earlier attempt.
+          rm -rf /tmp/verify && mkdir -p /tmp/verify
+
+          verified=""
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if python -m pip download --no-deps --no-cache-dir \
+                 --index-url https://pypi.org/simple/ \
+                 --dest /tmp/verify "nimbus-dev-sdk==${PUBLISHED_VERSION}"; then
+              verified=1
+              break
+            fi
+            [ "$attempt" != 8 ] && sleep $(( attempt * 10 ))
+          done
+          if [ -z "$verified" ]; then
+            echo "::error::nimbus-dev-sdk==${PUBLISHED_VERSION} was not installable from PyPI after 8 attempts."
+            exit 1
+          fi
+
+          # PEP 740 provenance, from PyPI's integrity API. Must name THIS repo and THIS
+          # commit — the same three claims verify-npm-provenance gates on.
+          #
+          # Insist on a wheel. `pip download` falls back to an sdist when no wheel
+          # matches, and an unguarded glob would then expand to nothing, silently
+          # building a malformed integrity URL that 404s and reads as a lag.
+          wheel="$(find /tmp/verify -maxdepth 1 -name '*.whl' | head -n1)"
+          if [ -z "$wheel" ]; then
+            echo "::error::no wheel downloaded for ${PUBLISHED_VERSION} — got: $(ls /tmp/verify)"
+            exit 1
+          fi
+          filename="$(basename "$wheel")"
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsSL --retry 0 \
+                 "https://pypi.org/integrity/nimbus-dev-sdk/${PUBLISHED_VERSION}/${filename}/provenance" \
+                 -o /tmp/provenance.json; then
+              break
+            fi
+            [ "$attempt" != 6 ] && sleep $(( attempt * 10 ))
+          done
+          python - <<'PY'
+          import json, os, sys
+          data = json.load(open("/tmp/provenance.json"))
+          blob = json.dumps(data)
+          repo, sha = os.environ["EXPECTED_REPO"], os.environ["EXPECTED_SHA"]
+          if repo not in blob:
+              sys.exit(f"::error::provenance does not name {repo}")
+          if sha not in blob:
+              sys.exit(f"::error::provenance does not name commit {sha}")
+          print(f"provenance ok: names {repo} at {sha}")
+          PY

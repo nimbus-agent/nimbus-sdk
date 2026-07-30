@@ -29,6 +29,22 @@ export const CONTRACT_VERSION_PATTERN = /^[1-9][0-9]*$/;
 export const CONTRACT_VERSIONS: readonly string[] = ["1"];
 
 /**
+ * The set a manifest that omits `contractVersions` declares — the normative absence default from
+ * `docs/spec/negotiation/v1/contract-version.md` §4.
+ *
+ * Deliberately **not** {@link CONTRACT_VERSIONS}, though the two are equal today. They answer
+ * different questions: this one is what a manifest written in the `v1` era means when it says
+ * nothing, and it is frozen at `["1"]` for exactly as long as that era's manifests exist.
+ * `CONTRACT_VERSIONS` is what this SDK currently speaks, and it grows.
+ *
+ * Aliasing them would make adding a major silently widen every manifest that predates the field:
+ * a connector that never declared anything would begin claiming the new version it was written
+ * before. Module-private, because it is an implementation detail of {@link
+ * manifestContractVersions} rather than a value a caller composes with.
+ */
+const V1_ABSENCE_DEFAULT: readonly string[] = ["1"];
+
+/**
  * The exit code a connector MUST terminate with when the handshake is refused.
  *
  * Clear of the sandbox probe's `0` / `2` / `10` / `11` family (`src/testing/sandbox-protocol.ts`)
@@ -69,7 +85,9 @@ function isGreaterVersion(a: string, b: string): boolean {
  * The contract majors a manifest declares, with the absent-field default applied.
  *
  * Absence means `["1"]`, which is what makes negotiation *total*: there is no manifest the
- * algorithm cannot evaluate, and no binding has to invent a behavior for the absent case.
+ * algorithm cannot evaluate, and no binding has to invent a behavior for the absent case. That
+ * default is the frozen {@link V1_ABSENCE_DEFAULT} and not {@link CONTRACT_VERSIONS}, so adding a
+ * major to what this SDK speaks never retroactively widens a manifest that declared nothing.
  *
  * Returns `readonly unknown[]`, not `readonly string[]`, because a manifest is parsed JSON: the
  * declared type is a claim about a file on disk. A declared array comes back exactly as declared
@@ -82,7 +100,7 @@ export function manifestContractVersions(manifest: unknown): readonly unknown[] 
     typeof manifest === "object" && manifest !== null ? (manifest as Record<string, unknown>) : {};
   const declared: unknown = record["contractVersions"];
   if (declared === undefined) {
-    return CONTRACT_VERSIONS;
+    return V1_ABSENCE_DEFAULT;
   }
   return Array.isArray(declared) ? (declared as readonly unknown[]) : [declared];
 }

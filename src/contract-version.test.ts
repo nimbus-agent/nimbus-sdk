@@ -22,6 +22,16 @@ describe("manifestContractVersions", () => {
     expect(manifestContractVersions({ id: "x" })).toEqual(["1"]);
   });
 
+  test("the absence default is frozen at v1, not aliased to this SDK's supported set", () => {
+    // The two are equal in value today, which is exactly why the distinction needs a test rather
+    // than a comment: returning CONTRACT_VERSIONS here passes every other assertion in this file.
+    // It would also mean that adding "2" to CONTRACT_VERSIONS silently makes every manifest
+    // written before the field existed claim a major it predates. Identity is the only thing that
+    // separates the two while their values coincide, so identity is what this pins.
+    expect(manifestContractVersions({})).not.toBe(CONTRACT_VERSIONS);
+    expect(manifestContractVersions({})).toEqual(["1"]);
+  });
+
   test("a declared array is returned as declared, unfiltered", () => {
     expect(manifestContractVersions({ contractVersions: ["2", "01"] })).toEqual(["2", "01"]);
   });

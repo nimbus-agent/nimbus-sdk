@@ -27,7 +27,16 @@
 
 These are maintainer actions, not code. Spec §2.0.
 
-- [ ] **P1.** Land or close the four branches that touch `src/` or `scripts/`, because they will conflict badly with the move: `origin/test/packed-exports-and-cjs-refusal`, `origin/docs/jmap-per-email-caps`, `feat/conventional-commit-guard` (local), `docs/promote-rfc-status` (local). `origin/feat/item-type-contract` is low risk (its files move but are not rewritten) and may be left.
+- [x] **P1. Resolved 2026-07-30 — not a blocker.** All five branches are stale: each has a *merged* PR (#44, #48, #65, #58) and each sits well behind `main`. Taking any over `main` would remove far more than it adds — `main` absorbed their work and evolved past it. `scripts/packed-exports.ts` on `main` carries `packedFilePaths` and the npm 11/12 output-shape handling, which exist on neither `packed-exports` branch.
+
+  The earlier audit compared branch tips against `main` file-by-file, which is direction-blind — it reported *`main` being newer* as unlanded branch work. Deleting the branches is optional hygiene:
+
+```bash
+git push origin --delete test/packed-exports-and-cjs-refusal docs/jmap-per-email-caps
+git branch -D feat/conventional-commit-guard docs/promote-rfc-status
+```
+
+  The reasoning in spec §2.0 still holds for any branch genuinely in flight when a move like this lands; it simply does not apply here.
 - [x] **P2. Done 2026-07-30.** Bootstrap tag pushed.
 
   The source tag is **`sdk-v1.10.0`**, not `v1.10.0`. Releases here have always carried a

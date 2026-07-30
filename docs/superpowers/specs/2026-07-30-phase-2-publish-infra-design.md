@@ -105,7 +105,15 @@ changes; its history is preserved by the move.
 
 `refactor: move the TypeScript SDK to sdks/typescript`
 
-### 2.0 Prerequisite — drain the in-flight branches
+### 2.0 Prerequisite — drain the in-flight branches — **resolved; none were in flight**
+
+**Verified 2026-07-30.** Every branch in the table below has a *merged* PR (#44, #48, #65, #58) and sits well behind `main`; `main` absorbed their work and evolved past it. The audit that produced the table compared branch tips against `main` file-by-file, which is direction-blind — it read *`main` being newer* as unlanded branch work. There was no conflict risk and nothing to land.
+
+The reasoning below is retained because it holds for any branch that genuinely is in flight when a move like this lands — it simply did not apply this time.
+
+---
+
+*(original audit, superseded)*
 
 A directory move is the worst thing you can do to an unmerged branch, and this repo has five
 carrying work that PR 1 would land on. Git's rename detection is better than its reputation —

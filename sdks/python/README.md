@@ -21,6 +21,16 @@ package carries that specification data and binds it to Python. The
 [TypeScript SDK](https://www.npmjs.com/package/@nimbus-dev/sdk) is the reference
 implementation; both are held to the same conformance corpus.
 
+The specification data is bundled into the distribution, so it is available
+without a network call or a checkout:
+
+```python
+from nimbus_sdk import load_schema, negotiate_contract_version
+
+schema = load_schema("nimbus-item.schema.json")
+result = negotiate_contract_version(["1"], ["1"])  # NegotiationOk(version="1")
+```
+
 ## Status
 
 Early. This release carries the contract-version constants, the negotiation algorithm,

@@ -105,6 +105,19 @@ promising support the project does not test. But it is why a support narrowing w
 a release note even as a minor, and why the bar is "the excluded line is already EOL"
 rather than "we would rather not test it."
 
+## `manifest.contractVersions` — optional now, required at the next contract major
+
+`manifest.contractVersions` is **optional** in contract `v1`: a manifest that omits it declares
+the default set `["1"]`, per
+[`spec/negotiation/v1/contract-version.md` §4](./spec/negotiation/v1/contract-version.md#4-declaration).
+It becomes **required** at the next contract major, so that no manifest reaches a later gateway
+still relying on a default that was written for `v1`.
+
+This is not a deprecation — nothing is marked, and nothing is removed — but it is the same kind
+of forward commitment this policy exists to record: the requirement takes effect only at a major
+version boundary, never silently within `v1`, and it is written down once, here, rather than
+left implicit in the spec section it is linked from.
+
 ## Relationship to the RFC process
 
 Removing an export is contract-affecting and takes the RFC path in

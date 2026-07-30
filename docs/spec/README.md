@@ -84,6 +84,27 @@ Framing only. Message envelopes, request and response shapes, and liveness belon
 gateway and are out of scope — a binding that implements this document can carry any of
 them.
 
+### `negotiation/`
+
+The [contract-version negotiation specification](./negotiation/v1/contract-version.md) — how a
+connector and the gateway that spawned it agree, at connector start, on which major version of
+the contract they both speak: the optional `contractVersions` manifest field and its absence
+default of `["1"]`, the one frame each peer writes unprompted, the deterministic algorithm both
+peers run to agree on the largest common major, and the single refusal path and its reserved
+exit code. See [RFC-0005](../rfcs/0005-contract-version-negotiation.md).
+
+Its frame schema, [`hello.schema.json`](./negotiation/hello.schema.json), is published
+**without a `v1/` segment** — a sibling of this document's own `v1/` directory, not a child of
+it. The hello frame's shape is permanently frozen across every future contract major: a
+`v1`-only connector and a hypothetical `v2`-only gateway must still be able to read each other's
+hello in order to discover they share nothing, so publishing its schema under a version segment
+would assert the opposite of the rule the document states.
+
+Its corpus, [`conformance/v1/negotiation/`](./conformance/v1/negotiation/), has three case
+kinds: `negotiate` (two sets in, an agreed version or a typed refusal out), `hello` (a frame in,
+a parsed set or a refusal reason out), and `declaration` (a manifest set and a hello set in,
+accept or the exact-match violation out).
+
 ### `conformance/v1/`
 
 Four corpora, because the contract has four kinds of assertion.
@@ -153,13 +174,11 @@ validating against an older copy is therefore unaffected by additions.
 - **Message envelopes.** The wire spec above covers framing; the request/response shapes
   carried inside a frame belong to the gateway, not to this package, and are deliberately
   unspecified here.
-- **Contract-version negotiation.** Nothing yet carries a contract version;
-  `minNimbusVersion` is a floor, not a negotiation. Phase 1, box 5.
 - **Agent brief schemas.** The shapes above prove the mechanism; the brief shapes follow.
 
 ## How this stays true
 
-Five guards run on every pull request as part of `bun run test` (see
+Six guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 `scripts/schema-guard.test.ts` compares each schema's declared properties and optionality
@@ -190,6 +209,17 @@ every case through `NdjsonLineReader`. It also runs under plain Node against the
 `dist/`, via `scripts/framing-node.mjs` in the cross-OS × Node-LTS matrix: framing bottoms
 out in `TextDecoder`, whose edge behavior is not identical across runtimes, and a corpus
 other languages are told to trust must not encode one runtime's quirk.
+
+`scripts/negotiation-guard.test.ts` asserts the contract-version pattern is identical across
+its one TypeScript spelling and its four copies (the hello schema, the manifest schema, the
+rule registry, and the spec document's prose); that `hello.schema.json` stays outside any
+version directory, so the frozen-frame rule stays a failing test rather than only a comment;
+that the corpus validates against its schemas and every case agrees with
+`negotiateContractVersion`, `parseHello`, and `declaredVersionsMatch` respectively, with the
+hello schema reaching the same verdict as `parseHello` on every well-formed frame; that the
+three new rule ids are declared identically by the registry and `src/contract-tests.ts`'s
+rule table, each asserted by a fixture; and that the reserved exit code agrees across the
+spec's prose, the `CONTRACT_HANDSHAKE_EXIT` constant, and every refusal case in the corpus.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

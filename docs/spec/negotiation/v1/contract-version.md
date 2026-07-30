@@ -251,3 +251,8 @@ this document forgot to fill.
 [`framing.md`](../../wire/v1/framing.md) §1 puts liveness out of scope. A peer **SHOULD** bound
 how long it waits for the other side's hello, but that bound belongs to whatever supervises
 the process — a gateway, a process manager, an operator — and **no value is normative here**.
+
+---
+
+Changes here follow the [RFC process](../../../GOVERNANCE.md#the-rfc-process) — see
+[RFC-0005](../../../rfcs/0005-contract-version-negotiation.md).

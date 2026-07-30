@@ -48,7 +48,7 @@ Each of these is something a reader will otherwise assume is included:
 | Question | Decision | Why |
 |---|---|---|
 | Repo layout | `sdks/typescript/` + `sdks/python/` | No language privileged; the tree matches the polyglot claim. Costs a large mechanical migration — accepted knowingly. |
-| Release tags | Component-prefixed for both, bootstrapped | `typescript-v1.11.0`, `python-v0.0.1`. Symmetric end state; one manual bootstrap tag. |
+| Release tags | Component-prefixed for both, bootstrapped | Symmetric end state; one manual bootstrap tag. The TypeScript baseline at migration is **1.10.0** (`package.json`, the manifest, and the newest `v*` tag all agree), so the bootstrap tag is `typescript-v1.10.0` and the first tag the new scheme *cuts* is `typescript-v1.11.0`. Python starts at `python-v0.0.1`. |
 | First Python artifact | Spec-carrier, not a stub | Something a conformance runner can import on day one; nothing gets built twice. |
 | PyPI distribution name | `nimbus-dev-sdk` | `nimbus-sdk` and `nimbus` are taken by an unrelated project. Flattens the npm scope `@nimbus-dev/sdk`. Import name stays `nimbus_sdk`. |
 | Sequencing | Two PRs: move, then publish | A red release job then has one candidate cause, not two. |
@@ -104,6 +104,31 @@ changes; its history is preserved by the move.
 ## 2. PR 1 — the move
 
 `refactor: move the TypeScript SDK to sdks/typescript`
+
+### 2.0 Prerequisite — drain the in-flight branches
+
+A directory move is the worst thing you can do to an unmerged branch, and this repo has five
+carrying work that PR 1 would land on. Git's rename detection is better than its reputation —
+a *pure* move with unchanged content is usually followed cleanly — but PR 1 moves ~16 script
+files **and rewrites their `repoRoot` line in the same commit**, and rename detection degrades
+exactly there. Branches touching `docs/` only are unaffected.
+
+Audited against `origin/main` on 2026-07-30:
+
+| Branch | Touches | Risk |
+|---|---|---|
+| `origin/feat/item-type-contract` | `src/index.ts`, `src/item-types*.ts`, `src/types.ts` | Low — moved, content unedited by PR 1 |
+| `origin/test/packed-exports-and-cjs-refusal` | `scripts/cjs-scan*`, `scripts/packed-exports*` | **High** — moved *and* rewritten |
+| `origin/docs/jmap-per-email-caps` | `scripts/packed-exports*` | **High** — same files |
+| `feat/conventional-commit-guard` *(local)* | `scripts/*`, `src/contract-tests*` | **High** |
+| `docs/promote-rfc-status` *(local)* | `.github/workflows/ci.yml`, `docs/api-surface.md` | Medium — `ci.yml` is rewritten by PR 1 |
+
+Land or close the four high/medium branches before PR 1. Note `origin/test/packed-exports-and-cjs-refusal`
+and `origin/docs/jmap-per-email-caps` both modify `scripts/packed-exports.ts` and already
+conflict with each other independently of this work.
+
+For anything that must be rebased *after* the move, `git rebase -X find-renames=30` lowers the
+similarity threshold from the default 50% and recovers most cases.
 
 ### 2.1 The one real engineering problem
 
@@ -270,6 +295,22 @@ the loader finds the schemas in the result.
 The whole corpus is bundled rather than a curated subset. It is JSON text measured in tens of
 kilobytes, and being the carrier for it is the package's entire reason to exist at this stage.
 
+**`_data/` is gitignored, so a fresh clone has none of it** — `pytest` and `mypy` would fail on
+import before anyone has built anything. `spec.py` therefore resolves its data root in two
+steps: the bundled `_data/spec/` if present, otherwise `<repo>/docs/spec/` reached relative to
+the module, and a clear `RuntimeError` naming both if neither exists.
+
+That fallback is a footgun if left unguarded — it makes the source tree work while a *packaging*
+bug (data missing from the built artifact) stays invisible until an end user hits it. Two rules
+contain it:
+
+1. The fallback is reachable only when `<repo>/docs/spec/` actually exists on disk, which is
+   never true inside an installed wheel. A broken bundle raises rather than silently degrading.
+2. `tests/test_spec.py` builds an sdist, builds a wheel *from that sdist*, installs it into a
+   throwaway virtualenv, and loads the schemas through the installed package — with no source
+   tree in reach. This is the test that would catch the packaging bug, and it is the reason the
+   convenience fallback is safe to have.
+
 ### 3.3 Version single-sourcing
 
 `version` is **static in `pyproject.toml`** — the field release-please's `python` strategy
@@ -285,6 +326,15 @@ except PackageNotFoundError:          # running from an uninstalled source tree
 
 One source of truth, no second literal to drift, no reliance on release-please locating a
 version string inside a `src/`-layout package.
+
+**Known limitation, accepted.** In a development environment with a *non-editable* install of
+some other version of `nimbus-dev-sdk` plus this source tree on `sys.path`,
+`importlib.metadata` reports the installed distribution's version, not the source being
+edited. The obvious fix — a literal version constant for dev contexts — reintroduces exactly
+the second source of truth this decision removes, so it is rejected. Nothing in the package
+branches on `__version__`; it is informational. The normal dev flow (`uv sync`, or
+`pip install -e .`) produces correct metadata, and the abnormal one is a stale display value,
+not a defect. Revisit only if something starts depending on `__version__` at runtime.
 
 ### 3.4 Python CI
 
@@ -386,6 +436,15 @@ Steps, mirroring the npm job's shape because the guarantees are the same:
    PEP 740 attestation; and that attestation names **this** repository, **this** workflow, and
    **this** commit SHA — the same three claims `verify-npm-provenance` gates on.
 
+   The install runs `--no-cache-dir --index-url https://pypi.org/simple/`. This repo has
+   already been burned by the caching version of this bug on the npm side: `release.yml`
+   carries a comment explaining that plain retries re-read a cached negative packument, which
+   is why `--prefer-online` is mandatory there. pip has the identical failure mode — attempt 1
+   can cache a 404 from the not-yet-propagated index page and attempts 2–8 then replay it,
+   turning propagation lag into a hard failure. A fresh runner starts with an empty cache, so
+   this is invisible on the first attempt and only bites inside the retry loop, which is
+   precisely how it went unnoticed on npm until a release went red.
+
    Two viable mechanisms for the attestation check: PyPI's integrity endpoint
    (`/integrity/{project}/{version}/{filename}/provenance`) parsed directly, or the
    `pypi-attestations` CLI. The assertions above are the requirement; the tool is pinned during
@@ -418,6 +477,18 @@ name mismatch, a missing attestation, a build hook that skipped the sdist — th
 | 3 | Pending publisher: `nimbus-dev-sdk` / `nimbus-agent` / `nimbus-sdk` / `release.yml` / `pypi` | maintainer | open |
 | 4 | Community org application — `nimbus-agent` | maintainer | open, non-blocking |
 | 5 | Bootstrap tag `typescript-v1.10.0` | assistant, on approval | gated on PR 1 |
+| 6 | Land or close the five in-flight branches in §2.0 | maintainer | gated on PR 1 |
+| 7 | **On org transfer:** re-verify the Trusted Publisher binding | maintainer | future, non-blocking |
+
+**Step 7** exists because the consequences of a PyPI ownership transfer on Trusted Publisher
+config are not something this design should assert from memory. The binding is configured
+*per project* (Project → Settings → Publishing), not per owning namespace, so the expectation
+is that it survives a transfer into the `nimbus-agent` organization untouched. That expectation
+is untested. The runbook item is therefore *verify*, not *recreate*: after any transfer, open
+the project's publishing settings, confirm the `nimbus-agent/nimbus-sdk` + `release.yml` +
+`pypi` triple is still listed, and cut a patch release to prove the OIDC exchange still works
+before assuming it does. If the binding did not survive, re-adding it is the same five-field
+form as the original — a minor cost, and far cheaper than a surprise on a release day.
 
 The `pypi` environment restricts deployments to `main`, so the OIDC identity cannot be minted
 from a feature branch or a fork PR even if a workflow there names the environment.
@@ -437,6 +508,9 @@ that is the regression to watch for in review.
 | First OIDC exchange fails on an environment-name mismatch | Preflight fails before publish; `0.0.1` absorbs the cost if it gets further |
 | Build hook populates the wheel but not the sdist | `test_spec.py` builds a wheel *from the sdist* and loads through it |
 | Spec data drifts between the TS guards and the Python bundle | Both read `docs/spec/` as the single source; the Python corpus test fails on divergence |
+| In-flight branches conflict badly with the move | §2.0 — drain the five audited branches first; `-X find-renames=30` for stragglers |
+| The `docs/spec/` dev fallback masks a broken bundle | §3.2 — fallback unreachable in an installed wheel; the sdist→wheel→venv test loads with no source tree in reach |
+| pip caches a 404 during post-publish verify, replaying it across all retries | §4.2 — `--no-cache-dir`, explicit `--index-url`; the npm side's documented precedent |
 
 ## 7. What this closes
 
@@ -458,6 +532,10 @@ remaining work is SDK work rather than infrastructure work.
 - `CLAUDE.md` — the layout, and every command in the Commands block, which now runs from
   `sdks/typescript`.
 - `README.md` — new polyglot landing page; `sdks/typescript/README.md` inherits the current
-  content; `sdks/python/README.md` is new.
+  content; `sdks/python/README.md` is new, and must lead with the name mapping —
+  **`pip install nimbus-dev-sdk`** then **`import nimbus_sdk`**. PyPI's flat namespace forced
+  the distribution name away from the module name, and `pip install nimbus-sdk` silently
+  installs an unrelated third-party project rather than failing. That makes this the one
+  documentation line in the package with a wrong-package failure mode behind it.
 - `CONTRIBUTING.md` — paths, and the Python toolchain for contributors.
 - `docs/README.md` — index entries for anything added.

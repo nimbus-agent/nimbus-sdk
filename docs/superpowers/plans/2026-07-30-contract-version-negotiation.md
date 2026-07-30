@@ -26,8 +26,11 @@ schema validation in guards, JSON Schema draft-07.
 - **Digit classes are spelled `[0-9]`, never `\d`.** JavaScript's `\d` is ASCII; Python's and
   Rust's are Unicode-aware, so a transcribed `\d` accepts `"١"`.
 - **The contract version pattern is exactly `^[1-9][0-9]*$`** — ASCII digits, no leading zeros.
-  This literal string appears in the runtime, the manifest schema, the rule registry, the hello
-  schema, and the spec prose. All five must match character for character.
+  **One** TypeScript spelling: `CONTRACT_VERSION_PATTERN` in `src/contract-version.ts`, imported by
+  `src/ipc/hello.ts` and `src/contract-tests.ts`, exported from its module but **not** re-exported
+  from `src/index.ts` (the same exported-but-unpublished treatment `MANIFEST_RULES` gets). The
+  three JSON copies — manifest schema, rule registry, hello schema — cannot import it, so
+  `scripts/negotiation-guard.test.ts` compares all four plus the spec prose.
 - **The reserved refusal exit code is `20`.**
 - **The hello frame is `{"nimbus":"hello","contractVersions":["1"]}`** and its shape is frozen
   across all future contract majors (§3).
@@ -58,7 +61,7 @@ schema validation in guards, JSON Schema draft-07.
 | `docs/spec/conformance/v1/negotiation/index.json` | The corpus index. |
 | `docs/spec/conformance/v1/negotiation/index.schema.json` | Schema for the index. |
 | `docs/spec/conformance/v1/negotiation/case.schema.json` | Schema for one case. |
-| `docs/spec/conformance/v1/negotiation/cases/*.json` | 27 cases across three kinds. |
+| `docs/spec/conformance/v1/negotiation/cases/*.json` | 28 cases across three kinds. |
 | `docs/spec/conformance/v1/manifest/*.json` | 5 new manifest fixtures for the new rules. |
 | `scripts/negotiation-guard.test.ts` | The sixth guard. |
 | `docs/rfcs/0005-contract-version-negotiation.md` | The RFC. |
@@ -99,6 +102,8 @@ schema validation in guards, JSON Schema draft-07.
 - Consumes: `ExtensionManifest` from `./types.js` (type-only, for a doc link — the functions take
   `unknown`).
 - Produces, and every later task depends on these exact names:
+  - `CONTRACT_VERSION_PATTERN: RegExp` — the single TypeScript spelling, imported by Tasks 2 and 3.
+    Exported from this module, **never** re-exported from `src/index.ts`.
   - `CONTRACT_VERSIONS: readonly string[]` — `["1"]`
   - `CONTRACT_HANDSHAKE_EXIT: 20`
   - `type ContractNegotiationResult = { readonly ok: true; readonly version: string } | { readonly ok: false; readonly reason: "invalid-version" | "no-common-version" }`
@@ -265,6 +270,14 @@ describe("declaredVersionsMatch", () => {
     expect(declaredVersionsMatch(["01"], ["1"])).toBe(false);
     expect(declaredVersionsMatch([1], ["1"])).toBe(false);
   });
+
+  test("a duplicate in the announced set is collapsed, not refused", () => {
+    // Set equality: {"1"} is {"1"} however many times the frame said it. The duplicate is
+    // parseHello's business, one layer earlier — this pins the documented precondition rather
+    // than leaving the behavior to be discovered.
+    expect(declaredVersionsMatch(["1"], ["1", "1"])).toBe(true);
+    expect(declaredVersionsMatch(["1", "2"], ["1", "1"])).toBe(false);
+  });
 });
 ```
 
@@ -291,13 +304,19 @@ Create `src/contract-version.ts`:
  */
 
 /**
- * ASCII digits, no leading zeros.
+ * ASCII digits, no leading zeros. The one TypeScript spelling of the contract-version pattern.
  *
  * Spelled `[0-9]` and not `\d` for the reason `docs/spec/rules/v1/` writes down: JavaScript's
  * `\d` is ASCII, Python's and Rust's are Unicode-aware, so a binding transcribing `\d` accepts
  * "١" — a version this implementation rejects — while passing every other case in the corpus.
+ *
+ * Exported so `src/ipc/hello.ts` and `src/contract-tests.ts` share it rather than each keeping a
+ * copy, and deliberately **not** re-exported from `src/index.ts`: a regex is not contract, its
+ * behavior is, and the same treatment keeps `MANIFEST_RULES` off the published surface. The three
+ * JSON copies cannot import it, so `scripts/negotiation-guard.test.ts` compares them to
+ * `CONTRACT_VERSION_PATTERN.source`.
  */
-const CONTRACT_VERSION_PATTERN = /^[1-9][0-9]*$/;
+export const CONTRACT_VERSION_PATTERN = /^[1-9][0-9]*$/;
 
 /** The contract majors this SDK speaks. One per published `v1`-style spec path segment. */
 export const CONTRACT_VERSIONS: readonly string[] = ["1"];
@@ -408,6 +427,13 @@ export function negotiateContractVersion(
  *
  * A manifest set containing a malformed member never matches, so this cannot be used to launder
  * a manifest past {@link negotiateContractVersion}.
+ *
+ * **Duplicates in `helloVersions` are collapsed, not rejected.** `["1"]` matches `["1", "1"]`,
+ * because the comparison is on sets and `{"1"}` is `{"1"}` however many times the frame said it.
+ * A duplicate is refused one layer earlier, by `parseHello`, which returns `duplicate-version`
+ * before a caller ever reaches this function — so re-checking here would add a second gatekeeper
+ * and a refusal reason this layer has no vocabulary for. A caller that skips `parseHello` and
+ * hand-builds the announced set owns that obligation.
  */
 export function declaredVersionsMatch(
   manifestVersions: readonly unknown[],
@@ -448,6 +474,11 @@ export {
   negotiateContractVersion,
 } from "./contract-version.js";
 ```
+
+`CONTRACT_VERSION_PATTERN` is deliberately absent from this list. It is exported from its own
+module so Tasks 2 and 3 can import it, but adding it here would put a regex on the published
+surface and into `docs/api-surface.md` — where it becomes a semver-relevant export nobody asked
+for. `MANIFEST_RULES` in `src/contract-tests.ts:84` is the existing precedent.
 
 - [ ] **Step 6: Build, lint, typecheck**
 
@@ -568,8 +599,9 @@ git commit -m "feat(sdk): publish the contract-version negotiation algorithm"
 - Modify: `docs/api-surface.md` (regenerated)
 
 **Interfaces:**
-- Consumes: nothing from Task 1 at runtime. The pattern is re-declared locally rather than
-  imported, so `./ipc` does not pull in the root module — see the note in the implementation.
+- Consumes: `CONTRACT_VERSION_PATTERN` from `../contract-version.js` (Task 1). Importing across
+  entry points is safe here: `src/contract-version.ts` imports nothing, so there is no cycle and
+  no weight — `./ipc` gains one dep-free module, not the root barrel.
 - Produces:
   - `HELLO_MESSAGE: "hello"`
   - `type HelloRefusalReason = "not-json" | "not-object" | "wrong-message" | "missing-versions" | "empty-versions" | "invalid-version" | "duplicate-version"`
@@ -657,7 +689,7 @@ describe("parseHello — refusals", () => {
   }
 
   test("never throws, whatever the frame contains", () => {
-    for (const frame of ["", " ", "{", "}", '{"nimbus":', "�"]) {
+    for (const frame of ["", " ", "{", "}", '{"nimbus":', "\uD800"]) {
       expect(() => parseHello(frame)).not.toThrow();
     }
   });
@@ -689,15 +721,7 @@ Create `src/ipc/hello.ts`:
  * `docs/spec/negotiation/hello.schema.json`.
  */
 
-/**
- * ASCII digits, no leading zeros — the same pattern `src/contract-version.ts` declares.
- *
- * Deliberately re-declared rather than imported: `./ipc` is a separate entry point, and a binding
- * reading this module should not have to pull the root module in to parse a frame. The
- * negotiation guard asserts the two spellings and the published pattern are identical, so the
- * duplication cannot drift.
- */
-const CONTRACT_VERSION_PATTERN = /^[1-9][0-9]*$/;
+import { CONTRACT_VERSION_PATTERN } from "../contract-version.js";
 
 /** The frame's discriminator, so a gateway envelope can never be mistaken for a hello. */
 export const HELLO_MESSAGE = "hello";
@@ -853,7 +877,8 @@ git commit -m "feat(ipc): publish the contract-version hello frame"
 - Modify: `docs/api-surface.md` (regenerated — `ExtensionManifest` gained a field)
 
 **Interfaces:**
-- Consumes: nothing new. The rules are self-contained checks over `Record<string, unknown>`.
+- Consumes: `CONTRACT_VERSION_PATTERN` from `./contract-version.js` (Task 1). Otherwise the rules
+  are self-contained checks over `Record<string, unknown>`.
 - Produces: the three rule ids `manifest.contractVersions.type`,
   `manifest.contractVersions.nonempty`, `manifest.contractVersions.entry`, and the optional
   `ExtensionManifest["contractVersions"]` field. Task 5's corpus cites the ids.
@@ -946,14 +971,16 @@ In `src/types.ts`, insert before `minNimbusVersion: string;` (line 50):
 
 In `src/contract-tests.ts`, after the `MIN_VERSION_SEMVER` constant (ends line 200), add:
 
-```ts
-/**
- * ASCII digits, no leading zeros — the contract-version pattern, published in
- * `docs/spec/rules/v1/manifest-rules.json` and re-declared in `src/contract-version.ts`. The
- * negotiation guard asserts all three spellings agree.
- */
-const CONTRACT_VERSION_ENTRY = /^[1-9][0-9]*$/;
+Add the import to the existing import block at the top of `src/contract-tests.ts` (it currently
+imports from `./audit-logger.js`, `./hitl-request.js`, and `./types.js`):
 
+```ts
+import { CONTRACT_VERSION_PATTERN } from "./contract-version.js";
+```
+
+Then the rules themselves:
+
+```ts
 const CONTRACT_VERSIONS_TYPE: ManifestRule = {
   id: "manifest.contractVersions.type",
   field: "contractVersions",
@@ -1002,7 +1029,7 @@ const CONTRACT_VERSIONS_ENTRY: ManifestRule = {
     const seen = new Set<string>();
     for (let i = 0; i < value.length; i++) {
       const entry: unknown = value[i];
-      if (typeof entry !== "string" || !CONTRACT_VERSION_ENTRY.test(entry)) {
+      if (typeof entry !== "string" || !CONTRACT_VERSION_PATTERN.test(entry)) {
         violations.push({
           rule: "manifest.contractVersions.entry",
           path: `/contractVersions/${i}`,
@@ -1118,6 +1145,14 @@ property (do **not** add it to `required`):
 The three constraints line up one-to-one with the three rules, so the schema and the runtime
 reach the same verdict on every fixture below — which is what `schema-guard.test.ts` asserts for
 the `equivalence` class.
+
+**On `uniqueItems` and JSON Pointers, since it looks like a mismatch and is not one.** AJV reports
+a `uniqueItems` failure at the array (`/contractVersions`) while the runtime rule reports the
+duplicate's index (`/contractVersions/1`). Nothing compares the two: `schema-guard.test.ts:262`
+and `:293` use AJV for a boolean verdict only, and the JSON Pointer assertion at `:271-284` runs
+`validateManifest(doc)` — the runtime's own violations. The `equivalence` contract is that the two
+agree on *valid versus invalid*, which they do. Do not weaken either side to make the paths line
+up.
 
 - [ ] **Step 9: Add the five conformance fixtures**
 
@@ -1320,7 +1355,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
-import { CONTRACT_HANDSHAKE_EXIT, CONTRACT_VERSIONS } from "../src/contract-version.ts";
+import {
+  CONTRACT_HANDSHAKE_EXIT,
+  CONTRACT_VERSION_PATTERN,
+  CONTRACT_VERSIONS,
+} from "../src/contract-version.ts";
 import { encodeHello } from "../src/ipc/hello.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -1396,7 +1435,14 @@ describe("negotiation guard — the hello schema", () => {
   });
 });
 
-describe("negotiation guard — one pattern, five spellings", () => {
+describe("negotiation guard — one pattern, four spellings", () => {
+  test("the single TypeScript spelling is the normative one", () => {
+    // One constant, imported by src/ipc/hello.ts and src/contract-tests.ts, so the runtime cannot
+    // disagree with itself. The three JSON copies below cannot import it, which is why they are
+    // compared here.
+    expect(CONTRACT_VERSION_PATTERN.source).toBe(VERSION_PATTERN);
+  });
+
   test("the hello schema declares it", () => {
     const versions = (HELLO_SCHEMA["properties"] as Record<string, Record<string, unknown>>)[
       "contractVersions"
@@ -1416,9 +1462,10 @@ describe("negotiation guard — one pattern, five spellings", () => {
     expect(entry?.pattern).toBe(VERSION_PATTERN);
   });
 
-  test("both runtime modules agree with it, member for member", () => {
-    // The pattern itself is not exported — a regex is not contract, its behavior is. So the
-    // spellings are compared through their behavior on the values that distinguish them.
+  test("the spellings agree behaviorally, not only textually", () => {
+    // Identical strings are necessary, not sufficient: an anchor dropped in one copy would still
+    // read as "the same pattern" to a careless diff. So the values that distinguish the pattern
+    // are driven through the schema as well.
     const accepted = ["1", "2", "10", "1234567890123456789012345"];
     const rejected = ["", "0", "01", "1.0", " 1", "1 ", "١", "v1"];
     const ajv = newAjv();
@@ -1465,7 +1512,7 @@ git commit -m "docs(spec): publish the contract-version negotiation specificatio
 - Create: `docs/spec/conformance/v1/negotiation/index.json`
 - Create: `docs/spec/conformance/v1/negotiation/index.schema.json`
 - Create: `docs/spec/conformance/v1/negotiation/case.schema.json`
-- Create: `docs/spec/conformance/v1/negotiation/cases/*.json` (27 files)
+- Create: `docs/spec/conformance/v1/negotiation/cases/*.json` (28 files)
 - Modify: `scripts/negotiation-guard.test.ts` (append the corpus half)
 
 **Interfaces:**
@@ -1621,11 +1668,12 @@ corpus's index shape (`spec` pointer plus `cases`):
 
 - [ ] **Step 3: Write the cases**
 
-Create 27 files under `docs/spec/conformance/v1/negotiation/cases/`. Every file has
+Create 28 files under `docs/spec/conformance/v1/negotiation/cases/`. Every file has
 `description`, `kind`, and `expect`; refusals carry `"exit": 20`. Use these exact filenames — the
 guard checks the directory against the index.
 
-**`negotiate` (§6), 11 files:**
+**`negotiate` (§6), 12 files.** The two empty-set cases are deliberately both present: an
+implementation that intersects in one direction only refuses one of them and agrees on the other.
 
 | File | `local` | `remote` | `expect` |
 |------|---------|----------|----------|
@@ -1637,6 +1685,7 @@ guard checks the directory against the index.
 | `negotiate-order-b.json` | `["2","1"]` | `["1","2"]` | `{ok:true, version:"2"}` |
 | `negotiate-disjoint.json` | `["1"]` | `["2"]` | `{ok:false, reason:"no-common-version", exit:20}` |
 | `negotiate-empty-local.json` | `[]` | `["1"]` | `{ok:false, reason:"no-common-version", exit:20}` |
+| `negotiate-empty-remote.json` | `["1"]` | `[]` | `{ok:false, reason:"no-common-version", exit:20}` |
 | `negotiate-leading-zero.json` | `["01"]` | `["1"]` | `{ok:false, reason:"invalid-version", exit:20}` |
 | `negotiate-non-string.json` | `[1]` | `["1"]` | `{ok:false, reason:"invalid-version", exit:20}` |
 | `negotiate-non-ascii-digit.json` | `["١"]` | `["1"]` | `{ok:false, reason:"invalid-version", exit:20}` |
@@ -1724,7 +1773,7 @@ The `frame` value is a JSON *string*, so its inner quotes are escaped:
 
 - [ ] **Step 4: Write the index**
 
-Create `docs/spec/conformance/v1/negotiation/index.json` listing all 27 cases with a `section`
+Create `docs/spec/conformance/v1/negotiation/index.json` listing all 28 cases with a `section`
 (`"§5"` for hello, `"§6"` for negotiate, `"§7"` for declaration) and a one-line `reason`:
 
 ```json
@@ -1755,6 +1804,7 @@ import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
 import {
   CONTRACT_HANDSHAKE_EXIT,
+  CONTRACT_VERSION_PATTERN,
   CONTRACT_VERSIONS,
   declaredVersionsMatch,
   manifestContractVersions,
@@ -2114,10 +2164,11 @@ Before calling this done, run each of these and confirm the output — not just 
 - [ ] `bun test` — green, including all six guards.
 - [ ] `bun run api:surface` produces **no diff** (it was already regenerated in Tasks 1–3).
 - [ ] `git status` is clean.
-- [ ] The version pattern `^[1-9][0-9]*$` appears identically in `src/contract-version.ts`,
-      `src/ipc/hello.ts`, `src/contract-tests.ts`, `docs/spec/schemas/v1/extension-manifest.schema.json`,
-      `docs/spec/rules/v1/manifest-rules.json`, `docs/spec/negotiation/hello.schema.json`, and the
-      spec document. Verify with `git grep -n '\[1-9\]\[0-9\]\*'`.
+- [ ] The version pattern `^[1-9][0-9]*$` is spelled **once** in TypeScript —
+      `CONTRACT_VERSION_PATTERN` in `src/contract-version.ts` — and identically in the three JSON
+      copies (`docs/spec/schemas/v1/extension-manifest.schema.json`,
+      `docs/spec/rules/v1/manifest-rules.json`, `docs/spec/negotiation/hello.schema.json`) and the
+      spec document. Verify with `git grep -n '\[1-9\]\[0-9\]\*'`: exactly one hit under `src/`.
 - [ ] `docs/spec/negotiation/hello.schema.json` has **no** `v1` segment in its path.
 - [ ] The exit code `20` appears in the spec document, `CONTRACT_HANDSHAKE_EXIT`, and every
       refusal case in the corpus.

@@ -9,3 +9,6 @@ coverage/
 # shows up as untracked content and `git add -A` will happily commit it.
 .claude/worktrees/
 .worktrees/
+
+# Subagent-driven-development scratch (ledger, briefs, review packages).
+.superpowers/

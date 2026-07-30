@@ -589,6 +589,7 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import tarfile
 import venv
 from pathlib import Path
 
@@ -641,8 +642,16 @@ def test_data_survives_sdist_to_wheel_to_install(tmp_path: Path) -> None:
         capture_output=True,
     )
     (sdist,) = dist.glob("*.tar.gz")
+    # `build` >= 1.5's ProjectBuilder requires a directory, not an archive, so the
+    # sdist is unpacked before the wheel is built from it. Building from the unpacked
+    # sdist — rather than from the working tree — is the whole point: it proves the
+    # sdist is self-sufficient, which a wheel-only build hook would not be.
+    unpacked = tmp_path / "unpacked"
+    with tarfile.open(sdist) as archive:
+        archive.extractall(unpacked, filter="data")
+    (project,) = unpacked.iterdir()
     subprocess.run(
-        [sys.executable, "-m", "build", "--wheel", "--outdir", str(dist), str(sdist)],
+        [sys.executable, "-m", "build", "--wheel", "--outdir", str(dist), str(project)],
         check=True,
         capture_output=True,
     )
@@ -1014,8 +1023,13 @@ Insert after the `node-smoke` job, before `commit-guard`. Copy the `harden-runne
         with:
           python-version: ${{ matrix.python }}
 
+      # `hatchling` is listed explicitly even though it is only a build backend:
+      # `pip install -e .` builds in an isolated environment and does NOT install the
+      # backend into this one, while `mypy --strict` type-checks `hatch_build.py`,
+      # which imports it. Without this the CI lint step fails on a missing import that
+      # never reproduces locally, because a developer who ran a build has it already.
       - name: Install
-        run: python -m pip install --upgrade pip build ruff mypy pytest && python -m pip install -e .
+        run: python -m pip install --upgrade pip build hatchling ruff mypy pytest && python -m pip install -e .
 
       - name: Lint
         run: python -m ruff check . && python -m ruff format --check .

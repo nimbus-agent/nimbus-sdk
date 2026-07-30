@@ -211,6 +211,12 @@ def test_directory_members_are_not_counted_as_files(tmp_path: Path) -> None:
 
 
 def test_matching_distributions_are_accepted() -> None:
+    """The happy path, which is what makes the mutation tests below mean anything.
+
+    Without it, a `check_contract_data` that raised unconditionally would satisfy every
+    rejection test in this file. It asserts by not raising — the function's only success
+    signal is returning.
+    """
     names = _data_set()
     check_contract_data(names, set(names))
 
@@ -662,13 +668,16 @@ assertions are made against bytes a real release actually produced.
 
 from __future__ import annotations
 
+import ast
 import datetime
 from pathlib import Path
+from typing import cast
 
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.extensions import UnrecognizedExtension
 from cryptography.x509.oid import NameOID
 from pypi_attestations import Provenance
 
@@ -726,8 +735,8 @@ def test_the_environment_is_der_decoded_not_returned_raw(
     b'\\x0c\\x04pypi'. A naive `.decode()` returns that verbatim and never equals the
     expected value — every release would go red.
     """
-    raw = certificate.extensions.get_extension_for_oid(ENVIRONMENT_OID).value
-    naive = bytes(raw.value).decode()  # type: ignore[attr-defined]
+    extension = certificate.extensions.get_extension_for_oid(ENVIRONMENT_OID)
+    naive = cast(UnrecognizedExtension, extension.value).value.decode()
     assert naive != ENVIRONMENT
     assert naive.startswith("\x0c")
     assert certificate_environment(certificate) == ENVIRONMENT
@@ -749,17 +758,31 @@ def test_expected_policy_names_this_repository_workflow_and_commit() -> None:
     assert COMMIT_SHA in rendered
 
 
-def test_the_fixture_publisher_is_not_used_as_input() -> None:
+def test_the_registry_publisher_is_never_used_as_input() -> None:
     """Guard against reintroducing the circularity.
 
     PyPI's own `publisher` object must never become the verification policy — that would
     ask the registry to grade its own homework.
+
+    Checked structurally with `ast`, not by searching the text: the module deliberately
+    *discusses* `GitHubPublisher` in the comment explaining why it is unsuitable, so a
+    substring search would match the module's own rationale and fail on correct code.
     """
     source = (Path(__file__).parents[1] / "scripts" / "verify_publish.py").read_text(
         encoding="utf-8"
     )
-    assert "bundle.publisher" not in source
-    assert "GitHubPublisher" not in source
+    tree = ast.parse(source)
+
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    assert "GitHubPublisher" not in imported, "the publisher policy must not be imported"
+
+    accessed = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+    assert "publisher" not in accessed, "PyPI's publisher object must never be read"
 
 
 def _certificate_without_extensions() -> x509.Certificate:
@@ -1016,8 +1039,11 @@ here as tests rather than comments:
     certificate rather than trusted to the publisher policy.
 
 Expectations are composed as a sigstore AllOf policy built from this
-run's own GitHub context. A test asserts the source never mentions
-bundle.publisher or GitHubPublisher, so the circularity cannot come back.
+run's own GitHub context. An ast-based test asserts the module neither
+imports GitHubPublisher nor reads a .publisher attribute, so the
+circularity cannot come back — structural rather than a text search,
+because the module discusses GitHubPublisher in the comment explaining
+why it is unsuitable.
 
 mypy --strict type-checks scripts/, which imports pypi_attestations and
 sigstore; pip install -e . provides neither, because the package is

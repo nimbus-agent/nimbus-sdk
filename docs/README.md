@@ -7,7 +7,7 @@ contract itself — then reach for a battery as you need it.
 ## Modules
 
 Every public export of every `exports` entry point is documented on one of these pages.
-A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
+A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 
 | Module | What it is |
 |--------|------------|
@@ -30,10 +30,11 @@ A guard (`scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 
 ## Examples
 
-- [`examples/quickstart-connector/`](../examples/quickstart-connector/) — the smallest
-  connector that passes the contract tests.
-- [`examples/calendar-connector/`](../examples/calendar-connector/) — HITL gating, the
-  audit logger, and the `icalendar` battery building the VEVENT an approver is shown.
+- [`sdks/typescript/examples/quickstart-connector/`](../sdks/typescript/examples/quickstart-connector/) —
+  the smallest connector that passes the contract tests.
+- [`sdks/typescript/examples/calendar-connector/`](../sdks/typescript/examples/calendar-connector/) —
+  HITL gating, the audit logger, and the `icalendar` battery building the VEVENT an
+  approver is shown.
 
 ## Policies and process
 

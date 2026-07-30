@@ -22,7 +22,7 @@ Three hard constraints shape every decision here:
   environment. Anything that does belongs in the gateway.
 - **TypeScript strict, no `any`.** External / cross-boundary data enters as
   `unknown` and is narrowed with a type guard. Biome enforces `noExplicitAny` and
-  `noConsole` in `src/`.
+  `noConsole` in `sdks/typescript/src/`.
 
 ## The public surface (the `exports` map)
 
@@ -30,9 +30,9 @@ The package exposes exactly three entry points. Everything else is internal.
 
 | Entry point | Source | Purpose |
 |---|---|---|
-| `@nimbus-dev/sdk` | `src/index.ts` | The main contract: connector/extension types, the Plugin API v1 surface, `NimbusExtensionServer`, and the battery modules. |
-| `@nimbus-dev/sdk/testing` | `src/testing/index.ts` | `MockGateway` + contract-test / sandbox-probe utilities for connector test suites. |
-| `@nimbus-dev/sdk/ipc` | `src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
+| `@nimbus-dev/sdk` | `sdks/typescript/src/index.ts` | The main contract: connector/extension types, the Plugin API v1 surface, `NimbusExtensionServer`, and the battery modules. |
+| `@nimbus-dev/sdk/testing` | `sdks/typescript/src/testing/index.ts` | `MockGateway` + contract-test / sandbox-probe utilities for connector test suites. |
+| `@nimbus-dev/sdk/ipc` | `sdks/typescript/src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.
@@ -46,37 +46,38 @@ The source is organized into four layers, from most-stable to most-peripheral.
 The shared shapes every author and every product agree on — the *narrow waist* the
 whole ecosystem passes through.
 
-- `src/types.ts` — `ExtensionManifest`, `NimbusItem`, `ItemType`.
-- `src/item-types.ts` — the open `KnownItemType` vocabulary + `isKnownItemType`.
-- `src/agents/` — the agent **briefs** (`brief-types.ts`, `brief-composites.ts`),
+- `sdks/typescript/src/types.ts` — `ExtensionManifest`, `NimbusItem`, `ItemType`.
+- `sdks/typescript/src/item-types.ts` — the open `KnownItemType` vocabulary + `isKnownItemType`.
+- `sdks/typescript/src/agents/` — the agent **briefs** (`brief-types.ts`, `brief-composites.ts`),
   their runtime **guards** (`brief-guards.ts`, `guard-factory.ts`), and the agent
   name registry (`agent-names.ts`).
-- `src/hitl-request.ts` / `src/audit-logger.ts` — the HITL request shape and the
-  scoped audit-logger interface the gateway injects.
+- `sdks/typescript/src/hitl-request.ts` / `sdks/typescript/src/audit-logger.ts` — the HITL
+  request shape and the scoped audit-logger interface the gateway injects.
 
 This layer is frozen under semver (Plugin API v1 — see [`../CHANGELOG.md`](../CHANGELOG.md)).
 
 ### 2. The server scaffolding
 
-- `src/server.ts` — `NimbusExtensionServer`, the MCP server a connector instantiates
-  to register tools and start serving. This is the primary thing a connector author
-  touches.
+- `sdks/typescript/src/server.ts` — `NimbusExtensionServer`, the MCP server a connector
+  instantiates to register tools and start serving. This is the primary thing a
+  connector author touches.
 
 ### 3. The batteries (helper modules)
 
 Pure, dep-free helpers connector authors reach for so common work isn't
 reinvented. Each is self-contained and independently testable:
 
-- `src/crypto/` — Ed25519 keygen + manifest signing/verification, JWT signing,
-  Google service-account tokens, App Store Connect JWTs, canonical JSON.
-- `src/jmap-fastmail/` — JMAP session parsing + email header/preview extraction
-  (headers, attachment metadata, and a server-truncated body preview capped at 2 KB per
-  email — a hard scope constraint keeps full bodies and attachment bytes out).
-- `src/icalendar.ts` — iCalendar VEVENT parsing + building.
-- `src/data-profile/` — column/shape profiling for CSV / JSON / JSONL / Parquet
-  (metadata only — never cell values).
-- `src/flux-cd/`, `src/storybook/` — small format helpers.
-- `src/distribution-channel.ts` — release-channel resolution + upgrade hints.
+- `sdks/typescript/src/crypto/` — Ed25519 keygen + manifest signing/verification, JWT
+  signing, Google service-account tokens, App Store Connect JWTs, canonical JSON.
+- `sdks/typescript/src/jmap-fastmail/` — JMAP session parsing + email header/preview
+  extraction (headers, attachment metadata, and a server-truncated body preview capped
+  at 2 KB per email — a hard scope constraint keeps full bodies and attachment bytes out).
+- `sdks/typescript/src/icalendar.ts` — iCalendar VEVENT parsing + building.
+- `sdks/typescript/src/data-profile/` — column/shape profiling for CSV / JSON / JSONL /
+  Parquet (metadata only — never cell values).
+- `sdks/typescript/src/flux-cd/`, `sdks/typescript/src/storybook/` — small format helpers.
+- `sdks/typescript/src/distribution-channel.ts` — release-channel resolution + upgrade
+  hints.
 
 Growth here is deliberately gated by the [inclusion policy](./INCLUSION-POLICY.md)
 (dep-free, pure, genuinely reused, contract-shaped) — see also the
@@ -84,19 +85,19 @@ Growth here is deliberately gated by the [inclusion policy](./INCLUSION-POLICY.m
 
 ### 4. Test harness & IPC
 
-- `src/contract-tests.ts` — `runContractTests`, which validates a connector against
-  the v1 contract (e.g. `assertNoRowDataTools`).
-- `src/testing/` — `MockGateway` (in-process gateway stub) and the sandbox
-  contract / probe utilities.
-- `src/ipc/` — the NDJSON line-reader that frames messages between a connector
-  process and its host.
+- `sdks/typescript/src/contract-tests.ts` — `runContractTests`, which validates a
+  connector against the v1 contract (e.g. `assertNoRowDataTools`).
+- `sdks/typescript/src/testing/` — `MockGateway` (in-process gateway stub) and the
+  sandbox contract / probe utilities.
+- `sdks/typescript/src/ipc/` — the NDJSON line-reader that frames messages between a
+  connector process and its host.
 
 ## Runtime model: how a connector talks to the gateway
 
 A connector is a **separate process** the gateway spawns inside a sandbox. The two
 communicate over a stdio stream using **NDJSON line framing** (one JSON value per
-line — the `src/ipc/` helpers). The SDK builds the *connector* side of this boundary;
-the gateway is the host.
+line — the `sdks/typescript/src/ipc/` helpers). The SDK builds the *connector* side of
+this boundary; the gateway is the host.
 
 ```mermaid
 flowchart LR
@@ -111,7 +112,7 @@ flowchart LR
     tools["Registered tools"]
     bat["Batteries: crypto / jmap / icalendar / ..."]
   end
-  gw <-- "NDJSON IPC (src/ipc framing)" --> srv
+  gw <-- "NDJSON IPC (sdks/typescript/src/ipc framing)" --> srv
   srv --> tools --> bat
   gw -. "injects AuditLogger" .-> srv
   tools -. "return HitlRequest for consent" .-> gw
@@ -174,8 +175,9 @@ Phase 3 scales to Go, Rust, and beyond.
 Because the contract is depended on across products and languages, it changes under
 explicit rules rather than ad hoc. The `exports` map is guarded by an API-surface
 snapshot test — [`api-surface.md`](./api-surface.md), regenerated with
-`bun run build && bun run api:surface` and enforced by `scripts/api-surface.test.ts` —
-so that an unintended surface change fails CI. Deprecations follow the
+`bun run build && bun run api:surface` and enforced by
+`sdks/typescript/scripts/api-surface.test.ts` — so that an unintended surface change
+fails CI. Deprecations follow the
 [deprecation policy](./DEPRECATION-POLICY.md) (mark in a released minor → carried
 through a later, separate minor release → removal at a major bump), and once the spec
 exists, a **contract-version** is negotiated between connector and gateway so both

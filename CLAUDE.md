@@ -29,8 +29,12 @@ the release-please bump.
 
 ## Commands
 
+All TypeScript commands run from `sdks/typescript/` (or via the root proxy scripts,
+e.g. `bun run test` at the repository root).
+
 ```bash
-bun install
+bun install         # from the repo root — Bun workspaces
+cd sdks/typescript
 bun run typecheck   # tsc --noEmit (strict)
 bun run lint        # biome check src/ scripts/ examples/
 bun run test        # bun test
@@ -49,7 +53,13 @@ bun run api:surface # regenerate docs/api-surface.md after any exports change
 - Tests live alongside source as `*.test.ts` in `src/`.
 - A new/changed export requires regenerating `docs/api-surface.md` **and** a
   `docs/modules/*.md` page claiming its module in `<!-- covers: -->` — both are CI
-  gates (`scripts/api-surface.test.ts`, `scripts/docs-coverage.test.ts`).
+  gates (`sdks/typescript/scripts/api-surface.test.ts`,
+  `sdks/typescript/scripts/docs-coverage.test.ts`).
+- **Two roots.** `sdks/typescript/scripts/paths.ts` distinguishes `packageRoot`
+  (`package.json`, `src/`, `dist/`) from `repoRoot` (`docs/`, and the language-neutral
+  `docs/spec/`). Scripts import from it rather than computing a root themselves.
+- The spec in `docs/spec/` and the docs surface in `docs/` are **language-neutral** and stay
+  at the repository root. They are not TypeScript's to move.
 
 ## Relationship to other repos
 

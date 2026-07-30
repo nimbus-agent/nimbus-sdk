@@ -42,6 +42,11 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
    the release PR. The org blocks `GITHUB_TOKEN` from creating PRs, so the PR is
    opened with a **short-lived token minted from the "Nimbus Release Bot" GitHub App**
    (~1h), not a stored PAT.
+
+   Releases are tagged `typescript-vX.Y.Z`. Tags of the form `sdk-vX.Y.Z` are historical,
+   frozen at `sdk-v1.10.0` — the last release cut before the SDK moved to `sdks/typescript/`
+   and its release-please component was renamed from `sdk` to `typescript`. The bare
+   `vX.Y.Z` tags are older still, ending at `v0.20.0`, and predate the component prefix.
 2. **Publish** (only when `releases_created == true`), with `id-token: write`:
    - Hardened runner (egress `audit`, so the Sigstore signing chain isn't blocked),
      build + typecheck + test.

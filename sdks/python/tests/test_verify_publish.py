@@ -12,6 +12,10 @@ from __future__ import annotations
 
 import ast
 import datetime
+import hashlib
+import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import cast
 
@@ -23,7 +27,7 @@ from cryptography.x509.extensions import UnrecognizedExtension
 from cryptography.x509.oid import NameOID
 from pyasn1.codec.der.encoder import encode as der_encode
 from pyasn1.type.char import UTF8String
-from pypi_attestations import Provenance
+from pypi_attestations import Provenance, VerificationError
 from sigstore.verify.policy import AllOf
 from verify_publish import (
     ENVIRONMENT_OID,
@@ -33,6 +37,8 @@ from verify_publish import (
     certificate_environment,
     expected_policy,
     load_certificate,
+    load_provenance,
+    verify_artifact,
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "provenance-0.1.0.json"
@@ -194,3 +200,107 @@ def _certificate_with_environment_extension(raw: bytes) -> x509.Certificate:
         .add_extension(x509.UnrecognizedExtension(ENVIRONMENT_OID, raw), critical=False)
         .sign(key, hashes.SHA256())
     )
+
+
+# --- Opt-in: these reach Sigstore's TUF trust root over the network ------------------
+#
+# The `network` marker alone would NOT keep them out of the default run — this project
+# declares no `addopts`, so markers deselect nothing. The skipif is what does the work.
+
+INTEGRATION = pytest.mark.skipif(
+    not os.environ.get("NIMBUS_VERIFY_INTEGRATION"),
+    reason="set NIMBUS_VERIFY_INTEGRATION=1 to verify against the live trust root",
+)
+
+WHEEL_NAME = "nimbus_dev_sdk-0.1.0-py3-none-any.whl"
+WHEEL_DIGEST = "4b53c834a36b565d4334218238749601f0988bdef7bbcf674f57f8c523351f11"
+
+
+@INTEGRATION
+@pytest.mark.network
+def test_the_real_artifact_verifies(tmp_path: Path) -> None:
+    artifact = _download_published_wheel(tmp_path)
+    predicate = verify_artifact(
+        provenance=load_provenance(FIXTURE),
+        artifact=artifact,
+        repository=REPOSITORY,
+        workflow_ref=WORKFLOW_REF,
+        sha=COMMIT_SHA,
+        environment=ENVIRONMENT,
+    )
+    assert predicate == "https://docs.pypi.org/attestations/publish/v1"
+
+
+@INTEGRATION
+@pytest.mark.network
+@pytest.mark.parametrize(
+    ("field", "value", "expected"),
+    [
+        ("repository", "nimbus-agent/WRONG", "OIDCSourceRepositoryURI"),
+        (
+            "workflow_ref",
+            WORKFLOW_REF.replace("release.yml", "ci.yml"),
+            "OIDCBuildConfigURI",
+        ),
+        ("sha", "0" * 40, "OIDCSourceRepositoryDigest"),
+        ("environment", "WRONG", "environment"),
+    ],
+)
+def test_a_wrong_expectation_is_rejected(
+    tmp_path: Path, field: str, value: str, expected: str
+) -> None:
+    """Each expectation is load-bearing: change one and verification must fail."""
+    artifact = _download_published_wheel(tmp_path)
+    kwargs: dict[str, object] = {
+        "provenance": load_provenance(FIXTURE),
+        "artifact": artifact,
+        "repository": REPOSITORY,
+        "workflow_ref": WORKFLOW_REF,
+        "sha": COMMIT_SHA,
+        "environment": ENVIRONMENT,
+    }
+    kwargs[field] = value
+    with pytest.raises((VerifyError, VerificationError), match=expected):
+        verify_artifact(**kwargs)  # type: ignore[arg-type]
+
+
+@INTEGRATION
+@pytest.mark.network
+def test_tampered_artifact_bytes_are_rejected(tmp_path: Path) -> None:
+    artifact = _download_published_wheel(tmp_path)
+    artifact.write_bytes(artifact.read_bytes() + b"tampered")
+    with pytest.raises(VerificationError, match="digest"):
+        verify_artifact(
+            provenance=load_provenance(FIXTURE),
+            artifact=artifact,
+            repository=REPOSITORY,
+            workflow_ref=WORKFLOW_REF,
+            sha=COMMIT_SHA,
+            environment=ENVIRONMENT,
+        )
+
+
+def _download_published_wheel(tmp_path: Path) -> Path:
+    """Fetch the published 0.1.0 wheel and confirm it is the attested bytes."""
+    destination = tmp_path / WHEEL_NAME
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "download",
+            "--no-deps",
+            "--no-cache-dir",
+            "--only-binary=:all:",
+            "--index-url",
+            "https://pypi.org/simple/",
+            "--dest",
+            str(tmp_path),
+            "nimbus-dev-sdk==0.1.0",
+        ],
+        check=True,
+        capture_output=True,
+    )
+    assert destination.is_file(), sorted(p.name for p in tmp_path.iterdir())
+    assert hashlib.sha256(destination.read_bytes()).hexdigest() == WHEEL_DIGEST
+    return destination

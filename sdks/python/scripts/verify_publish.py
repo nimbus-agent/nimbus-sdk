@@ -15,6 +15,8 @@ empty.
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import cast
 
 from cryptography import x509
@@ -22,7 +24,7 @@ from cryptography.x509 import Certificate, ObjectIdentifier
 from cryptography.x509.extensions import ExtensionNotFound, UnrecognizedExtension
 from pyasn1.codec.der.decoder import decode as der_decode
 from pyasn1.type.char import UTF8String
-from pypi_attestations import Attestation
+from pypi_attestations import Attestation, Distribution, Provenance, VerificationError
 from sigstore.verify.policy import (
     AllOf,
     OIDCBuildConfigURI,
@@ -128,3 +130,91 @@ def certificate_environment(cert: Certificate) -> str:
             "UTF8String — the certificate is malformed"
         )
     return str(decoded)
+
+
+def load_provenance(path: Path) -> Provenance:
+    """Read PyPI's integrity document.
+
+    Reads **bytes**, never text. Decoded under a non-UTF-8 locale, the Sigstore
+    checkpoint's U+2014 becomes cp1252 mojibake, the signature line stops matching
+    sigstore's ``— (\\S+) (\\S+)\\n`` parser, and verification dies with
+    ``checkpoint: Signature not found for log ID ...`` — which reads like a trust
+    failure and is nothing of the kind. Passing bytes to pydantic sidesteps the
+    locale entirely.
+    """
+    return Provenance.model_validate_json(path.read_bytes())
+
+
+def verify_artifact(
+    *,
+    provenance: Provenance,
+    artifact: Path,
+    repository: str,
+    workflow_ref: str,
+    sha: str,
+    environment: str,
+) -> str:
+    """Cryptographically verify that `artifact` is what this run published.
+
+    Returns the verified predicate type. Raises on any mismatch.
+
+    The `environment` check is separate from the policy because no `sigstore` policy
+    class covers it — see `ENVIRONMENT_OID`. It runs *after* signature verification, so
+    an untrusted certificate can never reach it.
+    """
+    policy = expected_policy(repository, workflow_ref, sha)
+    distribution = Distribution.from_file(artifact)
+
+    for bundle in provenance.attestation_bundles:
+        for attestation in bundle.attestations:
+            predicate, _claims = attestation.verify(policy, distribution)
+
+            # Only now is the certificate known to be genuine and to bind this artifact.
+            actual = certificate_environment(load_certificate(attestation))
+            if actual != environment:
+                raise VerifyError(
+                    f"certificate names environment {actual!r}, "
+                    f"expected {environment!r}"
+                )
+            return str(predicate)
+
+    raise VerifyError("provenance document carries no attestations")
+
+
+def main() -> int:
+    try:
+        required = (
+            "PROVENANCE_PATH",
+            "WHEEL_PATH",
+            "GITHUB_REPOSITORY",
+            "GITHUB_WORKFLOW_REF",
+            "GITHUB_SHA",
+            "PYPI_ENVIRONMENT",
+        )
+        missing = [name for name in required if not os.environ.get(name)]
+        if missing:
+            raise VerifyError(f"missing required environment: {', '.join(missing)}")
+
+        predicate = verify_artifact(
+            provenance=load_provenance(Path(os.environ["PROVENANCE_PATH"])),
+            artifact=Path(os.environ["WHEEL_PATH"]),
+            repository=os.environ["GITHUB_REPOSITORY"],
+            workflow_ref=os.environ["GITHUB_WORKFLOW_REF"],
+            sha=os.environ["GITHUB_SHA"],
+            environment=os.environ["PYPI_ENVIRONMENT"],
+        )
+    except (VerifyError, VerificationError) as error:
+        print(f"::error::attestation verification failed: {error}", flush=True)
+        return 1
+
+    print(
+        f"provenance ok: {Path(os.environ['WHEEL_PATH']).name} cryptographically "
+        f"attested to {os.environ['GITHUB_REPOSITORY']}@{os.environ['GITHUB_SHA']} "
+        f"via {os.environ['GITHUB_WORKFLOW_REF']} / environment "
+        f"{os.environ['PYPI_ENVIRONMENT']} ({predicate})"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

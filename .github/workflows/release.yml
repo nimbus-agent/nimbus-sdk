@@ -8,6 +8,14 @@ on:
 permissions:
   contents: read
 
+env:
+  # The GitHub Environment `publish-python` deploys to, and the value the signing
+  # certificate must name. Declared once here because `jobs.<id>.environment` accepts
+  # only the github, needs, vars and inputs contexts — not `env` — so the literal below
+  # cannot be replaced by an expression. release-workflow-guard.test.ts asserts the two
+  # stay equal, so drift fails on the PR that causes it rather than after a publish.
+  PYPI_ENVIRONMENT: pypi
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
@@ -330,6 +338,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      # pyproject.toml is the single source of truth for the distribution name — the
+      # same file the publish preflight reads the version from. Normalised per PEP 503
+      # because that is the form PyPI's URLs use.
+      - name: Resolve the distribution name
+        run: |
+          set -euo pipefail
+          name="$(python - <<'PY'
+          import re, tomllib
+          raw = tomllib.load(open("pyproject.toml", "rb"))["project"]["name"]
+          print(re.sub(r"[-_.]+", "-", raw).lower())
+          PY
+          )"
+          echo "DIST_NAME=$name" >> "$GITHUB_ENV"
+          echo "resolved distribution name: $name"
+
       # A publish is followed by a CDN propagation lag, and reading it as a
       # supply-chain failure turns a good release red. The npm side learned this the
       # hard way. --no-cache-dir is mandatory: pip caches the negative index response,
@@ -350,7 +373,7 @@ jobs:
           for attempt in 1 2 3 4 5 6 7 8; do
             if python -m pip download --no-deps --no-cache-dir --only-binary=:all: \
                  --index-url https://pypi.org/simple/ \
-                 --dest /tmp/verify "nimbus-dev-sdk==${PUBLISHED_VERSION}"; then
+                 --dest /tmp/verify "${DIST_NAME}==${PUBLISHED_VERSION}"; then
               verified=1
               break
             fi
@@ -359,7 +382,7 @@ jobs:
             fi
           done
           if [ -z "$verified" ]; then
-            echo "::error::nimbus-dev-sdk==${PUBLISHED_VERSION} was not installable from PyPI after 8 attempts."
+            echo "::error::${DIST_NAME}==${PUBLISHED_VERSION} was not installable from PyPI after 8 attempts."
             exit 1
           fi
 
@@ -374,18 +397,18 @@ jobs:
           echo "WHEEL_PATH=$wheel" >> "$GITHUB_ENV"
           echo "WHEEL_NAME=$(basename "$wheel")" >> "$GITHUB_ENV"
 
-      - name: Verify PEP 740 provenance names this repo and commit
+      - name: Install the pinned verification toolchain
+        run: python -m pip install --require-hashes -r verify-requirements.txt
+
+      - name: Fetch the PEP 740 provenance from PyPI
         env:
           PUBLISHED_VERSION: ${{ needs.release-please.outputs.py_version }}
-          EXPECTED_REPO: ${{ github.repository }}
-          EXPECTED_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # PEP 740 provenance, from PyPI's integrity API.
           provenance_ok=""
           for attempt in 1 2 3 4 5 6; do
             if curl -fsSL --retry 0 \
-                 "https://pypi.org/integrity/nimbus-dev-sdk/${PUBLISHED_VERSION}/${WHEEL_NAME}/provenance" \
+                 "https://pypi.org/integrity/${DIST_NAME}/${PUBLISHED_VERSION}/${WHEEL_NAME}/provenance" \
                  -o /tmp/provenance.json; then
               provenance_ok=1
               break
@@ -398,61 +421,16 @@ jobs:
             echo "::error::PyPI returned no provenance for ${WHEEL_NAME} — it was published WITHOUT attestations."
             exit 1
           fi
+          echo "PROVENANCE_PATH=/tmp/provenance.json" >> "$GITHUB_ENV"
 
-          # This checks the CLAIMS in PyPI's integrity document — publisher identity,
-          # subject digest, and the commit named in the Fulcio cert — not a Sigstore
-          # signature. Cryptographic verification via `pypi-attestations` is a
-          # worthwhile follow-up; it is not added here because an unproven CLI has no
-          # place on an irreversible publish path.
-          #
-          # PEP 740 publish attestations carry `predicate: null` — the commit SHA is
-          # NOT in the in-toto statement. It lives only in the Fulcio signing
-          # certificate, as plain ASCII inside the base64-DER blob: a `\b`-anchored
-          # regex fails there because DER surrounds the hex string with non-word bytes,
-          # so this uses bytes containment instead. `publisher.workflow` is reported as
-          # a BASENAME (`release.yml`), not the `.github/workflows/release.yml` path
-          # verify-npm-provenance compares on the npm side. Verified against a real
-          # PyPI provenance document (pydantic 2.13.4) before this landed.
-          python - <<'PY'
-          import base64, hashlib, json, os, sys
-
-          data = json.load(open("/tmp/provenance.json"))
-          repo, sha = os.environ["EXPECTED_REPO"], os.environ["EXPECTED_SHA"]
-          wheel, filename = os.environ["WHEEL_PATH"], os.environ["WHEEL_NAME"]
-
-          bundles = data.get("attestation_bundles") or []
-          if not bundles:
-              print("::error::provenance document carries no attestation bundles", flush=True)
-              sys.exit(1)
-
-          ok = False
-          for bundle in bundles:
-              pub = bundle.get("publisher") or {}
-              # PyPI reports the workflow BASENAME, not the path the npm job compares.
-              if (pub.get("kind"), pub.get("repository"), pub.get("workflow"), pub.get("environment")) != (
-                  "GitHub", repo, "release.yml", "pypi"
-              ):
-                  continue
-              for att in bundle.get("attestations") or []:
-                  stmt = json.loads(base64.b64decode(att["envelope"]["statement"]))
-                  subject = stmt["subject"][0]
-                  if subject["name"] != filename:
-                      continue
-                  digest = hashlib.sha256(open(wheel, "rb").read()).hexdigest()
-                  if subject["digest"]["sha256"] != digest:
-                      print(f"::error::attested digest does not match the downloaded {filename}", flush=True)
-                      sys.exit(1)
-                  cert = base64.b64decode(att["verification_material"]["certificate"])
-                  if sha.encode() not in cert:
-                      print(f"::error::signing certificate does not name commit {sha}", flush=True)
-                      sys.exit(1)
-                  ok = True
-
-          if not ok:
-              print(
-                  f"::error::no attestation binds {filename} to {repo}@{sha} via release.yml / environment pypi",
-                  flush=True,
-              )
-              sys.exit(1)
-          print(f"provenance ok: {filename} attested by {repo}@{sha} via release.yml/pypi")
-          PY
+      # Cryptographic Sigstore verification, not a claims read. The expected identity is
+      # composed from THIS run's own context — repository, workflow_ref, commit, and the
+      # environment constant above — so PyPI's `publisher` object is never used as input.
+      # It is the registry's own claim about the upload, and grading it against itself
+      # would prove nothing.
+      #
+      # The environment is checked from the certificate rather than through the policy
+      # because pypi-attestations' GitHubPublisher does not enforce it: passing a wrong
+      # environment verifies successfully. See scripts/verify_publish.py.
+      - name: Verify the PEP 740 attestation (cryptographic)
+        run: python scripts/verify_publish.py

@@ -67,4 +67,11 @@ testpaths = ["tests"]
 # Release-infrastructure scripts live outside the package on purpose — they must not
 # ship — so tests import them via this path rather than from `nimbus_sdk`.
 pythonpath = ["scripts"]
-markers = ["slow: builds a distribution and installs it into a throwaway venv"]
+markers = [
+  "slow: builds a distribution and installs it into a throwaway venv",
+  # Opt-in via NIMBUS_VERIFY_INTEGRATION. There is no `addopts` deselecting markers in
+  # this project, so a marker alone excludes nothing — `slow` runs on every PR today.
+  # The skipif on these tests is what keeps the default suite offline; the marker is
+  # documentation for `-m network`.
+  "network: reaches PyPI and the Sigstore trust root; opt-in via NIMBUS_VERIFY_INTEGRATION",
+]

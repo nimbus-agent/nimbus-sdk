@@ -294,6 +294,21 @@ jobs:
               if version not in os.path.basename(path):
                   print(f"::error::{path} is not version {version} — it would be uploaded anyway", flush=True)
                   sys.exit(1)
+
+          # This package has no compiled extensions. If a hatchling upgrade or a
+          # build-hook change ever makes the wheel impure (cp312-...-manylinux_...),
+          # that means the build changed shape — publishing it would permanently ship a
+          # platform-specific artifact that installs on exactly one interpreter/OS.
+          wheel_name = os.path.basename(wheels[0])
+          if not wheel_name.endswith("-py3-none-any.whl"):
+              print(
+                  f"::error::{wheel_name} is not a pure-Python wheel. This package has no "
+                  "compiled extensions, so an impure tag means the build changed shape — "
+                  "publishing it would permanently ship a platform-specific artifact.",
+                  flush=True,
+              )
+              sys.exit(1)
+
           in_wheel = [n for n in zipfile.ZipFile(wheels[0]).namelist() if "/_data/" in n]
           in_sdist = [n for n in tarfile.open(sdists[0]).getnames() if "/_data/" in n]
           if not in_wheel:
@@ -302,7 +317,25 @@ jobs:
           if not in_sdist:
               print("::error::sdist ships NO contract data (_data/) — refusing to publish", flush=True)
               sys.exit(1)
-          print(f"dist ok: wheel {len(in_wheel)} / sdist {len(in_sdist)} data files at {version}")
+
+          # A named member the loader actually reads, plus a floor. Presence alone would
+          # pass a build hook that emitted one file of 181. The sdist nests under
+          # nimbus_dev_sdk-<version>/src/, so endswith is the right test, not equality.
+          REQUIRED = "nimbus_sdk/_data/spec/conformance/v1/index.json"
+          FLOOR = 150  # 181 today; a floor tolerates spec growth without silent shrinkage
+          for label, names in (("wheel", in_wheel), ("sdist", in_sdist)):
+              if not any(n.endswith(REQUIRED) for n in names):
+                  print(f"::error::{label} is missing {REQUIRED} — contract data is incomplete", flush=True)
+                  sys.exit(1)
+              if len(names) < FLOOR:
+                  print(
+                      f"::error::{label} carries only {len(names)} contract files, below the "
+                      f"floor of {FLOOR}. The build hook likely degraded — refusing to publish.",
+                      flush=True,
+                  )
+                  sys.exit(1)
+
+          print(f"dist ok: wheel {len(in_wheel)} / sdist {len(in_sdist)} data files at {version}, pure-Python tag confirmed")
           PY
 
       # No password: the pending publisher binds this repo + workflow + environment via

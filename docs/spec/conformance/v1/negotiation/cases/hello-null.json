@@ -1,0 +1,6 @@
+{
+  "description": "Valid JSON, but not an object. null has no members to inspect, so this must be refused before the discriminator is even read.",
+  "kind": "hello",
+  "frame": "null",
+  "expect": { "ok": false, "reason": "not-object", "exit": 20 }
+}

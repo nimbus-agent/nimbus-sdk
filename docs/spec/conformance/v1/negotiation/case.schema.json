@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/negotiation/case.schema.json",
+  "title": "Contract-version negotiation conformance case",
+  "description": "One case. Three kinds, because the specification has three separable assertions: the algorithm (negotiate), the frame's parsing (hello), and the manifest-versus-hello agreement (declaration). A runner reads `kind` and dispatches.",
+  "type": "object",
+  "required": ["description", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["negotiate", "hello", "declaration"] },
+    "local": {
+      "type": "array",
+      "description": "negotiate only. This peer's declared set. Entries are deliberately unconstrained: several cases assert a malformed member is refused rather than skipped."
+    },
+    "remote": {
+      "type": "array",
+      "description": "negotiate only. The other peer's declared set, on the same terms."
+    },
+    "frame": {
+      "type": "string",
+      "description": "hello only. One decoded frame, without its terminating LF. A string rather than a parsed object, because what is under test is the parsing."
+    },
+    "manifest": {
+      "description": "declaration only. The manifest's declared value, or absent to exercise the default. Any JSON value: a case asserts a non-array is refused."
+    },
+    "hello": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "declaration only. The set the running peer announced. Well-formed by construction — malformed frames are the hello kind's business."
+    },
+    "expect": {
+      "type": "object",
+      "description": "The required outcome. `ok` false requires `exit`, so no refusal case can omit the reserved code.",
+      "required": ["ok"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "version": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$",
+          "description": "negotiate only, on success: the agreed major."
+        },
+        "contractVersions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+          "description": "hello only, on success: the parsed set, in the order the frame declared it."
+        },
+        "reason": {
+          "enum": [
+            "no-common-version",
+            "invalid-version",
+            "not-json",
+            "not-object",
+            "wrong-message",
+            "missing-versions",
+            "empty-versions",
+            "duplicate-version",
+            "declaration-mismatch"
+          ],
+          "description": "On refusal. The negotiate kind uses the first two; hello uses those plus the frame reasons; declaration uses declaration-mismatch."
+        },
+        "exit": {
+          "const": 20,
+          "description": "The exit code a connector MUST terminate with. Carried as data on every refusal so a binding that owns a process is held to it by the corpus rather than by prose."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "ok": { "const": false } }, "required": ["ok"] },
+          "then": { "required": ["reason", "exit"], "properties": { "reason": true, "exit": true } }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "negotiate" } }, "required": ["kind"] },
+      "then": {
+        "required": ["local", "remote", "expect"],
+        "properties": { "local": true, "remote": true, "expect": true }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "hello" } }, "required": ["kind"] },
+      "then": { "required": ["frame", "expect"], "properties": { "frame": true, "expect": true } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "declaration" } }, "required": ["kind"] },
+      "then": { "required": ["hello", "expect"], "properties": { "hello": true, "expect": true } }
+    }
+  ]
+}

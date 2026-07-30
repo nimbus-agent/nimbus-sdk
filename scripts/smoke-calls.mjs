@@ -167,11 +167,30 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "contract-version",
+    run: (sdk) => {
+      const result = sdk.negotiateContractVersion(sdk.CONTRACT_VERSIONS, ["1"]);
+      if (!result.ok || result.version !== "1") {
+        throw new Error(`unexpected negotiation result: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
     module: "ipc/ndjson-line-reader",
     run: (_sdk, _testing, ipc) => {
       const reader = new ipc.NdjsonLineReader();
       const lines = reader.push(new TextEncoder().encode('{"a":1}\n'));
       if (lines.length !== 1) throw new Error(`expected 1 line, got ${lines.length}`);
+    },
+  },
+  {
+    module: "ipc/hello",
+    run: (_sdk, _testing, ipc) => {
+      const frame = ipc.encodeHello(["1"]);
+      const parsed = ipc.parseHello(frame);
+      if (!parsed.ok || parsed.contractVersions[0] !== "1") {
+        throw new Error(`unexpected parseHello result: ${JSON.stringify(parsed)}`);
+      }
     },
   },
   {

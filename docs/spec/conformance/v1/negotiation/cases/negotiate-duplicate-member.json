@@ -1,0 +1,7 @@
+{
+  "description": "A duplicated member in the local set. The algorithm does not itself reject a repeat — uniqueness is enforced one layer earlier, by the declaration rules (§4) and by frame parsing (§5) — so this still agrees on \"1\".",
+  "kind": "negotiate",
+  "local": ["1", "1"],
+  "remote": ["1"],
+  "expect": { "ok": true, "version": "1" }
+}

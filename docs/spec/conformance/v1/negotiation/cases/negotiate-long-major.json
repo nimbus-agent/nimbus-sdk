@@ -1,0 +1,7 @@
+{
+  "description": "A major long enough that Number() loses precision — the algorithm must compare digit strings, not parsed floats.",
+  "kind": "negotiate",
+  "local": ["1234567890123456789012345", "1234567890123456789012344"],
+  "remote": ["1234567890123456789012344", "1234567890123456789012345"],
+  "expect": { "ok": true, "version": "1234567890123456789012345" }
+}

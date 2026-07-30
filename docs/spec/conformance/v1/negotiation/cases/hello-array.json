@@ -1,0 +1,6 @@
+{
+  "description": "Valid JSON, and even array-shaped like contractVersions itself, but not an object — the frame as a whole must be rejected, not read as if it were the versions list.",
+  "kind": "hello",
+  "frame": "[\"1\"]",
+  "expect": { "ok": false, "reason": "not-object", "exit": 20 }
+}

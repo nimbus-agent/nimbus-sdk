@@ -1,0 +1,6 @@
+{
+  "description": "The canonical frame, byte for byte what encodeHello produces.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}",
+  "expect": { "ok": true, "contractVersions": ["1"] }
+}

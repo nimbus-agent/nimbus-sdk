@@ -103,7 +103,11 @@ describe("rules guard — the registry", () => {
       .filter((r) => r.parameterized)
       .map((r) => r.id)
       .sort();
-    expect(parameterized).toEqual(["manifest.hitlRequired.entry", "manifest.permissions.entry"]);
+    expect(parameterized).toEqual([
+      "manifest.contractVersions.entry",
+      "manifest.hitlRequired.entry",
+      "manifest.permissions.entry",
+    ]);
   });
 });
 

@@ -1,0 +1,7 @@
+{
+  "description": "The running peer announces a major its manifest never declared. A superset is the interesting failure: the confirm step exists to catch exactly this.",
+  "kind": "declaration",
+  "manifest": ["1"],
+  "hello": ["1", "2"],
+  "expect": { "ok": false, "reason": "declaration-mismatch", "exit": 20 }
+}

@@ -178,8 +178,10 @@ bind to.*
   exit-code contract rather than a data set, so it ships as a normative spec plus a corpus
   for the harness decision table and the probe's errno classification.
 - [x] Validate the TypeScript SDK **against its own spec** in CI — *Pillars 2, 5*
-- [ ] Define **contract-version negotiation** (how a connector and gateway agree on
-  a contract version) — *Pillar 7*
+- [x] Define **contract-version negotiation** (how a connector and gateway agree on
+  a contract version) — *Pillar 7*. Declared in the manifest and confirmed by a frozen
+  [hello frame](./spec/negotiation/v1/contract-version.md), under
+  [RFC-0005](./rfcs/0005-contract-version-negotiation.md).
 
 **Exit criteria:** schemas + wire-protocol spec are published and versioned; the TS
 SDK is validated against the spec by the conformance suite in CI; the spec is the

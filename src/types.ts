@@ -47,5 +47,12 @@ export interface ExtensionManifest {
   };
   syncInterval?: number;
   tags?: string[];
+  /**
+   * The contract majors this connector speaks — see `docs/spec/negotiation/v1/`.
+   *
+   * Optional, and absence means `["1"]`. Not the same axis as `minNimbusVersion`, which is a
+   * floor on the gateway product. Becomes required at the next contract major.
+   */
+  contractVersions?: string[];
   minNimbusVersion: string;
 }

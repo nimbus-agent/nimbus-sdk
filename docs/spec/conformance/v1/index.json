@@ -199,6 +199,46 @@
       "reason": "Violations accumulate rather than short-circuiting at the first failure. Ten rules fire at once; a binding that returns after the first passes every other fixture here."
     },
     {
+      "file": "manifest/valid-contract-versions.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "A well-formed declaration of two majors. Order is not significant, and neither member is the default."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-not-array.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.type", "path": "/contractVersions" }],
+      "reason": "A bare string, not an array. The member rules must not also fire — a non-array has no members to check."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-empty.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.nonempty", "path": "/contractVersions" }],
+      "reason": "An empty array is not the same as an absent field: absence means [\"1\"], an empty set means nothing."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-entry.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.entry", "path": "/contractVersions/1" }],
+      "reason": "A leading zero is not a canonical major. Pins that the violation names the offending index, not the field."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-duplicate.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.entry", "path": "/contractVersions/1" }],
+      "reason": "A repeated member, reported at its second occurrence. A binding that dedupes on read rather than rejecting would pass every other fixture."
+    },
+    {
       "file": "manifest/schema-only-bad-sync-interval.json",
       "shape": "ExtensionManifest",
       "expect": "invalid",

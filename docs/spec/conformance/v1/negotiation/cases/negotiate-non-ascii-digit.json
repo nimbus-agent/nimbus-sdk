@@ -1,0 +1,7 @@
+{
+  "description": "The Arabic-Indic digit U+0661 looks like \"1\" but is not an ASCII digit — a binding whose pattern is Unicode-aware accepts it, the one deviation the corpus exists to catch.",
+  "kind": "negotiate",
+  "local": ["١"],
+  "remote": ["1"],
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

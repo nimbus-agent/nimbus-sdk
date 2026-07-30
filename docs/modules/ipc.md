@@ -17,6 +17,10 @@ The behavior below is specified language-neutrally in
 implementation to it on every PR. This page is the TypeScript usage guide; the spec is the
 contract.
 
+This entry point also exports `encodeHello` / `parseHello`, the contract-version handshake frame.
+The frame and the algorithm are documented together in
+[`contract-version.md`](./contract-version.md).
+
 ## Constraints that are load-bearing
 
 - **A chunk is not a line.** `push()` buffers partial input and returns only the complete

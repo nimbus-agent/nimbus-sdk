@@ -1,0 +1,6 @@
+{
+  "description": "The Arabic-Indic digit U+0661, written as the JSON escape \\u0661 so the frame's byte source is unambiguous. It renders like \"1\" but is not an ASCII digit — a parser whose pattern is Unicode-aware wrongly accepts it. Added because the guard's own required-reasons test holds every HelloRefusalReason to a case, and invalid-version had no hello-kind case without it.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":[\"\\u0661\"]}",
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

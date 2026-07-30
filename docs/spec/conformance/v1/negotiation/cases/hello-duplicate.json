@@ -1,0 +1,6 @@
+{
+  "description": "The same major declared twice. A parser that collapses into a set before validating would silently accept this instead of refusing it.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\",\"1\"]}",
+  "expect": { "ok": false, "reason": "duplicate-version", "exit": 20 }
+}

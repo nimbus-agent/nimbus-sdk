@@ -1,0 +1,6 @@
+{
+  "description": "contractVersions is present and is an array, but declares nothing. A peer speaking no contract version is refused rather than treated as vacuously compatible.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":[]}",
+  "expect": { "ok": false, "reason": "empty-versions", "exit": 20 }
+}

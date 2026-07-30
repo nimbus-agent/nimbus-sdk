@@ -384,10 +384,10 @@ describe("validateManifest", () => {
 });
 
 describe("the rule table", () => {
-  test("declares thirteen rules with unique ids", () => {
+  test("declares sixteen rules with unique ids", () => {
     const ids = MANIFEST_RULES.map((r) => r.id);
-    expect(ids).toHaveLength(13);
-    expect(new Set(ids).size).toBe(13);
+    expect(ids).toHaveLength(16);
+    expect(new Set(ids).size).toBe(16);
   });
 
   test("runContractTests still joins messages in the table's order", async () => {
@@ -396,5 +396,58 @@ describe("the rule table", () => {
       .map((v) => v.message)
       .join("; ");
     await expect(runContractTests(bad)).rejects.toThrow(expected);
+  });
+});
+
+describe("validateManifest — contractVersions", () => {
+  test("accepts a manifest that omits the field entirely", () => {
+    // Optional in v1: the field is additive, so every manifest written before it stays valid.
+    const m = { ...base() };
+    expect(validateManifest(m)).toEqual([]);
+  });
+
+  test("accepts a well-formed set", () => {
+    expect(validateManifest({ ...base(), contractVersions: ["1", "2"] })).toEqual([]);
+  });
+
+  test("rejects a non-array, and supersedes the member rules", () => {
+    const violations = validateManifest({ ...base(), contractVersions: "1" });
+    expect(violations.map((v) => v.rule)).toEqual(["manifest.contractVersions.type"]);
+    expect(violations[0]?.path).toBe("/contractVersions");
+  });
+
+  test("rejects an empty array", () => {
+    const violations = validateManifest({ ...base(), contractVersions: [] });
+    expect(violations.map((v) => v.rule)).toEqual(["manifest.contractVersions.nonempty"]);
+  });
+
+  test("rejects a member with a leading zero, naming its index", () => {
+    const violations = validateManifest({ ...base(), contractVersions: ["1", "01"] });
+    expect(violations.map((v) => v.rule)).toEqual(["manifest.contractVersions.entry"]);
+    expect(violations[0]?.path).toBe("/contractVersions/1");
+  });
+
+  test("rejects a member written in non-ASCII digits", () => {
+    const violations = validateManifest({ ...base(), contractVersions: ["١"] });
+    expect(violations.map((v) => v.rule)).toEqual(["manifest.contractVersions.entry"]);
+  });
+
+  test("rejects a duplicate member, naming the second occurrence", () => {
+    const violations = validateManifest({ ...base(), contractVersions: ["1", "1"] });
+    expect(violations.map((v) => v.rule)).toEqual(["manifest.contractVersions.entry"]);
+    expect(violations[0]?.path).toBe("/contractVersions/1");
+  });
+
+  test("reports one violation per offending member — the rule is parameterized", () => {
+    const violations = validateManifest({ ...base(), contractVersions: ["01", "1.0"] });
+    expect(violations.map((v) => v.path)).toEqual(["/contractVersions/0", "/contractVersions/1"]);
+  });
+
+  test("a non-string member is a violation, not a crash", () => {
+    const violations = validateManifest({ ...base(), contractVersions: [1, null] });
+    expect(violations.map((v) => v.rule)).toEqual([
+      "manifest.contractVersions.entry",
+      "manifest.contractVersions.entry",
+    ]);
   });
 });

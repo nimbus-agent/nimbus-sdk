@@ -102,6 +102,25 @@ def check_contract_data(wheel: set[str], sdist: set[str]) -> None:
             )
 
 
+def _matches_version(filename: str, version: str) -> bool:
+    """Whether `filename`'s `<name>-<version>` stem names exactly `version`.
+
+    A plain substring test (`version not in filename`) is too permissive: version
+    "0.1.0" is a substring of "nimbus_dev_sdk-10.1.0-py3-none-any.whl", so a wrongly
+    tagged artifact would pass the gate and be uploaded anyway. Stripping the known
+    archive suffix and splitting the remaining stem on "-" isolates the version field
+    hatchling always places right after the distribution name, for both naming
+    schemes — "<name>-<version>-<pytag>-<abitag>-<platform>.whl" and
+    "<name>-<version>.tar.gz" — so "10.1.0" can never satisfy a check for "0.1.0".
+    """
+    stem = filename
+    for suffix in (".whl", ".tar.gz"):
+        if stem.endswith(suffix):
+            stem = stem[: -len(suffix)]
+            break
+    return version in stem.split("-")
+
+
 def select_distributions(dist_dir: str, version: str) -> tuple[str, str]:
     """The one wheel and one sdist to publish, or a refusal."""
     files = sorted(glob.glob(os.path.join(dist_dir, "*")))
@@ -111,7 +130,7 @@ def select_distributions(dist_dir: str, version: str) -> tuple[str, str]:
         raise GateError(f"dist/ must hold exactly one wheel and one sdist, got {files}")
 
     for path in files:
-        if version not in os.path.basename(path):
+        if not _matches_version(os.path.basename(path), version):
             raise GateError(
                 f"{path} is not version {version} — it would be uploaded anyway"
             )

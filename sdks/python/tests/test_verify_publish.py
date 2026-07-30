@@ -38,7 +38,17 @@ from verify_publish import (
     expected_policy,
     load_certificate,
     load_provenance,
+    main,
     verify_artifact,
+)
+
+REQUIRED_ENV = (
+    "PROVENANCE_PATH",
+    "WHEEL_PATH",
+    "GITHUB_REPOSITORY",
+    "GITHUB_WORKFLOW_REF",
+    "GITHUB_SHA",
+    "PYPI_ENVIRONMENT",
 )
 
 FIXTURE = Path(__file__).parent / "fixtures" / "provenance-0.1.0.json"
@@ -200,6 +210,35 @@ def _certificate_with_environment_extension(raw: bytes) -> x509.Certificate:
         .add_extension(x509.UnrecognizedExtension(ENVIRONMENT_OID, raw), critical=False)
         .sign(key, hashes.SHA256())
     )
+
+
+def test_main_with_missing_required_environment_returns_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A missing required env var must fail closed, offline, before verification.
+
+    Deleting every required variable means `PROVENANCE_PATH` and `WHEEL_PATH` are
+    absent too — if `main` did not stop at the missing-environment check, the very
+    next line would raise an uncaught `KeyError` reading `os.environ[...]`, not return
+    1. Returning 1 is proof the guard, not a later step, is what caught this.
+    """
+    for name in REQUIRED_ENV:
+        monkeypatch.delenv(name, raising=False)
+    assert main() == 1
+
+
+def test_main_with_an_empty_required_environment_variable_returns_nonzero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty string must count as missing, not as a present-but-blank value.
+
+    Every other required variable is set to a non-empty placeholder so only the
+    emptiness of `PYPI_ENVIRONMENT` can be what trips the guard.
+    """
+    for name in REQUIRED_ENV:
+        monkeypatch.setenv(name, "placeholder")
+    monkeypatch.setenv("PYPI_ENVIRONMENT", "")
+    assert main() == 1
 
 
 # --- Opt-in: these reach Sigstore's TUF trust root over the network ------------------

@@ -23,7 +23,7 @@ type JobEnvironment = string | { name?: string; url?: string } | undefined;
 
 interface ReleaseWorkflow {
   env?: Record<string, string>;
-  jobs: Record<string, { environment?: JobEnvironment; steps?: { name?: string }[] }>;
+  jobs: Record<string, { environment?: JobEnvironment; steps?: { name?: string; run?: string }[] }>;
 }
 
 /**
@@ -86,5 +86,40 @@ describe("the release workflow", () => {
     // leave the job green while verifying nothing.
     const steps = (workflow.jobs["verify-python-publish"]?.steps ?? []).map((s) => s.name);
     expect(steps).toContain("Verify the PEP 740 attestation (cryptographic)");
+  });
+
+  // The gate is the *more* consequential of the two steps guarded in this file — it
+  // prevents a bad build from ever reaching PyPI, where a publish can never be undone,
+  // rather than merely reporting damage after the fact the way verify-python-publish
+  // does. Guarding only the verifier and not this would be backwards.
+  test("publish-python runs the pre-publish dist gate (scripts/gate_dist.py)", () => {
+    // Matched by its `run:` command rather than its `name:` string: a cosmetic rename
+    // of the step (e.g. "Gate the built distributions" -> "Gate dist/") must not make
+    // this guard go blind to the step being deleted outright.
+    const steps = workflow.jobs["publish-python"]?.steps ?? [];
+    const gateIndex = steps.findIndex((step) => step.run?.includes("scripts/gate_dist.py"));
+    expect(
+      gateIndex,
+      "publish-python must run scripts/gate_dist.py — deleting this step lets a bad " +
+        "build ship permanently while every gate_dist.py unit test keeps passing, " +
+        "since none of them exercise the workflow itself",
+    ).toBeGreaterThanOrEqual(0);
+  });
+
+  test("the dist gate runs before the PyPI publish step", () => {
+    const steps = workflow.jobs["publish-python"]?.steps ?? [];
+    const gateIndex = steps.findIndex((step) => step.run?.includes("scripts/gate_dist.py"));
+    const publishIndex = steps.findIndex(
+      (step) => step.name === "Publish to PyPI with attestations",
+    );
+    expect(
+      publishIndex,
+      "publish-python must still contain the 'Publish to PyPI with attestations' step",
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      gateIndex,
+      "the gate must run BEFORE the publish step — a gate that runs after the upload " +
+        "cannot stop a bad build from shipping, since PyPI can never re-upload a version",
+    ).toBeLessThan(publishIndex);
   });
 });

@@ -21,6 +21,7 @@ from gate_dist import (
     REQUIRED_MEMBER,
     GateError,
     check_contract_data,
+    main,
     sdist_data_files,
     select_distributions,
     wheel_data_files,
@@ -165,6 +166,25 @@ def test_a_wrong_version_is_rejected(tmp_path: Path) -> None:
         select_distributions(str(tmp_path), "9.9.9")
 
 
+def test_a_version_that_is_a_substring_of_another_version_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """The version "0.1.0" must not accept a "10.1.0" artifact.
+
+    A plain `version not in filename` substring test would let this through: "0.1.0" is
+    a substring of "nimbus_dev_sdk-10.1.0-py3-none-any.whl". This is the regression the
+    "-<version>"-stem check exists to close.
+    """
+    names = _data_set()
+    wrong_version = f"1{VERSION}"  # "0.1.0" -> "10.1.0"
+    _write_wheel(
+        tmp_path, names, name=f"nimbus_dev_sdk-{wrong_version}-py3-none-any.whl"
+    )
+    _write_sdist(tmp_path, names, name=f"nimbus_dev_sdk-{wrong_version}.tar.gz")
+    with pytest.raises(GateError, match=r"is not version 0\.1\.0"):
+        select_distributions(str(tmp_path), VERSION)
+
+
 def test_an_impure_wheel_is_rejected(tmp_path: Path) -> None:
     names = _data_set()
     _write_wheel(
@@ -180,3 +200,18 @@ def test_matching_distributions_are_selected(tmp_path: Path) -> None:
     wheel = _write_wheel(tmp_path, names)
     sdist = _write_sdist(tmp_path, names)
     assert select_distributions(str(tmp_path), VERSION) == (wheel, sdist)
+
+
+def test_main_with_the_wrong_argument_count_returns_2() -> None:
+    """Neither zero, one, nor three arguments is the `<dist-dir> <version>` contract."""
+    assert main([]) == 2
+    assert main(["dist"]) == 2
+    assert main(["dist", VERSION, "extra"]) == 2
+
+
+def test_main_with_a_valid_dist_returns_0(tmp_path: Path) -> None:
+    """The end-to-end success path through `main`, not just its pieces."""
+    names = _data_set()
+    _write_wheel(tmp_path, names)
+    _write_sdist(tmp_path, names)
+    assert main([str(tmp_path), VERSION]) == 0

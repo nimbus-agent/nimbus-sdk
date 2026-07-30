@@ -176,6 +176,12 @@ def verify_artifact(
                     f"certificate names environment {actual!r}, "
                     f"expected {environment!r}"
                 )
+            # Intentionally returns on the first verified attestation rather than
+            # `continue`-ing through the rest: PEP 740 publish attestations are a single
+            # bundle in practice, and an earlier bad attestation still raises above
+            # instead of being silently skipped in favour of a later good one. The
+            # failure mode this leaves is over-strict rejection, never false acceptance
+            # — do not "fix" this into a loop that keeps searching for a passing bundle.
             return str(predicate)
 
     raise VerifyError("provenance document carries no attestations")

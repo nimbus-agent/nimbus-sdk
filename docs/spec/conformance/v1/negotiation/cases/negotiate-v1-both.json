@@ -1,0 +1,7 @@
+{
+  "description": "The only agreement possible today, and the one every binding must reach.",
+  "kind": "negotiate",
+  "local": ["1"],
+  "remote": ["1"],
+  "expect": { "ok": true, "version": "1" }
+}

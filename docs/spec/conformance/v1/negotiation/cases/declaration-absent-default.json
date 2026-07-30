@@ -1,0 +1,6 @@
+{
+  "description": "The manifest omits contractVersions entirely. The default of [\"1\"] applies, and a hello announcing [\"1\"] agrees with it.",
+  "kind": "declaration",
+  "hello": ["1"],
+  "expect": { "ok": true }
+}

@@ -1,0 +1,7 @@
+{
+  "description": "The running peer announces exactly what its manifest declared. The plain agreement the confirm step exists to let through.",
+  "kind": "declaration",
+  "manifest": ["1"],
+  "hello": ["1"],
+  "expect": { "ok": true }
+}

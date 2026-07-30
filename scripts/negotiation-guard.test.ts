@@ -19,7 +19,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
@@ -27,8 +27,11 @@ import {
   CONTRACT_HANDSHAKE_EXIT,
   CONTRACT_VERSION_PATTERN,
   CONTRACT_VERSIONS,
+  declaredVersionsMatch,
+  manifestContractVersions,
+  negotiateContractVersion,
 } from "../src/contract-version.ts";
-import { encodeHello } from "../src/ipc/hello.ts";
+import { encodeHello, parseHello } from "../src/ipc/hello.ts";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -150,5 +153,216 @@ describe("negotiation guard — one pattern, four spellings", () => {
         `reject ${JSON.stringify(value)}`,
       ).toBe(false);
     }
+  });
+});
+
+const CORPUS_DIR = "docs/spec/conformance/v1/negotiation";
+const CORPUS_INDEX_PATH = `${CORPUS_DIR}/index.json`;
+const CORPUS_INDEX_SCHEMA_PATH = `${CORPUS_DIR}/index.schema.json`;
+const CASE_SCHEMA_PATH = `${CORPUS_DIR}/case.schema.json`;
+
+interface CorpusEntry {
+  file: string;
+  section: string;
+  reason: string;
+}
+
+interface NegotiationCase {
+  description: string;
+  kind: "negotiate" | "hello" | "declaration";
+  local?: unknown[];
+  remote?: unknown[];
+  frame?: string;
+  manifest?: unknown;
+  hello?: string[];
+  expect: {
+    ok: boolean;
+    version?: string;
+    contractVersions?: string[];
+    reason?: string;
+    exit?: number;
+  };
+}
+
+const CORPUS_INDEX_SCHEMA = readJson(CORPUS_INDEX_SCHEMA_PATH) as Record<string, unknown>;
+const CASE_SCHEMA = readJson(CASE_SCHEMA_PATH) as Record<string, unknown>;
+const CORPUS_INDEX = readJson(CORPUS_INDEX_PATH) as { spec: string; cases: CorpusEntry[] };
+
+const CASES: { entry: CorpusEntry; body: NegotiationCase }[] = CORPUS_INDEX.cases.map((entry) => ({
+  entry,
+  body: readJson(`${CORPUS_DIR}/${entry.file}`) as NegotiationCase,
+}));
+
+const casesOfKind = (kind: NegotiationCase["kind"]): typeof CASES =>
+  CASES.filter(({ body }) => body.kind === kind);
+
+describe("negotiation guard — the corpus", () => {
+  test("the index validates against its own schema", () => {
+    const ajv = newAjv();
+    const validate = ajv.compile(CORPUS_INDEX_SCHEMA);
+    expect(validate(CORPUS_INDEX), `${CORPUS_INDEX_PATH}: ${ajv.errorsText(validate.errors)}`).toBe(
+      true,
+    );
+  });
+
+  test("both corpus schemas' $ids resolve to their own repository paths", () => {
+    expect(CORPUS_INDEX_SCHEMA["$id"]).toBe(`${GITHUB_RAW_PREFIX}${CORPUS_INDEX_SCHEMA_PATH}`);
+    expect(CASE_SCHEMA["$id"]).toBe(`${GITHUB_RAW_PREFIX}${CASE_SCHEMA_PATH}`);
+  });
+
+  test("is not empty — an empty corpus would make every assertion below vacuous", () => {
+    expect(CASES.length).toBeGreaterThan(20);
+  });
+
+  test("every case validates against the case schema", () => {
+    const ajv = newAjv();
+    const validate = ajv.compile(CASE_SCHEMA);
+    const invalid = CASES.filter(({ body }) => !validate(body)).map(
+      ({ entry }) => `${entry.file}: ${ajv.errorsText(validate.errors)}`,
+    );
+    expect(invalid).toEqual([]);
+  });
+
+  test("every case file on disk is listed in the index", () => {
+    const onDisk = readdirSync(join(repoRoot, CORPUS_DIR, "cases"))
+      .filter((f) => f.endsWith(".json"))
+      .map((f) => `cases/${f}`)
+      .sort();
+    expect(
+      CORPUS_INDEX.cases.map((c) => c.file).sort(),
+      "a case on disk that no index lists is a case no runner executes — the corpus would " +
+        "report it as covered while testing nothing",
+    ).toEqual(onDisk);
+  });
+
+  test("all three kinds are exercised", () => {
+    for (const kind of ["negotiate", "hello", "declaration"] as const) {
+      expect(casesOfKind(kind).length, `no ${kind} cases`).toBeGreaterThan(0);
+    }
+  });
+
+  test("every kind exercises both outcomes — neither half can pass by always answering the same way", () => {
+    for (const kind of ["negotiate", "hello", "declaration"] as const) {
+      const cases = casesOfKind(kind);
+      expect(
+        cases.some(({ body }) => body.expect.ok),
+        `${kind}: no accepting case`,
+      ).toBe(true);
+      expect(
+        cases.some(({ body }) => !body.expect.ok),
+        `${kind}: no refusing case`,
+      ).toBe(true);
+    }
+  });
+
+  test("every refusal carries the reserved exit code the runtime holds", () => {
+    const wrong = CASES.filter(({ body }) => !body.expect.ok).filter(
+      ({ body }) => body.expect.exit !== CONTRACT_HANDSHAKE_EXIT,
+    );
+    expect(
+      wrong.map(({ entry, body }) => `${entry.file}: exit ${String(body.expect.exit)}`),
+      "the exit code is published as data so a binding that owns a process is held to it",
+    ).toEqual([]);
+  });
+
+  test("both refusal reasons of the algorithm are represented", () => {
+    const reasons = new Set(
+      casesOfKind("negotiate")
+        .filter(({ body }) => !body.expect.ok)
+        .map(({ body }) => body.expect.reason),
+    );
+    expect([...reasons].sort()).toEqual(["invalid-version", "no-common-version"]);
+  });
+
+  test("every refusal reason parseHello can produce is exercised by a case", () => {
+    // A reason with no case is a reason no binding is held to.
+    const covered = new Set(
+      casesOfKind("hello")
+        .filter(({ body }) => !body.expect.ok)
+        .map(({ body }) => body.expect.reason),
+    );
+    const required = [
+      "not-json",
+      "not-object",
+      "wrong-message",
+      "missing-versions",
+      "empty-versions",
+      "invalid-version",
+      "duplicate-version",
+    ];
+    expect(required.filter((reason) => !covered.has(reason))).toEqual([]);
+  });
+});
+
+describe("negotiation guard — the reference implementation agrees with every case", () => {
+  test("negotiate", () => {
+    const disagreed = casesOfKind("negotiate")
+      .map(({ entry, body }) => {
+        const actual = negotiateContractVersion(body.local ?? [], body.remote ?? []);
+        const expected = body.expect.ok
+          ? { ok: true, version: body.expect.version }
+          : { ok: false, reason: body.expect.reason };
+        return JSON.stringify(actual) === JSON.stringify(expected)
+          ? null
+          : `${entry.file}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`;
+      })
+      .filter((m): m is string => m !== null);
+    expect(disagreed).toEqual([]);
+  });
+
+  test("hello", () => {
+    const disagreed = casesOfKind("hello")
+      .map(({ entry, body }) => {
+        const actual = parseHello(body.frame ?? "");
+        const expected = body.expect.ok
+          ? { ok: true, contractVersions: body.expect.contractVersions }
+          : { ok: false, reason: body.expect.reason };
+        return JSON.stringify(actual) === JSON.stringify(expected)
+          ? null
+          : `${entry.file}: expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`;
+      })
+      .filter((m): m is string => m !== null);
+    expect(disagreed).toEqual([]);
+  });
+
+  test("declaration", () => {
+    const disagreed = casesOfKind("declaration")
+      .map(({ entry, body }) => {
+        // An absent `manifest` key exercises the default, so the case object itself is what
+        // manifestContractVersions reads — the same shape a real manifest presents.
+        const declared = manifestContractVersions(
+          "manifest" in body ? { contractVersions: body.manifest } : {},
+        );
+        const actual = declaredVersionsMatch(declared, body.hello ?? []);
+        return actual === body.expect.ok
+          ? null
+          : `${entry.file}: expected ${body.expect.ok}, got ${actual}`;
+      })
+      .filter((m): m is string => m !== null);
+    expect(disagreed).toEqual([]);
+  });
+
+  test("the hello schema reaches the same verdict as the runtime on every well-formed case", () => {
+    // The schema and parseHello are computed separately, which is the only reason asserting they
+    // agree means anything. The schema cannot distinguish `not-json` from a valid frame — it
+    // never sees bytes — so refusal cases whose frame does not parse as JSON are excluded.
+    const ajv = newAjv();
+    const validate = ajv.compile(HELLO_SCHEMA);
+    const disagreed = casesOfKind("hello")
+      .map(({ entry, body }) => {
+        let decoded: unknown;
+        try {
+          decoded = JSON.parse(body.frame ?? "");
+        } catch {
+          return null;
+        }
+        const actual = validate(decoded);
+        return actual === body.expect.ok
+          ? null
+          : `${entry.file}: runtime says ${body.expect.ok}, schema says ${actual} ` +
+              `(${ajv.errorsText(validate.errors)})`;
+      })
+      .filter((m): m is string => m !== null);
+    expect(disagreed).toEqual([]);
   });
 });

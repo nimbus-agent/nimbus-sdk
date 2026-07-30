@@ -1,0 +1,150 @@
+{
+  "spec": "../../../negotiation/v1/contract-version.md",
+  "cases": [
+    {
+      "file": "cases/negotiate-v1-both.json",
+      "section": "§6",
+      "reason": "The only agreement possible today, and the one every binding must reach."
+    },
+    {
+      "file": "cases/negotiate-largest-common.json",
+      "section": "§6",
+      "reason": "The largest common major wins, not the first match in either set's order."
+    },
+    {
+      "file": "cases/negotiate-ten-beats-nine.json",
+      "section": "§6",
+      "reason": "\"10\" sorts before \"9\" as a string, so numeric-length comparison is required."
+    },
+    {
+      "file": "cases/negotiate-long-major.json",
+      "section": "§6",
+      "reason": "A major long enough to lose precision under Number(), so comparison must be on digit strings."
+    },
+    {
+      "file": "cases/negotiate-order-a.json",
+      "section": "§6",
+      "reason": "The agreed major does not depend on the declared order of either peer's set."
+    },
+    {
+      "file": "cases/negotiate-order-b.json",
+      "section": "§6",
+      "reason": "The mirror ordering of negotiate-order-a, so neither peer's order can be swapped to change the outcome."
+    },
+    {
+      "file": "cases/negotiate-disjoint.json",
+      "section": "§6",
+      "reason": "Two well-formed sets sharing no member — the plain no-common-version refusal."
+    },
+    {
+      "file": "cases/negotiate-empty-local.json",
+      "section": "§6",
+      "reason": "An empty local set, paired with negotiate-empty-remote so a one-directional intersection cannot pass both."
+    },
+    {
+      "file": "cases/negotiate-empty-remote.json",
+      "section": "§6",
+      "reason": "An empty remote set, the mirror of negotiate-empty-local."
+    },
+    {
+      "file": "cases/negotiate-leading-zero.json",
+      "section": "§6",
+      "reason": "A leading zero is invalid-version, not no-common-version — validation precedes intersection."
+    },
+    {
+      "file": "cases/negotiate-non-string.json",
+      "section": "§6",
+      "reason": "A non-string member must not be coerced before the pattern is checked."
+    },
+    {
+      "file": "cases/negotiate-non-ascii-digit.json",
+      "section": "§6",
+      "reason": "A Unicode digit that looks like an ASCII one must still be refused by an ASCII-only pattern."
+    },
+    {
+      "file": "cases/hello-canonical.json",
+      "section": "§5",
+      "reason": "The canonical frame the reference encoder emits."
+    },
+    {
+      "file": "cases/hello-padded.json",
+      "section": "§5",
+      "reason": "Insignificant whitespace does not change the parse."
+    },
+    {
+      "file": "cases/hello-reversed-members.json",
+      "section": "§5",
+      "reason": "Member order is insignificant in JSON."
+    },
+    {
+      "file": "cases/hello-unknown-member.json",
+      "section": "§5",
+      "reason": "Unknown members are ignored, not rejected."
+    },
+    {
+      "file": "cases/hello-not-json.json",
+      "section": "§5",
+      "reason": "Not syntactically JSON, refused before any member is inspected."
+    },
+    {
+      "file": "cases/hello-null.json",
+      "section": "§5",
+      "reason": "Valid JSON but not an object."
+    },
+    {
+      "file": "cases/hello-array.json",
+      "section": "§5",
+      "reason": "Valid JSON, array-shaped, but not an object — the frame itself, not a value inside it."
+    },
+    {
+      "file": "cases/hello-wrong-message.json",
+      "section": "§5",
+      "reason": "A well-formed envelope for a different message — the discriminator makes a frame a hello."
+    },
+    {
+      "file": "cases/hello-missing-versions.json",
+      "section": "§5",
+      "reason": "The discriminator is present but contractVersions never arrives."
+    },
+    {
+      "file": "cases/hello-empty-versions.json",
+      "section": "§5",
+      "reason": "contractVersions is present but declares nothing."
+    },
+    {
+      "file": "cases/hello-duplicate.json",
+      "section": "§5",
+      "reason": "The same major declared twice must be refused, not collapsed into a set."
+    },
+    {
+      "file": "cases/hello-non-ascii-digit.json",
+      "section": "§5",
+      "reason": "A Unicode digit escaped inside the frame string must still be refused as invalid-version."
+    },
+    {
+      "file": "cases/declaration-match.json",
+      "section": "§7",
+      "reason": "The running peer announces exactly what its manifest declared."
+    },
+    {
+      "file": "cases/declaration-order.json",
+      "section": "§7",
+      "reason": "The same majors in a different order still match, because comparison is on sets."
+    },
+    {
+      "file": "cases/declaration-absent-default.json",
+      "section": "§7",
+      "reason": "An absent manifest declaration exercises the default of [\"1\"]."
+    },
+    {
+      "file": "cases/declaration-superset.json",
+      "section": "§7",
+      "reason": "A superset is the interesting failure the confirm step exists to catch."
+    },
+    {
+      "file": "cases/declaration-absent-superset.json",
+      "section": "§7",
+      "reason": "The absent-manifest default is not a license for the running peer to announce more."
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "description": "A leading zero is not a canonical major, and the algorithm validates rather than assuming a caller did. invalid-version, not no-common-version — validation precedes intersection.",
+  "kind": "negotiate",
+  "local": ["01"],
+  "remote": ["1"],
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

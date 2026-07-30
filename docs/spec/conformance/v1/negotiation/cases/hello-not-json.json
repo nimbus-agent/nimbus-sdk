@@ -1,0 +1,6 @@
+{
+  "description": "Not even syntactically JSON. Refused before any member is inspected.",
+  "kind": "hello",
+  "frame": "{oops",
+  "expect": { "ok": false, "reason": "not-json", "exit": 20 }
+}

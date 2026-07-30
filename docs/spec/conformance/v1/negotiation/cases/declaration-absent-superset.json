@@ -1,0 +1,6 @@
+{
+  "description": "The manifest omits contractVersions, so the default [\"1\"] applies, and the running peer announces a second major the default never included. The absent key is not a license to announce anything.",
+  "kind": "declaration",
+  "hello": ["1", "2"],
+  "expect": { "ok": false, "reason": "declaration-mismatch", "exit": 20 }
+}

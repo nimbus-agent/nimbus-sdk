@@ -33,11 +33,21 @@ reader will otherwise assume is included:
   additive change needs no negotiation — which is exactly why a major is sufficient.
 - **Message envelopes, correlation, liveness, error objects.** Still the gateway's, still
   unspecified by this package. §3 below is designed so that stays true.
+- **A handshake timeout.** A peer waiting for a hello that never arrives is a liveness problem,
+  and `framing.md` §1 puts liveness out of scope. This package has no I/O, no timers, and no
+  process to supervise, so a number here would be untestable and unjustifiable. The spec section
+  says a peer SHOULD bound its wait and that the bound belongs to whatever supervises the
+  process — non-normative, and deliberately without a value.
 - **Server wiring.** `NimbusExtensionServer.start()` is untouched. It has no transport yet, so
   a handshake performed there would have nothing to talk to.
 - **Proof that a gateway enforces anything.** In the spirit of the probe spec's own §7: the
   corpus proves the algorithm and the frame's parsing. It cannot prove any gateway refuses to
   load any connector.
+- **Proof that any process exits `20`.** Nothing in this package performs a handshake or owns a
+  process to exit, so no test here can observe the exit. What the corpus does instead is publish
+  the code as data on every refusal case (§6), which holds a binding that *does* own a process,
+  and the guard pins the number against drift (§7). The spec section states this limit plainly
+  rather than letting a green suite imply more than it proves.
 
 ---
 
@@ -79,12 +89,26 @@ A new **optional** field on `ExtensionManifest`:
 
 ## 3. The handshake
 
-Both peers announce **unprompted**. The connector's first frame on its output stream, and the
-gateway's first frame on its input stream, MUST each be:
+Both peers announce **unprompted**. `framing.md` §2 defines a stream as one direction, so the
+rule is stated per direction and never as "input" or "output": **the first frame each peer
+writes** MUST be a hello, and a peer MUST NOT write anything to that stream before it.
 
 ```json
 {"nimbus":"hello","contractVersions":["1"]}
 ```
+
+The MUST NOT is the operationally important half. Where the stream is a process's standard
+output, a library that prints a warning during initialization corrupts the handshake before the
+connector's own code runs, and the failure surfaces as an unparseable frame rather than as the
+banner that caused it. The spec section therefore requires diagnostics to travel somewhere other
+than the frame stream; in the reference implementation that rule is already mechanically
+enforced by Biome's `noConsole` over `src/`. Which stream carries frames stays out of scope,
+per `framing.md` §1 — the rule is about the frame stream, whichever one that is.
+
+**The frame is JSON, not a byte pattern.** Insignificant whitespace and member order are
+tolerated: `{"nimbus": "hello", "contractVersions": ["1"]}` and a form with the two members
+reversed are the same hello. A binding MUST parse rather than compare bytes, and a fixture
+carries both variants so a string-equality implementation fails.
 
 There is no request, no response, and no correlation id — and that is what keeps this inside
 the package's scope. Correlation, method names, and error objects remain out of scope exactly
@@ -99,6 +123,22 @@ published schemas, none of which sets `additionalProperties: false`.
 Because the algorithm in §4 is deterministic, neither peer transmits the result. Both compute
 the same answer from the same two sets.
 
+### The frame's shape is frozen, and its schema says so structurally
+
+The hello is the one frame that cannot itself be versioned. A `v1`-only connector and a
+`v2`-only gateway must still be able to *read each other's hello* in order to discover that they
+share nothing — if the frame's shape changed at a major, the two peers could not even reach a
+refusal, they would fail as garbage. So: **the hello frame's shape is permanently frozen**, and
+every future contract version negotiates using this exact frame. Anything a later version needs
+to add belongs in a different message, not this one.
+
+That constraint changes where its schema lives. Publishing it at `schemas/v1/hello.schema.json`
+would assert the frame belongs to `v1`, which is the opposite of the rule — so it is published
+**without a version segment**, at `negotiation/hello.schema.json`. The missing `v1/` is the
+constraint, encoded in the path rather than only asserted in prose, the same way this repo
+encodes the rule registry and the segment tokenizer as data. The spec section states why the
+segment is absent, so a later maintainer does not "fix" it.
+
 ## 4. The algorithm
 
 Intersect the two sets. The agreed version is the **numerically largest** common member.
@@ -109,6 +149,17 @@ only job is to fail a binding that sorts as strings.
 
 An empty intersection is a refusal (§5).
 
+**The algorithm validates its inputs; it does not assume they were validated.** A member of
+either set that fails the §1 pattern — `"01"`, `""`, `"1.0"`, `"١"`, a non-string — makes the
+whole negotiation a typed `invalid-version` refusal. It is never skipped, never coerced, and
+never a throw.
+
+"Assume the caller already validated" was the alternative, and it is how two bindings diverge
+without either failing a corpus: one binding's hello parser is the only gatekeeper, another's
+gateway path reaches the algorithm with a set read straight from a manifest, and the two disagree
+on a manifest nobody validated. Making the algorithm total closes that off, and costs one check.
+Negotiate-layer fixtures carry the malformed members directly, not only through the hello parser.
+
 ## 5. Refusal — three ways in, one way out
 
 The handshake fails when:
@@ -118,7 +169,7 @@ The handshake fails when:
    sets, since §2 makes order insignificant: the same members, no more and no fewer. The gateway
    holds both documents, so this is the gateway's check; the connector's obligation is that its
    hello equals its own declaration.
-3. The hello is malformed, absent, or not the first frame.
+3. The hello is malformed or absent, or anything was written to the frame stream before it (§3).
 
 All three take the same exit:
 
@@ -140,7 +191,10 @@ pass by handling intersection failure while quietly tolerating a manifest that l
   compatibility impact, the migration, and the rejected alternatives: full semver range strings
   (every binding would need a range parser, in every language — the precise portability trap
   `rules/v1/` and `predicates/v1/` exist to avoid), major.minor granularity, hello-wins
-  precedence, manifest-only declaration, and no negotiation at all.
+  precedence, manifest-only declaration, and no negotiation at all. Three more come from the
+  design review: a mandated handshake timeout (liveness, out of scope — see *What this is not*),
+  an algorithm that assumes pre-validated input (§4), and publishing the hello schema under a
+  version segment (§3).
 - The RFC index gains its row.
 
 ### Spec
@@ -150,8 +204,9 @@ A new sibling directory, because the wire spec pushed this out of its own scope:
 - `docs/spec/negotiation/v1/contract-version.md` — normative, RFC-2119, structured like the
   probe spec: scope → terminology → version identity → declaration → handshake → algorithm →
   refusal → what this specification does not give you.
-- `docs/spec/schemas/v1/hello.schema.json` — a fourth published schema, draft-07, alongside the
-  manifest, item, and HITL schemas.
+- `docs/spec/negotiation/hello.schema.json` — a fourth published schema, draft-07. Deliberately
+  **not** under a `v1/` segment, for the reason §3 gives: the frame it describes outlives every
+  contract major.
 - `docs/spec/schemas/v1/extension-manifest.schema.json` — add optional `contractVersions`.
 - `docs/spec/rules/v1/manifest-rules.json` — three new rules, following the existing id and
   `supersedes` conventions:
@@ -175,12 +230,19 @@ validator rejects an unknown enum member outright rather than ignoring it.
 Three case kinds:
 
 - **`negotiate`** — two sets in, an agreed version or a typed refusal out. Includes the
-  `"10"`-versus-`"9"` case, absence-defaults-to-`["1"]`, order-insensitivity (the same two sets
-  in both orders, requiring the same answer), and the empty intersection.
+  `"10"`-versus-`"9"` case; a **multi-member intersection** (`["1","3","2"]` against `["2","3"]`
+  → `"3"`, which fails both a binding that returns the first match and one that sorts as
+  strings); absence-defaults-to-`["1"]`; order-insensitivity (the same two sets in both orders,
+  requiring the same answer); the empty intersection; and a malformed member reaching the
+  algorithm directly.
 - **`hello`** — a frame in, a parsed set or a refusal reason out: malformed JSON, missing or
   wrong discriminator, missing field, empty array, duplicate member, leading zero, non-ASCII
-  digit.
+  digit — plus the two well-formed variants from §3 (padded whitespace, reversed member order)
+  that MUST parse identically.
 - **`declaration`** — a manifest set × a hello set → accept, or the exact-match violation.
+
+Every refusal case, in all three kinds, carries the required exit code as data rather than
+leaving it to prose, so a binding that owns a process is held to `20` by the corpus it runs.
 
 ### Runtime
 
@@ -188,9 +250,9 @@ Three case kinds:
 
 - `CONTRACT_VERSIONS` — this SDK's supported set, `["1"]`.
 - `manifestContractVersions(manifest)` — applies the §2 absence default. One place owns it.
-- `negotiateContractVersion(local, remote)` — the agreed version or a typed refusal. Never
-  throws on caller data; the refusal is a value, since a binding in another language has no
-  exceptions to mirror.
+- `negotiateContractVersion(local, remote)` — the agreed version or a typed refusal. Validates
+  every member per §4 rather than trusting the caller, and never throws on caller data: the
+  refusal is a value, since a binding in another language has no exceptions to mirror.
 - `CONTRACT_HANDSHAKE_EXIT` — the reserved exit code from §5.
 
 `src/ipc/hello.ts`, exported from `./ipc`:
@@ -226,6 +288,12 @@ Three case kinds:
   separately.
 - Asserts `CONTRACT_VERSIONS` and the current version stated by the spec section agree, so a
   future `v2` path cannot land without the runtime noticing.
+- Asserts `CONTRACT_HANDSHAKE_EXIT` equals the code the spec section publishes, and that every
+  refusal case in the corpus declares that same code — so the number cannot drift between the
+  prose, the runtime constant, and the fixtures a binding is held to.
+- Asserts `negotiation/hello.schema.json` has no version segment in its path. The frozen-frame
+  rule is the kind of constraint a later maintainer tidies away while making the tree look
+  consistent; this makes that a failing test rather than a silent contract break.
 - **Refuses to pass vacuously.** An empty corpus, a fixture on disk that no index lists, a
   published rule no fixture asserts, or a `negotiate` corpus that only ever expects one outcome,
   is itself a failure.
@@ -239,8 +307,8 @@ Unit tests sit alongside their sources as `src/contract-version.test.ts` and
 
 | Layer | What it proves |
 |-------|----------------|
-| `src/contract-version.test.ts` | The algorithm, the absence default, numeric ordering, the refusal values. |
-| `src/ipc/hello.test.ts` | `encodeHello` round-trips, and `parseHello` refuses every malformed shape as a value rather than a throw. |
+| `src/contract-version.test.ts` | The algorithm, the absence default, numeric ordering, input validation, the refusal values. |
+| `src/ipc/hello.test.ts` | `encodeHello` round-trips; `parseHello` accepts the whitespace and member-order variants, and refuses every malformed shape as a value rather than a throw. |
 | `scripts/negotiation-guard.test.ts` | The published spec, schema, rules, and corpus agree with the reference implementation — and cannot pass vacuously. |
 | `scripts/schema-guard.test.ts` (existing) | The new optional manifest field matches the emitted TypeScript, and the manifest fixtures still validate. |
 | `scripts/rules-guard.test.ts` (existing) | The three new rule ids are declared on both sides and each is asserted by a fixture. |

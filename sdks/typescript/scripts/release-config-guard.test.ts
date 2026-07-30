@@ -88,7 +88,14 @@ describe("the release-please configuration", () => {
   // The repo deliberately chose symmetric, component-prefixed tags for every language.
   test("no package opts out of the component tag prefix", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
-      expect(pkg.component, `${path} must declare a component`).toBeDefined();
+      // The tag prefix and the package path move in lockstep: sdks/typescript releases as
+      // typescript-v*, sdks/python as python-v*. Asserting the relationship rather than the
+      // literal "typescript" keeps this correct when a language is added, and — unlike a mere
+      // presence check — it fails when the component is reverted or mistyped, which is the
+      // regression this guard exists to catch.
+      expect(pkg.component, `${path} must declare a component matching its directory`).toBe(
+        path.split("/").pop(),
+      );
       expect(pkg["include-component-in-tag"], `${path} must not opt out of prefixed tags`).not.toBe(
         false,
       );

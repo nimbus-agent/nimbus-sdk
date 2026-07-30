@@ -43,7 +43,7 @@ briefs and their guards. Today it is expressed in TypeScript; the direction is t
 lift it *above* any single language — published JSON Schemas for the manifest and
 item shapes plus a written IPC wire-protocol spec — so TypeScript becomes one
 *binding* of the contract rather than the contract itself. The v1 surface stays
-semver-honest (see [`../CHANGELOG.md`](../CHANGELOG.md)).
+semver-honest (see [`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md)).
 
 ### 2. Polyglot SDKs — author in any language
 

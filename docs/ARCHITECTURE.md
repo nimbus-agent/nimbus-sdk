@@ -54,7 +54,8 @@ whole ecosystem passes through.
 - `sdks/typescript/src/hitl-request.ts` / `sdks/typescript/src/audit-logger.ts` — the HITL
   request shape and the scoped audit-logger interface the gateway injects.
 
-This layer is frozen under semver (Plugin API v1 — see [`../CHANGELOG.md`](../CHANGELOG.md)).
+This layer is frozen under semver (Plugin API v1 — see
+[`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md)).
 
 ### 2. The server scaffolding
 

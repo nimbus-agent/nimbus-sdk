@@ -16,7 +16,7 @@ briefs + guards. Small on purpose so many things can depend on it safely.
 
 **Plugin API v1** — the frozen, semver-guaranteed surface first stabilized in
 `1.0.0`. Removing an export or adding a required field is a major bump; see
-[`../CHANGELOG.md`](../CHANGELOG.md).
+[`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md).
 
 **`ExtensionManifest`** — the declared identity + capabilities of a connector /
 extension (id, version, permissions, `hitlRequired`, entrypoint, runtime).

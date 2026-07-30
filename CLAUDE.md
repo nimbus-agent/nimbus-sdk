@@ -71,6 +71,6 @@ bun run api:surface # regenerate docs/api-surface.md after any exports change
 
 ## Releasing
 
-Record user-facing changes in `CHANGELOG.md`. Releases are automated by
+Record user-facing changes in `sdks/typescript/CHANGELOG.md`. Releases are automated by
 release-please: merged Conventional Commits open a release PR; merging it tags the
 release and publishes to npm with `--provenance` via GitHub OIDC (no npm token).

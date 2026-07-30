@@ -25,7 +25,9 @@ jobs:
       contents: write
       pull-requests: write
     outputs:
-      releases_created: ${{ steps.release.outputs.releases_created }}
+      ts_released: ${{ steps.release.outputs['sdks/typescript--release_created'] }}
+      py_released: ${{ steps.release.outputs['sdks/python--release_created'] }}
+      py_version: ${{ steps.release.outputs['sdks/python--version'] }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -55,7 +57,7 @@ jobs:
 
   publish:
     needs: release-please
-    if: needs.release-please.outputs.releases_created == 'true'
+    if: needs.release-please.outputs.ts_released == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:

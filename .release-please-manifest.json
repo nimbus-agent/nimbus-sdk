@@ -1,3 +1,4 @@
 {
-  "sdks/typescript": "1.10.1"
+  "sdks/typescript": "1.10.1",
+  "sdks/python": "0.0.0"
 }

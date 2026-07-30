@@ -57,8 +57,14 @@ select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "RUF"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-files = ["src", "tests", "hatch_build.py"]
+files = ["src", "tests", "scripts", "hatch_build.py"]
+# `scripts/` is not a package and is not on sys.path, so mypy needs to be told where
+# `import gate_dist` resolves from. Mirrors the pytest `pythonpath` setting below.
+mypy_path = "scripts"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Release-infrastructure scripts live outside the package on purpose — they must not
+# ship — so tests import them via this path rather than from `nimbus_sdk`.
+pythonpath = ["scripts"]
 markers = ["slow: builds a distribution and installs it into a throwaway venv"]

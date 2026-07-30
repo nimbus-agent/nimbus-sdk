@@ -109,8 +109,9 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
    - **Download** the published wheel from `pypi.org/simple` by exact version,
      retried to ride out CDN propagation lag.
    - **Verify PEP 740 provenance** from PyPI's integrity API: the attested subject
-     digest matches the downloaded wheel, and the Fulcio signing certificate names
-     this repo, `release.yml`, the `pypi` environment, and this commit.
+     digest (sha256) matches the downloaded wheel's bytes, PyPI's `publisher` object
+     in the integrity document names this repo, `release.yml`, and the `pypi`
+     environment, and the Fulcio signing certificate names this commit.
 
 This is the infrastructure half of
 [roadmap Phase 2](./ROADMAP.md#phase-2--prove-polyglot-with-python) — a Python

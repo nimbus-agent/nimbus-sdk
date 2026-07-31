@@ -115,6 +115,42 @@ if (!result.ok) {
 result.version; // the agreed contract major, e.g. "1"
 ```
 
+### If you read again after the handshake, pass your own reader
+
+`performHandshake` reads through an `NdjsonLineReader` to assemble the peer's hello, since a
+chunk boundary is not a frame boundary any more here than anywhere else this package reads a
+stream. If you don't supply one, it makes its own — and drops it when it returns.
+
+That's invisible right up until it isn't: §5 has both peers announce *unprompted*, so a gateway
+that writes its hello and immediately follows with its first request will very often land both
+in the same read. If `performHandshake` owns the reader, that request is inside it when the
+function returns — and is gone. Not delayed, not re-deliverable: a `NdjsonLineReader` with no
+handle to it is unreachable. Your own read loop starts from an empty buffer and never sees the
+first message of the session. Nothing in the return value indicates this happened; `{ ok: true,
+version }` looks identical either way.
+
+Pass a reader you kept a reference to via `HandshakeOptions.reader`, and it survives:
+
+```ts
+import { NdjsonLineReader, performHandshake } from "@nimbus-dev/sdk/ipc";
+
+declare function readChunk(): Promise<Uint8Array | null>;
+declare function writeChunk(chunk: Uint8Array): Promise<void>;
+declare function handle(message: unknown): void;
+
+const reader = new NdjsonLineReader();
+const result = await performHandshake({ read: readChunk, write: writeChunk }, { reader });
+if (result.ok) {
+  // Whatever the peer sent along with (or right after) its hello is still buffered here.
+  for (const line of reader.flush()) {
+    handle(JSON.parse(line));
+  }
+}
+```
+
+Omitting `reader` is fine when nothing follows the handshake on that stream — a one-shot check,
+or a test — but any caller that keeps reading afterward needs to supply one.
+
 ## Every export
 
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the

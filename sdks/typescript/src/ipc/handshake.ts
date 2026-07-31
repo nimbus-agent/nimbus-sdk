@@ -42,6 +42,18 @@ export interface HandshakeIo {
 export interface HandshakeOptions {
   /** Defaults to {@link CONTRACT_VERSIONS} — what this SDK speaks. */
   readonly localVersions?: readonly string[];
+
+  /**
+   * The reader to draw frames through. **Supply one to keep the session's bytes.**
+   *
+   * A peer announces unprompted (§5), so its hello and its first request very often arrive
+   * in a single read. A reader created here and dropped on return would destroy whatever
+   * followed the hello — complete frames and a half-buffered one alike — and nothing would
+   * indicate it had happened. Passing your own keeps both.
+   *
+   * Omitting it is fine when nothing follows the handshake, such as in a test.
+   */
+  readonly reader?: NdjsonLineReader;
 }
 
 /**
@@ -61,7 +73,7 @@ export async function performHandshake(
   // against each other.
   await io.write(new TextEncoder().encode(`${encodeHello(local)}\n`));
 
-  const reader = new NdjsonLineReader();
+  const reader = options.reader ?? new NdjsonLineReader();
   let peerFrame: string | undefined;
 
   while (peerFrame === undefined) {
@@ -72,7 +84,20 @@ export async function performHandshake(
       peerFrame = reader.flushFrames().frames[0];
       break;
     }
-    peerFrame = reader.push(chunk)[0];
+
+    const frames = reader.push(chunk);
+    peerFrame = frames[0];
+
+    // §5 has both peers announce unprompted, so a peer's hello and its first request very
+    // often arrive in the same read — `frames` can hold more than the hello alone. `push`
+    // already extracted them, so re-buffer them in the (possibly caller-supplied) reader
+    // rather than let them vanish here: a caller that passed its own `reader` still finds
+    // them afterward, via that same reader, instead of losing the first message of the
+    // session to a handshake that only meant to read one frame.
+    const extra = frames.slice(1);
+    if (peerFrame !== undefined && extra.length > 0) {
+      reader.push(new TextEncoder().encode(extra.join("\n")));
+    }
   }
 
   if (peerFrame === undefined) {

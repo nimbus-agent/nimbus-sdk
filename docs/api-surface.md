@@ -1848,6 +1848,8 @@ From `./handshake.js`.
 export interface HandshakeOptions {
 
     readonly localVersions?: readonly string[];
+
+    readonly reader?: NdjsonLineReader;
 }
 ```
 

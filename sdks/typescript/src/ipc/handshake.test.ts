@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { CONTRACT_VERSIONS } from "../contract-version.js";
 import { type HandshakeIo, type HandshakeRefusalReason, performHandshake } from "./handshake.js";
+import { NdjsonLineReader } from "./ndjson-line-reader.js";
 
 /** A scripted peer: hands back queued chunks, records everything written. */
 function scriptedPeer(chunks: (string | null)[]): HandshakeIo & { written: string[] } {
@@ -101,5 +102,27 @@ describe("performHandshake", () => {
       ok: true,
       version: "3",
     });
+  });
+
+  test("a caller-supplied reader retains a second frame read alongside the hello", async () => {
+    // §5 has both peers announce unprompted, so a peer's hello and its first request very
+    // often land in the same chunk. A reader created inside performHandshake and dropped on
+    // return would destroy that second frame with no sign it had happened. Passing a reader
+    // in is how the caller keeps it.
+    const io = scriptedPeer([
+      '{"nimbus":"hello","contractVersions":["1"]}\n{"nimbus":"hello","contractVersions":["2"]}\n',
+    ]);
+    const reader = new NdjsonLineReader();
+    expect(await performHandshake(io, { reader })).toEqual({ ok: true, version: "1" });
+    // The second frame was never a hello response — it's the caller's own next message,
+    // still sitting in the reader they supplied, ready for them to read after the handshake.
+    expect(reader.flush()).toEqual(['{"nimbus":"hello","contractVersions":["2"]}']);
+  });
+
+  test("omitting reader still performs the handshake", async () => {
+    // The option is genuinely optional: with nothing after the hello (as in every other
+    // test here), performHandshake works exactly as it did before `reader` existed.
+    const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n']);
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
   });
 });

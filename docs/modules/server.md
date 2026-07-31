@@ -79,6 +79,62 @@ server.start();
 `registerTool` but are not themselves re-exported, so they are structural: pass an object
 literal and TypeScript checks it against the shape above.
 
+## `handshake(io, options?)`
+
+`server.handshake(io)` is a thin delegate to `performHandshake` — see
+[`ipc.md`](./ipc.md) for `HandshakeIo` and the exchange it runs. The server contributes
+nothing but `manifest.contractVersions` as `localVersions`; the negotiation itself lives in
+the free function so both language bindings are held to the same behavior, not to
+whatever this class happens to do.
+
+- **A silent manifest announces `["1"]`, not whatever this SDK speaks.** `contractVersions`
+  is optional, and `contract-version.md` §4 fixes what its absence *declares* — `["1"]`,
+  frozen for as long as v1-era manifests exist. That is a different question from
+  `CONTRACT_VERSIONS`, which is the set this SDK currently speaks and which grows with every
+  new major. `handshake` announces the former, because §7.2 obliges a connector's hello to
+  equal its own declaration: deferring to the latter would, the day a second major ships,
+  have every manifest written before the field existed announce a version it never promised.
+  Declare `contractVersions` explicitly if you want to say anything else.
+- **Deliberately not part of `start()`.** `start()` is called with no arguments in the
+  published examples and above in this page; giving it a required parameter to carry the
+  stream would be a breaking, major-version change for a feature that works just as well
+  sitting next to it. Call `handshake(io)` yourself, before or after `start()`, as your
+  runtime's session setup requires.
+- **Returns the refusal; never throws it, never exits.** Like the rest of this package,
+  `handshake` performs no I/O beyond the `HandshakeIo` you pass in and never calls
+  `process.exit`. A `{ ok: false, reason, pending }` result comes back to you like any other
+  value — you decide what your process does about it.
+- **An oversized first frame throws; it does not come back as a refusal.** A frame past
+  `IPC_MAX_LINE_BYTES` is terminal at the framing layer, so `handshake` rejects rather than
+  returning `{ ok: false }` — a caller writing only `if (!result.ok)` gets an unhandled
+  rejection. See [`ipc.md`](./ipc.md#the-handshake) for why, and for how to get a typed error
+  instead of a bare `Error`: construct your own reader with `lineLimitError` and pass it as
+  `options.reader`.
+- **`options.reader` is the only option, and you need it if you keep reading.** It is
+  forwarded verbatim to `performHandshake` — read [`ipc.md`](./ipc.md#the-handshake) for what
+  it recovers that `pending` cannot. `localVersions` is deliberately *not* accepted: the
+  manifest declares the set, and letting a caller override it here is exactly the §7.2
+  `declaration-mismatch` this method exists to make impossible.
+- **Stores nothing.** There is no other operation here to gate on the result — `registerTool`
+  is still a stub — so the method's only job is to hand you what `performHandshake` returned.
+
+```ts
+import type { NimbusExtensionServer } from "@nimbus-dev/sdk";
+import { NdjsonLineReader } from "@nimbus-dev/sdk/ipc";
+
+declare const server: NimbusExtensionServer;
+declare function readChunk(): Promise<Uint8Array | null>;
+declare function writeChunk(chunk: Uint8Array): Promise<void>;
+
+// Supply the reader whenever the session keeps reading this stream — it is the only thing
+// that can hold a frame the peer left half-written in the chunk that carried its hello.
+const reader = new NdjsonLineReader();
+const result = await server.handshake({ read: readChunk, write: writeChunk }, { reader });
+if (!result.ok) {
+  // Your call: log it, refuse the connection, exit — this package does none of those for you.
+}
+```
+
 ## Every export
 
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the

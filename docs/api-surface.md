@@ -737,6 +737,8 @@ export declare class NimbusExtensionServer<TClient = unknown> {
     constructor(options: ExtensionServerOptions<TClient>);
     registerTool<TInput>(_name: string, _definition: ToolDefinition<TInput, TClient>): void;
     start(): void;
+
+    handshake(io: HandshakeIo, options?: Pick<HandshakeOptions, "reader">): Promise<HandshakeResult>;
 }
 ```
 
@@ -1819,7 +1821,7 @@ export declare function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): 
 
 ## `./ipc`
 
-9 exports.
+14 exports.
 
 ### `HELLO_MESSAGE`
 
@@ -1827,6 +1829,54 @@ From `./hello.js`.
 
 ```ts
 export declare const HELLO_MESSAGE = "hello";
+```
+
+### `HandshakeIo` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export interface HandshakeIo {
+    read(): Promise<Uint8Array | null>;
+    write(chunk: Uint8Array): Promise<void>;
+}
+```
+
+### `HandshakeOptions` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export interface HandshakeOptions {
+
+    readonly localVersions?: readonly string[];
+
+    readonly reader?: NdjsonLineReader;
+}
+```
+
+### `HandshakeRefusalReason` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
+```
+
+### `HandshakeResult` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export type HandshakeResult = {
+    readonly ok: true;
+    readonly version: string;
+    readonly pending: readonly string[];
+} | {
+    readonly ok: false;
+    readonly reason: HandshakeRefusalReason;
+    readonly pending: readonly string[];
+};
 ```
 
 ### `HelloParseResult` *(type-only)*
@@ -1921,6 +1971,14 @@ From `./hello.js`.
 
 ```ts
 export declare function parseHello(frame: string): HelloParseResult;
+```
+
+### `performHandshake`
+
+From `./handshake.js`.
+
+```ts
+export declare function performHandshake(io: HandshakeIo, options?: HandshakeOptions): Promise<HandshakeResult>;
 ```
 
 ## `./testing`

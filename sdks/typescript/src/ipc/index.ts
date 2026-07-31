@@ -1,4 +1,11 @@
 export {
+  type HandshakeIo,
+  type HandshakeOptions,
+  type HandshakeRefusalReason,
+  type HandshakeResult,
+  performHandshake,
+} from "./handshake.js";
+export {
   encodeHello,
   HELLO_MESSAGE,
   type HelloParseResult,

@@ -1,0 +1,137 @@
+/**
+ * The handshake — the one exchange this package can perform end to end.
+ *
+ * Normative documents: `docs/spec/negotiation/v1/contract-version.md` §5 (the frame and the
+ * order it is written in) and §6 (the algorithm), over `docs/spec/wire/v1/framing.md` §3.
+ *
+ * Streams are **injected**, never opened. This package performs no I/O, and a runtime that
+ * owned its own would be untestable without spawning a process — which §8 says it cannot do.
+ */
+
+import { CONTRACT_VERSIONS, negotiateContractVersion } from "../contract-version.js";
+import { encodeHello, type HelloRefusalReason, parseHello } from "./hello.js";
+import { NdjsonLineReader } from "./ndjson-line-reader.js";
+
+/**
+ * Why a handshake failed.
+ *
+ * Wider than `ContractNegotiationResult`'s reason, deliberately: the exchange can fail at the
+ * frame layer for any of the seven §5 reasons before negotiation is ever reached, and
+ * collapsing those into `no-common-version` would discard what §5 went to the trouble of
+ * naming. `"invalid-version"` is already a `HelloRefusalReason`, so the union needs no special
+ * case for the one reason both layers produce.
+ */
+export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
+
+/**
+ * `pending` carries **complete** frames the peer sent after its hello, extracted from the same
+ * chunk `push()` found the hello in. §5 has both peers announce unprompted, so a peer's hello
+ * and its first request very often arrive together — and `NdjsonLineReader.push()` returns every
+ * complete line a chunk yields, not just the first. Taking only the first and discarding the
+ * rest would silently lose the first message of the session; `pending` is how the caller gets
+ * them back instead. A caller that keeps reading the stream afterward must process `pending`
+ * before its next `read()`, or process it in order alongside whatever that next read produces.
+ *
+ * This is only half of what a caller can lose here — the other half, a frame the peer left
+ * *incomplete* in that same chunk, never appears in `pending` because it was never a complete
+ * line to extract. It survives instead in the `NdjsonLineReader` the caller supplied via
+ * {@link HandshakeOptions.reader}, which is why both exist: `pending` returns what was already
+ * extracted, the caller-supplied reader retains what was not.
+ */
+export type HandshakeResult =
+  | { readonly ok: true; readonly version: string; readonly pending: readonly string[] }
+  | {
+      readonly ok: false;
+      readonly reason: HandshakeRefusalReason;
+      readonly pending: readonly string[];
+    };
+
+/**
+ * The byte stream, supplied by the caller.
+ *
+ * `read` resolves `null` at end of stream. Neither method is given a timeout: §8 puts that
+ * bound on "whatever supervises the process" and makes no value normative, so a caller who
+ * wants one wraps this call.
+ */
+export interface HandshakeIo {
+  read(): Promise<Uint8Array | null>;
+  write(chunk: Uint8Array): Promise<void>;
+}
+
+export interface HandshakeOptions {
+  /** Defaults to {@link CONTRACT_VERSIONS} — what this SDK speaks. */
+  readonly localVersions?: readonly string[];
+
+  /**
+   * The reader to draw frames through. **Supply one to keep the session's bytes.**
+   *
+   * A peer announces unprompted (§5), so its hello and its first request very often arrive
+   * in a single read. A reader created here and dropped on return would destroy whatever
+   * followed the hello — complete frames and a half-buffered one alike — and nothing would
+   * indicate it had happened. Passing your own keeps both.
+   *
+   * Omitting it is fine when nothing follows the handshake, such as in a test.
+   */
+  readonly reader?: NdjsonLineReader;
+}
+
+/**
+ * Announce, listen, agree — or refuse.
+ *
+ * Returns the refusal rather than exiting. The caller owns the process and the exit code;
+ * `CONTRACT_HANDSHAKE_EXIT` is exported for it.
+ */
+export async function performHandshake(
+  io: HandshakeIo,
+  options: HandshakeOptions = {},
+): Promise<HandshakeResult> {
+  const local = options.localVersions ?? CONTRACT_VERSIONS;
+
+  // §5, and the order is load-bearing: our hello goes out before we read a single byte.
+  // Both peers announce unprompted, so waiting for theirs first would deadlock two runtimes
+  // against each other.
+  await io.write(new TextEncoder().encode(`${encodeHello(local)}\n`));
+
+  const reader = options.reader ?? new NdjsonLineReader();
+  let peerFrame: string | undefined;
+  let pending: readonly string[] = [];
+
+  while (peerFrame === undefined) {
+    const chunk = await io.read();
+    if (chunk === null) {
+      // End of stream. A peer that stopped mid-frame may still have left a complete hello
+      // without its terminating newline, so drain before giving up. flushFrames() yields at
+      // most one frame, so there is never a `pending` remainder to carry from this branch.
+      peerFrame = reader.flushFrames().frames[0];
+      break;
+    }
+
+    // §5 has both peers announce unprompted, so a peer's hello and its first request very
+    // often arrive in the same read: `push()` returns every complete frame that chunk
+    // completed, not just the hello. The hello is always frames[0]; anything after it is a
+    // complete frame the caller must not lose, so it goes out as `pending` rather than being
+    // dropped here.
+    const frames = reader.push(chunk);
+    peerFrame = frames[0];
+    if (peerFrame !== undefined) {
+      pending = frames.slice(1);
+    }
+  }
+
+  if (peerFrame === undefined) {
+    // §7.3: an absent hello is a refusal. There is no token for silence, and we never
+    // learned a set to intersect with, so this is the empty intersection.
+    return { ok: false, reason: "no-common-version", pending };
+  }
+
+  const parsed = parseHello(peerFrame);
+  if (!parsed.ok) {
+    return { ok: false, reason: parsed.reason, pending };
+  }
+
+  const negotiated = negotiateContractVersion(local, parsed.contractVersions);
+  if (!negotiated.ok) {
+    return { ok: false, reason: negotiated.reason, pending };
+  }
+  return { ok: true, version: negotiated.version, pending };
+}

@@ -194,6 +194,21 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "ipc/handshake",
+    run: async (_sdk, _testing, ipc) => {
+      // The io is two in-memory callbacks — no pipe, no socket — matching the module's own
+      // "streams are injected, never opened" contract.
+      const io = {
+        read: async () => new TextEncoder().encode('{"nimbus":"hello","contractVersions":["1"]}\n'),
+        write: async () => {},
+      };
+      const result = await ipc.performHandshake(io);
+      if (!result.ok || result.version !== "1") {
+        throw new Error(`unexpected performHandshake result: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
     module: "testing/index",
     run: async (_sdk, testing) => {
       const result = await new testing.MockGateway().callTool("x", {});

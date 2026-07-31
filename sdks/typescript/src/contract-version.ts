@@ -39,10 +39,17 @@ export const CONTRACT_VERSIONS: readonly string[] = ["1"];
  *
  * Aliasing them would make adding a major silently widen every manifest that predates the field:
  * a connector that never declared anything would begin claiming the new version it was written
- * before. Module-private, because it is an implementation detail of {@link
- * manifestContractVersions} rather than a value a caller composes with.
+ * before. That is not hypothetical bookkeeping — §7.2 obliges a connector's hello to equal its
+ * own declaration, so a runtime that announced `CONTRACT_VERSIONS` for a manifest that declared
+ * nothing would announce a `declaration-mismatch` the day this SDK learns a second major.
+ *
+ * Exported so `src/server.ts` announces this set rather than {@link CONTRACT_VERSIONS} when the
+ * manifest is silent, and deliberately **not** re-exported from `src/index.ts` — the same
+ * treatment {@link CONTRACT_VERSION_PATTERN} gets, and for the same reason: it is shared between
+ * modules of this package, not a value a caller composes with. `manifestContractVersions` is the
+ * published way to ask a manifest what it declares.
  */
-const V1_ABSENCE_DEFAULT: readonly string[] = ["1"];
+export const V1_ABSENCE_DEFAULT: readonly string[] = ["1"];
 
 /**
  * The exit code a connector MUST terminate with when the handshake is refused.

@@ -35,10 +35,33 @@ result = negotiate_contract_version(["1"], ["1"])  # NegotiationOk(version="1")
 
 Early. This release carries the contract-version constants, the negotiation algorithm,
 and the published JSON Schemas. It also carries the IPC surface —
-`from nimbus_sdk.ipc import NdjsonLineReader, parse_hello` — deliberately a separate
-import root from `nimbus_sdk`, mirroring the `.` vs `./ipc` split the TypeScript
-package publishes. It is not yet the full connector-authoring surface — see the
+`from nimbus_sdk.ipc import NdjsonLineReader, parse_hello, perform_handshake` —
+deliberately a separate import root from `nimbus_sdk`, mirroring the `.` vs `./ipc`
+split the TypeScript package publishes. It is not yet the full connector-authoring
+surface — see the
 [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
+
+`perform_handshake` is the one exchange this package performs end to end: write our
+hello, read the peer's, agree on a contract major or refuse. The stream is **injected**,
+never opened — the package does no I/O of its own — and a refusal comes back as a value,
+because nothing here owns a process to exit.
+
+```python
+from nimbus_sdk.ipc import HandshakeOk, NdjsonLineReader, perform_handshake
+
+# `io` is any object with `read() -> bytes | None` and `write(bytes) -> None`. Return
+# None at end of stream: sys.stdin.buffer.read() gives b"" there, which would loop.
+reader = NdjsonLineReader()  # supply your own if the session keeps reading this stream
+result = perform_handshake(io, reader=reader)
+if isinstance(result, HandshakeOk):
+    result.version  # the agreed contract major, e.g. "1"
+    result.pending  # frames the peer sent right after its hello — process these first
+```
+
+It is **synchronous**, where the TypeScript binding is `async`. Python's standard streams
+block and a startup handshake has nothing to overlap with, so `async def` would drag every
+connector into an event loop for nothing; an asyncio caller wraps it with
+`await asyncio.to_thread(perform_handshake, io)`.
 
 ## License
 

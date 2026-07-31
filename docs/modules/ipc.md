@@ -1,4 +1,4 @@
-<!-- covers: ipc/ndjson-line-reader -->
+<!-- covers: ipc/ndjson-line-reader, ipc/handshake -->
 
 # `ipc`
 
@@ -75,6 +75,122 @@ export function onEnd(): { messages: unknown[]; truncated: boolean } {
 
 export const maxFrameBytes: number = IPC_MAX_LINE_BYTES;
 ```
+
+## The handshake
+
+`performHandshake(io, options?)` is the one exchange this package can carry out end to end:
+announce, listen, agree — or refuse. It is specified in
+[`contract-version.md`](../spec/negotiation/v1/contract-version.md) §5 (the frame and the order
+it is written in) and §6 (the algorithm), layered over `framing.md` §3.
+
+- **The stream is injected, not opened.** `HandshakeIo` is two callbacks — `read` and `write` —
+  and this package opens no pipe and no socket. That is what keeps the runtime testable without
+  spawning a process, which §8 says this package cannot do.
+- **Our hello is written first.** Per §5, both peers announce unprompted; a runtime that read
+  before writing would deadlock against another runtime doing the same. `performHandshake` writes
+  before its first `read()` call, and that ordering is asserted by a dedicated test, not left to
+  incidental code shape.
+- **A refusal is a value, not an exit.** `performHandshake` returns `{ ok: false, reason }`
+  rather than calling `process.exit` — this package owns no process to exit. The caller decides
+  what to do with the refusal; `CONTRACT_HANDSHAKE_EXIT` (from `contract-version`) is exported for
+  a caller that wants to terminate with it.
+- **No timeout.** Neither `read` nor `write` is given one, and there is no timeout option to set.
+  §8 puts that bound on whatever supervises the process, not on this call — a caller that wants
+  one wraps its own `HandshakeIo`.
+- **The refusal reason is wider than `ContractNegotiationResult`'s.** `HandshakeRefusalReason` is
+  `HelloRefusalReason | "no-common-version"`, because the exchange can fail at the frame layer —
+  malformed JSON, the wrong message, a duplicate version — before negotiation is ever reached.
+- **An oversized frame throws; it is the one failure that is not a value.** Everything above
+  comes back as `{ ok: false, reason }`, but a first frame past `IPC_MAX_LINE_BYTES` does not:
+  the framing spec makes exceeding the limit terminal — the reader latches — so there is no
+  refusal token for it and inventing one would let a peer resynchronise a latched reader. A
+  caller that writes only `if (!result.ok)` gets an **unhandled rejection**, not a refusal, so
+  wrap the call if an oversized peer is in scope for you. Note the binding asymmetry while
+  you do: Python raises `FrameTooLongError`, whereas here `NdjsonLineReader` throws a bare
+  `Error` unless it was constructed with `lineLimitError`. `performHandshake` builds its own
+  reader with no options, so **supplying your own reader is the only way to get a typed error
+  out of this call** — one more job for the `reader` option below.
+- **`pending` carries whatever else the same read completed.** §5 has both peers announce
+  *unprompted*, so a peer's hello and its first request very often arrive in one read, and
+  `NdjsonLineReader.push()` returns every complete frame that read completed — not just the
+  hello. `HandshakeResult.pending` is those extra frames, in order, on every return path
+  (success or refusal), so `performHandshake` never has to choose between the hello and what
+  came after it.
+
+```ts
+import { performHandshake } from "@nimbus-dev/sdk/ipc";
+
+declare function readChunk(): Promise<Uint8Array | null>;
+declare function writeChunk(chunk: Uint8Array): Promise<void>;
+declare function handle(message: unknown): void;
+
+const result = await performHandshake({ read: readChunk, write: writeChunk });
+if (!result.ok) {
+  // result.reason is one of the seven HelloRefusalReason values, or "no-common-version"
+  throw new Error(`handshake refused: ${result.reason}`);
+}
+result.version; // the agreed contract major, e.g. "1"
+// Complete frames the peer sent right after its hello — process these before your own next
+// read(), in order, or you'll process a later message before an earlier one.
+for (const line of result.pending) {
+  handle(JSON.parse(line));
+}
+```
+
+### Two ways a single read can carry more than the hello — and why one recovery isn't enough
+
+`performHandshake` reads through an `NdjsonLineReader` to assemble the peer's hello, since a
+chunk boundary is not a frame boundary here any more than anywhere else this package reads a
+stream. A single `read()` can return the hello *and* whatever the peer sent immediately after
+it — and what that "whatever" contains splits into two cases that need two different fixes:
+
+- **Complete frames** — full lines the same chunk terminated. `push()` extracts these as part
+  of finding the hello, so they can't be left sitting in the reader; they come back as
+  `result.pending` (see above). Drop them and you've dropped the peer's first message(s) with no
+  sign of it.
+- **A trailing, not-yet-complete frame** — bytes buffered because no terminating newline had
+  arrived yet. These were never a complete line, so `pending` can't hold them; `push()` leaves
+  them in the reader's own internal buffer instead. If `performHandshake` created that reader
+  itself, that buffer — and the partial frame inside it — is discarded the moment the function
+  returns: not delayed, not re-deliverable, just gone. Nothing in the return value indicates
+  this happened; `{ ok: true, ... }` looks identical either way.
+
+`pending` alone only fixes the first case. The second needs the *same reader instance* to
+survive past the call, which is what `HandshakeOptions.reader` is for: supply one, keep reading
+through it after the handshake, and the partial frame is exactly where you'd expect — in the
+reader's own internal buffer, waiting for the rest of itself to arrive on your next `push()` or
+`flush()`. (Not in `result.pending`: that is a different thing entirely, and the paragraph above
+is why it cannot hold these bytes.)
+
+```ts
+import { NdjsonLineReader, performHandshake } from "@nimbus-dev/sdk/ipc";
+
+declare function readChunk(): Promise<Uint8Array | null>;
+declare function writeChunk(chunk: Uint8Array): Promise<void>;
+declare function handle(message: unknown): void;
+
+const reader = new NdjsonLineReader();
+const result = await performHandshake({ read: readChunk, write: writeChunk }, { reader });
+if (result.ok) {
+  // Complete frames read alongside the hello: come back on the result, in order.
+  for (const line of result.pending) {
+    handle(JSON.parse(line));
+  }
+  // A trailing, not-yet-complete frame read alongside the hello: still buffered in the
+  // reader you supplied, because it's the same instance performHandshake read through.
+  const nextChunk = await readChunk();
+  if (nextChunk !== null) {
+    for (const line of reader.push(nextChunk)) {
+      handle(JSON.parse(line));
+    }
+  }
+}
+```
+
+Omitting `reader` is fine when nothing follows the handshake on that stream — a one-shot check,
+or a test — but any caller that keeps reading afterward needs to supply one, in addition to
+draining `pending`. Each recovers a different half of what a single read can carry; neither
+substitutes for the other.
 
 ## Every export
 

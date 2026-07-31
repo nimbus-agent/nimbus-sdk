@@ -62,7 +62,7 @@ The work lives in a standalone function, mirrored across both bindings:
 | | TypeScript | Python |
 |---|---|---|
 | Location | `sdks/typescript/src/ipc/handshake.ts`, exported from `./ipc` | `sdks/python/src/nimbus_sdk/ipc/handshake.py` |
-| Entry point | `performHandshake(io, options?)` | `perform_handshake(io, *, local_versions=CONTRACT_VERSIONS)` |
+| Entry point | `performHandshake(io, options?)` | `perform_handshake(io, *, local_versions=CONTRACT_VERSIONS, reader=None)` |
 | Returns | `Promise<HandshakeResult>` | `HandshakeOk \| HandshakeRefused` |
 
 ### The result is a new type, because the existing ones cannot express it
@@ -101,7 +101,12 @@ and slotted like `NegotiationOk` / `NegotiationRefused`. Python's existing
 complaint, but `NegotiationRefused(reason="not-json")` claims a negotiation happened when none
 did — a type that lies quietly is worse than one more pair of names.
 
-`NimbusExtensionServer` gains one thin delegating method, `handshake(io)`. Keeping the real
+`NimbusExtensionServer` gains one thin delegating method, `handshake(io, options?)` — where
+`options` is `Pick<HandshakeOptions, "reader">`, so a connector reaching the exchange through
+the class can still keep the session's bytes (see *The caller owns the reader* below). It does
+**not** accept `localVersions`: the manifest declares that set, and §7.2 obliges the running
+hello to equal the declaration, so an override there would be the one mismatch this method can
+structurally prevent. Keeping the real
 logic in a free function rather than the class is deliberate: the primitive is what both
 languages can be held to identically, and Python does not grow a class with a single method
 and nothing to host.
@@ -123,7 +128,7 @@ async function performHandshake(io: HandshakeIo, options?): Promise<HandshakeRes
 ```
 
 ```python
-def perform_handshake(io: HandshakeIO, *, local_versions=CONTRACT_VERSIONS) -> HandshakeOk | HandshakeRefused
+def perform_handshake(io: HandshakeIO, *, local_versions=CONTRACT_VERSIONS, reader=None) -> HandshakeOk | HandshakeRefused
 ```
 
 TypeScript has no idiomatic synchronous stream read, so async is forced. Python's standard
@@ -193,6 +198,11 @@ caller's reader alone still drops the extra complete frames. Each fixes one half
 Omitting it stays valid — the runtime creates one — which suits a caller who genuinely owns
 nothing after the handshake, such as a test.
 
+**And the option has to reach every caller, including the class.** `NimbusExtensionServer`'s
+delegating method takes the same `reader`, forwarded verbatim. Without it the class would
+return `pending` and drop the partial frame with no way for its caller to intervene — half of
+a fix that the section above says only works whole.
+
 ### I/O is injected, never performed
 
 ```ts
@@ -258,12 +268,19 @@ Every failure is a returned value, never an exception, matching `contract.py` an
 | Situation | Result |
 |---|---|
 | Peer's frame is malformed | the `parseHello` refusal reason, unchanged |
-| Stream ends before a complete frame | `no-common-version`, the refusal `§7.3` describes for an absent hello |
+| Stream ends before a complete frame | `no-common-version`. §7.3 makes an absent hello a refusal but assigns it no token — there is none for silence — and this is the honest one: we never learned a set to intersect with, so the intersection is empty |
 | Sets do not intersect, or a member is malformed | whatever `negotiateContractVersion` returns |
-| A frame exceeds the size limit | `FrameTooLongError` propagates — it is already terminal by design, and swallowing it would let a peer resynchronise a latched reader |
+| A frame exceeds the size limit | the reader's error propagates — `FrameTooLongError` in Python, a bare `Error` in TypeScript unless the caller supplied a reader constructed with `lineLimitError`. Terminal by design, and swallowing it would let a peer resynchronise a latched reader |
 
-The one deliberate exception is `FrameTooLongError`, which the framing spec makes terminal.
+The one deliberate exception is the size limit, which the framing spec makes terminal.
 Converting it to a refusal reason would need a new token, which is a contract change.
+
+**The two bindings differ in the error *type*, and only there.** Python's reader raises its own
+`FrameTooLongError`; TypeScript's `NdjsonLineReader` throws whatever `lineLimitError` names and
+`Error` when nothing does, and `performHandshake` constructs its reader with no options. So a
+TypeScript caller that wants a typed error passes its own reader — one more thing the `reader`
+option carries, alongside the buffered bytes. Naming `FrameTooLongError` as though both bindings
+raised it would send a TypeScript caller looking for an export that does not exist.
 
 ## Testing
 
@@ -296,8 +313,10 @@ own MCP SDK's job, as `connector-kit` already assumes.
 
 ## Open question, carried into implementation
 
-`framing.md` §5 and `contract-version.md` §5 both say peers announce unprompted, which
-determines write-then-read. This is written from the specification, not from an observed
+`contract-version.md` §5 says peers announce unprompted, which determines write-then-read. It
+is the only document that says so — `framing.md` §5 is *Byte order mark* and carries no
+ordering rule, so there is one citation here, not two. This is written from the specification,
+not from an observed
 gateway. **Nothing in this repository can confirm the gateway agrees** — it owns no process
 and performs no I/O, exactly as `contract-version.md` §8 says. If the gateway in fact waits
 for the connector's hello before sending its own, write-first is still correct and still

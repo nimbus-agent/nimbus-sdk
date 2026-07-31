@@ -100,6 +100,16 @@ it is written in) and §6 (the algorithm), layered over `framing.md` §3.
 - **The refusal reason is wider than `ContractNegotiationResult`'s.** `HandshakeRefusalReason` is
   `HelloRefusalReason | "no-common-version"`, because the exchange can fail at the frame layer —
   malformed JSON, the wrong message, a duplicate version — before negotiation is ever reached.
+- **An oversized frame throws; it is the one failure that is not a value.** Everything above
+  comes back as `{ ok: false, reason }`, but a first frame past `IPC_MAX_LINE_BYTES` does not:
+  the framing spec makes exceeding the limit terminal — the reader latches — so there is no
+  refusal token for it and inventing one would let a peer resynchronise a latched reader. A
+  caller that writes only `if (!result.ok)` gets an **unhandled rejection**, not a refusal, so
+  wrap the call if an oversized peer is in scope for you. Note the binding asymmetry while
+  you do: Python raises `FrameTooLongError`, whereas here `NdjsonLineReader` throws a bare
+  `Error` unless it was constructed with `lineLimitError`. `performHandshake` builds its own
+  reader with no options, so **supplying your own reader is the only way to get a typed error
+  out of this call** — one more job for the `reader` option below.
 - **`pending` carries whatever else the same read completed.** §5 has both peers announce
   *unprompted*, so a peer's hello and its first request very often arrive in one read, and
   `NdjsonLineReader.push()` returns every complete frame that read completed — not just the
@@ -147,9 +157,10 @@ it — and what that "whatever" contains splits into two cases that need two dif
 
 `pending` alone only fixes the first case. The second needs the *same reader instance* to
 survive past the call, which is what `HandshakeOptions.reader` is for: supply one, keep reading
-through it after the handshake, and the partial frame is exactly where you'd expect — sitting in
-`pending` for the reader's *own* next `push()` or `flush()` call, waiting for the rest of itself
-to arrive.
+through it after the handshake, and the partial frame is exactly where you'd expect — in the
+reader's own internal buffer, waiting for the rest of itself to arrive on your next `push()` or
+`flush()`. (Not in `result.pending`: that is a different thing entirely, and the paragraph above
+is why it cannot hold these bytes.)
 
 ```ts
 import { NdjsonLineReader, performHandshake } from "@nimbus-dev/sdk/ipc";

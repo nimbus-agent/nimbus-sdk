@@ -21,7 +21,7 @@
 - **TypeScript:** no `any`; strict; `noPropertyAccessFromIndexSignature`, so `Record<string, …>` needs bracket access. Biome `lineWidth: 100`.
 - **Python:** ruff `line-length = 88`, `select = ["E","F","I","N","UP","B","A","C4","PT","RUF"]`; mypy `strict = true` over `src` and `tests`.
 - **Never write a literal U+FEFF.** Use `\uFEFF`. This has gone wrong five times in this repo.
-- **Two CI gates fire on a new TypeScript export**, both mandatory: regenerate `docs/api-surface.md` with `bun run api:surface`, and claim the new module in a `docs/modules/*.md` page's `<!-- covers: -->` comment. `docs/modules/ipc.md` currently reads `<!-- covers: ipc/ndjson-line-reader -->`; `ipc/handshake` goes there.
+- **Four CI gates fire here, not two, and they have different triggers.** A changed *export* trips two: regenerate `docs/api-surface.md` with `bun run api:surface` (`scripts/api-surface.test.ts`), and claim the module in a `docs/modules/*.md` page's `<!-- covers: -->` comment (`scripts/docs-coverage.test.ts`) — `docs/modules/ipc.md` currently reads `<!-- covers: ipc/ndjson-line-reader -->`, so `ipc/handshake` goes there. A *new module* in the published surface trips a third: it needs an entry in `scripts/smoke-calls.mjs`, which `scripts/smoke-calls.test.ts` executes against the built `dist/`. And a fenced `ts` block added to `docs/modules/`, `docs/README.md`, or the package `README.md` trips a fourth: `scripts/docs-snippets.test.ts` typechecks all of them against `dist/`. Tasks 1 and 2 each rediscovered one of these the hard way.
 - Commit subjects are `feat:`-class for Tasks 1–3 (new exported surface, minor bump in both packages) and `test:` for Task 4.
 - **Run all commands from the worktree** `C:\gitrep\nimbus-sdk\.claude\worktrees\handshake-runtime`.
 
@@ -204,9 +204,28 @@ import { NdjsonLineReader } from "./ndjson-line-reader.js";
  */
 export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
 
+/**
+ * `pending` carries **complete** frames the peer sent after its hello, extracted from the same
+ * chunk `push()` found the hello in. §5 has both peers announce unprompted, so a peer's hello
+ * and its first request very often arrive together — and `NdjsonLineReader.push()` returns every
+ * complete line a chunk yields, not just the first. Taking only the first and discarding the
+ * rest would silently lose the first message of the session; `pending` is how the caller gets
+ * them back instead. A caller that keeps reading the stream afterward must process `pending`
+ * before its next `read()`, or process it in order alongside whatever that next read produces.
+ *
+ * This is only half of what a caller can lose here — the other half, a frame the peer left
+ * *incomplete* in that same chunk, never appears in `pending` because it was never a complete
+ * line to extract. It survives instead in the `NdjsonLineReader` the caller supplied via
+ * {@link HandshakeOptions.reader}, which is why both exist: `pending` returns what was already
+ * extracted, the caller-supplied reader retains what was not.
+ */
 export type HandshakeResult =
-  | { readonly ok: true; readonly version: string }
-  | { readonly ok: false; readonly reason: HandshakeRefusalReason };
+  | { readonly ok: true; readonly version: string; readonly pending: readonly string[] }
+  | {
+      readonly ok: false;
+      readonly reason: HandshakeRefusalReason;
+      readonly pending: readonly string[];
+    };
 
 /**
  * The byte stream, supplied by the caller.
@@ -223,6 +242,7 @@ export interface HandshakeIo {
 export interface HandshakeOptions {
   /** Defaults to {@link CONTRACT_VERSIONS} — what this SDK speaks. */
   readonly localVersions?: readonly string[];
+
   /**
    * The reader to draw frames through. **Supply one to keep the session's bytes.**
    *
@@ -254,38 +274,55 @@ export async function performHandshake(
   await io.write(new TextEncoder().encode(`${encodeHello(local)}\n`));
 
   const reader = options.reader ?? new NdjsonLineReader();
-  const pending: string[] = [];
   let peerFrame: string | undefined;
+  let pending: readonly string[] = [];
 
   while (peerFrame === undefined) {
     const chunk = await io.read();
     if (chunk === null) {
       // End of stream. A peer that stopped mid-frame may still have left a complete hello
-      // without its terminating newline, so drain before giving up.
+      // without its terminating newline, so drain before giving up. flushFrames() yields at
+      // most one frame, so there is never a `pending` remainder to carry from this branch.
       peerFrame = reader.flushFrames().frames[0];
       break;
     }
-    peerFrame = reader.push(chunk)[0];
+
+    // §5 has both peers announce unprompted, so a peer's hello and its first request very
+    // often arrive in the same read: `push()` returns every complete frame that chunk
+    // completed, not just the hello. The hello is always frames[0]; anything after it is a
+    // complete frame the caller must not lose, so it goes out as `pending` rather than being
+    // dropped here.
+    const frames = reader.push(chunk);
+    peerFrame = frames[0];
+    if (peerFrame !== undefined) {
+      pending = frames.slice(1);
+    }
   }
 
   if (peerFrame === undefined) {
     // §7.3: an absent hello is a refusal. There is no token for silence, and we never
     // learned a set to intersect with, so this is the empty intersection.
-    return { ok: false, reason: "no-common-version" };
+    return { ok: false, reason: "no-common-version", pending };
   }
 
   const parsed = parseHello(peerFrame);
   if (!parsed.ok) {
-    return { ok: false, reason: parsed.reason };
+    return { ok: false, reason: parsed.reason, pending };
   }
 
   const negotiated = negotiateContractVersion(local, parsed.contractVersions);
   if (!negotiated.ok) {
-    return { ok: false, reason: negotiated.reason };
+    return { ok: false, reason: negotiated.reason, pending };
   }
-  return { ok: true, version: negotiated.version };
+  return { ok: true, version: negotiated.version, pending };
 }
 ```
+
+> **This block is the shipped implementation, transcribed after the fact.** It was originally
+> written with `peerFrame = reader.push(chunk)[0]`, which discards every other frame the same
+> chunk completed — the data-loss defect Task 1's review found and the amendment removed. Both
+> code blocks in this plan are now the code that shipped, so re-executing the plan cannot
+> reintroduce the bug it was amended to fix.
 
 - [ ] **Step 4: Export from the `./ipc` barrel**
 
@@ -307,7 +344,7 @@ export {
 cd sdks/typescript && bun test src/ipc/handshake.test.ts
 ```
 
-Expected: **9 pass, 0 fail**.
+Expected: **0 fail**. The count is whatever this file ends up holding — it shipped at 9 and later fix waves took it to 15, so treat the number as observed rather than required.
 
 - [ ] **Step 6: Prove the write-before-read rule is load-bearing, by mutation**
 
@@ -319,7 +356,7 @@ cd sdks/typescript && bun test src/ipc/handshake.test.ts
 
 Expected: **1 fail** — `writes our hello BEFORE reading anything`, because `order[0]` is now `"read"`. Every other test still passes, which confirms the failure is that assertion rather than collateral damage — and shows that without this test, a reads-first runtime would look completely correct.
 
-Restore the write to the top and re-run: **9 pass, 0 fail**. Confirm with `git diff` that no probe remains.
+Restore the write to the top and re-run: **0 fail** again. Confirm with `git diff` that no probe remains.
 
 - [ ] **Step 7: Satisfy both documentation gates**
 
@@ -349,7 +386,7 @@ cd sdks/typescript && bun run build && bun run api:surface
 cd sdks/typescript && bun run typecheck && bun run lint && bun run test
 ```
 
-Expected: typecheck clean, lint clean, **0 fail**, and the total up by 9 from 1085.
+Expected: typecheck clean, lint clean, **0 fail**, and the total up from 1085 by however many tests this task added. (The finished branch prints **1109 pass, 0 fail** across 53 files, after Tasks 2–4 and the fix waves.)
 
 - [ ] **Step 9: Commit**
 
@@ -389,7 +426,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes from Task 1: `performHandshake`, `HandshakeIo`, `HandshakeResult` from `./ipc/handshake.js`.
-- Produces: `NimbusExtensionServer.handshake(io: HandshakeIo): Promise<HandshakeResult>`.
+- Produces: `NimbusExtensionServer.handshake(io: HandshakeIo, options?: Pick<HandshakeOptions, "reader">): Promise<HandshakeResult>`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -464,7 +501,13 @@ Expected: **typecheck/runtime failure** — `server.handshake is not a function`
 In `sdks/typescript/src/server.ts`, add the import and the method. **Do not touch `start()` or `registerTool()`.**
 
 ```ts
-import { type HandshakeIo, type HandshakeResult, performHandshake } from "./ipc/handshake.js";
+import { V1_ABSENCE_DEFAULT } from "./contract-version.js";
+import {
+  type HandshakeIo,
+  type HandshakeOptions,
+  type HandshakeResult,
+  performHandshake,
+} from "./ipc/handshake.js";
 ```
 
 and inside the class, after `start()`:
@@ -483,13 +526,50 @@ and inside the class, after `start()`:
    *
    * Stores nothing. There is no other operation to gate — `registerTool` is still a stub —
    * and the caller holds the result, which is the only thing that needs it.
+   *
+   * Announces the manifest's declared set, and {@link V1_ABSENCE_DEFAULT} — not
+   * {@link CONTRACT_VERSIONS} — when the manifest is silent. §7.2 obliges a connector's hello
+   * to equal its own declaration, and §4 fixes what a silent manifest declares at `["1"]`
+   * forever. Letting `performHandshake`'s own default apply instead would announce whatever
+   * this SDK happens to speak, so the day a second major ships every manifest predating the
+   * field would announce a set it never declared — a `declaration-mismatch` compiled into
+   * published surface rather than a bug anyone introduced.
+   *
+   * `options.reader` is forwarded to {@link performHandshake} and exists for the same reason
+   * it does there: a peer announces unprompted (§5), so its hello and its first request often
+   * arrive in one read, and a frame the peer left *incomplete* in that chunk is recoverable
+   * only from the reader that buffered it. `pending` returns the complete frames, but a reader
+   * this method created and dropped would take the partial one with it silently. Without this
+   * parameter a connector reaching the handshake through this class had no way to keep it —
+   * the recovery `docs/modules/ipc.md` tells callers to use was structurally unreachable here.
+   *
+   * Only `reader` is accepted. `localVersions` is the manifest's to declare, and letting a
+   * caller pass it here would let the running hello contradict the manifest — the §7.2
+   * `declaration-mismatch` this method exists to make impossible.
    */
-  handshake(io: HandshakeIo): Promise<HandshakeResult> {
-    return performHandshake(io, { localVersions: this._options.manifest.contractVersions });
+  handshake(io: HandshakeIo, options?: Pick<HandshakeOptions, "reader">): Promise<HandshakeResult> {
+    const localVersions = this._options.manifest.contractVersions ?? V1_ABSENCE_DEFAULT;
+    const reader = options?.reader;
+    // Built by branch rather than spread: `exactOptionalPropertyTypes` is on, so
+    // `{ reader: undefined }` is not assignable to `reader?: NdjsonLineReader` — the key
+    // must be absent, not present and undefined.
+    return performHandshake(
+      io,
+      reader === undefined ? { localVersions } : { localVersions, reader },
+    );
   }
 ```
 
-**Check before writing that last line:** if `ExtensionManifest` has no `contractVersions` field, or it is optional and may be `undefined`, pass `undefined` through — `performHandshake` already defaults to `CONTRACT_VERSIONS`. Confirm with `grep -n "contractVersions" src/types.ts`; the field is optional per `contract-version.md` §4, so the type must allow `undefined` here.
+> **This is the shipped method, transcribed after the fact.** It was written first as
+> `performHandshake(io, { localVersions: this._options.manifest.contractVersions })`, which
+> falls through to `performHandshake`'s own default when the manifest is silent — and that
+> default is `CONTRACT_VERSIONS`, what this SDK *speaks*, not the frozen `["1"]` that §4 says
+> a silent manifest *declares*. The two are equal today, so it passed everything; the day a
+> second major ships it becomes a §7.2 `declaration-mismatch` in published surface. Announce
+> `V1_ABSENCE_DEFAULT`, and assert on the bytes written rather than the returned result, or
+> the test cannot tell the two apart.
+
+**Check before writing that last line:** confirm with `grep -n "contractVersions" src/types.ts` that the field is optional — it is, per `contract-version.md` §4 — and then supply the absence default explicitly rather than letting `performHandshake`'s own default apply. `V1_ABSENCE_DEFAULT` exists in `src/contract-version.ts` for exactly this and is exported for `server.ts`; it stays off `src/index.ts`, like `CONTRACT_VERSION_PATTERN`.
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
@@ -501,7 +581,7 @@ Expected: all pass, **0 fail**.
 
 - [ ] **Step 5: Document and regenerate**
 
-Add a section to `docs/modules/server.md` for `handshake(io)`, in that page's existing voice. It must say that `start()` is unchanged and why, that the result is returned rather than exited, and link the `ipc` page for `HandshakeIo`.
+Add a section to `docs/modules/server.md` for `handshake(io, options?)`, in that page's existing voice. It must say that `start()` is unchanged and why, that the result is returned rather than exited (with the one exception — an oversized frame throws), which set a silent manifest announces and why it is not `CONTRACT_VERSIONS`, and link the `ipc` page for `HandshakeIo` and for what `options.reader` recovers.
 
 ```bash
 cd sdks/typescript && bun run build && bun run api:surface
@@ -679,17 +759,21 @@ Create `sdks/python/src/nimbus_sdk/ipc/handshake.py`:
 ```python
 """The handshake — the one exchange this package can perform end to end.
 
-Normative documents: ``docs/spec/negotiation/v1/contract-version.md`` §5 (the frame, and
-the order it is written in) and §6 (the algorithm), over ``docs/spec/wire/v1/framing.md``
-§3.
+Normative documents: ``docs/spec/negotiation/v1/contract-version.md`` §5 (the frame,
+and the order it is written in) and §6 (the algorithm), over
+``docs/spec/wire/v1/framing.md`` §3.
 
-Streams are **injected**, never opened: this package performs no I/O, and a runtime that
-owned its own would be untestable without spawning a process, which §8 says it cannot do.
+Streams are **injected**, never opened: this package performs no I/O, and a runtime
+that owned its own would be untestable without spawning a process, which §8 says it
+cannot do.
 
-Synchronous, where the TypeScript binding is async. Python's standard streams block and a
-startup handshake has nothing to overlap with, so ``async def`` would drag every connector
-into an event loop for nothing. The behaviour is identical; only the calling convention
-differs.
+Synchronous, where the TypeScript binding is async. Python's standard streams block
+and a startup handshake has nothing to overlap with, so ``async def`` would drag
+every connector into an event loop for nothing. The behaviour is identical; only the
+calling convention differs. A connector already running an event loop when it starts
+this exchange should not call this function directly from it — that blocks the loop
+for the duration of the reads. Wrap it instead:
+``await asyncio.to_thread(perform_handshake, io)``.
 """
 
 from __future__ import annotations
@@ -710,10 +794,16 @@ from nimbus_sdk.ipc.ndjson import NdjsonLineReader
 class HandshakeIO(Protocol):
     """The byte stream, supplied by the caller.
 
-    Structural: any object with these two methods satisfies it, with nothing to inherit.
-    ``read`` returns ``None`` at end of stream. Neither method is given a timeout — §8
-    puts that bound on whatever supervises the process and makes no value normative, so a
-    caller who wants one wraps this call.
+    Structural: any object with these two methods satisfies it, with nothing to
+    inherit. ``read`` returns ``None`` at end of stream. Neither method is given a
+    timeout — §8 puts that bound on whatever supervises the process and makes no
+    value normative, so a caller who wants one wraps this call.
+
+    **``None``, not ``b""``.** ``sys.stdin.buffer.read(n)`` returns an empty ``bytes``
+    at end of stream, not ``None``, so an adapter that forwards it unchanged never
+    signals the end: the loop below pushes ``b""``, gets no frame back, and reads
+    again forever. Translate the empty read into ``None``. Node's streams resolve
+    ``null``, which already matches, so this trap is Python's alone.
     """
 
     def read(self) -> bytes | None: ...
@@ -729,10 +819,16 @@ class HandshakeOk:
     process these before reading further: a peer announces unprompted (§5), so its hello
     and its first request often arrive in one read, and dropping them silently loses the
     first message of the session.
+
+    It has **no default**, matching the TypeScript union where the field is required.
+    ``pending`` exists precisely to stop frames going missing without a trace, so a
+    default would let "forgot to pass it" construct cleanly under ``mypy --strict`` and
+    reintroduce the loss it was added to prevent. Pass ``pending=()`` when there is
+    genuinely nothing.
     """
 
     version: str
-    pending: tuple[str, ...] = ()
+    pending: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -745,10 +841,12 @@ class HandshakeRefused:
     Not :class:`NegotiationRefused`, whose ``reason`` would accept these without
     complaint: five of them describe a frame that never reached negotiation, and
     ``NegotiationRefused(reason="not-json")`` would claim one happened.
+
+    ``pending`` has no default here either, for the reason :class:`HandshakeOk` gives.
     """
 
     reason: str
-    pending: tuple[str, ...] = ()
+    pending: tuple[str, ...]
 
 
 HandshakeResult = HandshakeOk | HandshakeRefused
@@ -764,40 +862,66 @@ def perform_handshake(
 
     Returns the refusal rather than exiting. The caller owns the process and the exit
     code; :data:`CONTRACT_HANDSHAKE_EXIT` is exported for it.
+
+    ``reader`` is the :class:`NdjsonLineReader` to draw frames through. **Supply your
+    own to keep the session's bytes.** A peer announces unprompted (§5), so its hello
+    and its first request often arrive in a single read; a reader created here and
+    discarded on return would take a *partially*-buffered frame down with it — bytes
+    that were never a complete line to hand back via ``pending``, and so cannot be
+    recovered any other way. Passing your own reader in, and continuing to read
+    through it afterward, is what keeps that frame instead of losing it silently.
+    Omitting the argument is fine when nothing follows the handshake on this stream,
+    such as in a test.
     """
-    # §5, and the order is load-bearing: our hello goes out before we read a single byte.
-    # Both peers announce unprompted, so waiting for theirs would deadlock two runtimes.
+    # §5, and the order is load-bearing: our hello goes out before we read a single
+    # byte. Both peers announce unprompted, so waiting for theirs would deadlock two
+    # runtimes.
     io.write(f"{encode_hello(local_versions)}\n".encode())
 
     reader = reader if reader is not None else NdjsonLineReader()
     peer_frame: str | None = None
+    pending: tuple[str, ...] = ()
 
     while peer_frame is None:
         chunk = io.read()
         if chunk is None:
-            # End of stream. A peer that stopped mid-frame may still have left a complete
-            # hello without its terminating newline, so drain before giving up.
+            # End of stream. A peer that stopped mid-frame may still have left a
+            # complete hello without its terminating newline, so drain before giving
+            # up. flush_frames() yields at most one frame, so there is never a
+            # pending remainder to carry from this branch.
             drained = reader.flush_frames().frames
             peer_frame = drained[0] if drained else None
             break
+        # §5 has both peers announce unprompted, so a peer's hello and its first
+        # request often arrive in the same read: push() returns every complete frame
+        # that chunk completed, not just the hello. The hello is always frames[0];
+        # anything after it is a complete frame the caller must not lose, so it goes
+        # out as `pending` rather than being dropped here.
         frames = reader.push(chunk)
-        if frames:
-            peer_frame = frames[0]
+        peer_frame = frames[0] if frames else None
+        if peer_frame is not None:
+            pending = tuple(frames[1:])
 
     if peer_frame is None:
-        # §7.3: an absent hello is a refusal. There is no token for silence, and we never
-        # learned a set to intersect with.
-        return HandshakeRefused(reason="no-common-version", pending=())
+        # §7.3: an absent hello is a refusal. There is no token for silence, and we
+        # never learned a set to intersect with.
+        return HandshakeRefused(reason="no-common-version", pending=pending)
 
     parsed = parse_hello(peer_frame)
     if isinstance(parsed, HelloRefused):
-        return HandshakeRefused(reason=parsed.reason, pending=tuple(pending))
+        return HandshakeRefused(reason=parsed.reason, pending=pending)
 
     negotiated = negotiate_contract_version(local_versions, parsed.contract_versions)
     if isinstance(negotiated, NegotiationRefused):
-        return HandshakeRefused(reason=negotiated.reason, pending=tuple(pending))
-    return HandshakeOk(version=negotiated.version, pending=tuple(pending))
+        return HandshakeRefused(reason=negotiated.reason, pending=pending)
+    return HandshakeOk(version=negotiated.version, pending=pending)
 ```
+
+> **This block is the shipped implementation, transcribed after the fact.** The version
+> written here first predated the `pending` amendment: it referenced `pending` at three
+> return sites without ever defining it, which is a `NameError` on the first refusal, and it
+> discarded every frame the hello's chunk completed after the hello. Both code blocks in
+> this plan are now the code that shipped.
 
 - [ ] **Step 4: Export from the `ipc` package**
 
@@ -819,7 +943,7 @@ from nimbus_sdk.ipc.handshake import (
 cd sdks/python && python -m pytest tests/test_handshake.py -q
 ```
 
-Expected: **17 passed** (10 plain tests + 7 parametrised reason cases).
+Expected: **0 failed**. It shipped at 17 (10 plain tests + 7 parametrised reason cases) and the fix waves took it to **20**.
 
 - [ ] **Step 6: Prove the write-before-read rule is load-bearing, by mutation**
 
@@ -829,7 +953,7 @@ In `handshake.py`, move the `io.write(...)` line to just before the `return` sta
 cd sdks/python && python -m pytest tests/test_handshake.py -q
 ```
 
-Expected: **1 failed** — `test_writes_our_hello_before_reading_anything`, because `peer.order[0]` is now `"read"`. Restore the write to the top and re-run: **17 passed**. Confirm with `git diff` that no probe remains.
+Expected: **1 failed** — `test_writes_our_hello_before_reading_anything`, because `peer.order[0]` is now `"read"`. Restore the write to the top and re-run: **0 failed** again. Confirm with `git diff` that no probe remains.
 
 - [ ] **Step 7: Run the full gate and commit**
 
@@ -837,7 +961,7 @@ Expected: **1 failed** — `test_writes_our_hello_before_reading_anything`, beca
 cd sdks/python && python -m ruff check . && python -m ruff format --check . && python -m mypy && python -m pytest -q
 ```
 
-Expected: all clean; **145 passed, 6 skipped** (128 + 17).
+Expected: all clean, **0 failed**. The finished branch prints **167 passed, 6 skipped**.
 
 ```bash
 git add sdks/python/src/nimbus_sdk/ipc/ sdks/python/tests/test_handshake.py
@@ -904,6 +1028,7 @@ Each entry gives the chunks the peer delivers and the single result both binding
 | `crlf-terminated` | the hello ending `\r\n` | `ok:1` |
 | `second-frame-returned` | two hellos in one chunk, `["1"]` then `["2"]` | `ok:1`, and the second frame in `pending` |
 | `hello-plus-two-frames` | a hello then `{"a":1}` and `{"b":2}` in one chunk | `ok:1`, both in `pending`, in order |
+| `non-hello-frame-before-hello` | `{"a":1}` then the hello, in one chunk | `refused:wrong-message`, with the hello in `pending` |
 
 Write it as JSON with a `_comment` key stating that it must never be edited to make a test pass, and an `exchanges` object keyed by the names above, each holding `chunks` (an array of strings) and `expect`.
 
@@ -988,7 +1113,7 @@ Note `Path(__file__).parents[3]` — from `sdks/python/tests/` that is the repos
 cd sdks/python && python -m pytest tests/test_handshake_differential.py -q
 ```
 
-Expected: **17 passed** — one non-empty check plus sixteen exchanges.
+Expected: **0 failed** — one non-empty check plus one parametrised case per exchange. The finished branch prints **19 passed** for eighteen exchanges.
 
 **If one fails, read it before touching anything.** A wrong prediction in the fixture is fixed in the fixture; a genuine bug in `perform_handshake` is fixed in the runtime. Decide which against `contract-version.md` §5–§7 and `framing.md` §3, and record the decision in the report.
 
@@ -1086,7 +1211,7 @@ cd sdks/typescript && bun test scripts/handshake-differential.test.ts
 cd sdks/python && python -m pytest tests/test_handshake_differential.py -q
 ```
 
-Expected: TypeScript **1 fail** naming `not-json`; Python **1 failed** on the same exchange. Revert the fixture and re-run both: **2 pass** and **17 passed**.
+Expected: TypeScript **1 fail** naming `not-json`; Python **1 failed** on the same exchange. Revert the fixture and re-run both: **2 pass** and **19 passed**.
 
 That both suites reject the same corrupted fixture is what makes this a cross-binding check rather than two unrelated ones — and it is the only way to see that, since the two jobs never meet in CI.
 
@@ -1103,7 +1228,7 @@ Expected: both clean, **0 fail** in each.
 git add docs/fixtures/handshake-exchanges.json sdks/python/tests/test_handshake_differential.py sdks/typescript/scripts/handshake-differential.test.ts
 git commit -m "test: check the handshake agrees across both bindings
 
-Sixteen scripted exchanges, asserted independently by both suites against
+Every scripted exchange, asserted independently by both suites against
 one committed fixture. CI runs the Python and TypeScript jobs on separate
 runners, so they cannot hand results to each other; a shared fixture both
 sides check is what correlates them, and editing it to silence one breaks

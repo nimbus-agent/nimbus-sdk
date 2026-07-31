@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.11.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.10.1...typescript-v1.11.0) (2026-07-31)
+
+
+### Features
+
+* **connector-kit:** publish the dependency-free MCP connector kit ([#78](https://github.com/nimbus-agent/nimbus-sdk/issues/78)) ([4b9d7bf](https://github.com/nimbus-agent/nimbus-sdk/commit/4b9d7bf3fa45260fe9f7a04ca8db904dd489d354))
+
 ## [1.10.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.10.0...typescript-v1.10.1) (2026-07-30)
 
 

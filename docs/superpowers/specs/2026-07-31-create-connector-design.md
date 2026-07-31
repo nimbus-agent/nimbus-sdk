@@ -80,16 +80,33 @@ it.
 
 ## Templates are placeholder-free real projects
 
-The templates carry a fixed name — `nimbus-quickstart-connector` in TypeScript,
-`nimbus_quickstart_connector` in Python — and are valid, runnable projects exactly as they sit
-in the tree. The CLI rewrites three things by **exact string match**, never by regex over
-source:
+The templates carry a fixed name and are valid, runnable projects exactly as they sit in the
+tree. The CLI derives three casing variants from the `<name>` argument and replaces the
+template's own variants **everywhere** — in the contents of every text file, and in every path
+segment:
 
-| What | TypeScript | Python |
+| Variant | Template literal | Generated, for `my-connector` |
 |---|---|---|
-| Project name | `package.json` `name` | `pyproject.toml` `[project].name` |
-| `manifest.id` | `manifest.ts` | `manifest.py` |
-| `manifest.displayName` | `manifest.ts` | `manifest.py` |
+| kebab | `nimbus-quickstart-connector` | `my-connector` |
+| snake | `nimbus_quickstart_connector` | `my_connector` |
+| title | `Nimbus Quickstart Connector` | `My Connector` |
+
+Substituting **path segments** is not optional: the Python template's package lives at
+`src/nimbus_quickstart_connector/`, and `main.py` and every test import it by that name. A
+content-only rewrite produces a project whose `pyproject.toml` names a package that does not
+exist on disk.
+
+An earlier draft of this design named three specific sites — the project name, `manifest.id`,
+and `manifest.displayName` — and asserted the whole-tree guard below anyway. Those two
+statements contradict each other: the template's name also appears in both READMEs, in the
+Python package's directory name, in its imports, and in whatever file someone adds next.
+Enumerating sites guarantees the enumeration and the guard drift apart. Substituting everywhere
+makes the guard *exactly* the specification rather than an approximation of it.
+
+The cost is over-substitution — a name appearing as a substring of something that should not
+change. The template names are distinctive enough that this is not a live hazard today, and the
+generated project's own build and tests run in CI immediately afterward, which is where a
+mangled identifier would surface.
 
 A template written with `__PROJECT_NAME__` placeholders cannot be linted, typechecked, tested,
 or executed in place. Every kind of drift you would most want to catch — a renamed export, a
@@ -99,11 +116,11 @@ same tooling as the rest of the repository, and the substitution step stays smal
 verify exhaustively.
 
 **The guard, and it is mutation-provable.** After generating, assert that **no occurrence of
-the template's own name survives anywhere in the output tree** — every file, including ones the
-substitution list does not name. Add a fourth place the name appears (a README heading, a test
-fixture, a CI file inside the template) without adding a substitution, and the test goes red.
-The convenient invariant would be "the three substitutions were applied"; the right one is
-"nothing of the template's identity is left behind."
+any of the three variants survives anywhere in the output tree** — every file's contents and
+every path. Add a file to the template that names it, and the guard covers it for free. The
+convenient invariant would be "the known substitutions were applied"; the right one is "nothing
+of the template's identity is left behind," and it is the reason the substitution is whole-tree
+rather than a list.
 
 Name validation happens before any file is written: the argument must satisfy npm package-name
 rules for TypeScript and be a valid module identifier for Python. It does **not** need to
@@ -130,16 +147,25 @@ my-connector/
 TypeScript, and runs the handshake over stdio — returning cleanly on agreement and exiting
 `CONTRACT_HANDSHAKE_EXIT` (`20`) on refusal, which is what
 `docs/spec/negotiation/v1/contract-version.md` §7 requires of a connector. The SDK exports that
-constant precisely so a caller can act on a refusal the package itself will not act on.
+constant precisely so a caller can act on a refusal the package itself will not act on, and
+**both bindings already export it under that identical name** — `contract-version.ts:53` and
+`contract.py:32`, the latter re-exported from `nimbus_sdk/__init__.py`. The two quickstarts can
+therefore name the same constant, and neither template needs to hardcode `20`.
 
 `handlers` deliberately import nothing from the SDK. An author's business logic should be
 testable without a wire protocol, and keeping the boundary visible in the generated shape is
 cheaper than explaining it in prose.
 
-Python has no `connector-kit`, so its `main` wires the `mcp` package directly. The shape mirrors
-TypeScript's as closely as the two ecosystems allow; where it cannot, the template says so. The
-absence of a Python connector-kit is a real gap and the quickstart names it rather than hiding
-it behind hand-rolled helpers that would amount to inventing one here.
+Python has no `connector-kit`, so its `main` wires the `mcp` package directly. The file split is
+identical to TypeScript's — `manifest` / `handlers` / `main` — so the two quickstarts read as
+the same project in two languages; the difference is confined to `main`, where the few lines
+`createRegisterSimpleTool` would otherwise absorb sit inline, commented as exactly that. Keeping
+them inline and visible is the point: hand-rolling a Python helper module here would amount to
+designing a Python `connector-kit` inside a scaffold, without the RFC such a surface deserves.
+
+The gap gets **recorded rather than narrated**: D1 adds a Python connector-kit line to the
+ROADMAP's Phase 3 batteries section, so the asymmetry is tracked where the next person will look
+instead of only in a template comment.
 
 **The generated README draws one line explicitly**: the manifest shape, the handshake, and exit
 code 20 are *contract* — the gateway depends on them. Which MCP server you use and how your
@@ -175,10 +201,16 @@ Both jobs join `ci-ok`'s `needs` list. That job fails on `skipped` as well as on
 (`.github/workflows/ci.yml`), so neither may be made conditional.
 
 **These two jobs need the network policy widened.** Every job runs `step-security/harden-runner`
-with `egress-policy: block` and an explicit allowlist. Installing a generated project's
-dependencies means `scaffold-typescript` needs `registry.npmjs.org` and `scaffold-python` needs
-`pypi.org` and `files.pythonhosted.org`. This is a deliberate widening on two jobs and is called
-out here so it is a decision in review rather than a surprise in a diff.
+with `egress-policy: block` and an explicit `host:port` allowlist. Installing a generated
+project's dependencies means `scaffold-typescript` adds `registry.npmjs.org:443`, and
+`scaffold-python` adds `pypi.org:443` and `files.pythonhosted.org:443` — those hosts, that port,
+on those two jobs only. No other job's allowlist changes. This is called out here so it is a
+decision in review rather than a surprise in a diff.
+
+Caching the dependencies to run these jobs offline was considered and **rejected**. A warm cache
+would suppress precisely the signal this design is buying: a template dependency range that has
+gone bad resolves from the cache and stays green, and the breakage surfaces months later in an
+author's terminal instead of in our CI. The fresh install is the test.
 
 ## Documentation
 

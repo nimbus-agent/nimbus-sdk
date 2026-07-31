@@ -26,8 +26,9 @@ Two readings of §6 answer differently, and both are defensible from the corpus 
 - **Short-circuit on emptiness.** An empty set can intersect with nothing, so the answer is
   `no-common-version` without the other side ever being inspected.
 
-A binding written from the second reading passes **all 33 cases** the corpus contained before this RFC. Expressed
-against the reference implementation, the entire divergence is five lines:
+A binding written from the second reading passes **all 33 cases** the corpus contained
+before this RFC. Expressed against the reference implementation, the entire divergence
+is five lines:
 
 ```ts
 const shortCircuiting = (local, remote) =>
@@ -36,8 +37,9 @@ const shortCircuiting = (local, remote) =>
     : negotiateContractVersion(local, remote);
 ```
 
-Nothing currently distinguishes that from the real thing. The gap is not theoretical: a binding divergence of exactly this shape survived three independent
-checks, because none of those checks had a corpus case capable of telling the two readings apart.
+Nothing currently distinguishes that from the real thing. The gap is not theoretical:
+a binding divergence of exactly this shape survived three independent checks, because none
+of those checks had a corpus case capable of telling the two readings apart.
 
 Auditing the `negotiate` kind for this RFC surfaced a **second** uncovered gap of the same
 family. All three invalid-member cases — `negotiate-leading-zero`, `negotiate-non-string`, and
@@ -126,10 +128,10 @@ does not add that coverage — it returns the malformed member to `local` — an
 different property it pins: that the empty-does-not-short-circuit rule holds in both directions,
 so a binding short-circuiting on an empty `remote` only cannot pass by satisfying the crux alone.
 
-This leaves the `valid` × `contains invalid` cell of the table above uncovered, and deliberately
-so: it catches only bindings the crux case already catches — a local-only validator, and not the
-short-circuiting one, which does not short-circuit when neither side is empty. Adding it would grow the
-corpus without narrowing the set of bindings that pass.
+This leaves the `valid` × `contains invalid` cell of the table above uncovered, and
+deliberately so: it catches only bindings the crux case already catches — a local-only
+validator, and not the short-circuiting one, which does not short-circuit when neither side
+is empty. Adding it would grow the corpus without narrowing the set of bindings that pass.
 
 `negotiate-both-empty` bounds the fix in the other direction. Without it, a binding could satisfy
 the first two by treating emptiness as an error in its own right, and the corpus would call that

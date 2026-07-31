@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { TargetNotEmptyError } from "./generate.ts";
-import { exitCodeForGenerateError, parseArgv } from "./index.ts";
+import { exitCodeForGenerateError, nextSteps, parseArgv } from "./index.ts";
 
 describe("parseArgv", () => {
   test("accepts a bare name with the ts default and no --dir", () => {
@@ -40,6 +40,34 @@ describe("parseArgv", () => {
     expect(parseArgv(["my-conn", "--lang", "rust"])).toEqual({
       error: "--lang must be ts or python, not rust",
     });
+  });
+});
+
+/**
+ * The printed next-steps used to be an inline ternary nothing asserted on, and it drifted: it
+ * told Python authors `pip install -e .`, so the very next line it printed failed with
+ * "No module named pytest". These assertions exist so the next drift fails here instead of in
+ * review.
+ */
+describe("nextSteps", () => {
+  test("the ts branch is npm install then npm test", () => {
+    const printed = nextSteps("ts", "/out");
+    expect(printed).toContain("cd /out");
+    expect(printed).toContain("npm install");
+    expect(printed).toContain("npm test");
+  });
+
+  /**
+   * These three strings are what `docs/quickstart-python.md` §2 and the generated README
+   * teach. If you change one, change all three — the CLI's line is the one an author reads
+   * first, so it is the one that must not disagree.
+   */
+  test("the python branch teaches a venv and the [dev] extra, as the docs do", () => {
+    const printed = nextSteps("python", "/out");
+    expect(printed).toContain("cd /out");
+    expect(printed).toContain("python -m venv .venv");
+    expect(printed).toContain('.venv/bin/pip install -e ".[dev]"');
+    expect(printed).toContain(".venv/bin/python -m pytest");
   });
 });
 

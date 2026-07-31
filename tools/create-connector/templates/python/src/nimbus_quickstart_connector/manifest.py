@@ -29,7 +29,12 @@ MANIFEST: dict[str, Any] = {
     "minNimbusVersion": "0.1.0",
 }
 
-#: The tool surface, in the shape ``assert_no_row_data_tools`` inspects.
+#: The tool surface.
+#:
+#: TypeScript's ``assertNoRowDataTools`` inspects this shape. ``nimbus-dev-sdk``
+#: publishes no Python equivalent yet, so there is nothing to import and nothing to
+#: call — see the README's "There is no Python connector-kit". Do not go looking for a
+#: snake_case spelling of that name; it does not exist.
 #:
 #: Keep names free of row-data segments — a connector indexes metadata; record bodies
 #: stay on the system they came from.

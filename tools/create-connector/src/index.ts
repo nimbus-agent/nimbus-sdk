@@ -76,6 +76,32 @@ export function exitCodeForGenerateError(error: unknown): number {
   return error instanceof TargetNotEmptyError ? 2 : 1;
 }
 
+/**
+ * The "what now" the CLI prints after generating.
+ *
+ * Exported so `index.test.ts` can pin it. It drifted once already — it told Python authors
+ * `pip install -e .`, which leaves the very next line it prints failing with "No module named
+ * pytest" — and nothing caught it, because nothing asserted on this string.
+ *
+ * The Python branch teaches a venv because `docs/quickstart-python.md` §2 and the generated
+ * README both do, and this is the line an author sees first; three places giving different
+ * advice for one step is how the last drift started. npm installs devDependencies by default,
+ * so the TypeScript branch needs no equivalent of naming the `[dev]` extra.
+ */
+export function nextSteps(lang: string, targetDir: string): string {
+  if (lang === "ts") {
+    return `\nNext:\n  cd ${targetDir}\n  npm install\n  npm test`;
+  }
+  return [
+    "",
+    "Next:",
+    `  cd ${targetDir}`,
+    "  python -m venv .venv",
+    '  .venv/bin/pip install -e ".[dev]"   # Windows: .venv\\Scripts\\pip',
+    "  .venv/bin/python -m pytest          # Windows: .venv\\Scripts\\python",
+  ].join("\n");
+}
+
 function fail(message: string, code: number): never {
   console.error(`create-connector: ${message}\n\n${USAGE}`);
   process.exit(code);
@@ -100,15 +126,7 @@ export async function main(argv: readonly string[]): Promise<void> {
   try {
     const result = await generate({ templateDir, targetDir, name });
     console.log(`Created ${name.kebab} in ${targetDir} (${String(result.files.length)} files)`);
-    console.log(
-      parsed.lang === "ts"
-        ? `\nNext:\n  cd ${targetDir}\n  npm install\n  npm test`
-        : // The `[dev]` extra is not optional in practice: pytest, mypy and ruff all live in
-          // it, so `pip install -e .` alone makes the very next line fail with
-          // "No module named pytest". npm installs devDependencies by default and needs no
-          // such flag, which is why the two branches do not read alike.
-          `\nNext:\n  cd ${targetDir}\n  python -m pip install -e ".[dev]"\n  python -m pytest`,
-    );
+    console.log(nextSteps(parsed.lang, targetDir));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     fail(message, exitCodeForGenerateError(error));

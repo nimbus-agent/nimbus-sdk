@@ -10,7 +10,7 @@ suite.
 | SDK | Package | Requires | Status |
 |---|---|---|---|
 | [TypeScript](./sdks/typescript/) | [`@nimbus-dev/sdk`](https://www.npmjs.com/package/@nimbus-dev/sdk) | Node **≥ 22**, ESM | Reference implementation |
-| [Python](./sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Python **≥ 3.11** | Passes the conformance suite |
+| [Python](./sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Python **≥ 3.11** | Official |
 
 Both publish with the strongest provenance their ecosystem supports: npm with
 `--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations, both

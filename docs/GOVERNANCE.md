@@ -23,7 +23,15 @@ It is a statement of intent for how the project is run, not a legal document.
   conformance suite, and releases. Today a small first-party group; the roadmap
   moves this toward a documented, multi-party body as official SDKs multiply.
 - **SDK owners** — for each official language binding, the people responsible for
-  keeping it conformant and released with proper provenance.
+  keeping it conformant and released with proper provenance. Named, so
+  ["how a language becomes official"](#how-a-language-becomes-official) criterion 3 is
+  checkable from this document rather than only from the RFC that cites it:
+  - **Python** (`nimbus-dev-sdk`) — Asaf Golombek
+    ([@AsafGolombek](https://github.com/AsafGolombek)), per
+    [RFC-0008](./rfcs/0008-python-sdk-official.md).
+  - **TypeScript** (`@nimbus-dev/sdk`) — the reference implementation, maintained by the
+    maintainers above. It predates this process and has no promotion RFC of its own;
+    RFC-0008 records that asymmetry rather than resolving it.
 - **Contributors** — anyone opening issues, PRs, or RFCs. Third-party connector and
   app authors are first-class contributors to the ecosystem.
 

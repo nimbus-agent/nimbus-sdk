@@ -955,11 +955,21 @@ describe("echo", () => {
 });
 ```
 
-**Verify the test runner before continuing.** The generated project must be testable with plain
-Node (`node --test`), because an author is not required to have Bun. If `node --test` cannot
-consume `.ts` directly on Node 22, either add a build step before the test or write the tests
-against the built `dist/`. Record which you chose and why. Do not silently switch the template
-to Bun — the manifest above declares `runtime: "node"`.
+**The test runner is a real choice; make it deliberately.** The generated project must be
+testable without Bun, since an author is not required to have it. Node's ability to execute
+TypeScript directly moved during the 22.x line — type stripping arrived behind
+`--experimental-strip-types` partway through and became default-on later still — so
+`"engines": {"node": ">=22"}` spans versions that behave differently.
+
+**Default to `tsx` as a devDependency**, with `"test": "node --import tsx --test *.test.ts"`.
+It behaves identically across every Node 22, which is what the engines floor actually promises.
+A dependency in the *author's* project is not a violation of this repository's zero-dependency
+rule — that rule binds what we publish, and `tsx` is a devDependency of a project we generate.
+
+The zero-dependency alternative is `node --experimental-strip-types --test`, which is correct
+only if you raise the template's engines floor to the Node version where it works unflagged.
+If you take it, state the floor you set and why. Either way, do not silently switch the template
+to Bun.
 
 - [ ] **Step 3: Write `main.ts`, and get the stdio handoff right**
 
@@ -1173,6 +1183,21 @@ answer), how a tool is registered, how the stdio transport is started, and **whe
 transport can be given an already-open stream or pre-read bytes**. That last one is the same
 question as Task 2 Step 1 question 3, and the same rule applies: if it cannot, stop and report
 rather than dropping `pending` on the floor.
+
+**A lead worth checking first, not a fact.** `mcp` is built on `anyio`, and
+`mcp.server.stdio.stdio_server()` is understood to be an async context manager that binds
+stdin/stdout directly and yields a pair of anyio object streams. If that is what you find, the
+transport will not take pre-read *bytes* — but the streams it yields are object streams carrying
+already-parsed messages, so the replay happens one level up: construct your own pair with
+`anyio.create_memory_object_stream()`, send the `pending` frames into it first, then forward
+everything the real stdin reader produces. A wrapper implementing `ObjectReceiveStream` that
+yields `pending` before delegating is the same idea in class form.
+
+Verify this against the installed package before building on it. Note the consequence if it
+holds: `pending` frames are NDJSON *text* and the stream carries *messages*, so replay means
+parsing each frame as a JSON-RPC message. Say in your report whether that parse is something the
+`mcp` package exposes or something the template would be hand-rolling — the second answer is a
+reason to stop and report, not to improvise.
 
 Python's `perform_handshake` is **synchronous** and returns `HandshakeOk` / `HandshakeRefused`,
 discriminated by `isinstance` — not by an `.ok` attribute. `pending` is a `tuple[str, ...]` and
@@ -1559,6 +1584,14 @@ contract-valid manifest with a HITL-gated write.
 run, and what to edit first. Each states the Contract/Yours split. Each documents the `cp -r`
 fallback, because `@nimbus-dev/create-connector` is not published until D2 — say that plainly
 rather than showing an `npm create` line that does not work yet.
+
+**State the naming rule where a reader meets it, not only where it fails.** The CLI accepts
+lowercase kebab-case starting with a letter and rejects underscores, uppercase, and leading
+digits — one name has to serve as an npm package name, a Python module name, and a directory
+name at once, so it takes the intersection of all three. That is stricter than any single
+ecosystem and stricter than the Nimbus contract itself, which constrains `manifest.id` only as a
+required non-empty string. Put the rule and the one-line reason in both quickstarts; the `USAGE`
+string in `src/index.ts` already carries the short form, and the two should agree.
 
 `docs/` is language-neutral and stays at the repository root; these pages are not TypeScript's
 to own.

@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.11.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.11.0...typescript-v1.11.1) (2026-07-31)
+
+
+### Bug Fixes
+
+* **ipc:** strip a start-of-stream BOM the runtime may not strip ([#85](https://github.com/nimbus-agent/nimbus-sdk/issues/85)) ([98bc307](https://github.com/nimbus-agent/nimbus-sdk/commit/98bc307287c94cc7049c2dd73303b711bd02e009))
+
 ## [1.11.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.10.1...typescript-v1.11.0) (2026-07-31)
 
 

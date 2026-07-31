@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { CONTRACT_VERSIONS } from "../contract-version.js";
 import { type HandshakeIo, type HandshakeRefusalReason, performHandshake } from "./handshake.js";
+import { IPC_MAX_LINE_BYTES, NdjsonLineReader } from "./ndjson-line-reader.js";
 
 /** A scripted peer: hands back queued chunks, records everything written. */
 function scriptedPeer(chunks: (string | null)[]): HandshakeIo & { written: string[] } {
@@ -140,6 +141,48 @@ describe("performHandshake", () => {
       version: "1",
       pending: ['{"a":1}', '{"b":2}', '{"c":3}'],
     });
+  });
+
+  test("a partial frame survives in a caller-supplied reader", async () => {
+    // The pair to the two cases above, and the half `pending` structurally cannot cover: a
+    // frame the peer left *incomplete* in the same chunk was never a complete line to
+    // extract, so it can only survive inside the reader that buffered it. Omitting `reader`
+    // here would drop those bytes with nothing in the result to indicate it happened —
+    // `{ ok: true, pending: [] }` looks identical either way, which is why this needs its
+    // own test rather than riding on the `pending` ones.
+    const reader = new NdjsonLineReader();
+    const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n{"partial":']);
+    expect(await performHandshake(io, { reader })).toEqual({
+      ok: true,
+      version: "1",
+      pending: [],
+    });
+
+    // The rest of the frame arrives after the handshake returned. The caller-supplied reader
+    // still holds the earlier bytes and assembles the complete frame from them; a reader
+    // performHandshake had created and dropped would yield only `true}` here.
+    expect(reader.push(new TextEncoder().encode("true}\n"))).toEqual(['{"partial":true}']);
+  });
+
+  test("an oversized frame rejects rather than returning a refusal", async () => {
+    // The one failure that is not a value. `framing.md` §7 makes exceeding the line limit
+    // terminal — the reader latches, so converting it into a refusal reason would both need
+    // a token the contract does not have and let a peer resynchronise a latched reader. A
+    // caller writing only `if (!result.ok)` gets an unhandled rejection here, which is why
+    // both module pages now say so.
+    const io = scriptedPeer([`{"nimbus":"hello","x":"${"y".repeat(IPC_MAX_LINE_BYTES)}"}\n`]);
+    await expect(performHandshake(io)).rejects.toThrow("Message exceeds 1MB line limit");
+  });
+
+  test("a caller-supplied reader decides the type that oversized frame throws", async () => {
+    // Unlike Python, which raises FrameTooLongError, the TypeScript reader throws a bare
+    // Error unless `lineLimitError` is supplied — and performHandshake constructs its own
+    // reader with no options. Passing your own is the only way to get a typed error out of
+    // this call, so the `reader` option carries that job too.
+    class FrameTooLong extends Error {}
+    const reader = new NdjsonLineReader({ lineLimitError: FrameTooLong });
+    const io = scriptedPeer([`{"nimbus":"hello","x":"${"y".repeat(IPC_MAX_LINE_BYTES)}"}\n`]);
+    await expect(performHandshake(io, { reader })).rejects.toBeInstanceOf(FrameTooLong);
   });
 
   test("omitting reader still performs the handshake", async () => {

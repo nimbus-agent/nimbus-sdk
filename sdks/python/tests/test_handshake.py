@@ -11,6 +11,8 @@ import pytest
 
 from nimbus_sdk import CONTRACT_VERSIONS
 from nimbus_sdk.ipc import (
+    IPC_MAX_LINE_BYTES,
+    FrameTooLongError,
     HandshakeOk,
     HandshakeRefused,
     NdjsonLineReader,
@@ -164,3 +166,17 @@ def test_a_partial_frame_survives_in_a_caller_supplied_reader() -> None:
     # The rest of the partial frame arrives later; the caller-supplied reader still
     # has the earlier bytes buffered and assembles the complete frame from them.
     assert reader.push(b"true}\n") == ['{"partial":true}']
+
+
+def test_an_oversized_frame_raises_rather_than_refusing() -> None:
+    # The one failure that is not a returned value. Section 7 of framing.md makes
+    # exceeding the line limit terminal — the reader latches — so turning it into a
+    # refusal reason would need a token the contract does not have and would let a peer
+    # resynchronise a latched reader. A caller that only checks `isinstance(result,
+    # HandshakeRefused)` gets an exception instead, which is why both module pages now
+    # say so. Note the binding asymmetry this pins: Python raises FrameTooLongError,
+    # while TypeScript's reader throws a bare Error unless the caller supplies its own
+    # reader with `lineLimitError`.
+    frame = b'{"nimbus":"hello","x":"' + b"y" * IPC_MAX_LINE_BYTES + b'"}\n'
+    with pytest.raises(FrameTooLongError):
+        perform_handshake(ScriptedPeer([frame]))

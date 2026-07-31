@@ -381,7 +381,7 @@ export interface ExtensionManifest {
     homepage?: string;
     icon?: string;
     entrypoint: string;
-    runtime: "bun" | "node";
+    runtime: "bun" | "node" | "python";
     permissions: Array<"read" | "write" | "delete">;
     hitlRequired: Array<"write" | "delete">;
     oauth?: {

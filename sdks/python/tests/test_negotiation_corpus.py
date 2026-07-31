@@ -20,6 +20,7 @@ from nimbus_sdk import (
     manifest_contract_versions,
     negotiate_contract_version,
 )
+from nimbus_sdk.ipc import HelloOk, HelloRefused, parse_hello
 
 # Reads the spec data bundled at build time into `src/nimbus_sdk/_data/spec`, which
 # `spec_root()` prefers over the repository's `docs/spec`. That copy is gitignored and
@@ -29,11 +30,12 @@ from nimbus_sdk import (
 # checkout and is unaffected.
 CASES = load_corpus("negotiation")
 
-# `hello` cases exercise hello-frame parsing, which lives with the IPC surface this
-# package does not yet carry. Skipping them is recorded rather than silent, and the
-# test below fails if a *new* kind appears — so the gap cannot widen unnoticed.
-IMPLEMENTED_KINDS = {"negotiate", "declaration"}
-DEFERRED_KINDS = {"hello"}
+# Every kind in the corpus is now executed. DEFERRED_KINDS is kept, empty, rather
+# than deleted: the assertion below is what fails when a *new* kind appears, and a
+# future kind may legitimately land before its binding does. An empty set states
+# "nothing is deferred" where no set at all would state nothing.
+IMPLEMENTED_KINDS = {"negotiate", "declaration", "hello"}
+DEFERRED_KINDS: set[str] = set()
 
 
 def test_every_corpus_kind_is_accounted_for() -> None:
@@ -120,3 +122,24 @@ def test_corpus_refuses_a_binding_that_short_circuits_on_an_empty_set() -> None:
         "short-circuit-on-empty — the RFC-0006 empty-vs-invalid cases are missing "
         "or no longer discriminate"
     )
+
+
+@pytest.mark.parametrize(
+    "case",
+    [c for c in CASES if c["kind"] == "hello"],
+    ids=lambda c: str(c["description"])[:60],
+)
+def test_hello_cases(case: dict[str, object]) -> None:
+    expect = case["expect"]
+    assert isinstance(expect, dict)
+    result = parse_hello(str(case["frame"]))
+    if expect["ok"]:
+        declared = expect["contractVersions"]
+        assert isinstance(declared, list)
+        # Order is significant HERE and nowhere else: the frame's declared order is
+        # what parse_hello reports, per case.schema.json ("in the order the frame
+        # declared it"). The §6 algorithm treats the same values as an unordered set.
+        assert result == HelloOk(contract_versions=tuple(str(v) for v in declared))
+    else:
+        assert result == HelloRefused(reason=str(expect["reason"]))
+        assert expect["exit"] == CONTRACT_HANDSHAKE_EXIT

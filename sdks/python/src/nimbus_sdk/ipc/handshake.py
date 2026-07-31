@@ -39,6 +39,12 @@ class HandshakeIO(Protocol):
     inherit. ``read`` returns ``None`` at end of stream. Neither method is given a
     timeout — §8 puts that bound on whatever supervises the process and makes no
     value normative, so a caller who wants one wraps this call.
+
+    **``None``, not ``b""``.** ``sys.stdin.buffer.read(n)`` returns an empty ``bytes``
+    at end of stream, not ``None``, so an adapter that forwards it unchanged never
+    signals the end: the loop below pushes ``b""``, gets no frame back, and reads
+    again forever. Translate the empty read into ``None``. Node's streams resolve
+    ``null``, which already matches, so this trap is Python's alone.
     """
 
     def read(self) -> bytes | None: ...
@@ -54,10 +60,16 @@ class HandshakeOk:
     process these before reading further: a peer announces unprompted (§5), so its hello
     and its first request often arrive in one read, and dropping them silently loses the
     first message of the session.
+
+    It has **no default**, matching the TypeScript union where the field is required.
+    ``pending`` exists precisely to stop frames going missing without a trace, so a
+    default would let "forgot to pass it" construct cleanly under ``mypy --strict`` and
+    reintroduce the loss it was added to prevent. Pass ``pending=()`` when there is
+    genuinely nothing.
     """
 
     version: str
-    pending: tuple[str, ...] = ()
+    pending: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,10 +82,12 @@ class HandshakeRefused:
     Not :class:`NegotiationRefused`, whose ``reason`` would accept these without
     complaint: five of them describe a frame that never reached negotiation, and
     ``NegotiationRefused(reason="not-json")`` would claim one happened.
+
+    ``pending`` has no default here either, for the reason :class:`HandshakeOk` gives.
     """
 
     reason: str
-    pending: tuple[str, ...] = ()
+    pending: tuple[str, ...]
 
 
 HandshakeResult = HandshakeOk | HandshakeRefused

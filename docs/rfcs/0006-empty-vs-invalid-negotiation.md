@@ -26,7 +26,7 @@ Two readings of §6 answer differently, and both are defensible from the corpus 
 - **Short-circuit on emptiness.** An empty set can intersect with nothing, so the answer is
   `no-common-version` without the other side ever being inspected.
 
-A binding written from the second reading passes **all 33 cases** in the corpus today. Expressed
+A binding written from the second reading passes **all 33 cases** the corpus contained before this RFC. Expressed
 against the reference implementation, the entire divergence is five lines:
 
 ```ts
@@ -36,9 +36,8 @@ const shortCircuiting = (local, remote) =>
     : negotiateContractVersion(local, remote);
 ```
 
-Nothing currently distinguishes that from the real thing. The gap is not theoretical: a real
-binding divergence of exactly this shape survived three independent checks, because every check
-available to catch it was a corpus the corpus did not cover.
+Nothing currently distinguishes that from the real thing. The gap is not theoretical: a binding divergence of exactly this shape survived three independent
+checks, because none of those checks had a corpus case capable of telling the two readings apart.
 
 Auditing the `negotiate` kind for this RFC surfaced a **second** uncovered gap of the same
 family. All three invalid-member cases — `negotiate-leading-zero`, `negotiate-non-string`, and
@@ -128,8 +127,8 @@ different property it pins: that the empty-does-not-short-circuit rule holds in 
 so a binding short-circuiting on an empty `remote` only cannot pass by satisfying the crux alone.
 
 This leaves the `valid` × `contains invalid` cell of the table above uncovered, and deliberately
-so: against every binding that can be constructed here it discriminates exactly as the crux case
-does, since a local-only validator answers `no-common-version` to both. Adding it would grow the
+so: it catches only bindings the crux case already catches — a local-only validator, and not the
+short-circuiting one, which does not short-circuit when neither side is empty. Adding it would grow the
 corpus without narrowing the set of bindings that pass.
 
 `negotiate-both-empty` bounds the fix in the other direction. Without it, a binding could satisfy
@@ -147,6 +146,7 @@ and why the enforcement below is load-bearing rather than ceremonial.
 | Three `negotiate` cases added to the corpus | none | A third-party binding that short-circuits on an empty set, which was already non-conformant under §6 and now fails CI instead of passing it. |
 | One clarifying sentence in §6 | none | Nobody. It states what the section already required. |
 | A short-circuiting anti-binding in each corpus runner | none | Nobody. Test-only, in both `sdks/` trees. |
+| `test_spec.py`'s hardcoded corpus-size assertion updated 33 → 36 | none | Nobody. A test-only sanity check on the corpus's size, which had to move with it. |
 
 No exported type changes, no schema changes, and **no new refusal reason** — `case.schema.json`'s
 published `reason` enum is untouched, so a validator pinned to the current schema keeps

@@ -2,7 +2,7 @@
  * Negotiation guard — `docs/spec/negotiation/` cannot drift from the reference implementation,
  * and its corpus cannot pass vacuously.
  *
- * The sixth guard in the family `docs/spec/README.md` documents. Three properties this file owns
+ * The sixth guard in the family `docs/spec/README.md` documents. Four properties this file owns
  * that no fixture can assert about itself:
  *
  * **Drift.** The contract-version pattern is spelled in six places — the one TypeScript module,
@@ -17,6 +17,10 @@
  * **The exit code.** The reserved code is stated in the spec, held in a runtime constant, and
  * carried by every refusal case in the corpus. A number in three places drifts unless something
  * compares them.
+ *
+ * **Check order.** A corpus that admits both readings of spec §6 — validate-then-intersect, or
+ * short-circuit on an empty set — would pass vacuously for a binding that gets it wrong. An
+ * anti-binding wrapper at the end of this file proves the corpus tells the two apart (RFC-0006).
  */
 
 import { describe, expect, test } from "bun:test";

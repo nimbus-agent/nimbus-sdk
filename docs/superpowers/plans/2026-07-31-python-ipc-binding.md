@@ -457,10 +457,37 @@ IPC_MAX_LINE_BYTES = 1024 * 1024
 
 _LIMIT_MESSAGE = "Message exceeds 1MB line limit"
 
+#: The maximum octets one code point can occupy in UTF-8. Used to bound the limit check
+#: below without encoding.
+_MAX_UTF8_BYTES_PER_CHAR = 4
+
 #: Stripped when it is the first character of the *stream*. Python's utf-8 codec keeps
 #: a byte-order mark where JavaScript's TextDecoder drops it, so this is spelled out
 #: rather than inherited from the decoder.
 _BOM = "\ufeff"
+
+
+def _exceeds_limit(text: str) -> bool:
+    """Whether ``text`` is longer than :data:`IPC_MAX_LINE_BYTES` in UTF-8 octets.
+
+    **Measured on the decoded text, not the raw input octets**, matching the reference
+    implementation, which calls ``byteLengthUtf8`` on the already-decoded string. The
+    distinction is observable: a line of ill-formed octets expands under
+    ``errors="replace"``, since each becomes U+FFFD at three octets. No corpus case
+    pins it — every limit case uses well-formed input — so this is a deliberate
+    agreement with the reference rather than a rule anything enforces.
+
+    Bounded before encoding because :meth:`NdjsonLineReader.push` checks the *whole*
+    pending buffer on every call: a peer feeding one large frame in small chunks would
+    otherwise re-encode the accumulated buffer once per chunk. Every code point is 1 to
+    4 octets, so more characters than the limit is already over it, and four times the
+    characters still within it cannot reach it; only the band between needs an encode.
+    """
+    if len(text) > IPC_MAX_LINE_BYTES:
+        return True
+    if len(text) * _MAX_UTF8_BYTES_PER_CHAR <= IPC_MAX_LINE_BYTES:
+        return False
+    return len(text.encode("utf-8")) > IPC_MAX_LINE_BYTES
 
 
 class FrameTooLongError(Exception):
@@ -537,12 +564,14 @@ class NdjsonLineReader:
             # Empty means zero-length, not blank: a frame of spaces is delivered.
             if not trimmed:
                 continue
-            if len(trimmed.encode("utf-8")) > IPC_MAX_LINE_BYTES:
+            if _exceeds_limit(trimmed):
                 self._too_long()
             out.append(trimmed)
         # The limit binds the unterminated buffer too, or a peer that never sends a
-        # newline could exhaust memory while staying under the per-frame cap.
-        if len(self._pending.encode("utf-8")) > IPC_MAX_LINE_BYTES:
+        # newline could exhaust memory while staying under the per-frame cap. This is
+        # the call that runs on every push over the whole buffer, which is why
+        # _exceeds_limit bounds before encoding.
+        if _exceeds_limit(self._pending):
             self._too_long()
         return out
 
@@ -555,7 +584,7 @@ class NdjsonLineReader:
         self._fail_if_latched()
         rest = self._pending + self._decode(b"", final=True)
         self._pending = ""
-        if len(rest.encode("utf-8")) > IPC_MAX_LINE_BYTES:
+        if _exceeds_limit(rest):
             self._too_long()
         frame = rest[:-1] if rest.endswith("\r") else rest
         if not frame:
@@ -769,6 +798,11 @@ def test_framing_cases(case: dict[str, object]) -> None:
         octets = _octets(chunk)
         if isinstance(wanted, dict) and "error" in wanted:
             assert wanted["error"] == "frame-too-long"
+            # pytest.raises SWALLOWS the exception, so the loop continues to the next
+            # chunk rather than aborting. That is required, not incidental:
+            # limit-violation-latches pushes twice and expects an error BOTH times —
+            # the second proving a valid chunk cannot resynchronise a latched reader.
+            # A runner that stopped at the first error would silently skip that half.
             with pytest.raises(FrameTooLongError):
                 reader.push(octets)
         else:
@@ -808,14 +842,11 @@ If instead you see `FileNotFoundError: no conformance corpus for 'framing'`, the
 
 - [ ] **Step 3: Prove the corpus discriminates, by mutation — the octet limit**
 
-In `ndjson.py`, change both limit checks in `push` from octets to characters, the mistake a reader ported without care makes:
+In `ndjson.py`, replace the body of `_exceeds_limit` with a character count — the mistake a reader ported without care makes. One edit now covers all three call sites, which is a side benefit of the helper:
 
 ```python
-            if len(trimmed) > IPC_MAX_LINE_BYTES:          # MUTATION PROBE
-                self._too_long()
-        ...
-        if len(self._pending) > IPC_MAX_LINE_BYTES:        # MUTATION PROBE
-            self._too_long()
+def _exceeds_limit(text: str) -> bool:
+    return len(text) > IPC_MAX_LINE_BYTES   # MUTATION PROBE
 ```
 
 ```bash

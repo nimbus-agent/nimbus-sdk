@@ -79,7 +79,7 @@ server.start();
 `registerTool` but are not themselves re-exported, so they are structural: pass an object
 literal and TypeScript checks it against the shape above.
 
-## `handshake(io)`
+## `handshake(io, options?)`
 
 `server.handshake(io)` is a thin delegate to `performHandshake` — see
 [`ipc.md`](./ipc.md) for `HandshakeIo` and the exchange it runs. The server contributes
@@ -104,17 +104,32 @@ whatever this class happens to do.
   `handshake` performs no I/O beyond the `HandshakeIo` you pass in and never calls
   `process.exit`. A `{ ok: false, reason, pending }` result comes back to you like any other
   value — you decide what your process does about it.
+- **An oversized first frame throws; it does not come back as a refusal.** A frame past
+  `IPC_MAX_LINE_BYTES` is terminal at the framing layer, so `handshake` rejects rather than
+  returning `{ ok: false }` — a caller writing only `if (!result.ok)` gets an unhandled
+  rejection. See [`ipc.md`](./ipc.md#the-handshake) for why, and for how to get a typed error
+  instead of a bare `Error`: construct your own reader with `lineLimitError` and pass it as
+  `options.reader`.
+- **`options.reader` is the only option, and you need it if you keep reading.** It is
+  forwarded verbatim to `performHandshake` — read [`ipc.md`](./ipc.md#the-handshake) for what
+  it recovers that `pending` cannot. `localVersions` is deliberately *not* accepted: the
+  manifest declares the set, and letting a caller override it here is exactly the §7.2
+  `declaration-mismatch` this method exists to make impossible.
 - **Stores nothing.** There is no other operation here to gate on the result — `registerTool`
   is still a stub — so the method's only job is to hand you what `performHandshake` returned.
 
 ```ts
 import type { NimbusExtensionServer } from "@nimbus-dev/sdk";
+import { NdjsonLineReader } from "@nimbus-dev/sdk/ipc";
 
 declare const server: NimbusExtensionServer;
 declare function readChunk(): Promise<Uint8Array | null>;
 declare function writeChunk(chunk: Uint8Array): Promise<void>;
 
-const result = await server.handshake({ read: readChunk, write: writeChunk });
+// Supply the reader whenever the session keeps reading this stream — it is the only thing
+// that can hold a frame the peer left half-written in the chunk that carried its hello.
+const reader = new NdjsonLineReader();
+const result = await server.handshake({ read: readChunk, write: writeChunk }, { reader });
 if (!result.ok) {
   // Your call: log it, refuse the connection, exit — this package does none of those for you.
 }

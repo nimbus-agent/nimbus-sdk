@@ -8,7 +8,12 @@
  */
 
 import { V1_ABSENCE_DEFAULT } from "./contract-version.js";
-import { type HandshakeIo, type HandshakeResult, performHandshake } from "./ipc/handshake.js";
+import {
+  type HandshakeIo,
+  type HandshakeOptions,
+  type HandshakeResult,
+  performHandshake,
+} from "./ipc/handshake.js";
 import type { ExtensionManifest } from "./types.js";
 
 export interface ExtensionServerOptions<TClient> {
@@ -60,9 +65,28 @@ export class NimbusExtensionServer<TClient = unknown> {
    * this SDK happens to speak, so the day a second major ships every manifest predating the
    * field would announce a set it never declared — a `declaration-mismatch` compiled into
    * published surface rather than a bug anyone introduced.
+   *
+   * `options.reader` is forwarded to {@link performHandshake} and exists for the same reason
+   * it does there: a peer announces unprompted (§5), so its hello and its first request often
+   * arrive in one read, and a frame the peer left *incomplete* in that chunk is recoverable
+   * only from the reader that buffered it. `pending` returns the complete frames, but a reader
+   * this method created and dropped would take the partial one with it silently. Without this
+   * parameter a connector reaching the handshake through this class had no way to keep it —
+   * the recovery `docs/modules/ipc.md` tells callers to use was structurally unreachable here.
+   *
+   * Only `reader` is accepted. `localVersions` is the manifest's to declare, and letting a
+   * caller pass it here would let the running hello contradict the manifest — the §7.2
+   * `declaration-mismatch` this method exists to make impossible.
    */
-  handshake(io: HandshakeIo): Promise<HandshakeResult> {
+  handshake(io: HandshakeIo, options?: Pick<HandshakeOptions, "reader">): Promise<HandshakeResult> {
     const localVersions = this._options.manifest.contractVersions ?? V1_ABSENCE_DEFAULT;
-    return performHandshake(io, { localVersions });
+    const reader = options?.reader;
+    // Built by branch rather than spread: `exactOptionalPropertyTypes` is on, so
+    // `{ reader: undefined }` is not assignable to `reader?: NdjsonLineReader` — the key
+    // must be absent, not present and undefined.
+    return performHandshake(
+      io,
+      reader === undefined ? { localVersions } : { localVersions, reader },
+    );
   }
 }

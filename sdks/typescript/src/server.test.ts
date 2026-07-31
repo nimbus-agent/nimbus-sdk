@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { HandshakeIo } from "./ipc/handshake.js";
+import { NdjsonLineReader } from "./ipc/ndjson-line-reader.js";
 import { NimbusExtensionServer } from "./server.js";
 import type { ExtensionManifest } from "./types.js";
 
@@ -184,6 +185,44 @@ describe("NimbusExtensionServer.handshake", () => {
     expect(manifest.contractVersions).toBeUndefined();
     await server.handshake(io);
     expect(io.written.join("")).toBe('{"nimbus":"hello","contractVersions":["1"]}\n');
+  });
+
+  test("forwards a caller-supplied reader, so a partial frame survives the call", async () => {
+    // The half of the data-loss fix `pending` cannot cover: the peer stops mid-frame in the
+    // same chunk that carried its hello, so those bytes were never a complete line to return.
+    // They survive only in the reader that buffered them — which a connector reaching the
+    // handshake through this class could not supply until this parameter existed.
+    const reader = new NdjsonLineReader();
+    const server = new NimbusExtensionServer({ manifest });
+    let sent = false;
+    const result = await server.handshake(
+      {
+        read: async () => {
+          if (sent) {
+            return null;
+          }
+          sent = true;
+          return new TextEncoder().encode(
+            '{"nimbus":"hello","contractVersions":["1"]}\n{"partial":',
+          );
+        },
+        write: async () => {},
+      },
+      { reader },
+    );
+    expect(result).toEqual({ ok: true, version: "1", pending: [] });
+    // The rest arrives after the handshake returned; the same reader completes the frame.
+    expect(reader.push(new TextEncoder().encode("true}\n"))).toEqual(['{"partial":true}']);
+  });
+
+  test("omitting options still performs the handshake", async () => {
+    // The parameter is additive: every existing caller passes one argument and is unaffected.
+    const server = new NimbusExtensionServer({ manifest });
+    expect(await server.handshake(recordingIo())).toEqual({
+      ok: true,
+      version: "1",
+      pending: [],
+    });
   });
 
   test("start() is unchanged — still synchronous, still takes no arguments", () => {

@@ -738,7 +738,7 @@ export declare class NimbusExtensionServer<TClient = unknown> {
     registerTool<TInput>(_name: string, _definition: ToolDefinition<TInput, TClient>): void;
     start(): void;
 
-    handshake(io: HandshakeIo): Promise<HandshakeResult>;
+    handshake(io: HandshakeIo, options?: Pick<HandshakeOptions, "reader">): Promise<HandshakeResult>;
 }
 ```
 

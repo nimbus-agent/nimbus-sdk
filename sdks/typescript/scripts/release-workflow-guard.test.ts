@@ -49,6 +49,17 @@ export function environmentName(environment: JobEnvironment): string | undefined
 }
 
 const workflow = parse(readFromRepo(".github/workflows/release.yml")) as ReleaseWorkflow;
+const ciWorkflow = parse(readFromRepo(".github/workflows/ci.yml")) as ReleaseWorkflow;
+
+/** Every `run:` script in a workflow, flattened across all jobs, tagged with its job id. */
+function runScripts(parsed: ReleaseWorkflow): { job: string; run: string }[] {
+  return Object.entries(parsed.jobs).flatMap(([job, definition]) =>
+    (definition.steps ?? [])
+      .map((step) => step.run)
+      .filter((run): run is string => typeof run === "string")
+      .map((run) => ({ job, run })),
+  );
+}
 
 describe("the release workflow", () => {
   test("declares the PyPI environment exactly once, at workflow level", () => {
@@ -104,6 +115,57 @@ describe("the release workflow", () => {
         "build ship permanently while every gate_dist.py unit test keeps passing, " +
         "since none of them exercise the workflow itself",
     ).toBeGreaterThanOrEqual(0);
+  });
+
+  // Cross-workflow, and deliberately not scoped to release.yml alone. The 0.1.2 release
+  // failed because ci.yml's python job installed verify-requirements.txt and
+  // release.yml's publish-python did not, while both ran `python -m mypy` over a tree
+  // containing scripts/verify_publish.py. Guarding one file would leave the same drift
+  // reachable from the other direction, so the invariant is stated over both: whoever
+  // runs mypy installs what mypy needs.
+  //
+  // Reachability is the whole point. publish-python runs only when release-please cuts a
+  // Python version, so no pull request executes it — the gap survived from the commit
+  // that added the imports until the next release, invisible to every check. This test
+  // runs on every PR, which is the only place the relationship can be caught in time.
+  test("every job that runs mypy also installs verify-requirements.txt", () => {
+    const offenders = [
+      { file: ".github/workflows/ci.yml", parsed: ciWorkflow },
+      { file: ".github/workflows/release.yml", parsed: workflow },
+    ].flatMap(({ file, parsed }) =>
+      runScripts(parsed)
+        .filter(({ run }) => run.includes("python -m mypy"))
+        // Same job, not merely the same file: the install and the mypy invocation must
+        // share a runner. A sibling job installing it does this one no good.
+        .filter(
+          ({ job }) =>
+            !runScripts(parsed).some(
+              (step) => step.job === job && step.run.includes("verify-requirements.txt"),
+            ),
+        )
+        .map(({ job }) => `${file}: job ${job}`),
+    );
+
+    expect(
+      offenders,
+      "mypy is strict and type-checks scripts/verify_publish.py, which imports " +
+        "pypi_attestations, sigstore, cryptography and pyasn1 — none provided by " +
+        "`pip install -e .`, since this package is dependency-free by policy. A job " +
+        "running mypy without those installed fails on missing imports.",
+    ).toEqual([]);
+  });
+
+  test("the mypy guard is load-bearing — it finds the jobs it claims to check", () => {
+    // Without this, the assertion above passes vacuously the day someone renames the
+    // mypy invocation: an empty offender list would read as "everything is fine".
+    const mypyJobs = [ciWorkflow, workflow].flatMap((parsed) =>
+      runScripts(parsed).filter(({ run }) => run.includes("python -m mypy")),
+    );
+    expect(
+      mypyJobs.length,
+      "no workflow job runs `python -m mypy` — either the Python type-check was dropped " +
+        "from CI, or its invocation was reworded and the guard above now checks nothing",
+    ).toBeGreaterThanOrEqual(2);
   });
 
   test("the dist gate runs before the PyPI publish step", () => {

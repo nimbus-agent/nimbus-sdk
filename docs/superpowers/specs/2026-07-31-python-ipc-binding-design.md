@@ -81,16 +81,51 @@ surface that rots — the narrow-waist posture [GOVERNANCE.md](../../GOVERNANCE.
 as a sequence of pushes each with its own expected output plus a final drain:
 
 ```python
+@dataclass(frozen=True, slots=True)
+class FlushResult:
+    frames: tuple[str, ...]   # 0 or 1 — the case schema caps it at maxItems 1
+    truncated: bool           # True when a frame was delivered that no LF terminated
+
 class NdjsonLineReader:
     def push(self, chunk: bytes) -> list[str]: ...
-    def flush_frames(self) -> FlushResult: ...   # FlushResult(frames, truncated)
+    def flush_frames(self) -> FlushResult: ...
 ```
+
+`FlushResult` is `frozen=True, slots=True`, matching `contract.py`'s result types rather than
+being a bare tuple or a `NamedTuple`. Its `frames` is a **tuple**, not a list: a frozen dataclass
+holding a mutable list is a half-measure — it forbids rebinding the field while leaving the
+contents editable. `push` still returns a plain `list[str]`, mirroring the TypeScript array
+return; the difference is deliberate, since `push` returns a result while `FlushResult` is a value
+object that outlives the call.
+
+`FrameTooLongError` inherits from **`Exception` directly**. No SDK-wide base exception exists —
+`nimbus_sdk` currently defines no exception classes at all — and inventing a `NimbusError`
+hierarchy for a single member is speculative surface. `ValueError` was considered and rejected:
+nothing about an argument is wrong, the *stream* has exceeded a protocol limit and is henceforth
+unusable, which is a state violation rather than a value one.
 
 A generator-based design was rejected: the corpus pins per-push outputs and a distinct
 end-of-stream `truncated` flag, so a runner would need an adapter — and an adapter is where a
 binding diverges without failing the corpus, the exact failure mode RFC-0006 was written about.
 
-Three behaviours the corpus pins that a careless implementation gets wrong:
+**Delimiting: LF splits, one trailing CR is stripped, zero-length results are dropped.** The
+delimiter is `\n` alone. After splitting, exactly *one* trailing `\r` is removed, so a CRLF sender
+and an LF sender produce identical frames. Three cases pin the boundaries of that rule and they
+disagree with the three obvious shortcuts:
+
+| Case | Input | Frame | Rules out |
+|---|---|---|---|
+| `single-frame-crlf` | `{"a":1}\r\n` | `{"a":1}` | not stripping CR |
+| `cr-inside-frame-preserved` | `a\rb\n` | `a\rb` | stripping *all* CRs, or splitting on CR |
+| `whitespace-only-frame-delivered` | `"   \n"` | `"   "` | `strip()`-ing the frame |
+| `blank-remainder-dropped-at-eof` | `\r` then EOF | *(none)* | treating a bare CR as a frame |
+
+"Empty" means **zero-length, not blank** — `whitespace-only-frame-delivered` exists specifically
+to catch a binding that calls `.strip()` and drops a frame of spaces. A bare `\r` at end-of-stream
+becomes zero-length only *after* the CR strip, and is then dropped like any empty frame, which is
+why it reports no frame and `truncated: false`.
+
+Three further behaviours the corpus pins that a careless implementation gets wrong:
 
 **Latching.** A limit violation is terminal. It clears the buffer, and every later `push` **and**
 `flush_frames` raises rather than resuming. `limit-violation-latches` pins that the frame parsed
@@ -113,6 +148,13 @@ The rule is **strip `U+FEFF` only if it is the first character the decoder ever 
 "strip it from the first chunk": a BOM split across a chunk boundary still emerges at stream
 start, because nothing has been emitted before it. Mid-stream `U+FEFF` is not stripped, and no
 case pins that — it follows from the rule rather than from a fixture.
+
+Mechanically, the reader carries a `_stream_started: bool`, and **it flips on the first
+*non-empty* decoded output, not on the first `push` call.** That precision is the whole point:
+pushing `b"\xef"` alone decodes to `""` because the incremental decoder is still buffering, so a
+flag keyed to "has push been called" would consider the stream started and let the BOM through
+when its remaining octets arrive. Keyed to the first non-empty output, `push(b"\xef")`,
+`push(b"\xbb")`, `push(b'\xbf{"a":1}\n')` still strips correctly.
 
 Everything else agrees. Python's `codecs.getincrementaldecoder("utf-8")("replace")` was tested
 against every malformed-sequence case in the corpus — a lead octet that cannot begin a sequence,
@@ -153,6 +195,14 @@ maps it onto its own error type.
 **The hello runner** drives the 14 cases already in the negotiation corpus. It needs no new
 fixture data: the cases exist and are indexed, they are simply skipped today.
 
+`parse_hello` does **no whitespace stripping of its own**. It hands the string to `json.loads`,
+which tolerates surrounding whitespace exactly as `JSON.parse` does — verified: `json.loads`
+accepts a trailing `\n`. Two layers already make stripping unnecessary: the reader owns the `\n`
+as a delimiter, so a frame never carries one, and `hello-padded` exercises whitespace *inside* the
+frame (`{"nimbus": "hello", "contractVersions": ["1"]}`) rather than around it, which is the
+parser's business anyway. Adding a `.strip()` would be a second gatekeeper with no case behind it,
+and would diverge from `parseHello`, which calls `JSON.parse` directly.
+
 `IMPLEMENTED_KINDS` becomes `{"negotiate", "declaration", "hello"}` and `DEFERRED_KINDS` becomes
 empty. `test_every_corpus_kind_is_accounted_for` keeps working unchanged — it asserts the corpus's
 kinds equal the union of the two sets, so it still fails by design when a new kind appears, now
@@ -174,6 +224,18 @@ sub-projects A and B. Three deliberate wrong bindings must each be shown to fail
 
 Each is a small edit to the finished module, shown to redden a specific named case, then
 reverted. A guard demonstrated only by passing is not demonstrated.
+
+Two unit tests carry properties the corpus states less directly:
+
+**A BOM split across three pushes** — `push(b"\xef")`, `push(b"\xbb")`, `push(b'\xbf{"a":1}\n')`
+must yield `{"a":1}`. The corpus delivers its BOM in one chunk, so this is the only thing that
+distinguishes "flag flips on first non-empty output" from "flag flips on first push." Both pass
+`bom-at-stream-start-ignored`; only the correct one passes this.
+
+**The post-latch sequence, all three steps** — an oversized `push` raises; a *subsequent, valid,
+small* `push` raises again rather than resuming; and `flush_frames()` raises rather than returning
+a `FlushResult`. `limit-violation-latches` covers this, but as one case with a compound
+expectation; stated as three assertions it names which step regressed.
 
 ## Consequences
 

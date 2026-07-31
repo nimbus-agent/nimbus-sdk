@@ -1,0 +1,25 @@
+{
+  "name": "nimbus-quickstart-connector",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Nimbus connector that echoes what it is given.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "node --import tsx --test \"*.test.ts\"",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@nimbus-dev/sdk": "^1.12.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

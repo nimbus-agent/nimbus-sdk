@@ -20,13 +20,19 @@ def test_a_bom_split_across_three_pushes_is_still_stripped() -> None:
     # decoder buffers, so a push-keyed flag would consider the stream started and let
     # the BOM through when its remaining octets arrive.
     #
-    # This also documents a REAL divergence in the reference implementation: the
-    # TypeScript reader FAILS this case under Bun, which is what `bun test` runs here.
-    # Bun's TextDecoder re-checks for a BOM at the start of every streaming decode()
-    # call instead of once per stream, so it does not strip a BOM split across chunks.
-    # Under Node the same TypeScript code is correct. framing.md §5 makes ignoring a
-    # start-of-stream BOM a MUST, and the corpus cannot catch this because
-    # bom-at-stream-start-ignored delivers its BOM in a single chunk.
+    # This case also found a real bug in the reference implementation. The TypeScript
+    # reader used to FAIL it under Bun, whose TextDecoder re-checks for a BOM at the
+    # start of every streaming decode() call rather than once per stream, so it kept a
+    # BOM split across chunks. Under Node the same code was correct. framing.md §5
+    # makes ignoring a start-of-stream BOM a MUST, so the published binding was
+    # non-conformant on the runtime `bun test` actually uses. Fixed in #85 by
+    # constructing that decoder with ignoreBOM and stripping explicitly — the same
+    # approach ndjson.py takes here, for the same reason.
+    #
+    # The corpus still cannot catch it: bom-at-stream-start-ignored delivers its BOM
+    # in a single chunk, which both runtimes always handled. A case that splits one
+    # would hold every binding to it, but that is a change to a published conformance
+    # invariant and belongs in an RFC.
     reader = NdjsonLineReader()
     assert reader.push(b"\xef") == []
     assert reader.push(b"\xbb") == []
@@ -35,10 +41,11 @@ def test_a_bom_split_across_three_pushes_is_still_stripped() -> None:
 
 def test_a_bom_arriving_mid_stream_is_not_stripped() -> None:
     # Not stripping here is a permitted local choice in territory framing.md §5 leaves
-    # explicitly undefined, not a consequence of the stream-start rule: Bun strips a
-    # mid-stream BOM, so the reference implementation does not agree with this choice
-    # under one of its two supported runtimes, which is exactly why §5 declares
-    # reader behavior for a non-start-of-stream BOM undefined rather than pinning it.
+    # explicitly undefined, not a consequence of the stream-start rule. It used to be
+    # a live disagreement — Bun stripped a mid-stream BOM where Node did not, which is
+    # why §5 declines to pin it — and #85 settled it by taking BOM handling away from
+    # the runtime entirely, so the TypeScript binding now makes the same choice this
+    # one does. §5 still permits either answer; both bindings just agree on which.
     reader = NdjsonLineReader()
     assert reader.push(b"first\n") == ["first"]
     assert reader.push("\ufeffsecond\n".encode()) == ["\ufeffsecond"]

@@ -24,6 +24,14 @@
  * Blank lines and a lone elision marker (`// …`, `# …`, `…`) are skipped; everything else is
  * checked. Adding a marker to any listed document opts that fence in — nothing has to be
  * registered here.
+ *
+ * Two limits, both deliberate. **Under-quoting is not caught:** an excerpt is a subsequence,
+ * so deleting a line from a quote leaves it green. That is the one axis the old equality check
+ * covered and this cannot. **`DOCUMENTS` is a fixed list, not discovery:** a fourth page
+ * carrying markers is unguarded until its path is added below, so "adding a marker opts a
+ * fence in" holds only *within* these three files. Discovery was rejected — globbing `docs/`
+ * would silently take on the RFCs and the spec, whose fences quote frozen historical text on
+ * purpose and would start failing as the code moves past them.
  */
 
 import { describe, expect, test } from "bun:test";

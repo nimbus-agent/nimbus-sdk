@@ -21,6 +21,11 @@ bun run --cwd tools/create-connector build
 node tools/create-connector/dist/index.js weather-connector --dir ~/src/weather-connector
 ```
 
+Generate **outside** the checkout, as `--dir` does above. Inside it, Node's resolution walks
+up to the repository's workspace `node_modules` and satisfies `@nimbus-dev/sdk` from there —
+a resolution no real author has, and one that hides a broken dependency range until someone
+else hits it. The CI jobs generate into `$RUNNER_TEMP` for exactly this reason.
+
 <!-- quoted-from: tools/create-connector/src/index.ts -->
 
 ```text
@@ -74,7 +79,7 @@ here; the Python one does — see [quickstart-python.md](./quickstart-python.md)
 ## 2. Install, test, run
 
 ```bash
-cd weather-connector
+cd ~/src/weather-connector
 npm install
 npm test     # pretest = typecheck + build, then unit + acceptance tests
 npm start    # node dist/main.js — the connector on stdio

@@ -24,6 +24,12 @@ published package.
   utilities connectors use in their own test suites.
 - `./ipc` (`sdks/typescript/src/ipc/index.ts`) — the NDJSON line-reader + IPC framing
   helpers.
+- `./connector-kit` (`sdks/typescript/src/connector-kit/index.ts`) — helpers for
+  hand-rolled MCP connectors: `createRegisterSimpleTool` / `registerZodTool`,
+  `mcpJsonResult` and its variants, and `makeRestFetcher` / `makeRestToolRegistrar` (the
+  Bearer-auth REST fetcher, with `resolveUrlWithBase` as its SSRF chokepoint). Still
+  dependency-free — `ZodObjectSchema` is a structural type, not an import of `zod`. The
+  generated connector template imports from here, so it is a **four**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.

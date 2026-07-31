@@ -29,7 +29,7 @@ tools over the same two streams. Full walkthrough:
 # The scaffolder is not published yet, so run it from a checkout of this repository.
 git clone https://github.com/nimbus-agent/nimbus-sdk && cd nimbus-sdk
 bun install && bun run --cwd tools/create-connector build
-node tools/create-connector/dist/index.js weather-connector
+node tools/create-connector/dist/index.js weather-connector --dir ~/src/weather-connector
 ```
 
 <!-- quoted-from: tools/create-connector/src/index.ts -->
@@ -45,10 +45,12 @@ Usage: create-connector <name> [--lang ts|python] [--dir <path>]
 `<name>` has to be an npm package name, a Python module name, and a directory name at
 once, so the CLI takes the intersection of all three: lowercase kebab-case starting with
 a letter. `my_connector`, `MyConnector` and `2fa-connector` are refused rather than
-quietly rewritten. Then:
+quietly rewritten. `--dir` points outside the checkout on purpose: inside it, Node
+resolution walks up to the repository's workspace `node_modules` and satisfies
+`@nimbus-dev/sdk` from there, which is a resolution no real author has. Then:
 
 ```bash
-cd weather-connector
+cd ~/src/weather-connector
 npm install
 npm test     # typechecks, builds, then runs unit + acceptance tests
 npm start    # node dist/main.js
@@ -166,6 +168,12 @@ each half with its own test — keep them.
 - **`@nimbus-dev/sdk/testing`** — `MockGateway` + contract-test / sandbox-probe
   utilities for connector test suites.
 - **`@nimbus-dev/sdk/ipc`** — the NDJSON line-reader + IPC framing helpers.
+- **`@nimbus-dev/sdk/connector-kit`** — helpers for hand-rolled MCP connectors:
+  `createRegisterSimpleTool` / `registerZodTool` for Zod-validated tool registration,
+  `mcpJsonResult` and friends for MCP tool results, and `makeRestFetcher` — a Bearer-auth
+  JSON fetcher with origin-locked URL resolution. Still dependency-free: `ZodObjectSchema`
+  is a structural type, not an import of `zod`. This is the entry point the generated
+  `main.ts` above imports from.
 
 Changing an exported type is a semver-relevant change.
 

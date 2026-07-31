@@ -23,8 +23,13 @@ no `npm create` or `pipx` line to give you, and one would fail. Run it from a ch
 git clone https://github.com/nimbus-agent/nimbus-sdk && cd nimbus-sdk
 bun install
 bun run --cwd tools/create-connector build
-node tools/create-connector/dist/index.js weather-connector --lang python
+node tools/create-connector/dist/index.js weather-connector --lang python --dir ~/src/weather-connector
 ```
+
+Generate **outside** the checkout, as `--dir` does above. Inside it, a stray `src/` on the
+path or the repository's own editable install can satisfy `nimbus_sdk` from the working tree
+rather than from the distribution you installed — which is a resolution no real author has.
+The CI jobs generate into `$RUNNER_TEMP` for exactly this reason.
 
 <!-- quoted-from: tools/create-connector/src/index.ts -->
 
@@ -81,23 +86,27 @@ package that is not on disk. Then replace, in file contents:
 ## 2. Install, test, run
 
 ```bash
-cd weather-connector
+cd ~/src/weather-connector
 python -m venv .venv
-.venv/bin/pip install -e ".[dev]"                      # Windows: .venv\Scripts\pip
-.venv/bin/python -m pytest                             # unit + acceptance tests
-.venv/bin/python -m weather_connector.main             # the connector on stdio
+.venv/bin/pip install -e ".[dev]"             # the package, plus pytest, mypy and ruff
+.venv/bin/python -m pytest                    # unit + acceptance tests
+.venv/bin/python -m weather_connector.main    # the connector on stdio
 ```
 
+**On Windows, every `.venv/bin/…` line on this page is `.venv\Scripts\…`** — that is where
+a Windows venv puts its executables, so `.venv\Scripts\pip`, `.venv\Scripts\python`, and so
+on. The substitution is mechanical and it applies to all of them, not just the first.
+
 The `[dev]` extra is not optional in practice — `pytest`, `mypy` and `ruff` all live in
-it, so a bare `pip install -e .` gets as far as `No module named pytest`. The acceptance
-tests spawn `python -m weather_connector.main` as a real process, so the package must be
+it, so a bare `.venv/bin/pip install -e .` gets as far as `No module named pytest`. The
+acceptance tests spawn `python -m weather_connector.main` as a real process, so the package must be
 installed before `pytest` will pass; `-e` means you never reinstall after an edit.
 
 To see it answer for yourself — a hello it can agree with, then one it cannot:
 
 ```bash
-printf '{"nimbus":"hello","contractVersions":["1"]}\n' | python -m weather_connector.main; echo "exit=$?"
-printf '{"nimbus":"hello","contractVersions":["2"]}\n' | python -m weather_connector.main; echo "exit=$?"
+printf '{"nimbus":"hello","contractVersions":["1"]}\n' | .venv/bin/python -m weather_connector.main; echo "exit=$?"
+printf '{"nimbus":"hello","contractVersions":["2"]}\n' | .venv/bin/python -m weather_connector.main; echo "exit=$?"
 ```
 
 The first answers with its own hello and exits `0`; the second exits `20`

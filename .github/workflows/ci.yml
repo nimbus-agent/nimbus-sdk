@@ -70,6 +70,20 @@ jobs:
         env:
           CI: "true"
 
+      # The scaffolder copies trees and rewrites path segments, so it runs on the same
+      # three-OS matrix as the SDK. Windows path separators are exactly the bug this catches.
+      - name: Typecheck the scaffolder
+        working-directory: tools/create-connector
+        run: bun run typecheck
+
+      - name: Lint the scaffolder
+        working-directory: tools/create-connector
+        run: bun run lint
+
+      - name: Test the scaffolder
+        working-directory: tools/create-connector
+        run: bun test src/
+
       # One tarball is published and loaded on every OS, so one build is what the
       # smoke jobs must exercise — not a per-OS rebuild the ecosystem never receives.
       - name: Upload dist for the Node smoke jobs

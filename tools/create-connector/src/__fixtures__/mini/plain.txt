@@ -1,0 +1,1 @@
+This file mentions no connector by name and must survive byte-for-byte.

@@ -2,12 +2,15 @@
   "name": "@nimbus-dev/sdk-monorepo",
   "private": true,
   "type": "module",
-  "workspaces": ["sdks/typescript"],
+  "workspaces": ["sdks/typescript", "tools/create-connector"],
   "scripts": {
     "typecheck": "bun run --cwd sdks/typescript typecheck",
     "lint": "bun run --cwd sdks/typescript lint",
     "build": "bun run --cwd sdks/typescript build",
     "test": "bun run --cwd sdks/typescript test",
-    "api:surface": "bun run --cwd sdks/typescript api:surface"
+    "api:surface": "bun run --cwd sdks/typescript api:surface",
+    "scaffold:typecheck": "bun run --cwd tools/create-connector typecheck",
+    "scaffold:lint": "bun run --cwd tools/create-connector lint",
+    "scaffold:test": "bun run --cwd tools/create-connector test"
   }
 }

@@ -17,7 +17,7 @@ widening the contract.
 | [0004](./0004-sandbox-probe-protocol.md) | A protocol for the sandbox probe | accepted | [#61](https://github.com/nimbus-agent/nimbus-sdk/pull/61) |
 | [0005](./0005-contract-version-negotiation.md) | Contract-version negotiation | accepted | [#67](https://github.com/nimbus-agent/nimbus-sdk/pull/67) |
 | [0006](./0006-empty-vs-invalid-negotiation.md) | Empty versus invalid in contract-version negotiation | accepted | [#81](https://github.com/nimbus-agent/nimbus-sdk/pull/81) |
-| [0007](./0007-corpus-gaps-from-the-python-binding.md) | Two corpus gaps the Python binding walked into | draft | — |
+| [0007](./0007-corpus-gaps-from-the-python-binding.md) | Two corpus gaps the Python binding walked into | accepted | [#90](https://github.com/nimbus-agent/nimbus-sdk/pull/90) |
 
 ## Statuses
 

@@ -1,10 +1,8 @@
 # RFC-0007 — Two corpus gaps the Python binding walked into
 
-- **Status:** draft — flips to **accepted** when this lands, per the
-  [status definitions](./README.md#statuses), which reserve *accepted* for a change that
-  has landed and require its landing location to be recorded
+- **Status:** accepted
 - **Opened:** 2026-07-31
-- **Landed:** —
+- **Landed:** 2026-07-31 in [#90](https://github.com/nimbus-agent/nimbus-sdk/pull/90)
 - **Affects:** the `negotiation` and `framing` conformance corpora
 - **Roadmap:** [Phase 2](../ROADMAP.md#phase-2--prove-polyglot-with-python) — no box of its own. It closes gaps found by box 1's work rather than opening new scope
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs)

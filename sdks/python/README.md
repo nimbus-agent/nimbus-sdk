@@ -34,8 +34,11 @@ result = negotiate_contract_version(["1"], ["1"])  # NegotiationOk(version="1")
 ## Status
 
 Early. This release carries the contract-version constants, the negotiation algorithm,
-and the published JSON Schemas. It is not yet the full connector-authoring surface —
-see the [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
+and the published JSON Schemas. It also carries the IPC surface —
+`from nimbus_sdk.ipc import NdjsonLineReader, parse_hello` — deliberately a separate
+import root from `nimbus_sdk`, mirroring the `.` vs `./ipc` split the TypeScript
+package publishes. It is not yet the full connector-authoring surface — see the
+[roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
 
 ## License
 

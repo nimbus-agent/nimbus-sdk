@@ -146,8 +146,14 @@ TypeScript logic literally passes every other framing case and fails this one.
 
 The rule is **strip `U+FEFF` only if it is the first character the decoder ever produces**, not
 "strip it from the first chunk": a BOM split across a chunk boundary still emerges at stream
-start, because nothing has been emitted before it. Mid-stream `U+FEFF` is not stripped, and no
-case pins that — it follows from the rule rather than from a fixture.
+start, because nothing has been emitted before it. Mid-stream `U+FEFF` is not stripped, but that
+is a permitted local choice in territory `docs/spec/wire/v1/framing.md` §5 leaves explicitly
+undefined, not a consequence of the stream-start rule: §5 says reader behavior for a BOM anywhere
+but the very start is undefined by this version, that the runtimes the reference implementation
+supports do not agree on it, and that a binding MAY treat a mid-stream `U+FEFF` as ordinary
+content. Measured fact: Bun strips a mid-stream BOM, so the reference implementation does not
+agree with Python's choice under one of its two runtimes — which is exactly why §5 declares it
+undefined rather than pinning it.
 
 Mechanically, the reader carries a `_stream_started: bool`, and **it flips on the first
 *non-empty* decoded output, not on the first `push` call.** That precision is the whole point:

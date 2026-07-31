@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import NoReturn
 
 from nimbus_sdk.contract import _is_contract_version
 
@@ -48,7 +49,11 @@ def encode_hello(versions: Sequence[str]) -> str:
 
     ``separators`` is explicit because :func:`json.dumps` defaults to ``", "`` and
     ``": "`` — readable, but not the compact form the TypeScript encoder emits, and the
-    two bindings should produce byte-identical canonical frames.
+    two bindings produce byte-identical canonical frames for contract versions, which
+    are ASCII digits by §3. ``ensure_ascii`` is left at its default (``True``) because
+    no reachable input distinguishes it: a non-ASCII member would make ``json.dumps``
+    emit a ``\\uXXXX`` escape where ``JSON.stringify`` emits raw UTF-8, but the
+    ``[1-9][0-9]*`` contract-version pattern never admits one.
     """
     return json.dumps(
         {"nimbus": HELLO_MESSAGE, "contractVersions": list(versions)},
@@ -56,12 +61,26 @@ def encode_hello(versions: Sequence[str]) -> str:
     )
 
 
+def _reject_json_constant(name: str) -> NoReturn:
+    """Refuse the non-JSON constants ``json.loads`` accepts by default.
+
+    ``JSON.parse`` throws on ``NaN``, ``Infinity`` and ``-Infinity``; Python's parser
+    accepts all three. Without this hook the two bindings answer a frame containing one
+    with *different refusal reasons* — the exact divergence the corpus exists to catch,
+    and which none of the 14 hello cases covers.
+    """
+    raise ValueError(f"non-JSON constant: {name}")
+
+
 def parse_hello(frame: str) -> HelloResult:
     """Read one decoded frame as a hello.
 
     Takes a string rather than bytes so it composes with :class:`NdjsonLineReader`
     without depending on it. Refuses as a value and never raises: a binding in another
-    language has no exceptions to mirror, and the corpus compares outcomes.
+    language has no exceptions to mirror, and the corpus compares outcomes. The one
+    caveat is depth, not exceptions: at extreme nesting Python answers ``not-json``
+    where a JavaScript engine may answer ``not-object``, a reason mismatch that cannot
+    be closed without a depth-limited parser.
 
     Whitespace and member order are insignificant — this parses JSON, and a reader that
     compares bytes against the canonical form is non-conformant. Unknown members are
@@ -69,10 +88,13 @@ def parse_hello(frame: str) -> HelloResult:
     whitespace exactly as ``JSON.parse`` does, and the reader already owns the LF.
     """
     try:
-        decoded: object = json.loads(frame)
-    except ValueError:
-        # ValueError, not JSONDecodeError: the latter is a subclass, and catching the
-        # base covers every way json can reject input.
+        decoded: object = json.loads(frame, parse_constant=_reject_json_constant)
+    except (ValueError, RecursionError):
+        # ValueError covers JSONDecodeError and the constant rejection above.
+        # RecursionError is the C scanner's stack guard on deeply nested input. It is
+        # not a ValueError, so without naming it a frame far under the §6 size limit
+        # would raise out of a function documented never to raise — from the first
+        # frame an untrusted peer sends.
         return HelloRefused(reason="not-json")
 
     # A JSON object is a dict and nothing else is. `null` decodes to None, an array to

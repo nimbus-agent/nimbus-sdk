@@ -49,3 +49,28 @@ def test_the_discriminator_is_the_exact_literal() -> None:
     assert parse_hello('{"nimbus":"Hello","contractVersions":["1"]}') == HelloRefused(
         reason="wrong-message"
     )
+
+
+def test_non_json_constants_are_refused_like_json_parse() -> None:
+    # json.loads accepts NaN/Infinity/-Infinity; JSON.parse throws on all three. Without
+    # the parse_constant hook these produced four DIFFERENT refusal reasons than the
+    # TypeScript binding, none of them caught by the 14 hello corpus cases.
+    for frame in ("NaN", "Infinity", "-Infinity"):
+        assert parse_hello(frame) == HelloRefused(reason="not-json")
+
+
+def test_a_non_json_constant_inside_the_frame_is_refused() -> None:
+    assert parse_hello('{"nimbus":"hello","contractVersions":NaN}') == HelloRefused(
+        reason="not-json"
+    )
+    assert parse_hello('{"nimbus":"hello","contractVersions":[NaN]}') == HelloRefused(
+        reason="not-json"
+    )
+
+
+def test_deeply_nested_json_refuses_rather_than_raising() -> None:
+    # json.loads raises RecursionError — not a ValueError — on deep nesting. At ~17k
+    # levels the frame is still only ~3% of the 1 MiB framing limit, so this is
+    # reachable from the first frame an untrusted peer sends.
+    frame = "[" * 40_000 + "]" * 40_000
+    assert parse_hello(frame) == HelloRefused(reason="not-json")

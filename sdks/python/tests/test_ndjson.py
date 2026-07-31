@@ -19,6 +19,14 @@ def test_a_bom_split_across_three_pushes_is_still_stripped() -> None:
     # tells them apart: pushing b"\xef" alone decodes to "" while the incremental
     # decoder buffers, so a push-keyed flag would consider the stream started and let
     # the BOM through when its remaining octets arrive.
+    #
+    # This also documents a REAL divergence in the reference implementation: the
+    # TypeScript reader FAILS this case under Bun, which is what `bun test` runs here.
+    # Bun's TextDecoder re-checks for a BOM at the start of every streaming decode()
+    # call instead of once per stream, so it does not strip a BOM split across chunks.
+    # Under Node the same TypeScript code is correct. framing.md §5 makes ignoring a
+    # start-of-stream BOM a MUST, and the corpus cannot catch this because
+    # bom-at-stream-start-ignored delivers its BOM in a single chunk.
     reader = NdjsonLineReader()
     assert reader.push(b"\xef") == []
     assert reader.push(b"\xbb") == []
@@ -26,7 +34,11 @@ def test_a_bom_split_across_three_pushes_is_still_stripped() -> None:
 
 
 def test_a_bom_arriving_mid_stream_is_not_stripped() -> None:
-    # The rule is "first character of the stream", not "first character of a frame".
+    # Not stripping here is a permitted local choice in territory framing.md §5 leaves
+    # explicitly undefined, not a consequence of the stream-start rule: Bun strips a
+    # mid-stream BOM, so the reference implementation does not agree with this choice
+    # under one of its two supported runtimes, which is exactly why §5 declares
+    # reader behavior for a non-start-of-stream BOM undefined rather than pinning it.
     reader = NdjsonLineReader()
     assert reader.push(b"first\n") == ["first"]
     assert reader.push("\ufeffsecond\n".encode()) == ["\ufeffsecond"]

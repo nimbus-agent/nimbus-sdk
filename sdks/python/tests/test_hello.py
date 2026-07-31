@@ -1,6 +1,6 @@
 """Unit tests for the hello frame, covering what the corpus does not.
 
-The 14 corpus cases in tests/test_negotiation_corpus.py are the conformance bar. These
+The 15 corpus cases in tests/test_negotiation_corpus.py are the conformance bar. These
 cover the encoder, which no case exercises, and two Python-specific hazards.
 """
 
@@ -54,7 +54,7 @@ def test_the_discriminator_is_the_exact_literal() -> None:
 def test_non_json_constants_are_refused_like_json_parse() -> None:
     # json.loads accepts NaN/Infinity/-Infinity; JSON.parse throws on all three. Without
     # the parse_constant hook these produced four DIFFERENT refusal reasons than the
-    # TypeScript binding, none of them caught by the 14 hello corpus cases.
+    # TypeScript binding, none of them caught by the 15 hello corpus cases.
     for frame in ("NaN", "Infinity", "-Infinity"):
         assert parse_hello(frame) == HelloRefused(reason="not-json")
 

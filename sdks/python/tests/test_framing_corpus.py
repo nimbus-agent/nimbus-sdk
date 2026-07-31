@@ -1,7 +1,7 @@
 """Drive the NDJSON line reader from the published framing corpus.
 
 The second corpus this package executes, after negotiation. Both bindings read the
-identical case files: sdks/typescript/scripts/framing-guard.test.ts runs these same 24
+identical case files: sdks/typescript/scripts/framing-guard.test.ts runs these same
 cases against NdjsonLineReader.
 """
 
@@ -90,7 +90,7 @@ def test_framing_cases(case: dict[str, object]) -> None:
             assert reader.push(octets) == [_frame_text(f) for f in wanted]
 
     # `flush` is a SHAPE UNION, and absence is a third possibility the schema allows.
-    # 4 of the 24 cases carry {"error": ...} here rather than {frames, truncated},
+    # 4 of the 25 cases carry {"error": ...} here rather than {frames, truncated},
     # because latching makes the drain fail too; reading ["frames"] unconditionally
     # raises KeyError on exactly those. No current case omits `flush`, but the schema
     # permits it, so absence is tolerated rather than assumed.

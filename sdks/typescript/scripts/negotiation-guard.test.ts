@@ -2,7 +2,7 @@
  * Negotiation guard — `docs/spec/negotiation/` cannot drift from the reference implementation,
  * and its corpus cannot pass vacuously.
  *
- * The sixth guard in the family `docs/spec/README.md` documents. Four properties this file owns
+ * The sixth guard in the family `docs/spec/README.md` documents. Five properties this file owns
  * that no fixture can assert about itself:
  *
  * **Drift.** The contract-version pattern is spelled in six places — the one TypeScript module,
@@ -21,6 +21,12 @@
  * **Check order.** A corpus that admits both readings of spec §6 — validate-then-intersect, or
  * short-circuit on an empty set — would pass vacuously for a binding that gets it wrong. An
  * anti-binding wrapper at the end of this file proves the corpus tells the two apart (RFC-0006).
+ *
+ * **Discriminator order.** Spec §5 requires `wrong-message` to be reachable before
+ * `missing-versions`, but a corpus where no case has both problems at once would pass a reader
+ * that checks `contractVersions` first. A second anti-binding wrapper proves a case pins that
+ * order too (RFC-0007 Gap 1) — the prose alone cannot, and RFC-0006's own gap is what happens
+ * when nothing does.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -36,7 +42,12 @@ import {
   manifestContractVersions,
   negotiateContractVersion,
 } from "../src/contract-version.ts";
-import { encodeHello, type HelloRefusalReason, parseHello } from "../src/ipc/hello.ts";
+import {
+  encodeHello,
+  type HelloParseResult,
+  type HelloRefusalReason,
+  parseHello,
+} from "../src/ipc/hello.ts";
 import { repoRoot } from "./paths.ts";
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -470,6 +481,60 @@ describe("negotiation guard — the corpus discriminates on check order", () => 
       caught,
       "no corpus case distinguishes validate-then-intersect from short-circuit-on-empty — " +
         "the RFC-0006 empty-vs-invalid cases are missing or no longer discriminate",
+    ).not.toEqual([]);
+  });
+});
+
+describe("negotiation guard — the corpus discriminates on the discriminator's position", () => {
+  /**
+   * The wrong binding, in full. It inspects `contractVersions` before the `nimbus`
+   * discriminator — the check-order gap RFC-0007 Gap 1 measured, transposing spec §5's required
+   * order ("`wrong-message` sits above `missing-versions`"). Only that one decision is
+   * overridden: JSON validity, object-ness, and every check reachable once `contractVersions` is
+   * well-formed (the discriminator itself, `invalid-version`, `duplicate-version`, `ok`) delegate
+   * to the real `parseHello`, so this asserts a property of the *corpus* rather than testing a
+   * private reimplementation of hello-parsing against itself. Without a case exercising both
+   * problems at once, this reordering is undetectable — exactly RFC-0006's gap, recurring one
+   * layer up in the same document.
+   */
+  const parseHelloWithVersionsCheckedFirst = (frame: string): HelloParseResult => {
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(frame);
+    } catch {
+      return parseHello(frame);
+    }
+    if (typeof decoded !== "object" || decoded === null || Array.isArray(decoded)) {
+      return parseHello(frame);
+    }
+    const declared: unknown = (decoded as Record<string, unknown>)["contractVersions"];
+    if (!Array.isArray(declared)) {
+      return { ok: false, reason: "missing-versions" };
+    }
+    if (declared.length === 0) {
+      return { ok: false, reason: "empty-versions" };
+    }
+    return parseHello(frame);
+  };
+
+  test("at least one case refuses a binding that checks contractVersions before the discriminator", () => {
+    // Spec §5 requires the discriminator to be checked first, unconditionally. Some hello case
+    // must therefore disagree with the wrapper above; if none does, the corpus admits both
+    // orderings and a binding written from the wrong one passes CI while being non-conformant.
+    const caught = casesOfKind("hello")
+      .filter(({ body }) => {
+        const actual = parseHelloWithVersionsCheckedFirst(body.frame ?? "");
+        const expected = body.expect.ok
+          ? { ok: true, contractVersions: body.expect.contractVersions }
+          : { ok: false, reason: body.expect.reason };
+        return JSON.stringify(actual) !== JSON.stringify(expected);
+      })
+      .map(({ entry }) => entry.file);
+
+    expect(
+      caught,
+      "no corpus case distinguishes discriminator-first from versions-first checking — " +
+        "the RFC-0007 hello-empty-object case is missing or no longer discriminates",
     ).not.toEqual([]);
   });
 });

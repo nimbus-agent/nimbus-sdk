@@ -36,13 +36,13 @@ def test_published_schemas_load(name: str) -> None:
 
 def test_negotiation_corpus_loads() -> None:
     cases = load_corpus("negotiation")
-    assert len(cases) == 36
+    assert len(cases) == 37
     assert {case["kind"] for case in cases} == {"declaration", "hello", "negotiate"}
 
 
 def test_framing_corpus_loads() -> None:
     cases = load_corpus("framing")
-    assert len(cases) == 24
+    assert len(cases) == 25
     # Unlike negotiation, framing cases carry no `kind` discriminator — every case is
     # a stream fed to one reader — so there is no kind set to account for here.
     assert all("chunks" in case and "expect" in case for case in cases)

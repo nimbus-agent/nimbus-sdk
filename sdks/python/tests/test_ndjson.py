@@ -1,6 +1,6 @@
 """Unit tests for the NDJSON line reader.
 
-The 24 framing corpus cases are the conformance bar (tests/test_framing_corpus.py).
+The framing corpus cases are the conformance bar (tests/test_framing_corpus.py).
 These cover three properties where a wrong implementation still passes every corpus
 case, or where naming the failing step matters more than one compound assertion.
 """

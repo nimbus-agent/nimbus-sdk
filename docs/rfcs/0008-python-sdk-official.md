@@ -1,10 +1,8 @@
 # RFC-0008 — Promote the Python SDK to official
 
-- **Status:** draft — flips to **accepted** when this lands, per the
-  [status definitions](./README.md#statuses), which reserve *accepted* for a change that
-  has landed and require its landing location to be recorded
+- **Status:** accepted
 - **Opened:** 2026-07-31
-- **Landed:** —
+- **Landed:** 2026-07-31 in [#91](https://github.com/nimbus-agent/nimbus-sdk/pull/91)
 - **Affects:** [`GOVERNANCE.md`](../GOVERNANCE.md) (the named SDK owner), the roadmap, the
   repository README. No code, no contract, no corpus
 - **Roadmap:** [Phase 2](../ROADMAP.md#phase-2--prove-polyglot-with-python) — completes the

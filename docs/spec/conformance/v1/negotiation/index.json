@@ -152,6 +152,11 @@
       "reason": "A leading zero in the announced set exercises the frame parser's own validation, distinct from the negotiate-kind case of the same shape."
     },
     {
+      "file": "cases/hello-empty-object.json",
+      "section": "§5",
+      "reason": "An object carrying neither member pins that the discriminator is checked before contractVersions, and that an absent nimbus is wrong-message — §5 says \"absent, or present but not exactly\", and no other case omits it."
+    },
+    {
       "file": "cases/declaration-match.json",
       "section": "§7",
       "reason": "The running peer announces exactly what its manifest declared."

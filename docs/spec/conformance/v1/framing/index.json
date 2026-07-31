@@ -67,6 +67,11 @@
       "reason": "a leading BOM must not become payload content"
     },
     {
+      "file": "cases/bom-split-across-chunks.json",
+      "section": "5",
+      "reason": "a mark split across chunks is still at the start of the stream"
+    },
+    {
       "file": "cases/frame-exactly-at-limit.json",
       "section": "6",
       "reason": "the limit is inclusive at 1048576 octets"

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.2.0...python-v0.3.0) (2026-07-31)
+
+
+### Features
+
+* perform the contract-version handshake in both bindings ([#92](https://github.com/nimbus-agent/nimbus-sdk/issues/92)) ([5a95669](https://github.com/nimbus-agent/nimbus-sdk/commit/5a95669559a8b329d5494f9d20d59c2a60a5d24d))
+
 ## [0.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.1.2...python-v0.2.0) (2026-07-31)
 
 

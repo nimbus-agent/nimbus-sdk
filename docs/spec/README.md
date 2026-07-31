@@ -229,10 +229,11 @@ case schema, which carries the pattern twice); that `hello.schema.json` stays ou
 version directory, so the frozen-frame rule stays a failing test rather than only a comment;
 that the corpus validates against its schemas and every case agrees with
 `negotiateContractVersion`, `parseHello`, and `declaredVersionsMatch` respectively, with the
-hello schema reaching the same verdict as `parseHello` on every well-formed frame; and that the
+hello schema reaching the same verdict as `parseHello` on every well-formed frame; that the
 reserved exit code agrees across the spec's prose, the `CONTRACT_HANDSHAKE_EXIT` constant, and
-every refusal case in the corpus. The three new manifest rule ids are covered by
-`sdks/typescript/scripts/rules-guard.test.ts`
+every refusal case in the corpus; and that a short-circuiting anti-binding cannot pass, proving the
+corpus distinguishes validate-then-intersect from short-circuit-on-empty (RFC-0006). The three new
+manifest rule ids are covered by `sdks/typescript/scripts/rules-guard.test.ts`
 instead, which already asserts every published rule — old and new alike — is declared
 identically by the registry and the rule table, and is asserted by at least one fixture.
 

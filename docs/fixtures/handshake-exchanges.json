@@ -1,0 +1,94 @@
+{
+  "_comment": "Cross-binding differential fixture for performHandshake / perform_handshake. Read independently by sdks/typescript/scripts/handshake-differential.test.ts and sdks/python/tests/test_handshake_differential.py, which run in separate CI jobs and cannot hand data to each other. Do not edit an `expect` or `pending` value to make either suite's test pass — if the two bindings disagree, that disagreement is the bug this fixture exists to catch.",
+  "exchanges": {
+    "agree-on-1": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n"],
+      "expect": "ok:1",
+      "pending": []
+    },
+    "split-frame": {
+      "chunks": ["{\"nimbus\":\"hello\",", "\"contractVersions\":[\"1\"]}\n"],
+      "expect": "ok:1",
+      "pending": []
+    },
+    "no-newline-at-eof": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}"],
+      "expect": "ok:1",
+      "pending": []
+    },
+    "silence": {
+      "chunks": [],
+      "expect": "refused:no-common-version",
+      "pending": []
+    },
+    "empty-chunk-then-frame": {
+      "chunks": ["", "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n"],
+      "expect": "ok:1",
+      "pending": []
+    },
+    "disjoint": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"2\"]}\n"],
+      "expect": "refused:no-common-version",
+      "pending": []
+    },
+    "not-json": {
+      "chunks": ["{oops\n"],
+      "expect": "refused:not-json",
+      "pending": []
+    },
+    "not-object": {
+      "chunks": ["null\n"],
+      "expect": "refused:not-object",
+      "pending": []
+    },
+    "wrong-message": {
+      "chunks": ["{\"nimbus\":\"goodbye\",\"contractVersions\":[\"1\"]}\n"],
+      "expect": "refused:wrong-message",
+      "pending": []
+    },
+    "missing-versions": {
+      "chunks": ["{\"nimbus\":\"hello\"}\n"],
+      "expect": "refused:missing-versions",
+      "pending": []
+    },
+    "empty-versions": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[]}\n"],
+      "expect": "refused:empty-versions",
+      "pending": []
+    },
+    "invalid-version": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"01\"]}\n"],
+      "expect": "refused:invalid-version",
+      "pending": []
+    },
+    "duplicate-version": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"1\",\"1\"]}\n"],
+      "expect": "refused:duplicate-version",
+      "pending": []
+    },
+    "blank-lines-before-frame": {
+      "chunks": ["\n\n{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n"],
+      "expect": "ok:1",
+      "pending": []
+    },
+    "crlf-terminated": {
+      "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\r\n"],
+      "expect": "ok:1",
+      "pending": []
+    },
+    "second-frame-returned": {
+      "chunks": [
+        "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n{\"nimbus\":\"hello\",\"contractVersions\":[\"2\"]}\n"
+      ],
+      "expect": "ok:1",
+      "pending": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"2\"]}"]
+    },
+    "hello-plus-two-frames": {
+      "chunks": [
+        "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n{\"a\":1}\n{\"b\":2}\n"
+      ],
+      "expect": "ok:1",
+      "pending": ["{\"a\":1}", "{\"b\":2}"]
+    }
+  }
+}

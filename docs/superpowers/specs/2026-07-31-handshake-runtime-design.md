@@ -81,14 +81,21 @@ So the runtime gets its own result type, whose reason set is exactly what §7 li
 export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
 
 export type HandshakeResult =
-  | { readonly ok: true; readonly version: string }
-  | { readonly ok: false; readonly reason: HandshakeRefusalReason };
+  | { readonly ok: true; readonly version: string; readonly pending: readonly string[] }
+  | {
+      readonly ok: false;
+      readonly reason: HandshakeRefusalReason;
+      readonly pending: readonly string[];
+    };
 ```
 
 `"invalid-version"` is already a member of `HelloRefusalReason`, so the union needs no
 special case for the one reason both layers can produce.
 
-Python mirrors it with `HandshakeOk(version: str)` and `HandshakeRefused(reason: str)`, frozen
+`pending` carries any complete frames the peer sent after its hello — see *The caller owns the reader* below for why discarding them was a data-loss bug.
+
+Python mirrors it with `HandshakeOk(version: str, pending: tuple[str, ...])` and
+`HandshakeRefused(reason: str, pending: tuple[str, ...])`, frozen
 and slotted like `NegotiationOk` / `NegotiationRefused`. Python's existing
 `NegotiationRefused.reason` is a bare `str` and would *accept* a frame reason without
 complaint, but `NegotiationRefused(reason="not-json")` claims a negotiation happened when none
@@ -152,6 +159,39 @@ from 1.11.1 to 2.0.0 — on a package whose whole premise is being a stable cont
 So `start()` keeps its signature, its synchronous validation, and its meaning. The handshake
 arrives as new, additive surface: a `feat:`, a minor bump, and nothing published stops
 working.
+
+### The caller owns the reader, so nothing read past the hello is lost
+
+`performHandshake` reads through an `NdjsonLineReader`. If it creates that reader itself and
+drops it on return, **every byte buffered past the hello is destroyed** — and §5 makes that the
+likely case, not an exotic one: both peers announce unprompted, so a gateway that sends its
+hello and immediately follows with its first request will often land both in a single read. The
+connector would silently lose the first message of every session, with nothing to indicate it
+had happened.
+
+So the reader is a caller-supplied option:
+
+```ts
+interface HandshakeOptions {
+  readonly localVersions?: readonly string[];
+  /** Reused if given, so buffered bytes survive into the session. */
+  readonly reader?: NdjsonLineReader;
+}
+```
+
+**Both halves are required, and implementation proved it.** Handing over the reader alone is not
+enough: `NdjsonLineReader.push()` returns *every* frame a chunk completed, so a runtime that takes
+`[0]` has already destroyed the rest before the caller's reader is consulted. Measured — a chunk
+carrying a hello plus three frames left only the last one recoverable. So:
+
+- **complete frames past the hello** come back in the result, as `pending`;
+- **a partially-buffered frame** stays in the caller's reader.
+
+Together nothing is lost. Returning `pending` alone would still drop the partial bytes; the
+caller's reader alone still drops the extra complete frames. Each fixes one half.
+
+Omitting it stays valid — the runtime creates one — which suits a caller who genuinely owns
+nothing after the handshake, such as a test.
 
 ### I/O is injected, never performed
 

@@ -49,9 +49,9 @@ Exact post-task counts are not pinned, because the number of tests you write is 
 - Consumes: `CONTRACT_VERSIONS` and `negotiateContractVersion` from `../contract-version.js`; `encodeHello`, `parseHello`, `HelloRefusalReason` from `./hello.js`; `NdjsonLineReader` from `./ndjson-line-reader.js`.
 - Produces, for Tasks 2 and 4:
   - `type HandshakeRefusalReason = HelloRefusalReason | "no-common-version"`
-  - `type HandshakeResult = { ok: true; version: string } | { ok: false; reason: HandshakeRefusalReason }`
+  - `type HandshakeResult = { ok: true; version: string; pending: readonly string[] } | { ok: false; reason: HandshakeRefusalReason; pending: readonly string[] }`
   - `interface HandshakeIo { read(): Promise<Uint8Array | null>; write(chunk: Uint8Array): Promise<void> }`
-  - `interface HandshakeOptions { readonly localVersions?: readonly string[] }`
+  - `interface HandshakeOptions { readonly localVersions?: readonly string[]; readonly reader?: NdjsonLineReader }`
   - `performHandshake(io: HandshakeIo, options?: HandshakeOptions): Promise<HandshakeResult>`
 
 - [ ] **Step 1: Write the failing tests**
@@ -86,7 +86,7 @@ function scriptedPeer(chunks: (string | null)[]): HandshakeIo & { written: strin
 describe("performHandshake", () => {
   test("agrees when both peers declare the same major", async () => {
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("writes our hello BEFORE reading anything", async () => {
@@ -117,7 +117,7 @@ describe("performHandshake", () => {
 
   test("a frame split across reads is assembled before parsing", async () => {
     const io = scriptedPeer(['{"nimbus":"hello",', '"contractVersions":["1"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("surfaces the parseHello reason rather than collapsing it", async () => {
@@ -133,13 +133,13 @@ describe("performHandshake", () => {
       ['{"nimbus":"hello","contractVersions":["1","1"]}\n', "duplicate-version"],
     ];
     for (const [frame, reason] of cases) {
-      expect(await performHandshake(scriptedPeer([frame]))).toEqual({ ok: false, reason });
+      expect(await performHandshake(scriptedPeer([frame]))).toEqual({ ok: false, reason, pending: [] });
     }
   });
 
   test("refuses no-common-version when the sets are disjoint", async () => {
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["2"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: false, reason: "no-common-version" });
+    expect(await performHandshake(io)).toEqual({ ok: false, reason: "no-common-version", pending: [] });
   });
 
   test("refuses when the stream ends before any frame arrives", async () => {
@@ -153,7 +153,7 @@ describe("performHandshake", () => {
 
   test("accepts a final frame that end-of-stream delivered without its newline", async () => {
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("honours an explicit localVersions over the SDK default", async () => {
@@ -223,6 +223,17 @@ export interface HandshakeIo {
 export interface HandshakeOptions {
   /** Defaults to {@link CONTRACT_VERSIONS} — what this SDK speaks. */
   readonly localVersions?: readonly string[];
+  /**
+   * The reader to draw frames through. **Supply one to keep the session's bytes.**
+   *
+   * A peer announces unprompted (§5), so its hello and its first request very often arrive
+   * in a single read. A reader created here and dropped on return would destroy whatever
+   * followed the hello — complete frames and a half-buffered one alike — and nothing would
+   * indicate it had happened. Passing your own keeps both.
+   *
+   * Omitting it is fine when nothing follows the handshake, such as in a test.
+   */
+  readonly reader?: NdjsonLineReader;
 }
 
 /**
@@ -242,7 +253,8 @@ export async function performHandshake(
   // against each other.
   await io.write(new TextEncoder().encode(`${encodeHello(local)}\n`));
 
-  const reader = new NdjsonLineReader();
+  const reader = options.reader ?? new NdjsonLineReader();
+  const pending: string[] = [];
   let peerFrame: string | undefined;
 
   while (peerFrame === undefined) {
@@ -414,7 +426,7 @@ describe("NimbusExtensionServer.handshake", () => {
         written.push(new TextDecoder().decode(chunk));
       },
     });
-    expect(result).toEqual({ ok: true, version: "1" });
+    expect(result).toEqual({ ok: true, version: "1", pending: [] });
     expect(written.join("")).toContain('"nimbus":"hello"');
   });
 
@@ -424,7 +436,7 @@ describe("NimbusExtensionServer.handshake", () => {
       read: async () => null,
       write: async () => {},
     });
-    expect(result).toEqual({ ok: false, reason: "no-common-version" });
+    expect(result).toEqual({ ok: false, reason: "no-common-version", pending: [] });
   });
 
   test("start() is unchanged — still synchronous, still takes no arguments", () => {
@@ -579,7 +591,7 @@ class ScriptedPeer:
 
 def test_agrees_when_both_declare_the_same_major() -> None:
     peer = ScriptedPeer([b'{"nimbus":"hello","contractVersions":["1"]}\n'])
-    assert perform_handshake(peer) == HandshakeOk(version="1")
+    assert perform_handshake(peer) == HandshakeOk(version="1", pending=())
 
 
 def test_writes_our_hello_before_reading_anything() -> None:
@@ -603,7 +615,7 @@ def test_the_frame_written_is_a_hello_for_our_declared_set() -> None:
 
 def test_a_frame_split_across_reads_is_assembled_before_parsing() -> None:
     peer = ScriptedPeer([b'{"nimbus":"hello",', b'"contractVersions":["1"]}\n'])
-    assert perform_handshake(peer) == HandshakeOk(version="1")
+    assert perform_handshake(peer) == HandshakeOk(version="1", pending=())
 
 
 @pytest.mark.parametrize(
@@ -621,28 +633,28 @@ def test_a_frame_split_across_reads_is_assembled_before_parsing() -> None:
 def test_surfaces_the_parse_hello_reason(frame: bytes, reason: str) -> None:
     # Why HandshakeRefused exists rather than reusing NegotiationRefused: five of these
     # reasons describe a frame that never reached negotiation at all.
-    assert perform_handshake(ScriptedPeer([frame])) == HandshakeRefused(reason=reason)
+    assert perform_handshake(ScriptedPeer([frame])) == HandshakeRefused(reason=reason, pending=())
 
 
 def test_refuses_no_common_version_when_sets_are_disjoint() -> None:
     peer = ScriptedPeer([b'{"nimbus":"hello","contractVersions":["2"]}\n'])
-    assert perform_handshake(peer) == HandshakeRefused(reason="no-common-version")
+    assert perform_handshake(peer) == HandshakeRefused(reason="no-common-version", pending=())
 
 
 def test_refuses_when_the_stream_ends_before_any_frame() -> None:
     # Section 7.3 makes an absent hello a refusal. No token exists for silence, and we
     # never learned a set to intersect with.
-    assert perform_handshake(ScriptedPeer([])) == HandshakeRefused(reason="no-common-version")
+    assert perform_handshake(ScriptedPeer([])) == HandshakeRefused(reason="no-common-version", pending=())
 
 
 def test_accepts_a_final_frame_delivered_without_its_newline() -> None:
     peer = ScriptedPeer([b'{"nimbus":"hello","contractVersions":["1"]}'])
-    assert perform_handshake(peer) == HandshakeOk(version="1")
+    assert perform_handshake(peer) == HandshakeOk(version="1", pending=())
 
 
 def test_honours_explicit_local_versions() -> None:
     peer = ScriptedPeer([b'{"nimbus":"hello","contractVersions":["2","3"]}\n'])
-    assert perform_handshake(peer, local_versions=("2", "3")) == HandshakeOk(version="3")
+    assert perform_handshake(peer, local_versions=("2", "3")) == HandshakeOk(version="3", pending=())
 
 
 def test_it_never_exits_the_process() -> None:
@@ -711,14 +723,24 @@ class HandshakeIO(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class HandshakeOk:
-    """Agreement on a contract major."""
+    """Agreement on a contract major.
+
+    ``pending`` holds any complete frames the peer sent after its hello. A caller MUST
+    process these before reading further: a peer announces unprompted (§5), so its hello
+    and its first request often arrive in one read, and dropping them silently loses the
+    first message of the session.
+    """
 
     version: str
+    pending: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class HandshakeRefused:
     """A refusal, carrying one of the §5 frame reasons or ``no-common-version``.
+
+    Also carries ``pending`` so every return path has the same shape; on a refusal the
+    caller exits 20 and will not use it.
 
     Not :class:`NegotiationRefused`, whose ``reason`` would accept these without
     complaint: five of them describe a frame that never reached negotiation, and
@@ -726,13 +748,17 @@ class HandshakeRefused:
     """
 
     reason: str
+    pending: tuple[str, ...] = ()
 
 
 HandshakeResult = HandshakeOk | HandshakeRefused
 
 
 def perform_handshake(
-    io: HandshakeIO, *, local_versions: Sequence[str] = CONTRACT_VERSIONS
+    io: HandshakeIO,
+    *,
+    local_versions: Sequence[str] = CONTRACT_VERSIONS,
+    reader: NdjsonLineReader | None = None,
 ) -> HandshakeResult:
     """Announce, listen, agree — or refuse.
 
@@ -743,7 +769,7 @@ def perform_handshake(
     # Both peers announce unprompted, so waiting for theirs would deadlock two runtimes.
     io.write(f"{encode_hello(local_versions)}\n".encode())
 
-    reader = NdjsonLineReader()
+    reader = reader if reader is not None else NdjsonLineReader()
     peer_frame: str | None = None
 
     while peer_frame is None:
@@ -761,16 +787,16 @@ def perform_handshake(
     if peer_frame is None:
         # §7.3: an absent hello is a refusal. There is no token for silence, and we never
         # learned a set to intersect with.
-        return HandshakeRefused(reason="no-common-version")
+        return HandshakeRefused(reason="no-common-version", pending=())
 
     parsed = parse_hello(peer_frame)
     if isinstance(parsed, HelloRefused):
-        return HandshakeRefused(reason=parsed.reason)
+        return HandshakeRefused(reason=parsed.reason, pending=tuple(pending))
 
     negotiated = negotiate_contract_version(local_versions, parsed.contract_versions)
     if isinstance(negotiated, NegotiationRefused):
-        return HandshakeRefused(reason=negotiated.reason)
-    return HandshakeOk(version=negotiated.version)
+        return HandshakeRefused(reason=negotiated.reason, pending=tuple(pending))
+    return HandshakeOk(version=negotiated.version, pending=tuple(pending))
 ```
 
 - [ ] **Step 4: Export from the `ipc` package**

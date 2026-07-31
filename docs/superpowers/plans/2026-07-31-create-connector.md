@@ -6,7 +6,9 @@
 genuinely runs — serving tools over MCP and speaking the contract-version handshake — and CI
 proves it by generating one from scratch and driving it as a process.
 
-**Architecture:** Two placeholder-free template projects live under `tools/create-connector/`
+**Architecture:** RFC-0009 first widens `manifest.runtime` to admit `"python"`, without which a
+Python connector cannot declare a contract-valid manifest at all. Then two placeholder-free
+template projects live under `tools/create-connector/`
 alongside a dependency-free CLI that copies a template and rewrites three casing variants of its
 name across every file's contents and every path segment. Two new CI jobs pack the SDK from the
 current commit, generate a project into a temp directory outside the repository, install the
@@ -39,7 +41,7 @@ mypy strict, `@modelcontextprotocol/sdk` (TS template only), `mcp` (Python templ
   file read** — the Windows default is cp1252 and this repository has been bitten by it.
 - **Never write a literal U+FEFF.** Write `\uFEFF`. This has gone wrong five times here.
 - **Run every command from the worktree** `C:\gitrep\nimbus-sdk\.claude\worktrees\create-connector`.
-- **Commit subjects:** `feat(scaffold):` for tasks 1–4 — but see the release note below; the
+- **Commit subjects:** `feat(scaffold):` for tasks 2–5 — but see the release note below; the
   *PR title* is a separate decision and is not any task's business.
 - **The template's own name appears in this plan many times.** It is
   `nimbus-quickstart-connector` (kebab), `nimbus_quickstart_connector` (snake), and
@@ -48,11 +50,15 @@ mypy strict, `@modelcontextprotocol/sdk` (TS template only), `mcp` (Python templ
 
 ### Release note (context, not a task)
 
-`release-please-config.json` keys on `sdks/typescript` and `sdks/python`. Nothing in
-`tools/` is a release component, so tasks 1–4 cut no release regardless of their commit type.
-Task 5 edits both packages' READMEs, which npm and PyPI always include in a distribution. The
-PR title therefore decides whether the corrected quickstart reaches users now or at the next
-unrelated release. That decision is recorded at handoff, not here.
+`release-please-config.json` keys on `sdks/typescript` and `sdks/python`. Nothing in `tools/` is
+a release component, so tasks 2–5 cut no release regardless of their commit type.
+
+**Task 1 changes that, and settles a question the first draft of this plan left open.** It edits
+`sdks/typescript/src/types.ts` and `src/contract-tests.ts` — a new member on an exported union
+and a widened validation rule. That is a real feature in the published package, so the branch
+now warrants a `feat:` PR title and a minor bump on its own merits, rather than the awkward
+choice between an under-claiming `docs:` and a `fix:` that bumped two packages for a docs edit.
+Task 6's README correction rides along with it.
 
 ### Two problems this plan resolves that the design did not
 
@@ -62,13 +68,13 @@ handshake runs over its stdin/stdout, and then MCP JSON-RPC runs over *the same*
 accepts a caller-supplied `reader`. If the template starts the MCP transport on raw
 `process.stdin` after the handshake, any frame the gateway pipelined behind its hello is
 silently lost. **That is the precise bug sub-project E existed to fix, reintroduced one layer
-up.** Task 2 must replay `pending` into the transport's input, and its acceptance test drives
+up.** Task 3 must replay `pending` into the transport's input, and its acceptance test drives
 exactly that case.
 
 **2. Neither MCP SDK's API is verified.** The code below is written from knowledge that may be
 stale — `McpServer.tool()` in particular has been churning, and `createRegisterSimpleTool`
 requires a `.tool` method to exist (`src/connector-kit/mcp-tool-kit.ts:125-136` throws
-otherwise). Tasks 2 and 3 therefore *begin* by pinning a version and reading the installed
+otherwise). Tasks 3 and 4 therefore *begin* by pinning a version and reading the installed
 package's own types, and treat the code here as a starting point to be corrected, not as
 known-good. Report what the API actually is.
 
@@ -104,7 +110,146 @@ scripts; `.github/workflows/ci.yml` gains CLI steps in `build-test` and two new 
 
 ---
 
-## Task 1: The CLI — names, generation, and the whole-tree guard
+## Task 1: RFC-0009 — `manifest.runtime` admits Python
+
+**Why this is first.** A Python connector cannot declare a contract-valid manifest today.
+`manifest.runtime.enum` is `["bun", "node"]`, and omitting the field does not escape it: the
+rule reads `manifest["runtime"] === "bun" || manifest["runtime"] === "node"`
+(`sdks/typescript/src/contract-tests.ts:154-158`), so an absent value fails too, and the JSON
+schema lists `runtime` in `required`. Declaring `"node"` would tell a gateway to run a Python
+connector with Node. There is no honest value, so Task 4 cannot ship until this lands.
+
+Widening an enum is **additive**, which is what contract `v1` permits — a manifest valid before
+stays valid, and only previously-invalid manifests become valid. But it is a change to published
+normative documents, so it goes through the RFC process like RFC-0006 through RFC-0008 did.
+
+**Files:**
+- Create: `docs/rfcs/0009-python-runtime.md`
+- Create: `docs/spec/conformance/v1/manifest/valid-runtime-python.json`
+- Modify: `docs/spec/schemas/v1/extension-manifest.schema.json:36`
+- Modify: `docs/spec/rules/v1/manifest-rules.json:47-52`
+- Modify: `docs/spec/conformance/v1/index.json` (index the new case)
+- Modify: `sdks/typescript/src/types.ts:38`
+- Modify: `sdks/typescript/src/contract-tests.ts:154-166`
+- Modify: `docs/api-surface.md` (regenerated, never hand-edited)
+- Modify: `docs/rfcs/README.md`
+
+**Interfaces:**
+- Produces, for Task 4: `runtime: "python"` is a valid manifest value, accepted by
+  `validateManifest` and by the published JSON schema.
+
+- [ ] **Step 1: Read the three neighbours before writing**
+
+Read `docs/rfcs/0006-empty-vs-invalid-negotiation.md`, `0007`, and `0008` for the house shape —
+front-matter fields, section order, and how "Landed" is recorded. Match it. Read
+`docs/GOVERNANCE.md`'s change classes and state in the RFC which class this is and why.
+
+- [ ] **Step 2: Add the failing corpus case first**
+
+Create `docs/spec/conformance/v1/manifest/valid-runtime-python.json` — a copy of
+`valid-minimal.json` with `"runtime": "python"`. Then index it in
+`docs/spec/conformance/v1/index.json`, following the shape of the neighbouring entries exactly;
+`index.json` is normative and the directory is not, and the guard asserts set equality in both
+directions, so an unindexed file fails just as loudly as a missing one.
+
+Give it a `reason` that says what it pins: that a Python connector can declare its runtime
+honestly, and that this value was invalid before RFC-0009.
+
+Do **not** touch `invalid-runtime.json` — it declares `"deno"`, which stays invalid and is now
+the case proving the enum did not simply become permissive.
+
+- [ ] **Step 3: Run the suite and watch it fail**
+
+```bash
+cd sdks/typescript && bun test
+```
+
+Expected: **failure**, in the manifest corpus runner and probably in `schema-guard.test.ts`,
+because the case says valid and every validator still says invalid. Record the exact failing
+test names — that list is the proof this change is load-bearing, and you will check it shrinks
+to zero in Step 5.
+
+- [ ] **Step 4: Widen the enum in all four places**
+
+The value is pinned in four locations that must agree. Change every one:
+
+1. `docs/spec/schemas/v1/extension-manifest.schema.json:36` —
+   `"runtime": { "enum": ["bun", "node", "python"] }`
+2. `docs/spec/rules/v1/manifest-rules.json:47-52` — the `enum` array **and** the human-readable
+   `requires` string, which currently reads `exactly "bun" or "node"`. A stale prose field is a
+   spec that lies in the place a reader trusts most.
+3. `sdks/typescript/src/types.ts:38` — `runtime: "bun" | "node" | "python";`
+4. `sdks/typescript/src/contract-tests.ts:154-166` — the `RUNTIME_ENUM` check and the violation
+   message it produces.
+
+- [ ] **Step 5: Run the suite again**
+
+```bash
+cd sdks/typescript && bun run build && bun run api:surface && bun run typecheck && bun run lint && bun test
+```
+
+Expected: every test recorded in Step 3 now passes, and nothing else broke. `api:surface` must
+run because `ExtensionManifest.runtime` is an exported type — the api-surface gate fires on any
+changed export. Commit the regenerated `docs/api-surface.md`.
+
+Then confirm the Python side is genuinely unaffected rather than assuming it:
+
+```bash
+cd ../python && python -m pip install -e . && python -m pytest -q
+```
+
+The manifest corpus is executed by TypeScript only — Python runs the `negotiation` and `framing`
+corpora — but `pip install -e .` regenerates the bundled spec snapshot from `docs/spec/`, which
+you just edited. Run it and report the count. If Python does turn out to validate manifests,
+that is a fifth location and this step is where you find out.
+
+- [ ] **Step 6: Write the RFC**
+
+`docs/rfcs/0009-python-runtime.md`. It must say:
+
+- **What changes and why.** `manifest.runtime` gains `"python"`. The Python SDK became official
+  in RFC-0008 and gained a working handshake, so the contract can now describe a Python
+  connector in every respect except the one field that names its runtime.
+- **Why this is additive and safe under `v1`.** Every manifest valid before remains valid; the
+  change only admits manifests that were previously refused. No existing connector is affected.
+- **The cross-repo dependency, stated plainly.** This lets the *contract* express a Python
+  connector. Whether the gateway can spawn one lives in the Nimbus monorepo, not here — the
+  ROADMAP already names that as the one Phase 2 exit clause this repository cannot demonstrate
+  on its own. An author who declares `"python"` needs a gateway that understands it, and the RFC
+  must not imply otherwise.
+- **What was considered and rejected:** a generic `"executable"` or `"system"` value, which
+  would push runtime selection into `entrypoint` and make the field unable to answer the one
+  question it exists to answer; and a Node wrapper script that spawns Python, which would teach
+  every Python author a workaround as though it were the design.
+
+- [ ] **Step 7: Update the RFC index and commit**
+
+Add the row to `docs/rfcs/README.md` matching its neighbours' format.
+
+```bash
+git add docs sdks/typescript/src/types.ts sdks/typescript/src/contract-tests.ts
+git commit -m "feat(spec): manifest.runtime admits python (RFC-0009)
+
+A Python connector could not declare a contract-valid manifest. The
+enum was bun|node, and omitting the field did not escape it -- the rule
+tests equality against both values, so absent failed too, and the JSON
+schema lists runtime as required. Declaring node would tell a gateway
+to run a Python connector with Node.
+
+Widening an enum is additive: every manifest valid before is still
+valid, and only previously-refused ones become valid. invalid-runtime
+still declares deno and still fails, which is what proves the enum did
+not simply become permissive.
+
+This lets the contract express a Python connector. Whether the gateway
+can spawn one lives in the Nimbus monorepo.
+
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Task 2: The CLI — names, generation, and the whole-tree guard
 
 **Files:**
 - Create: `tools/create-connector/package.json`
@@ -123,7 +268,7 @@ scripts; `.github/workflows/ci.yml` gains CLI steps in `build-test` and two new 
 - Modify: `.github/workflows/ci.yml` (add CLI steps to `build-test`)
 
 **Interfaces:**
-- Produces, for Tasks 2–4:
+- Produces, for Tasks 3–5:
   - `parseName(raw: string): NameVariants | { readonly error: string }` where
     `interface NameVariants { readonly kebab: string; readonly snake: string; readonly title: string }`
   - `generate(options: GenerateOptions): Promise<GenerateResult>` where
@@ -849,7 +994,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 2: The TypeScript template
+## Task 3: The TypeScript template
 
 **Files:**
 - Create: `tools/create-connector/templates/typescript/package.json`
@@ -863,8 +1008,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Create: `tools/create-connector/templates/typescript/.gitignore`
 
 **Interfaces:**
-- Consumes: `generate()` and `TEMPLATE_NAME` from Task 1.
-- Produces, for Task 4: a project whose `npm test` passes and whose `npm run build` emits
+- Consumes: `generate()` and `TEMPLATE_NAME` from Task 2.
+- Produces, for Task 5: a project whose `npm test` passes and whose `npm run build` emits
   `dist/main.js`, runnable as `node dist/main.js`, speaking NDJSON hello frames on stdio.
 
 - [ ] **Step 1: Pin the MCP SDK and read its actual API**
@@ -1148,7 +1293,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 3: The Python template
+## Task 4: The Python template
 
 **Files:**
 - Create: `tools/create-connector/templates/python/pyproject.toml`
@@ -1162,16 +1307,16 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Create: `tools/create-connector/templates/python/tests/test_handshake.py`
 
 **Interfaces:**
-- Consumes: `generate()` from Task 1; the same three name literals.
-- Produces, for Task 4: a project where `pip install -e .` then `pytest` passes, and
+- Consumes: `generate()` from Task 2; the same three name literals.
+- Produces, for Task 5: a project where `pip install -e .` then `pytest` passes, and
   `python -m nimbus_quickstart_connector.main` speaks the handshake on stdio.
 
 **The directory `src/nimbus_quickstart_connector/` is the path-substitution case.** It is why
-Task 1 rewrites path segments. Do not flatten it.
+Task 2 rewrites path segments. Do not flatten it.
 
 - [ ] **Step 1: Pin the `mcp` package and read its actual API**
 
-As in Task 2 Step 1, in a scratch directory:
+As in Task 3 Step 1, in a scratch directory:
 
 ```bash
 python -m venv /tmp/mcp-probe-py && /tmp/mcp-probe-py/bin/pip install mcp
@@ -1181,7 +1326,7 @@ python -m venv /tmp/mcp-probe-py && /tmp/mcp-probe-py/bin/pip install mcp
 Record: the server class and its import path (`mcp.server.fastmcp.FastMCP` is the expected
 answer), how a tool is registered, how the stdio transport is started, and **whether that
 transport can be given an already-open stream or pre-read bytes**. That last one is the same
-question as Task 2 Step 1 question 3, and the same rule applies: if it cannot, stop and report
+question as Task 3 Step 1 question 3, and the same rule applies: if it cannot, stop and report
 rather than dropping `pending` on the floor.
 
 **A lead worth checking first, not a fact.** `mcp` is built on `anyio`, and
@@ -1221,7 +1366,7 @@ MANIFEST: dict[str, Any] = {
     "description": "A Nimbus connector that echoes what it is given.",
     "author": "you",
     "entrypoint": "src/nimbus_quickstart_connector/main.py",
-    "runtime": "node",
+    "runtime": "python",
     "permissions": ["read"],
     "hitlRequired": [],
     "minNimbusVersion": "0.1.0",
@@ -1230,11 +1375,18 @@ MANIFEST: dict[str, Any] = {
 TOOLS: list[dict[str, str]] = [{"name": "echo", "description": "Echoes its input"}]
 ```
 
-**Check `runtime` before you commit this.** `ExtensionManifest.runtime` is typed
-`"bun" | "node"` in `sdks/typescript/src/types.ts:38`, and the rule registry enforces the same
-enum. There is no `"python"` member. If a Python connector cannot honestly declare either value,
-**stop and report** — that is a genuine contract gap this plan has no authority to close, and
-guessing a third value would put an invalid manifest in every generated Python project.
+**`"python"` is legal only because Task 1 made it legal.** Before RFC-0009 the enum was
+`["bun", "node"]` and this manifest would have failed `validateManifest`. If Task 1 is not
+merged into your branch, this template cannot pass its own contract test — check that first
+rather than debugging the template.
+
+Verify it directly rather than trusting the sequence:
+
+```bash
+cd sdks/typescript && bun test src/contract-tests.test.ts
+```
+
+and confirm `docs/spec/rules/v1/manifest-rules.json` lists `python` in the `runtime` enum.
 
 `handlers.py`:
 
@@ -1267,7 +1419,7 @@ def test_echo_returns_its_input() -> None:
 
 - [ ] **Step 3: Write `main.py`**
 
-Mirror Task 2's structure: handshake first, replay `pending` into the transport, then serve.
+Mirror Task 3's structure: handshake first, replay `pending` into the transport, then serve.
 The few lines that `connector-kit` absorbs in TypeScript sit inline here, and the file must say
 so in a comment — a Python `connector-kit` does not exist, and this template is not the place to
 invent one.
@@ -1334,7 +1486,7 @@ it in this file.
 - [ ] **Step 4: Write the handshake acceptance test**
 
 `tests/test_handshake.py` drives the module as a subprocess, covering the same three cases as
-Task 2 Step 4: agreement exits `0`, a disjoint set exits `20`, and a pipelined second frame is
+Task 3 Step 4: agreement exits `0`, a disjoint set exits `20`, and a pipelined second frame is
 not lost. Use `subprocess.run` with `input=` and assert on `returncode`. Report what you
 asserted for case 3.
 
@@ -1360,8 +1512,8 @@ printf '{"nimbus":"hello","contractVersions":["2"]}\n' | .venv/bin/python -m dem
 ```
 
 Note the generated package is `demo_connector`, not `nimbus_quickstart_connector` — that is
-Task 1's path substitution working. If the import fails, path substitution is broken; fix Task
-1's `generate.ts`, not this template.
+Task 2's path substitution working. If the import fails, path substitution is broken; fix Task
+2's `generate.ts`, not this template.
 
 Report both exit codes and the pytest count.
 
@@ -1382,13 +1534,13 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 4: The two scaffold CI jobs
+## Task 5: The two scaffold CI jobs
 
 **Files:**
 - Modify: `.github/workflows/ci.yml`
 
 **Interfaces:**
-- Consumes: the CLI from Task 1, both templates from Tasks 2 and 3, and the exact commands
+- Consumes: the CLI from Task 2, both templates from Tasks 3 and 4, and the exact commands
   those tasks reported as working in their Step 6.
 
 - [ ] **Step 1: Add `scaffold-typescript`**
@@ -1508,7 +1660,7 @@ generated project:
 1. Change the template's refusal branch to `process.exit(0)`, regenerate, and run the disjoint
    case. **Expected: exit 0, which the job's check rejects.**
 2. Restore it. Delete the `pending` replay from `main.ts`, regenerate, and run the pipelined
-   case from Task 2 Step 4. **Expected: that assertion fails.**
+   case from Task 3 Step 4. **Expected: that assertion fails.**
 
 Restore both. Report both mutation results. If either mutation stays green, the job is
 decorative.
@@ -1537,7 +1689,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ---
 
-## Task 5: Documentation
+## Task 6: Documentation
 
 **Files:**
 - Create: `docs/quickstart-typescript.md`
@@ -1637,22 +1789,25 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Self-review notes
 
-**Spec coverage.** Layout → Task 1 Step 1. Placeholder-free templates and the three variants →
-Tasks 1–3. Whole-tree substitution including paths → Task 1 Steps 8–12. The mutation-provable
-guard → Task 1 Step 12. Generated project contents and the Contract/Yours split → Tasks 2, 3, 5.
-Verification including driving the process → Task 4. Egress widening with exact `host:port` →
-Task 4 Step 1. Caching rejection → recorded in Task 4's commit message. Docs, README rewrite,
-example deletion, ROADMAP → Task 5. Python connector-kit gap on the ROADMAP → Task 5 Step 4.
+**Spec coverage.** The runtime enum blocker → Task 1. Layout → Task 2 Step 1. Placeholder-free
+templates and the three variants → Tasks 2–4. Whole-tree substitution including paths → Task 2
+Steps 8–12. The mutation-provable guard → Task 2 Step 12. Generated project contents and the
+Contract/Yours split → Tasks 3, 4, 6. Verification including driving the process → Task 5.
+Egress widening with exact `host:port` → Task 5 Step 1. Caching rejection → recorded in Task 5's
+commit message. Docs, README rewrite, example deletion, ROADMAP → Task 6. Python connector-kit
+gap on the ROADMAP → Task 6 Step 4.
 
-**Three things this plan deliberately does not decide**, because each needs evidence the
+**Two things this plan deliberately does not decide**, because each needs evidence the
 implementer will have and the planner did not:
 
 1. Whether `McpServer` still exposes `.tool()` — `createRegisterSimpleTool` requires it.
-2. Whether either MCP transport accepts a caller-supplied input stream. If not, the `pending`
-   replay has no home and the design needs revisiting rather than a workaround.
-3. Whether a Python connector can legally declare `runtime`, which is typed `"bun" | "node"`
-   with no `"python"` member.
+2. Whether either MCP transport accepts a caller-supplied input stream, or an object stream that
+   can be seeded. If neither, the `pending` replay has no home and the design needs revisiting
+   rather than a workaround.
 
-Each is written as a stop-and-report, not as an assumption. A plan that guessed here would
-produce a template that looks right and is wrong in the one way this repository has spent four
+Both are written as stop-and-report, not as assumptions. A plan that guessed here would produce
+a template that looks right and is wrong in the one way this repository has spent four
 sub-projects learning to catch.
+
+The third such question — whether a Python connector can legally declare `runtime` — was
+answered during review: **it cannot**, and Task 1 now fixes that rather than reporting it.

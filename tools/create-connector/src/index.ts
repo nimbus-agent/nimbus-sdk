@@ -103,7 +103,11 @@ export async function main(argv: readonly string[]): Promise<void> {
     console.log(
       parsed.lang === "ts"
         ? `\nNext:\n  cd ${targetDir}\n  npm install\n  npm test`
-        : `\nNext:\n  cd ${targetDir}\n  python -m pip install -e .\n  python -m pytest`,
+        : // The `[dev]` extra is not optional in practice: pytest, mypy and ruff all live in
+          // it, so `pip install -e .` alone makes the very next line fail with
+          // "No module named pytest". npm installs devDependencies by default and needs no
+          // such flag, which is why the two branches do not read alike.
+          `\nNext:\n  cd ${targetDir}\n  python -m pip install -e ".[dev]"\n  python -m pytest`,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

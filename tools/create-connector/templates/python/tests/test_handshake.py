@@ -62,10 +62,9 @@ class Connector:
         # indexing are atomic here, so no lock is needed for this access pattern.
         self.lines: list[str] = []
         self._err: list[bytes] = []
-        self._threads = [
-            threading.Thread(target=self._read_stdout, daemon=True),
-            threading.Thread(target=self._read_stderr, daemon=True),
-        ]
+        self._stdout_thread = threading.Thread(target=self._read_stdout, daemon=True)
+        self._stderr_thread = threading.Thread(target=self._read_stderr, daemon=True)
+        self._threads = [self._stdout_thread, self._stderr_thread]
         for thread in self._threads:
             thread.start()
 
@@ -96,14 +95,28 @@ class Connector:
         self._stdin.write(text.encode("utf-8"))
         self._stdin.flush()
 
+    def _find_id(self, wanted: int) -> dict[str, Any] | None:
+        for frame in frames("".join(self.lines)):
+            if frame.get("id") == wanted:
+                return frame
+        return None
+
     def wait_for_id(self, wanted: int) -> dict[str, Any]:
         """The first JSON-RPC frame carrying ``id``, or an assertion failure."""
         deadline = time.monotonic() + TIMEOUT_SECONDS
         while time.monotonic() < deadline:
-            for frame in frames("".join(self.lines)):
-                if frame.get("id") == wanted:
-                    return frame
-            if self._process.poll() is not None and not self._stdout.readable():
+            found = self._find_id(wanted)
+            if found is not None:
+                return found
+            if self._process.poll() is not None:
+                # Exited: nothing more is coming. Let the reader thread finish draining
+                # the pipe, look once more, then fail now instead of waiting out the
+                # timeout. `self._stdout.readable()` is *not* the test for this — a
+                # BufferedReader reports readable() True even after EOF.
+                self._stdout_thread.join(timeout=TIMEOUT_SECONDS)
+                found = self._find_id(wanted)
+                if found is not None:
+                    return found
                 break
             time.sleep(POLL_SECONDS)
         raise AssertionError(

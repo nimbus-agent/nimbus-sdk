@@ -40,7 +40,7 @@ opinion.
 
 ## There is no Python `connector-kit`
 
-The TypeScript quickstart imports `createRegisterSimpleTool` and `mcpJsonResult` from
+The TypeScript template imports `createRegisterSimpleTool` and `mcpJsonResult` from
 `@nimbus-dev/sdk/connector-kit`. `nimbus-dev-sdk` publishes no equivalent, so the few lines that
 kit would absorb — `_on_list_tools`, `_on_call_tool`, and the JSON result helper — sit inline in
 `main.py`. That is deliberate: a scaffold is not where a new published surface gets designed.

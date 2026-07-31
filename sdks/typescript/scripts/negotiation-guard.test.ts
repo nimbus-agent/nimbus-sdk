@@ -27,6 +27,7 @@ import {
   CONTRACT_HANDSHAKE_EXIT,
   CONTRACT_VERSION_PATTERN,
   CONTRACT_VERSIONS,
+  type ContractNegotiationResult,
   declaredVersionsMatch,
   manifestContractVersions,
   negotiateContractVersion,
@@ -429,5 +430,42 @@ describe("negotiation guard — the reference implementation agrees with every c
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+  });
+});
+
+describe("negotiation guard — the corpus discriminates on check order", () => {
+  /**
+   * The wrong binding, in full. It answers `no-common-version` whenever either set is empty,
+   * without validating the other — the reading RFC-0006 rejected. Everything else delegates to
+   * the real implementation, so this asserts a property of the *corpus* rather than testing a
+   * private reimplementation of the algorithm against itself.
+   */
+  const shortCircuitingOnEmpty = (
+    local: readonly unknown[],
+    remote: readonly unknown[],
+  ): ContractNegotiationResult =>
+    local.length === 0 || remote.length === 0
+      ? { ok: false, reason: "no-common-version" }
+      : negotiateContractVersion(local, remote);
+
+  test("at least one case refuses a binding that short-circuits on an empty set", () => {
+    // Spec §6 requires validation before intersection, unconditionally. Some case must
+    // therefore disagree with the wrapper above; if none does, the corpus admits both readings
+    // and a binding written from the wrong one passes CI while being non-conformant.
+    const caught = casesOfKind("negotiate")
+      .filter(({ body }) => {
+        const actual = shortCircuitingOnEmpty(body.local ?? [], body.remote ?? []);
+        const expected = body.expect.ok
+          ? { ok: true, version: body.expect.version }
+          : { ok: false, reason: body.expect.reason };
+        return JSON.stringify(actual) !== JSON.stringify(expected);
+      })
+      .map(({ entry }) => entry.file);
+
+    expect(
+      caught,
+      "no corpus case distinguishes validate-then-intersect from short-circuit-on-empty — " +
+        "the RFC-0006 empty-vs-invalid cases are missing or no longer discriminate",
+    ).not.toEqual([]);
   });
 });

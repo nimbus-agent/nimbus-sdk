@@ -249,9 +249,20 @@ jobs:
       # `pip install -e .` builds in an isolated environment and does NOT install the
       # backend into this one, while `mypy --strict` type-checks `hatch_build.py`, which
       # imports it. See ci.yml's `python` job for the matching comment.
+      #
+      # verify-requirements.txt is here for the same reason it is there: mypy also
+      # type-checks scripts/verify_publish.py and tests/test_verify_publish.py, which
+      # import pypi_attestations, sigstore, cryptography and pyasn1 — none of which
+      # `pip install -e .` provides, because this package is dependency-free by policy.
+      # Omitting it here while ci.yml had it is what broke the 0.1.2 release: this job
+      # runs only when release-please cuts a Python version, so no pull request could
+      # reach it, and the gap stayed invisible from the commit that introduced the
+      # imports until the next release fired. release-workflow-guard.test.ts now asserts
+      # the two install blocks agree.
       - name: Install, lint, typecheck and test
         run: |
           python -m pip install --upgrade pip build hatchling ruff mypy pytest
+          python -m pip install --require-hashes -r verify-requirements.txt
           python -m pip install -e .
           python -m ruff check . && python -m ruff format --check .
           python -m mypy

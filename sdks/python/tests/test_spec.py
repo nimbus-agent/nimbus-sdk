@@ -40,6 +40,14 @@ def test_negotiation_corpus_loads() -> None:
     assert {case["kind"] for case in cases} == {"declaration", "hello", "negotiate"}
 
 
+def test_framing_corpus_loads() -> None:
+    cases = load_corpus("framing")
+    assert len(cases) == 24
+    # Unlike negotiation, framing cases carry no `kind` discriminator — every case is
+    # a stream fed to one reader — so there is no kind set to account for here.
+    assert all("chunks" in case and "expect" in case for case in cases)
+
+
 def test_missing_schema_names_what_it_looked_for() -> None:
     with pytest.raises(FileNotFoundError, match=r"no-such\.schema\.json"):
         load_schema("no-such.schema.json")

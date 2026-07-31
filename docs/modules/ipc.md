@@ -1,4 +1,4 @@
-<!-- covers: ipc/ndjson-line-reader -->
+<!-- covers: ipc/ndjson-line-reader, ipc/handshake -->
 
 # `ipc`
 
@@ -74,6 +74,45 @@ export function onEnd(): { messages: unknown[]; truncated: boolean } {
 }
 
 export const maxFrameBytes: number = IPC_MAX_LINE_BYTES;
+```
+
+## The handshake
+
+`performHandshake(io, options?)` is the one exchange this package can carry out end to end:
+announce, listen, agree — or refuse. It is specified in
+[`contract-version.md`](../spec/negotiation/v1/contract-version.md) §5 (the frame and the order
+it is written in) and §6 (the algorithm), layered over `framing.md` §3.
+
+- **The stream is injected, not opened.** `HandshakeIo` is two callbacks — `read` and `write` —
+  and this package opens no pipe and no socket. That is what keeps the runtime testable without
+  spawning a process, which §8 says this package cannot do.
+- **Our hello is written first.** Per §5, both peers announce unprompted; a runtime that read
+  before writing would deadlock against another runtime doing the same. `performHandshake` writes
+  before its first `read()` call, and that ordering is asserted by a dedicated test, not left to
+  incidental code shape.
+- **A refusal is a value, not an exit.** `performHandshake` returns `{ ok: false, reason }`
+  rather than calling `process.exit` — this package owns no process to exit. The caller decides
+  what to do with the refusal; `CONTRACT_HANDSHAKE_EXIT` (from `contract-version`) is exported for
+  a caller that wants to terminate with it.
+- **No timeout.** Neither `read` nor `write` is given one, and there is no timeout option to set.
+  §8 puts that bound on whatever supervises the process, not on this call — a caller that wants
+  one wraps its own `HandshakeIo`.
+- **The refusal reason is wider than `ContractNegotiationResult`'s.** `HandshakeRefusalReason` is
+  `HelloRefusalReason | "no-common-version"`, because the exchange can fail at the frame layer —
+  malformed JSON, the wrong message, a duplicate version — before negotiation is ever reached.
+
+```ts
+import { performHandshake } from "@nimbus-dev/sdk/ipc";
+
+declare function readChunk(): Promise<Uint8Array | null>;
+declare function writeChunk(chunk: Uint8Array): Promise<void>;
+
+const result = await performHandshake({ read: readChunk, write: writeChunk });
+if (!result.ok) {
+  // result.reason is one of the seven HelloRefusalReason values, or "no-common-version"
+  throw new Error(`handshake refused: ${result.reason}`);
+}
+result.version; // the agreed contract major, e.g. "1"
 ```
 
 ## Every export

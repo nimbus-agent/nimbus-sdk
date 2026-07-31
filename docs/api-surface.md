@@ -1819,7 +1819,7 @@ export declare function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): 
 
 ## `./ipc`
 
-9 exports.
+14 exports.
 
 ### `HELLO_MESSAGE`
 
@@ -1827,6 +1827,50 @@ From `./hello.js`.
 
 ```ts
 export declare const HELLO_MESSAGE = "hello";
+```
+
+### `HandshakeIo` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export interface HandshakeIo {
+    read(): Promise<Uint8Array | null>;
+    write(chunk: Uint8Array): Promise<void>;
+}
+```
+
+### `HandshakeOptions` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export interface HandshakeOptions {
+
+    readonly localVersions?: readonly string[];
+}
+```
+
+### `HandshakeRefusalReason` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
+```
+
+### `HandshakeResult` *(type-only)*
+
+From `./handshake.js`.
+
+```ts
+export type HandshakeResult = {
+    readonly ok: true;
+    readonly version: string;
+} | {
+    readonly ok: false;
+    readonly reason: HandshakeRefusalReason;
+};
 ```
 
 ### `HelloParseResult` *(type-only)*
@@ -1921,6 +1965,14 @@ From `./hello.js`.
 
 ```ts
 export declare function parseHello(frame: string): HelloParseResult;
+```
+
+### `performHandshake`
+
+From `./handshake.js`.
+
+```ts
+export declare function performHandshake(io: HandshakeIo, options?: HandshakeOptions): Promise<HandshakeResult>;
 ```
 
 ## `./testing`

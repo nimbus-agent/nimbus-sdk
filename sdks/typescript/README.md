@@ -20,38 +20,142 @@ npm install @nimbus-dev/sdk    # or: bun add @nimbus-dev/sdk
 
 ## Quickstart
 
+Scaffold a connector that performs the contract-version handshake and then serves MCP
+tools over the same two streams. Full walkthrough:
+[quickstart-typescript.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/quickstart-typescript.md)
+(or [quickstart-python.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/quickstart-python.md)).
+
+```bash
+# The scaffolder is not published yet, so run it from a checkout of this repository.
+git clone https://github.com/nimbus-agent/nimbus-sdk && cd nimbus-sdk
+bun install && bun run --cwd tools/create-connector build
+node tools/create-connector/dist/index.js weather-connector
+```
+
+<!-- quoted-from: tools/create-connector/src/index.ts -->
+
+```text
+Usage: create-connector <name> [--lang ts|python] [--dir <path>]
+
+  <name>          lowercase kebab-case, starting with a letter (e.g. weather-connector)
+  --lang          ts (default) or python
+  --dir           where to write it (default: ./<name>)
+```
+
+`<name>` has to be an npm package name, a Python module name, and a directory name at
+once, so the CLI takes the intersection of all three: lowercase kebab-case starting with
+a letter. `my_connector`, `MyConnector` and `2fa-connector` are refused rather than
+quietly rewritten. Then:
+
+```bash
+cd weather-connector
+npm install
+npm test     # typechecks, builds, then runs unit + acceptance tests
+npm start    # node dist/main.js
+```
+
+You get ten files, five of them source. `manifest.ts` is the contract the gateway reads:
+
+<!-- excerpt-of: tools/create-connector/templates/typescript/manifest.ts -->
+
 ```ts
-import { type ExtensionManifest, NimbusExtensionServer } from "@nimbus-dev/sdk";
+import type { ExtensionManifest } from "@nimbus-dev/sdk";
 
 export const manifest: ExtensionManifest = {
-  id: "quickstart-connector",
-  displayName: "Quickstart Connector",
+  id: "nimbus-quickstart-connector",
+  displayName: "Nimbus Quickstart Connector",
   version: "0.1.0",
-  description: "The smallest connector that satisfies the Nimbus contract.",
-  author: "Nimbus Contributors",
-  entrypoint: "./index.ts",
-  runtime: "bun",
+  description: "A Nimbus connector that echoes what it is given.",
+  author: "you",
+  entrypoint: "./dist/main.js",
+  runtime: "node",
   permissions: ["read"],
   hitlRequired: [],
+  // …
+  contractVersions: ["1"],
   minNimbusVersion: "0.1.0",
 };
 
 export const TOOLS = [{ name: "echo", description: "Echoes its input" }] as const;
-
-export async function echoHandler(input: { text: string }): Promise<{ text: string }> {
-  return input;
-}
-
-const server = new NimbusExtensionServer({ manifest });
-
-server.registerTool(TOOLS[0].name, {
-  description: TOOLS[0].description,
-  inputSchema: { type: "object", properties: { text: { type: "string" } } },
-  handler: echoHandler,
-});
-
-server.start();
 ```
+
+`handlers.ts` holds your logic and imports no protocol. `main.ts` is the only file that
+knows a protocol exists — it handshakes, then serves MCP over what the handshake did not
+consume. It is shown here as plain text, not as a checked snippet: it imports
+`@modelcontextprotocol/sdk` and `zod`, which this dependency-free repository does not
+install, so nothing here could compile it. The generated project is where it is
+typechecked, built and executed, on every CI run.
+
+<!-- excerpt-of: tools/create-connector/templates/typescript/main.ts -->
+
+```text
+import { Readable } from "node:stream";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CONTRACT_HANDSHAKE_EXIT } from "@nimbus-dev/sdk";
+import { createRegisterSimpleTool, mcpJsonResult } from "@nimbus-dev/sdk/connector-kit";
+import { NdjsonLineReader, performHandshake } from "@nimbus-dev/sdk/ipc";
+import { z } from "zod";
+
+import { echo } from "./handlers.js";
+import { manifest, TOOLS } from "./manifest.js";
+
+// …
+
+async function run(): Promise<void> {
+  const reader = new NdjsonLineReader();
+  const result = await performHandshake(
+    {
+      read: readChunk,
+      write: async (chunk) => {
+        process.stdout.write(chunk);
+      },
+    },
+    { localVersions: manifest.contractVersions ?? ["1"], reader },
+  );
+
+  if (!result.ok) {
+    process.stderr.write(`handshake refused: ${result.reason}\n`);
+    process.exitCode = CONTRACT_HANDSHAKE_EXIT;
+    // Release stdin so the process can exit on its own. `process.exit()` here would risk
+    // truncating the hello we just wrote to a pipe.
+    await stdinChunks.return?.(undefined);
+    return;
+  }
+
+  // …
+
+  const replay = Readable.from(
+    (async function* stream(): AsyncGenerator<Uint8Array> {
+      for (const frame of result.pending) {
+        yield frameOf(frame);
+      }
+      for (;;) {
+        const next = await stdinChunks.next();
+        if (next.done === true) {
+          break;
+        }
+        for (const frame of reader.push(new Uint8Array(next.value))) {
+          yield frameOf(frame);
+        }
+      }
+      for (const frame of reader.flushFrames().frames) {
+        yield frameOf(frame);
+      }
+    })(),
+    { objectMode: false },
+  );
+
+  await connectTransport(createMcpServer(), replay);
+}
+```
+
+The transport is deliberately **not** given `process.stdin`. Both peers announce
+unprompted, so the gateway's hello and its first MCP request routinely arrive in one
+read: `performHandshake` returns the complete frames it read past the hello as
+`result.pending`, and leaves a half-written one inside the `NdjsonLineReader` it was
+given. Serving on raw stdin drops both, silently. The generated `main.test.ts` guards
+each half with its own test — keep them.
 
 ## Public surface (the `exports` map)
 

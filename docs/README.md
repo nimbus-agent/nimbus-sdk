@@ -4,6 +4,16 @@ The MIT-licensed, dependency-free authoring contract for Nimbus connectors and a
 Start with [`server.md`](./modules/server.md) and [`types.md`](./modules/types.md) — the
 contract itself — then reach for a battery as you need it.
 
+## Quickstarts
+
+Generate a connector that handshakes and then serves MCP, and understand what you got:
+
+- [TypeScript](./quickstart-typescript.md)
+- [Python](./quickstart-python.md)
+
+Both scaffold from [`tools/create-connector/`](../tools/create-connector/), whose output
+CI generates, installs, builds, tests and drives as a process on every run.
+
 ## Modules
 
 Every public export of every `exports` entry point is documented on one of these pages.
@@ -31,8 +41,9 @@ A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops
 
 ## Examples
 
-- [`sdks/typescript/examples/quickstart-connector/`](../sdks/typescript/examples/quickstart-connector/) —
-  the smallest connector that passes the contract tests.
+- [`tools/create-connector/templates/`](../tools/create-connector/templates/) — the
+  smallest connector that handshakes and serves, in both languages. Generate it with the
+  [quickstarts](#quickstarts) rather than copying it by hand.
 - [`sdks/typescript/examples/calendar-connector/`](../sdks/typescript/examples/calendar-connector/) —
   HITL gating, the audit logger, and the `icalendar` battery building the VEVENT an
   approver is shown.

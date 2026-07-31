@@ -51,6 +51,34 @@ Both bindings execute the published conformance corpora: `negotiation` (all thre
 kinds) and `framing`. Nothing is deferred, so a new corpus case runs in both languages
 the moment it is indexed.
 
+## The scaffolder (`tools/create-connector`)
+
+The repository's third package, alongside `sdks/typescript` and `sdks/python` — and the
+second Bun workspace member, since `sdks/python` is not one — that **publishes nothing**: `@nimbus-dev/create-connector` is `private: true` and unreleased,
+so the only way to run it today is from a checkout —
+`bun run --cwd tools/create-connector build && node tools/create-connector/dist/index.js
+<name> [--lang ts|python]`. The two quickstarts say so rather than showing an
+`npm create` line that would fail.
+
+- `templates/typescript/` (10 files) and `templates/python/` (9 files) are **deliberately
+  outside `tsconfig.json`'s `include`**, which is `["src/**/*"]`. They are not this
+  package's sources — they depend on `@modelcontextprotocol/sdk`, `zod` and `mcp`, which
+  this dependency-free repository does not install, so `bun run typecheck` here cannot and
+  must not compile them. The `scaffold-typescript` / `scaffold-python` CI jobs are where
+  they are typechecked, built, tested and driven as a process, against a generated project
+  with its own real dependencies.
+- `src/docs-excerpts.test.ts` pins `sdks/typescript/README.md` and
+  `docs/quickstart-*.md` to the template files and the CLI's `USAGE` string they quote,
+  via `<!-- excerpt-of: -->` / `<!-- quoted-from: -->` markers. It replaces the drift test
+  the deleted `examples/quickstart-connector/` carried. It runs under
+  `bun run scaffold:test`, **not** under `sdks/typescript`'s suite — editing that README
+  and running only `bun run test` will not catch drift.
+- No fenced `ts` block in `sdks/typescript/README.md` may import
+  `@modelcontextprotocol/sdk` or `zod`; `docs-snippets` refuses third-party specifiers by
+  name, and there is deliberately no skip marker. The template's `main.ts` is therefore
+  quoted there as a ```` ```text ```` illustration, which is what
+  `scripts/docs-snippets.ts` prescribes for a snippet that must not compile.
+
 ## Commands
 
 All TypeScript commands run from `sdks/typescript/` (or via the root proxy scripts,
@@ -64,6 +92,14 @@ bun run lint        # biome check src/ scripts/ examples/
 bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 bun run api:surface # regenerate docs/api-surface.md after any exports change
+```
+
+The scaffolder has its own three, from the repository root:
+
+```bash
+bun run scaffold:typecheck   # tsc --noEmit over src/ only — never over templates/
+bun run scaffold:lint        # biome check src/ templates/
+bun run scaffold:test        # bun test src/ — includes the README/quickstart drift guard
 ```
 
 Python commands run from `sdks/python/`:

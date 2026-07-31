@@ -88,17 +88,18 @@ python -m build                 # sdist + wheel into dist/
 - Tests live alongside source as `*.test.ts` in `sdks/typescript/src/`.
 - **Four CI gates guard the TypeScript surface, and they fire on different things.** Do
   not think of them as one checklist — a change can trip any subset:
-  - **A new or changed *export*** trips two. Regenerate `docs/api-surface.md` with
-    `bun run api:surface` (`sdks/typescript/scripts/api-surface.test.ts`), **and** claim
-    the export's module in some `docs/modules/*.md` page's `<!-- covers: -->` comment
-    (`sdks/typescript/scripts/docs-coverage.test.ts`). Note `api-surface.md` also lists
-    `private` members, so an internal-only change to a published class still fails the
-    first gate until you re-run `api:surface`.
-  - **A new *module* reachable from the published surface** trips a third: it needs an
+  - **A new or changed *export*** trips one: regenerate `docs/api-surface.md` with
+    `bun run api:surface` (`sdks/typescript/scripts/api-surface.test.ts`). This is the
+    only gate with export granularity. Note `api-surface.md` also lists `private`
+    members, so an internal-only change to a published class still fails it until you
+    re-run `api:surface`.
+  - **A new *module* reachable from the published surface** trips two, and both key on
+    the module rather than the export — adding an export to a module that already has
+    one trips neither. It needs a `docs/modules/*.md` page claiming it in a
+    `<!-- covers: -->` comment (`scripts/docs-coverage.test.ts`, which resolves the
+    surface's modules and requires each to be claimed by exactly one page), **and** an
     entry in `sdks/typescript/scripts/smoke-calls.mjs`, enforced by
     `scripts/smoke-calls.test.ts`, which executes every entry against the built `dist/`.
-    Adding an export to a module that already has one does not trip it; adding the
-    module does.
   - **A fenced `ts` block** trips a fourth: `scripts/docs-snippets.test.ts` typechecks
     every one against `dist/`. Its reach is narrower than "anything under `docs/`" —
     `SNIPPET_SOURCES` is `docs/modules/*.md`, `docs/README.md`, and the package's own

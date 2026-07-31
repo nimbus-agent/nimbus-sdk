@@ -70,6 +70,47 @@ logic in a free function rather than the class is deliberate: the primitive is w
 languages can be held to identically, and Python does not grow a class with a single method
 and nothing to host.
 
+**The result types keep their existing names** — `ContractNegotiationResult` in TypeScript,
+`NegotiationResult` in Python. Aligning them would read better across the two SDKs, but both
+are already exported (`index.ts`, and `nimbus_sdk.__all__`), so renaming either is a breaking
+change to a published surface for a cosmetic gain. The asymmetry is inherited, not introduced
+here.
+
+### TypeScript is async; Python is synchronous
+
+This is the one place the two signatures genuinely differ, and it is deliberate:
+
+```ts
+async function performHandshake(io: HandshakeIo, options?): Promise<ContractNegotiationResult>
+```
+
+```python
+def perform_handshake(io: HandshakeIO, *, local_versions=CONTRACT_VERSIONS) -> NegotiationResult
+```
+
+TypeScript has no idiomatic synchronous stream read, so async is forced. Python's standard
+streams *are* blocking, and a connector performing one handshake at startup has nothing to
+overlap it with — so `async def` would drag every Python connector into an event loop to buy
+nothing. Forcing symmetry would make one of the two languages unidiomatic, and the choice of
+which would be arbitrary.
+
+**The behaviour is identical; only the concurrency idiom differs**, which is the same
+reasoning that let `FlushResult` hold a tuple where the TypeScript reader returns an array.
+What the differential test compares is the sequence of results, not the calling convention.
+An `async` Python variant is additive if a caller ever needs one.
+
+Python's `io` is a `typing.Protocol`, so any object with the right shape satisfies it under
+`mypy --strict` without inheriting anything:
+
+```python
+class HandshakeIO(Protocol):
+    def read(self) -> bytes | None: ...     # None signals end of stream
+    def write(self, chunk: bytes) -> None: ...
+```
+
+`bytes`, not a `Uint8Array` analogue — `NdjsonLineReader.push` already takes `bytes`, so the
+runtime feeds what it is given straight through.
+
 ### `start()` does not change
 
 `NimbusExtensionServer` is exported from `index.ts`, and `start()` is called with no
@@ -109,6 +150,34 @@ cannot otherwise do.
 5. **Return** the result. **It does not exit.** A library that calls `process.exit` is
    untestable and this package owns no process; `contract-version.md` §8 says so outright.
    The caller exits `20` — `CONTRACT_HANDSHAKE_EXIT` is exported for exactly that.
+
+### No timeout, and no timeout option
+
+A peer that connects and never sends a byte will block the read forever. That is deliberate,
+and the specification decides it rather than this design:
+[`contract-version.md`](../../spec/negotiation/v1/contract-version.md) §8 says a peer
+**SHOULD** bound how long it waits, "but that bound belongs to whatever supervises the
+process — a gateway, a process manager, an operator — and **no value is normative here**."
+`framing.md` §1 puts liveness out of scope outright.
+
+So `performHandshake` takes no `timeoutMs`. Accepting one would put a liveness knob in the
+package the spec says should not carry one, and every default it could ship would be a value
+the spec explicitly declines to make normative. **The caller wraps it** — `Promise.race` in
+TypeScript, a socket timeout or a supervising process in Python — which is exactly where §8
+puts the responsibility.
+
+### No post-handshake state on the server
+
+`handshake(io)` returns the result and stores nothing. It sets no `CONNECTED` flag, records
+no negotiated version, and gates no other method.
+
+That is not an omission. There is no other operation to gate — `registerTool` is still the
+stub this sub-project explicitly does not fix, and nothing in the package consumes a
+negotiated major. A state machine with one transition and no consumer is speculative surface
+of exactly the kind [GOVERNANCE.md](../../GOVERNANCE.md)'s narrow-waist posture rejects, and
+it would have to be published and supported. The caller holds the result, which is the only
+thing that needs it. If a later sub-project gives the server real work to do, the state it
+needs can be designed against that work rather than guessed at now.
 
 ## Error handling
 

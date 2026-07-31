@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Opened:** 2026-07-31
-- **Landed:** 2026-07-31 in [#93](https://github.com/nimbus-agent/nimbus-sdk/pull/93)
+- **Landed:** (pending — not yet merged; this RFC ships on `feat/create-connector`)
 - **Affects:** `docs/spec/schemas/v1/extension-manifest.schema.json`, `docs/spec/rules/v1/manifest-rules.json`, the manifest conformance corpus, `sdks/typescript/src/types.ts`, `sdks/typescript/src/contract-tests.ts`
 - **Roadmap:** [Phase 2](../ROADMAP.md#phase-2--prove-polyglot-with-python) — box 2, `create-nimbus-connector` scaffolding for TypeScript **and** Python. This RFC is the prerequisite: scaffolding a Python connector is pointless if the manifest it authors cannot pass validation
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 4 (authoring experience)
@@ -25,8 +25,10 @@ the language this project promoted to official standing in RFC-0008.
 
 **Widen `manifest.runtime.enum` to `["bun", "node", "python"]`.** Every manifest valid before
 this change stays valid; the change only admits manifests that were previously refused. That
-is the additive change class `v1` permits without a version bump — the same shape RFC-0006
-and RFC-0007 used to widen the corpus without touching what was already pinned.
+is a backward-compatible widening — the same shape RFC-0006 and RFC-0007 used to widen the
+corpus without touching what was already pinned — which is a statement about compatibility,
+not about which `GOVERNANCE.md` change class this is. See *Compatibility impact* for the
+class this RFC is filed under and why.
 
 The value is pinned in four places that must agree, and this RFC changes all four:
 
@@ -40,7 +42,7 @@ The value is pinned in four places that must agree, and this RFC changes all fou
 4. `sdks/typescript/src/contract-tests.ts` — `RUNTIME_ENUM`'s check and the violation message
    it produces both admit `"python"`.
 
-## Why this is additive and safe under `v1`
+## Why this is backward compatible under `v1`
 
 No existing connector manifest is affected. A manifest that declared `"bun"` or `"node"`
 before this RFC still validates identically after it — the schema still requires the field,
@@ -82,13 +84,23 @@ this RFC does not imply one exists yet.
 
 ## Compatibility impact
 
-**Strictly additive within `v1`.** No existing case changes verdict, no new refusal reason,
-no new case kind, and the corpus's `index.schema.json` is untouched.
+Change class under [GOVERNANCE.md](../GOVERNANCE.md#change-classes): this changes a
+published schema, an exported TypeScript type, and a conformance invariant (the manifest
+corpus), which is squarely **contract-affecting** — an RFC required, which is why this
+document exists. It is not `GOVERNANCE.md`'s **Additive** class (new optional field, new
+export, new battery); it widens an existing enum on an existing required field, and the
+RFC process is the one contract-affecting changes go through regardless of how backward
+compatible the resulting widening is.
+
+**Backward compatible within `v1`.** No existing case changes verdict, no new refusal
+reason, no new case kind, and the corpus's `index.schema.json` is untouched — but backward
+compatible is not the same claim as "no semver bump," which the table below states per
+artifact.
 
 | Change | Semver | Who is affected |
 |---|---|---|
-| `manifest.runtime.enum` gains `"python"` in the schema and the rules | none | A validator pinned to the old enum starts refusing a manifest the new contract accepts — but no such manifest was constructible before this RFC, so no existing connector regresses. |
-| `ExtensionManifest.runtime` widens in TypeScript | none (additive to a union) | Consumers pattern-matching on `runtime` exhaustively (e.g. a `switch` with no `default`) gain a new case to handle at compile time — `tsc --noEmit` catches it, which is the point of a closed union. |
+| `manifest.runtime.enum` gains `"python"` in the schema and the rules | none (spec documents) | A validator pinned to the old enum starts refusing a manifest the new contract accepts — but no such manifest was constructible before this RFC, so no existing connector regresses. |
+| `ExtensionManifest.runtime` widens in TypeScript | **minor** | Per `CLAUDE.md`, changing an exported type is semver-relevant; release-please's `typescript` component keys on `sdks/typescript` and will open a minor bump for this commit. Consumers pattern-matching on `runtime` exhaustively (e.g. a `switch` with no `default`) gain a new case to handle at compile time — `tsc --noEmit` catches it, which is exactly the kind of downstream break a minor bump (not `none`) exists to signal, even though no *runtime* behavior for existing values changes. |
 | One case added to the manifest conformance corpus | none | A third-party binding that reimplements manifest validation and hardcodes the two-member enum, which was already narrower than a contract this RFC widens. |
 
 `docs/api-surface.md` requires regeneration (`bun run api:surface`) because

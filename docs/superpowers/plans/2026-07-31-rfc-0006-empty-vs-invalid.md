@@ -480,7 +480,8 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 ## Final verification before the PR
 
-- [ ] `git log --oneline origin/main..HEAD` shows exactly four commits: the RFC, this plan, the corpus, the guards.
+- [ ] `git log --oneline origin/main..HEAD` ends with exactly two implementation commits — the corpus (`docs(spec): …`) and the guards (`test(negotiation): …`), one per task. Everything before them is `docs(rfc):`/`docs(plan):` documentation already on the branch when execution started; do not count those against a fixed number.
+- [ ] Every commit subject on the branch is `docs:`- or `test:`-class. `git log --format='%s' origin/main..HEAD` must show no `feat`/`fix`/`perf`/`revert` prefix.
 - [ ] `git status --porcelain` is empty — in particular no `negotiate-unindexed-probe.json` and no commented-out Python probe lines.
 - [ ] Corpus case count is 36 on disk and 36 in the index:
   ```bash

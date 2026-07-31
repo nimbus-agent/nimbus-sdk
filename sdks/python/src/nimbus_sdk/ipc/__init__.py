@@ -8,6 +8,13 @@ a boundary the TypeScript binding maintains in its ``exports`` map.
 
 from __future__ import annotations
 
+from nimbus_sdk.ipc.handshake import (
+    HandshakeIO,
+    HandshakeOk,
+    HandshakeRefused,
+    HandshakeResult,
+    perform_handshake,
+)
 from nimbus_sdk.ipc.hello import (
     HELLO_MESSAGE,
     HelloOk,
@@ -28,10 +35,15 @@ __all__ = [
     "IPC_MAX_LINE_BYTES",
     "FlushResult",
     "FrameTooLongError",
+    "HandshakeIO",
+    "HandshakeOk",
+    "HandshakeRefused",
+    "HandshakeResult",
     "HelloOk",
     "HelloRefused",
     "HelloResult",
     "NdjsonLineReader",
     "encode_hello",
     "parse_hello",
+    "perform_handshake",
 ]

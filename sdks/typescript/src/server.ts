@@ -7,6 +7,7 @@
  *   server.start();
  */
 
+import { V1_ABSENCE_DEFAULT } from "./contract-version.js";
 import { type HandshakeIo, type HandshakeResult, performHandshake } from "./ipc/handshake.js";
 import type { ExtensionManifest } from "./types.js";
 
@@ -51,12 +52,17 @@ export class NimbusExtensionServer<TClient = unknown> {
    *
    * Stores nothing. There is no other operation to gate — `registerTool` is still a stub —
    * and the caller holds the result, which is the only thing that needs it.
+   *
+   * Announces the manifest's declared set, and {@link V1_ABSENCE_DEFAULT} — not
+   * {@link CONTRACT_VERSIONS} — when the manifest is silent. §7.2 obliges a connector's hello
+   * to equal its own declaration, and §4 fixes what a silent manifest declares at `["1"]`
+   * forever. Letting `performHandshake`'s own default apply instead would announce whatever
+   * this SDK happens to speak, so the day a second major ships every manifest predating the
+   * field would announce a set it never declared — a `declaration-mismatch` compiled into
+   * published surface rather than a bug anyone introduced.
    */
   handshake(io: HandshakeIo): Promise<HandshakeResult> {
-    const { contractVersions } = this._options.manifest;
-    return performHandshake(
-      io,
-      contractVersions === undefined ? {} : { localVersions: contractVersions },
-    );
+    const localVersions = this._options.manifest.contractVersions ?? V1_ABSENCE_DEFAULT;
+    return performHandshake(io, { localVersions });
   }
 }

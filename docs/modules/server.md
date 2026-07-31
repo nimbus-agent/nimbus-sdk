@@ -83,11 +83,18 @@ literal and TypeScript checks it against the shape above.
 
 `server.handshake(io)` is a thin delegate to `performHandshake` — see
 [`ipc.md`](./ipc.md) for `HandshakeIo` and the exchange it runs. The server contributes
-nothing but `manifest.contractVersions` as `localVersions` (falling back to
-`CONTRACT_VERSIONS` when the manifest does not set it); the negotiation itself lives in
+nothing but `manifest.contractVersions` as `localVersions`; the negotiation itself lives in
 the free function so both language bindings are held to the same behavior, not to
 whatever this class happens to do.
 
+- **A silent manifest announces `["1"]`, not whatever this SDK speaks.** `contractVersions`
+  is optional, and `contract-version.md` §4 fixes what its absence *declares* — `["1"]`,
+  frozen for as long as v1-era manifests exist. That is a different question from
+  `CONTRACT_VERSIONS`, which is the set this SDK currently speaks and which grows with every
+  new major. `handshake` announces the former, because §7.2 obliges a connector's hello to
+  equal its own declaration: deferring to the latter would, the day a second major ships,
+  have every manifest written before the field existed announce a version it never promised.
+  Declare `contractVersions` explicitly if you want to say anything else.
 - **Deliberately not part of `start()`.** `start()` is called with no arguments in the
   published examples and above in this page; giving it a required parameter to carry the
   stream would be a breaking, major-version change for a feature that works just as well

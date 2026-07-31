@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import type { HandshakeIo } from "./ipc/handshake.js";
 import { NimbusExtensionServer } from "./server.js";
 import type { ExtensionManifest } from "./types.js";
 
@@ -136,6 +137,53 @@ describe("NimbusExtensionServer.handshake", () => {
       write: async () => {},
     });
     expect(result).toEqual({ ok: false, reason: "no-common-version", pending: [] });
+  });
+
+  /** Records the frames the server wrote; feeds back one hello for `["1","2"]`. */
+  function recordingIo(): HandshakeIo & { written: string[] } {
+    const written: string[] = [];
+    let sent = false;
+    return {
+      written,
+      read: async () => {
+        if (sent) {
+          return null;
+        }
+        sent = true;
+        return new TextEncoder().encode('{"nimbus":"hello","contractVersions":["1","2"]}\n');
+      },
+      write: async (chunk: Uint8Array) => {
+        written.push(new TextDecoder().decode(chunk));
+      },
+    };
+  }
+
+  test("announces the set the manifest declares, not the set this SDK speaks", async () => {
+    // Asserted on the bytes, not on the result: §7.2 obliges a connector's hello to equal
+    // its own declaration, and the *result* of negotiating ["1","2"] against a peer that
+    // also offers both is "2" either way. Only the written frame can show which set went
+    // out, which is why the earlier version of this method shipped announcing the wrong one.
+    const io = recordingIo();
+    const server = new NimbusExtensionServer({
+      manifest: { ...manifest, contractVersions: ["1", "2"] },
+    });
+    await server.handshake(io);
+    expect(io.written.join("")).toBe('{"nimbus":"hello","contractVersions":["1","2"]}\n');
+  });
+
+  test("announces the §4 absence default when the manifest declares nothing", async () => {
+    // Not CONTRACT_VERSIONS, and the expected frame is spelled as a literal rather than
+    // derived from either constant *because* the two are equal today: this assertion cannot
+    // discriminate now, and becomes discriminating the moment CONTRACT_VERSIONS grows —
+    // which is the only moment the bug it guards can appear. §4 freezes what a silent
+    // manifest declares at ["1"] for as long as v1-era manifests exist; announcing what this
+    // SDK happens to speak instead would claim a version the manifest never promised, which
+    // §7.2 calls a declaration-mismatch.
+    const io = recordingIo();
+    const server = new NimbusExtensionServer({ manifest });
+    expect(manifest.contractVersions).toBeUndefined();
+    await server.handshake(io);
+    expect(io.written.join("")).toBe('{"nimbus":"hello","contractVersions":["1"]}\n');
   });
 
   test("start() is unchanged — still synchronous, still takes no arguments", () => {

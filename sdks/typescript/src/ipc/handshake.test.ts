@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 
 import { CONTRACT_VERSIONS } from "../contract-version.js";
 import { type HandshakeIo, type HandshakeRefusalReason, performHandshake } from "./handshake.js";
-import { NdjsonLineReader } from "./ndjson-line-reader.js";
 
 /** A scripted peer: hands back queued chunks, records everything written. */
 function scriptedPeer(chunks: (string | null)[]): HandshakeIo & { written: string[] } {
@@ -26,7 +25,7 @@ function scriptedPeer(chunks: (string | null)[]): HandshakeIo & { written: strin
 describe("performHandshake", () => {
   test("agrees when both peers declare the same major", async () => {
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("writes our hello BEFORE reading anything", async () => {
@@ -57,7 +56,7 @@ describe("performHandshake", () => {
 
   test("a frame split across reads is assembled before parsing", async () => {
     const io = scriptedPeer(['{"nimbus":"hello",', '"contractVersions":["1"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("surfaces the parseHello reason rather than collapsing it", async () => {
@@ -73,13 +72,21 @@ describe("performHandshake", () => {
       ['{"nimbus":"hello","contractVersions":["1","1"]}\n', "duplicate-version"],
     ];
     for (const [frame, reason] of cases) {
-      expect(await performHandshake(scriptedPeer([frame]))).toEqual({ ok: false, reason });
+      expect(await performHandshake(scriptedPeer([frame]))).toEqual({
+        ok: false,
+        reason,
+        pending: [],
+      });
     }
   });
 
   test("refuses no-common-version when the sets are disjoint", async () => {
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["2"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: false, reason: "no-common-version" });
+    expect(await performHandshake(io)).toEqual({
+      ok: false,
+      reason: "no-common-version",
+      pending: [],
+    });
   });
 
   test("refuses when the stream ends before any frame arrives", async () => {
@@ -88,12 +95,13 @@ describe("performHandshake", () => {
     expect(await performHandshake(scriptedPeer([]))).toEqual({
       ok: false,
       reason: "no-common-version",
+      pending: [],
     });
   });
 
   test("accepts a final frame that end-of-stream delivered without its newline", async () => {
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("honours an explicit localVersions over the SDK default", async () => {
@@ -101,28 +109,43 @@ describe("performHandshake", () => {
     expect(await performHandshake(io, { localVersions: ["2", "3"] })).toEqual({
       ok: true,
       version: "3",
+      pending: [],
     });
   });
 
-  test("a caller-supplied reader retains a second frame read alongside the hello", async () => {
+  test("a frame read alongside the hello is returned in pending, not dropped", async () => {
     // §5 has both peers announce unprompted, so a peer's hello and its first request very
-    // often land in the same chunk. A reader created inside performHandshake and dropped on
-    // return would destroy that second frame with no sign it had happened. Passing a reader
-    // in is how the caller keeps it.
+    // often land in the same chunk. NdjsonLineReader.push() extracts every complete frame a
+    // chunk completes, not just the hello — so the second one must come back to the caller
+    // rather than being discarded here.
     const io = scriptedPeer([
       '{"nimbus":"hello","contractVersions":["1"]}\n{"nimbus":"hello","contractVersions":["2"]}\n',
     ]);
-    const reader = new NdjsonLineReader();
-    expect(await performHandshake(io, { reader })).toEqual({ ok: true, version: "1" });
-    // The second frame was never a hello response — it's the caller's own next message,
-    // still sitting in the reader they supplied, ready for them to read after the handshake.
-    expect(reader.flush()).toEqual(['{"nimbus":"hello","contractVersions":["2"]}']);
+    expect(await performHandshake(io)).toEqual({
+      ok: true,
+      version: "1",
+      pending: ['{"nimbus":"hello","contractVersions":["2"]}'],
+    });
+  });
+
+  test("three frames read alongside the hello all come back in pending, in order", async () => {
+    // This is the case that proved re-buffering the extras through the reader wrong: push()
+    // returns every complete frame in the chunk, and taking only frames[0] silently dropped
+    // the rest. All of them must survive, in the order the peer sent them.
+    const io = scriptedPeer([
+      '{"nimbus":"hello","contractVersions":["1"]}\n{"a":1}\n{"b":2}\n{"c":3}\n',
+    ]);
+    expect(await performHandshake(io)).toEqual({
+      ok: true,
+      version: "1",
+      pending: ['{"a":1}', '{"b":2}', '{"c":3}'],
+    });
   });
 
   test("omitting reader still performs the handshake", async () => {
     // The option is genuinely optional: with nothing after the hello (as in every other
     // test here), performHandshake works exactly as it did before `reader` existed.
     const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1" });
+    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 });

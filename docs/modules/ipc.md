@@ -100,12 +100,19 @@ it is written in) and §6 (the algorithm), layered over `framing.md` §3.
 - **The refusal reason is wider than `ContractNegotiationResult`'s.** `HandshakeRefusalReason` is
   `HelloRefusalReason | "no-common-version"`, because the exchange can fail at the frame layer —
   malformed JSON, the wrong message, a duplicate version — before negotiation is ever reached.
+- **`pending` carries whatever else the same read completed.** §5 has both peers announce
+  *unprompted*, so a peer's hello and its first request very often arrive in one read, and
+  `NdjsonLineReader.push()` returns every complete frame that read completed — not just the
+  hello. `HandshakeResult.pending` is those extra frames, in order, on every return path
+  (success or refusal), so `performHandshake` never has to choose between the hello and what
+  came after it.
 
 ```ts
 import { performHandshake } from "@nimbus-dev/sdk/ipc";
 
 declare function readChunk(): Promise<Uint8Array | null>;
 declare function writeChunk(chunk: Uint8Array): Promise<void>;
+declare function handle(message: unknown): void;
 
 const result = await performHandshake({ read: readChunk, write: writeChunk });
 if (!result.ok) {
@@ -113,23 +120,36 @@ if (!result.ok) {
   throw new Error(`handshake refused: ${result.reason}`);
 }
 result.version; // the agreed contract major, e.g. "1"
+// Complete frames the peer sent right after its hello — process these before your own next
+// read(), in order, or you'll process a later message before an earlier one.
+for (const line of result.pending) {
+  handle(JSON.parse(line));
+}
 ```
 
-### If you read again after the handshake, pass your own reader
+### Two ways a single read can carry more than the hello — and why one recovery isn't enough
 
 `performHandshake` reads through an `NdjsonLineReader` to assemble the peer's hello, since a
-chunk boundary is not a frame boundary any more here than anywhere else this package reads a
-stream. If you don't supply one, it makes its own — and drops it when it returns.
+chunk boundary is not a frame boundary here any more than anywhere else this package reads a
+stream. A single `read()` can return the hello *and* whatever the peer sent immediately after
+it — and what that "whatever" contains splits into two cases that need two different fixes:
 
-That's invisible right up until it isn't: §5 has both peers announce *unprompted*, so a gateway
-that writes its hello and immediately follows with its first request will very often land both
-in the same read. If `performHandshake` owns the reader, that request is inside it when the
-function returns — and is gone. Not delayed, not re-deliverable: a `NdjsonLineReader` with no
-handle to it is unreachable. Your own read loop starts from an empty buffer and never sees the
-first message of the session. Nothing in the return value indicates this happened; `{ ok: true,
-version }` looks identical either way.
+- **Complete frames** — full lines the same chunk terminated. `push()` extracts these as part
+  of finding the hello, so they can't be left sitting in the reader; they come back as
+  `result.pending` (see above). Drop them and you've dropped the peer's first message(s) with no
+  sign of it.
+- **A trailing, not-yet-complete frame** — bytes buffered because no terminating newline had
+  arrived yet. These were never a complete line, so `pending` can't hold them; `push()` leaves
+  them in the reader's own internal buffer instead. If `performHandshake` created that reader
+  itself, that buffer — and the partial frame inside it — is discarded the moment the function
+  returns: not delayed, not re-deliverable, just gone. Nothing in the return value indicates
+  this happened; `{ ok: true, ... }` looks identical either way.
 
-Pass a reader you kept a reference to via `HandshakeOptions.reader`, and it survives:
+`pending` alone only fixes the first case. The second needs the *same reader instance* to
+survive past the call, which is what `HandshakeOptions.reader` is for: supply one, keep reading
+through it after the handshake, and the partial frame is exactly where you'd expect — sitting in
+`pending` for the reader's *own* next `push()` or `flush()` call, waiting for the rest of itself
+to arrive.
 
 ```ts
 import { NdjsonLineReader, performHandshake } from "@nimbus-dev/sdk/ipc";
@@ -141,15 +161,25 @@ declare function handle(message: unknown): void;
 const reader = new NdjsonLineReader();
 const result = await performHandshake({ read: readChunk, write: writeChunk }, { reader });
 if (result.ok) {
-  // Whatever the peer sent along with (or right after) its hello is still buffered here.
-  for (const line of reader.flush()) {
+  // Complete frames read alongside the hello: come back on the result, in order.
+  for (const line of result.pending) {
     handle(JSON.parse(line));
+  }
+  // A trailing, not-yet-complete frame read alongside the hello: still buffered in the
+  // reader you supplied, because it's the same instance performHandshake read through.
+  const nextChunk = await readChunk();
+  if (nextChunk !== null) {
+    for (const line of reader.push(nextChunk)) {
+      handle(JSON.parse(line));
+    }
   }
 }
 ```
 
 Omitting `reader` is fine when nothing follows the handshake on that stream — a one-shot check,
-or a test — but any caller that keeps reading afterward needs to supply one.
+or a test — but any caller that keeps reading afterward needs to supply one, in addition to
+draining `pending`. Each recovers a different half of what a single read can carry; neither
+substitutes for the other.
 
 ## Every export
 

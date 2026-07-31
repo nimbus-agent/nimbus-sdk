@@ -1869,9 +1869,11 @@ From `./handshake.js`.
 export type HandshakeResult = {
     readonly ok: true;
     readonly version: string;
+    readonly pending: readonly string[];
 } | {
     readonly ok: false;
     readonly reason: HandshakeRefusalReason;
+    readonly pending: readonly string[];
 };
 ```
 

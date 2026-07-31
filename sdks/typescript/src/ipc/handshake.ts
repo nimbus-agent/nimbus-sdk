@@ -23,9 +23,28 @@ import { NdjsonLineReader } from "./ndjson-line-reader.js";
  */
 export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
 
+/**
+ * `pending` carries **complete** frames the peer sent after its hello, extracted from the same
+ * chunk `push()` found the hello in. §5 has both peers announce unprompted, so a peer's hello
+ * and its first request very often arrive together — and `NdjsonLineReader.push()` returns every
+ * complete line a chunk yields, not just the first. Taking only the first and discarding the
+ * rest would silently lose the first message of the session; `pending` is how the caller gets
+ * them back instead. A caller that keeps reading the stream afterward must process `pending`
+ * before its next `read()`, or process it in order alongside whatever that next read produces.
+ *
+ * This is only half of what a caller can lose here — the other half, a frame the peer left
+ * *incomplete* in that same chunk, never appears in `pending` because it was never a complete
+ * line to extract. It survives instead in the `NdjsonLineReader` the caller supplied via
+ * {@link HandshakeOptions.reader}, which is why both exist: `pending` returns what was already
+ * extracted, the caller-supplied reader retains what was not.
+ */
 export type HandshakeResult =
-  | { readonly ok: true; readonly version: string }
-  | { readonly ok: false; readonly reason: HandshakeRefusalReason };
+  | { readonly ok: true; readonly version: string; readonly pending: readonly string[] }
+  | {
+      readonly ok: false;
+      readonly reason: HandshakeRefusalReason;
+      readonly pending: readonly string[];
+    };
 
 /**
  * The byte stream, supplied by the caller.
@@ -75,45 +94,44 @@ export async function performHandshake(
 
   const reader = options.reader ?? new NdjsonLineReader();
   let peerFrame: string | undefined;
+  let pending: readonly string[] = [];
 
   while (peerFrame === undefined) {
     const chunk = await io.read();
     if (chunk === null) {
       // End of stream. A peer that stopped mid-frame may still have left a complete hello
-      // without its terminating newline, so drain before giving up.
+      // without its terminating newline, so drain before giving up. flushFrames() yields at
+      // most one frame, so there is never a `pending` remainder to carry from this branch.
       peerFrame = reader.flushFrames().frames[0];
       break;
     }
 
+    // §5 has both peers announce unprompted, so a peer's hello and its first request very
+    // often arrive in the same read: `push()` returns every complete frame that chunk
+    // completed, not just the hello. The hello is always frames[0]; anything after it is a
+    // complete frame the caller must not lose, so it goes out as `pending` rather than being
+    // dropped here.
     const frames = reader.push(chunk);
     peerFrame = frames[0];
-
-    // §5 has both peers announce unprompted, so a peer's hello and its first request very
-    // often arrive in the same read — `frames` can hold more than the hello alone. `push`
-    // already extracted them, so re-buffer them in the (possibly caller-supplied) reader
-    // rather than let them vanish here: a caller that passed its own `reader` still finds
-    // them afterward, via that same reader, instead of losing the first message of the
-    // session to a handshake that only meant to read one frame.
-    const extra = frames.slice(1);
-    if (peerFrame !== undefined && extra.length > 0) {
-      reader.push(new TextEncoder().encode(extra.join("\n")));
+    if (peerFrame !== undefined) {
+      pending = frames.slice(1);
     }
   }
 
   if (peerFrame === undefined) {
     // §7.3: an absent hello is a refusal. There is no token for silence, and we never
     // learned a set to intersect with, so this is the empty intersection.
-    return { ok: false, reason: "no-common-version" };
+    return { ok: false, reason: "no-common-version", pending };
   }
 
   const parsed = parseHello(peerFrame);
   if (!parsed.ok) {
-    return { ok: false, reason: parsed.reason };
+    return { ok: false, reason: parsed.reason, pending };
   }
 
   const negotiated = negotiateContractVersion(local, parsed.contractVersions);
   if (!negotiated.ok) {
-    return { ok: false, reason: negotiated.reason };
+    return { ok: false, reason: negotiated.reason, pending };
   }
-  return { ok: true, version: negotiated.version };
+  return { ok: true, version: negotiated.version, pending };
 }

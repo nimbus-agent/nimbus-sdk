@@ -27,9 +27,16 @@
 |---|---|---|---|
 | `pytest tests/test_negotiation_corpus.py tests/test_framing_corpus.py -q` | 62 passed | 63 | 64 |
 | `pytest -q` (whole Python suite) | 126 passed, 6 skipped | 127 | 128 |
-| `bun test scripts/negotiation-guard.test.ts scripts/framing-guard.test.ts` | 85 pass, 0 fail | 85 | 85 |
+| `bun test scripts/negotiation-guard.test.ts` | 31 pass | **31** | 31 |
+| `bun test scripts/framing-guard.test.ts` | 54 pass | 54 | **56** |
+| `bun run test` (whole TS suite) | 1081 pass | 1081 | **1083** |
 
-**The TypeScript guard counts do not change.** Those guards aggregate all cases of a kind into a single assertion, so a new case folds into an existing `expect` rather than adding a test. Do not read an unchanged count as a failure — the Python parametrised counts are what prove the cases execute.
+**The two guards are structured differently, and it matters for what you should expect.**
+
+- `negotiation-guard.test.ts` **aggregates**: `test("negotiate")`, `test("hello")` and `test("declaration")` each fold every case of that kind into one assertion (lines 361, 376, 391). A new negotiation case therefore adds **no test** — 31 stays 31. An unchanged count there is correct, not a skipped case.
+- `framing-guard.test.ts` is **per case**: two `for (const entry of entries) { test(...) }` loops (lines 137 and 145) generate one schema-validation test and one behaviour test per case. A new framing case therefore adds **exactly two** — 54 becomes 56, and the whole suite 1081 becomes 1083.
+
+If the framing count comes back 54 after Task 2, the case is not being picked up. **Do not "fix" a count mismatch by editing the guard** — the per-case loops give precise failure attribution and are worth keeping.
 
 ---
 
@@ -263,7 +270,7 @@ Expected: **25 passed** (was 24). The reinstall is needed again here for the sam
 cd sdks/typescript && bun test scripts/framing-guard.test.ts
 ```
 
-Expected: **54 pass, 0 fail** — count unchanged, per the note in Global Constraints.
+Expected: **56 pass, 0 fail** — up two from 54, because this guard generates one schema test and one behaviour test *per case*. If it comes back 54, the case is not being picked up.
 
 - [ ] **Step 5: Prove the case discriminates, by mutation**
 
@@ -408,7 +415,7 @@ Expected: all clean; **128 passed, 6 skipped**.
 cd sdks/typescript && bun run build && bun run typecheck && bun run lint && bun run test
 ```
 
-Expected: all clean; **1081 pass, 0 fail**.
+Expected: all clean; **1083 pass, 0 fail** — up two from 1081, the framing guard's per-case pair for the new case.
 
 - [ ] **Step 8: Commit**
 
@@ -447,7 +454,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   ls docs/spec/conformance/v1/framing/cases/*.json | wc -l       # 25
   grep -c '"file":' docs/spec/conformance/v1/framing/index.json      # 25
   ```
-- [ ] Both suites green: Python **128 passed, 6 skipped**; TypeScript **1081 pass, 0 fail**.
+- [ ] Both suites green: Python **128 passed, 6 skipped**; TypeScript **1083 pass, 0 fail**.
 - [ ] No literal U+FEFF anywhere in the new files:
   ```bash
   python -c "import glob;[print(p) for p in glob.glob('docs/spec/conformance/v1/*/cases/*.json') if '\ufeff' in open(p,encoding='utf-8').read()]"

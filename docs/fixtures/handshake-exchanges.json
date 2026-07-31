@@ -1,5 +1,6 @@
 {
   "_comment": "Cross-binding differential fixture for performHandshake / perform_handshake. Read independently by sdks/typescript/scripts/handshake-differential.test.ts and sdks/python/tests/test_handshake_differential.py, which run in separate CI jobs and cannot hand data to each other. Do not edit an `expect` or `pending` value to make either suite's test pass — if the two bindings disagree, that disagreement is the bug this fixture exists to catch.",
+  "_comment_non_hello_first": "`non-hello-frame-before-hello` covers the third clause of contract-version.md §7.3 — 'anything was written to the frame stream before it' — which no other exchange reaches. §7.3 names no token for it, so what both bindings actually answer is `wrong-message`: the first complete frame is the one parsed as a hello, and it is not one. The hello that followed is not re-examined; it comes back in `pending`, which also makes this the only exchange pinning that a refusal carries pending at all.",
   "exchanges": {
     "agree-on-1": {
       "chunks": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n"],
@@ -82,6 +83,13 @@
       ],
       "expect": "ok:1",
       "pending": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"2\"]}"]
+    },
+    "non-hello-frame-before-hello": {
+      "chunks": [
+        "{\"a\":1}\n{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}\n"
+      ],
+      "expect": "refused:wrong-message",
+      "pending": ["{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}"]
     },
     "hello-plus-two-frames": {
       "chunks": [

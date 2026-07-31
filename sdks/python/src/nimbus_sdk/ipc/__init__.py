@@ -1,4 +1,4 @@
-"""The IPC surface — the NDJSON framing reader and the hello frame.
+"""The IPC surface — the NDJSON framing reader, the hello frame, and the handshake.
 
 Mirrors the ``./ipc`` export of ``@nimbus-dev/sdk``. These names are deliberately not
 re-exported from :mod:`nimbus_sdk`: the split between the authoring contract and the

@@ -89,6 +89,16 @@ def perform_handshake(
 
     Returns the refusal rather than exiting. The caller owns the process and the exit
     code; :data:`CONTRACT_HANDSHAKE_EXIT` is exported for it.
+
+    ``reader`` is the :class:`NdjsonLineReader` to draw frames through. **Supply your
+    own to keep the session's bytes.** A peer announces unprompted (§5), so its hello
+    and its first request often arrive in a single read; a reader created here and
+    discarded on return would take a *partially*-buffered frame down with it — bytes
+    that were never a complete line to hand back via ``pending``, and so cannot be
+    recovered any other way. Passing your own reader in, and continuing to read
+    through it afterward, is what keeps that frame instead of losing it silently.
+    Omitting the argument is fine when nothing follows the handshake on this stream,
+    such as in a test.
     """
     # §5, and the order is load-bearing: our hello goes out before we read a single
     # byte. Both peers announce unprompted, so waiting for theirs would deadlock two

@@ -10,7 +10,12 @@ from __future__ import annotations
 import pytest
 
 from nimbus_sdk import CONTRACT_VERSIONS
-from nimbus_sdk.ipc import HandshakeOk, HandshakeRefused, perform_handshake
+from nimbus_sdk.ipc import (
+    HandshakeOk,
+    HandshakeRefused,
+    NdjsonLineReader,
+    perform_handshake,
+)
 
 
 class ScriptedPeer:
@@ -111,3 +116,51 @@ def test_it_never_exits_the_process() -> None:
     peer = ScriptedPeer([b"{oops\n"])
     result = perform_handshake(peer)
     assert isinstance(result, HandshakeRefused)
+
+
+def test_a_frame_read_alongside_the_hello_is_returned_in_pending() -> None:
+    # Section 5 has both peers announce unprompted, so a peer's hello and its first
+    # request very often land in the same chunk. NdjsonLineReader.push() extracts
+    # every complete frame a chunk completes, not just the hello — so the second one
+    # must come back to the caller rather than being discarded here.
+    peer = ScriptedPeer(
+        [
+            b'{"nimbus":"hello","contractVersions":["1"]}\n'
+            b'{"nimbus":"hello","contractVersions":["2"]}\n'
+        ]
+    )
+    assert perform_handshake(peer) == HandshakeOk(
+        version="1",
+        pending=('{"nimbus":"hello","contractVersions":["2"]}',),
+    )
+
+
+def test_three_frames_read_alongside_the_hello_all_come_back_in_order() -> None:
+    # This is the case that proved re-buffering the extras through the reader wrong:
+    # push() returns every complete frame in the chunk, and taking only frames[0]
+    # silently dropped the rest. All of them must survive, in the order the peer sent
+    # them.
+    peer = ScriptedPeer(
+        [b'{"nimbus":"hello","contractVersions":["1"]}\n{"a":1}\n{"b":2}\n{"c":3}\n']
+    )
+    assert perform_handshake(peer) == HandshakeOk(
+        version="1",
+        pending=('{"a":1}', '{"b":2}', '{"c":3}'),
+    )
+
+
+def test_a_partial_frame_survives_in_a_caller_supplied_reader() -> None:
+    # The pair to the two cases above: a frame the peer left *incomplete* in the same
+    # chunk never appears in `pending`, because it was never a complete line to
+    # extract. It survives instead in the reader the caller supplied via `reader=`,
+    # which is why both `pending` and `reader` exist — one returns what was already
+    # extracted, the other retains what was not. Omitting `reader=` here would drop
+    # this frame with nothing to indicate it had happened.
+    reader = NdjsonLineReader()
+    peer = ScriptedPeer([b'{"nimbus":"hello","contractVersions":["1"]}\n{"partial":'])
+    result = perform_handshake(peer, reader=reader)
+    assert result == HandshakeOk(version="1", pending=())
+
+    # The rest of the partial frame arrives later; the caller-supplied reader still
+    # has the earlier bytes buffered and assembles the complete frame from them.
+    assert reader.push(b"true}\n") == ['{"partial":true}']

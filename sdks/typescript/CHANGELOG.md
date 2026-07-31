@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.12.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.11.1...typescript-v1.12.0) (2026-07-31)
+
+
+### Features
+
+* perform the contract-version handshake in both bindings ([#92](https://github.com/nimbus-agent/nimbus-sdk/issues/92)) ([5a95669](https://github.com/nimbus-agent/nimbus-sdk/commit/5a95669559a8b329d5494f9d20d59c2a60a5d24d))
+
 ## [1.11.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.11.0...typescript-v1.11.1) (2026-07-31)
 
 

@@ -737,6 +737,8 @@ export declare class NimbusExtensionServer<TClient = unknown> {
     constructor(options: ExtensionServerOptions<TClient>);
     registerTool<TInput>(_name: string, _definition: ToolDefinition<TInput, TClient>): void;
     start(): void;
+
+    handshake(io: HandshakeIo): Promise<HandshakeResult>;
 }
 ```
 

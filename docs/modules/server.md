@@ -79,6 +79,40 @@ server.start();
 `registerTool` but are not themselves re-exported, so they are structural: pass an object
 literal and TypeScript checks it against the shape above.
 
+## `handshake(io)`
+
+`server.handshake(io)` is a thin delegate to `performHandshake` — see
+[`ipc.md`](./ipc.md) for `HandshakeIo` and the exchange it runs. The server contributes
+nothing but `manifest.contractVersions` as `localVersions` (falling back to
+`CONTRACT_VERSIONS` when the manifest does not set it); the negotiation itself lives in
+the free function so both language bindings are held to the same behavior, not to
+whatever this class happens to do.
+
+- **Deliberately not part of `start()`.** `start()` is called with no arguments in the
+  published examples and above in this page; giving it a required parameter to carry the
+  stream would be a breaking, major-version change for a feature that works just as well
+  sitting next to it. Call `handshake(io)` yourself, before or after `start()`, as your
+  runtime's session setup requires.
+- **Returns the refusal; never throws it, never exits.** Like the rest of this package,
+  `handshake` performs no I/O beyond the `HandshakeIo` you pass in and never calls
+  `process.exit`. A `{ ok: false, reason, pending }` result comes back to you like any other
+  value — you decide what your process does about it.
+- **Stores nothing.** There is no other operation here to gate on the result — `registerTool`
+  is still a stub — so the method's only job is to hand you what `performHandshake` returned.
+
+```ts
+import type { NimbusExtensionServer } from "@nimbus-dev/sdk";
+
+declare const server: NimbusExtensionServer;
+declare function readChunk(): Promise<Uint8Array | null>;
+declare function writeChunk(chunk: Uint8Array): Promise<void>;
+
+const result = await server.handshake({ read: readChunk, write: writeChunk });
+if (!result.ok) {
+  // Your call: log it, refuse the connection, exit — this package does none of those for you.
+}
+```
+
 ## Every export
 
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the

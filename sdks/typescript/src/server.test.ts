@@ -94,3 +94,55 @@ describe("NimbusExtensionServer", () => {
     });
   });
 });
+
+describe("NimbusExtensionServer.handshake", () => {
+  const manifest: ExtensionManifest = {
+    id: "handshake-fixture",
+    displayName: "Handshake Fixture",
+    version: "0.1.0",
+    description: "Exercises the handshake delegation.",
+    author: "Nimbus Contributors",
+    entrypoint: "./index.ts",
+    runtime: "bun",
+    permissions: ["read"],
+    hitlRequired: [],
+    minNimbusVersion: "0.1.0",
+  };
+
+  test("delegates to performHandshake and returns its result", async () => {
+    const server = new NimbusExtensionServer({ manifest });
+    const written: string[] = [];
+    let sent = false;
+    const result = await server.handshake({
+      read: async () => {
+        if (sent) {
+          return null;
+        }
+        sent = true;
+        return new TextEncoder().encode('{"nimbus":"hello","contractVersions":["1"]}\n');
+      },
+      write: async (chunk) => {
+        written.push(new TextDecoder().decode(chunk));
+      },
+    });
+    expect(result).toEqual({ ok: true, version: "1", pending: [] });
+    expect(written.join("")).toContain('"nimbus":"hello"');
+  });
+
+  test("returns the refusal rather than throwing or exiting", async () => {
+    const server = new NimbusExtensionServer({ manifest });
+    const result = await server.handshake({
+      read: async () => null,
+      write: async () => {},
+    });
+    expect(result).toEqual({ ok: false, reason: "no-common-version", pending: [] });
+  });
+
+  test("start() is unchanged — still synchronous, still takes no arguments", () => {
+    // Guards the compatibility promise this sub-project made. If start() ever grows a
+    // required parameter or becomes async, this fails and the package needs a major.
+    const server = new NimbusExtensionServer({ manifest });
+    expect(server.start()).toBeUndefined();
+    expect(NimbusExtensionServer.prototype.start.length).toBe(0);
+  });
+});

@@ -2,6 +2,55 @@ import { describe, expect, test } from "bun:test";
 
 import { IPC_MAX_LINE_BYTES, NdjsonLineReader } from "./ndjson-line-reader.js";
 
+describe("NdjsonLineReader — the byte-order mark", () => {
+  const BODY = '{"a":1}\n';
+  const bom = (...bytes: number[]): Uint8Array => new Uint8Array(bytes);
+  const body = (): Uint8Array => new TextEncoder().encode(BODY);
+  const both = (head: number[]): Uint8Array =>
+    new Uint8Array([...head, ...new TextEncoder().encode(BODY)]);
+
+  test("strips a BOM delivered whole in the first chunk", () => {
+    const r = new NdjsonLineReader();
+    expect(r.push(both([0xef, 0xbb, 0xbf]))).toEqual(['{"a":1}']);
+  });
+
+  test("strips a BOM split across chunks", () => {
+    // `framing.md` §5 makes ignoring a start-of-stream BOM a MUST, and the mark is
+    // still at the very start of the stream when its octets arrive separately —
+    // nothing has been emitted before them.
+    //
+    // This is not hypothetical. Bun's TextDecoder re-checks for a BOM at the start of
+    // every streaming `decode()` call rather than once per stream, so before the
+    // accompanying fix this reader returned '\uFEFF{"a":1}' under `bun test` — the
+    // runtime this repo's suite actually runs on — while behaving correctly under
+    // Node. The corpus cannot catch it: `bom-at-stream-start-ignored` delivers its
+    // BOM in a single chunk, which both runtimes handle.
+    const r = new NdjsonLineReader();
+    expect(r.push(bom(0xef))).toEqual([]);
+    expect(r.push(bom(0xbb))).toEqual([]);
+    expect(r.push(both([0xbf]))).toEqual(['{"a":1}']);
+  });
+
+  test("strips a BOM split two-and-two", () => {
+    const r = new NdjsonLineReader();
+    expect(r.push(bom(0xef, 0xbb))).toEqual([]);
+    expect(r.push(both([0xbf]))).toEqual(['{"a":1}']);
+  });
+
+  test("does not strip a BOM that arrives mid-stream", () => {
+    // §5 leaves mid-stream behaviour undefined and permits either answer; this pins
+    // the one this binding chose, so the two runtimes cannot disagree about it.
+    const r = new NdjsonLineReader();
+    expect(r.push(body())).toEqual(['{"a":1}']);
+    expect(r.push(new TextEncoder().encode("\uFEFFsecond\n"))).toEqual(["\uFEFFsecond"]);
+  });
+
+  test("leaves a stream without a BOM untouched", () => {
+    const r = new NdjsonLineReader();
+    expect(r.push(body())).toEqual(['{"a":1}']);
+  });
+});
+
 describe("NdjsonLineReader", () => {
   test("emits non-empty lines and skips blanks", () => {
     const r = new NdjsonLineReader();

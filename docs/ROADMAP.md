@@ -193,7 +193,8 @@ cited source of truth; a contract-version field is defined and negotiated.
 *Goal: demonstrate a second, fully independent language SDK that speaks the exact
 same contract.*
 
-- [ ] An official **Python SDK** that passes the conformance suite — *Pillar 2*
+- [x] A **Python SDK** that passes the conformance suite — *Pillar 2*. Promotion to
+  **official** is a separate, governance step; see the note below.
 - [ ] `create-nimbus-connector` scaffolding for TypeScript **and** Python — *Pillar 4*
 - [ ] Per-language quickstarts — *Pillar 4*
 - [ ] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*
@@ -207,11 +208,25 @@ same contract.*
   an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
   confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
 
-> Boxes 5–7 are done: a Python release can be cut end-to-end from a merged commit —
-> release PR → PyPI publish with attestations, no long-lived token — and verified after
-> publish. That is one clause of the exit criteria, met early. The phase still needs a
-> Python-authored connector passing the conformance suite (boxes 1–4); what remains is
-> SDK work rather than infrastructure work.
+> **Boxes 1 and 5–7 are done.** A Python release can be cut end-to-end from a merged
+> commit — release PR → PyPI publish with attestations, no long-lived token — and
+> verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that way. And the Python
+> binding now executes both published conformance corpora: `negotiation`, all three
+> case kinds including the 14 `hello` cases it used to skip, and all 24 `framing`
+> cases. Nothing is deferred, so **the suite is green for both languages in CI** —
+> two clauses of the exit criteria, met.
+>
+> **"Official" is a separate designation, and it is not this box's to grant.**
+> [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official) sets four criteria.
+> Python meets the first two — it passes the full suite in CI, and it publishes with
+> the strongest provenance its ecosystem supports (PEP 740 attestations, verified
+> post-publish). The remaining two are a **named SDK owner** and **an accepted RFC
+> recording the promotion**. Both are governance work, not SDK work, and neither is
+> blocked by anything technical.
+>
+> What still remains for the phase is boxes 2–4 — scaffolding, quickstarts, and the
+> diagnostics contract — plus a Python-authored connector running against the gateway,
+> which is the one exit clause this repository cannot demonstrate on its own.
 
 **Exit criteria:** a Python-authored connector runs against the gateway and passes
 the same suite as the TS reference; the suite is green for both languages in CI; a

@@ -216,13 +216,17 @@ In `docs/spec/conformance/v1/framing/index.json`, find the entry whose `file` is
     },
 ```
 
-- [ ] **Step 2: Run the Python runner to verify it fails**
+- [ ] **Step 2: Resync the bundled spec, then run the Python runner to verify it fails**
+
+**The reinstall is mandatory and must come first.** You just edited `docs/spec/`, and `spec_root()` prefers the gitignored `src/nimbus_sdk/_data/spec` snapshot over it. Without resyncing, this step **silently passes on the previous snapshot** instead of failing — which is not merely a delay, it is the exact false-green the failing-step exists to rule out. This bit Task 1's implementer, who saw 24 passed where the failure was required.
 
 ```bash
-cd sdks/python && python -m pytest tests/test_framing_corpus.py -q
+cd sdks/python && python -m pip install -e . && python -m pytest tests/test_framing_corpus.py -q
 ```
 
 Expected: **collection error** — `FileNotFoundError` naming `cases/bom-split-across-chunks.json`.
+
+If you instead see `24 passed`, the resync did not take effect; do not proceed until this step fails as described.
 
 - [ ] **Step 3: Create the case file**
 
@@ -250,10 +254,10 @@ The first two pushes emit nothing: the decoder is buffering an incomplete sequen
 - [ ] **Step 4: Run both runners to verify they pass**
 
 ```bash
-cd sdks/python && python -m pytest tests/test_framing_corpus.py -q
+cd sdks/python && python -m pip install -e . && python -m pytest tests/test_framing_corpus.py -q
 ```
 
-Expected: **25 passed** (was 24).
+Expected: **25 passed** (was 24). The reinstall is needed again here for the same reason — the case file you just created is not in the bundled snapshot until you resync.
 
 ```bash
 cd sdks/typescript && bun test scripts/framing-guard.test.ts

@@ -63,29 +63,60 @@ The work lives in a standalone function, mirrored across both bindings:
 |---|---|---|
 | Location | `sdks/typescript/src/ipc/handshake.ts`, exported from `./ipc` | `sdks/python/src/nimbus_sdk/ipc/handshake.py` |
 | Entry point | `performHandshake(io, options?)` | `perform_handshake(io, *, local_versions=CONTRACT_VERSIONS)` |
-| Returns | `Promise<ContractNegotiationResult>` | `NegotiationResult` |
+| Returns | `Promise<HandshakeResult>` | `HandshakeOk \| HandshakeRefused` |
+
+### The result is a new type, because the existing ones cannot express it
+
+The handshake has **more ways to fail than negotiation does**. `ContractNegotiationResult`'s
+refusal reason is the closed union `"invalid-version" | "no-common-version"`, but a handshake
+can also fail for any of the seven §5 frame reasons — `not-json`, `not-object`,
+`wrong-message`, `missing-versions`, `empty-versions`, `duplicate-version` — which that union
+cannot hold. Returning `ContractNegotiationResult` would force every frame-level failure to be
+collapsed into `no-common-version`, throwing away the reason §5 went to the trouble of naming
+and making the two bindings' diagnostics diverge from the corpus that pins them.
+
+So the runtime gets its own result type, whose reason set is exactly what §7 lists:
+
+```ts
+export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
+
+export type HandshakeResult =
+  | { readonly ok: true; readonly version: string }
+  | { readonly ok: false; readonly reason: HandshakeRefusalReason };
+```
+
+`"invalid-version"` is already a member of `HelloRefusalReason`, so the union needs no
+special case for the one reason both layers can produce.
+
+Python mirrors it with `HandshakeOk(version: str)` and `HandshakeRefused(reason: str)`, frozen
+and slotted like `NegotiationOk` / `NegotiationRefused`. Python's existing
+`NegotiationRefused.reason` is a bare `str` and would *accept* a frame reason without
+complaint, but `NegotiationRefused(reason="not-json")` claims a negotiation happened when none
+did — a type that lies quietly is worse than one more pair of names.
 
 `NimbusExtensionServer` gains one thin delegating method, `handshake(io)`. Keeping the real
 logic in a free function rather than the class is deliberate: the primitive is what both
 languages can be held to identically, and Python does not grow a class with a single method
 and nothing to host.
 
-**The result types keep their existing names** — `ContractNegotiationResult` in TypeScript,
-`NegotiationResult` in Python. Aligning them would read better across the two SDKs, but both
-are already exported (`index.ts`, and `nimbus_sdk.__all__`), so renaming either is a breaking
-change to a published surface for a cosmetic gain. The asymmetry is inherited, not introduced
-here.
+**The existing negotiation types keep their existing names.** `negotiateContractVersion` still
+returns `ContractNegotiationResult`, and `negotiate_contract_version` still returns
+`NegotiationResult`; the handshake calls them and widens the outcome into its own type. Those
+two names would read better aligned, but both are already exported (`index.ts` and
+`nimbus_sdk.__all__`), so renaming either is a breaking change to a published surface for a
+cosmetic gain. The asymmetry is inherited, not introduced here — and the new `Handshake*` names
+are chosen to match each other, which is the part this sub-project controls.
 
 ### TypeScript is async; Python is synchronous
 
 This is the one place the two signatures genuinely differ, and it is deliberate:
 
 ```ts
-async function performHandshake(io: HandshakeIo, options?): Promise<ContractNegotiationResult>
+async function performHandshake(io: HandshakeIo, options?): Promise<HandshakeResult>
 ```
 
 ```python
-def perform_handshake(io: HandshakeIO, *, local_versions=CONTRACT_VERSIONS) -> NegotiationResult
+def perform_handshake(io: HandshakeIO, *, local_versions=CONTRACT_VERSIONS) -> HandshakeOk | HandshakeRefused
 ```
 
 TypeScript has no idiomatic synchronous stream read, so async is forced. Python's standard

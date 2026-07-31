@@ -902,13 +902,16 @@ Each entry gives the chunks the peer delivers and the single result both binding
 | `duplicate-version` | `contractVersions: ["1","1"]` | `refused:duplicate-version` |
 | `blank-lines-before-frame` | two bare LFs, then the hello | `ok:1` |
 | `crlf-terminated` | the hello ending `\r\n` | `ok:1` |
-| `second-frame-ignored` | two hellos in one chunk, `["1"]` then `["2"]` | `ok:1` |
+| `second-frame-returned` | two hellos in one chunk, `["1"]` then `["2"]` | `ok:1`, and the second frame in `pending` |
+| `hello-plus-two-frames` | a hello then `{"a":1}` and `{"b":2}` in one chunk | `ok:1`, both in `pending`, in order |
 
 Write it as JSON with a `_comment` key stating that it must never be edited to make a test pass, and an `exchanges` object keyed by the names above, each holding `chunks` (an array of strings) and `expect`.
 
 `crlf-terminated` is **not** a guess, and needs no extra reader tests. `single-frame-crlf` in the framing corpus already pins that "a CRLF sender and an LF sender produce identical frames", and both bindings execute that corpus. Verified end to end before writing this: a CRLF-terminated hello yields the frame with its CR stripped, which then parses to `HelloOk(contract_versions=('1',))`.
 
-**Two of the others are predictions, not observations**, and are the ones most likely to be wrong: `blank-lines-before-frame` assumes zero-length frames are dropped before the hello arrives, and `second-frame-ignored` assumes only the first frame is consumed. If a run disproves either, **correct the fixture to match reality and say so in the report** — the specification is silent on both, so what matters is that the two bindings agree, not that they match my guess. If the two bindings disagree with *each other*, that is the finding this task exists for.
+**The fixture must compare `pending`, not only the result.** Each entry carries a `pending` array alongside `expect`, and both runners assert both. Without it the differential is blind to the field that took two fix rounds to get right: a regression hardcoding `pending` to empty would pass every fixture case, because `ok:1` is unchanged by it. A task-3 reviewer found exactly that hole and it is why `second-frame-returned` and `hello-plus-two-frames` are here.
+
+**`blank-lines-before-frame` remains a prediction, not an observation** — it assumes zero-length frames are dropped before the hello arrives, and the specification is silent. If a run disproves it, **correct the fixture to match reality and say so in the report**; what matters is that the two bindings agree, not that they match my guess. If the two bindings disagree with *each other*, that is the finding this task exists for.
 
 - [ ] **Step 2: Write the Python side**
 
@@ -967,6 +970,10 @@ def test_exchange_matches_the_shared_fixture(name: str) -> None:
         if isinstance(result, HandshakeOk)
         else f"refused:{result.reason}"
     )
+    assert list(result.pending) == case.get("pending", []), (
+        f"{name}: pending mismatch. This is the field a regression would empty silently "
+        f"while every result string stayed identical."
+    )
     assert actual == case["expect"], (
         f"{name}: Python produced {actual!r}. If the TypeScript suite agrees with the "
         f"fixture and this does not, the two bindings have diverged."
@@ -1009,6 +1016,8 @@ import { repoRoot } from "./paths.ts";
 interface Exchange {
   readonly chunks: string[];
   readonly expect: string;
+  /** Complete frames the peer sent after its hello. Absent means none. */
+  readonly pending?: string[];
 }
 
 const FIXTURE_PATH = join(repoRoot, "docs/fixtures/handshake-exchanges.json");
@@ -1016,7 +1025,9 @@ const EXCHANGES = (
   JSON.parse(readFileSync(FIXTURE_PATH, "utf8")) as { exchanges: Record<string, Exchange> }
 ).exchanges;
 
-async function run(chunks: string[]): Promise<string> {
+async function run(
+  chunks: string[],
+): Promise<{ outcome: string; pending: readonly string[] }> {
   const queue = [...chunks];
   const result = await performHandshake({
     read: async () => {
@@ -1025,7 +1036,10 @@ async function run(chunks: string[]): Promise<string> {
     },
     write: async () => {},
   });
-  return result.ok ? `ok:${result.version}` : `refused:${result.reason}`;
+  return {
+    outcome: result.ok ? `ok:${result.version}` : `refused:${result.reason}`,
+    pending: result.pending,
+  };
 }
 
 describe("the handshake agrees with the shared fixture", () => {
@@ -1036,9 +1050,15 @@ describe("the handshake agrees with the shared fixture", () => {
   test("every exchange produces the recorded result", async () => {
     const disagreed: string[] = [];
     for (const [name, exchange] of Object.entries(EXCHANGES)) {
-      const actual = await run(exchange.chunks);
-      if (actual !== exchange.expect) {
-        disagreed.push(`${name}: expected ${exchange.expect}, got ${actual}`);
+      const { outcome, pending } = await run(exchange.chunks);
+      if (outcome !== exchange.expect) {
+        disagreed.push(`${name}: expected ${exchange.expect}, got ${outcome}`);
+      }
+      const wantPending = exchange.pending ?? [];
+      if (JSON.stringify(pending) !== JSON.stringify(wantPending)) {
+        disagreed.push(
+          `${name}: pending expected ${JSON.stringify(wantPending)}, got ${JSON.stringify(pending)}`,
+        );
       }
     }
     expect(

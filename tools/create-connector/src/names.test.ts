@@ -42,10 +42,25 @@ describe("parseName", () => {
     ["my.connector", "dots"],
     ["node_modules", "reserved directory name"],
     ["class", "a Python keyword cannot be a module name"],
+    ["node-modules", "reserved directory name, in kebab form — snake collides with node_modules"],
+    ["com1", "reserved Windows device name (com1-com9, not just con/prn/aux/nul)"],
+    ["lpt1", "reserved Windows device name (lpt1-lpt9, not just con/prn/aux/nul)"],
   ])("rejects %p (%s)", (raw) => {
     const result = parseName(raw);
     expect(result).toHaveProperty("error");
     expect((result as { error: string }).error.length).toBeGreaterThan(0);
+  });
+
+  // "node_modules" is rejected by NAME_PATTERN (it contains an underscore) before RESERVED is
+  // ever consulted, so it does not exercise `RESERVED.has(snake)`. "node-modules" is valid
+  // kebab-case — it passes NAME_PATTERN — and only fails because its snake form,
+  // "node_modules", is reserved. Asserting the exact message pins that this is the reserved-name
+  // branch, not a pattern-mismatch that happens to also produce an error.
+  test("a kebab name whose snake form collides with a reserved word is rejected by the reserved-name rule", () => {
+    const result = parseName("node-modules");
+    expect(result).toEqual({
+      error: '"node-modules" is a reserved name and cannot be used as a module or directory',
+    });
   });
 
   test("the template's own name is a valid name", () => {

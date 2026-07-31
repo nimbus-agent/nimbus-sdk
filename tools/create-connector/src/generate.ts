@@ -27,9 +27,37 @@ export interface GenerateResult {
 }
 
 /**
- * Order matters. `snake` is substituted before `kebab` only because they share no substring
- * here, but `title` must be applied independently of both — it contains a space, so no ordering
- * hazard exists between the three. Applied left to right on a single pass per string.
+ * Thrown when `targetDir` already exists and is not empty. A distinct class rather than a
+ * message an index.ts caller pattern-matches on: exit code 2 is part of the CLI's contract
+ * (Task 5's CI jobs consume it), and a regex over `Error#message` breaks silently the moment
+ * either side's wording changes.
+ */
+export class TargetNotEmptyError extends Error {
+  constructor(dir: string) {
+    super(`${dir} exists and is not empty`);
+    this.name = "TargetNotEmptyError";
+  }
+}
+
+/**
+ * Thrown when a template file is not valid UTF-8 text. `generate` copies every file as text —
+ * it substitutes the template's name in file contents, which only makes sense for text — so a
+ * binary asset (an icon, a `.png`) is refused loudly rather than silently mangled into replacement
+ * characters the whole-tree guard would never notice.
+ */
+export class NotUtf8Error extends Error {
+  constructor(path: string) {
+    super(`${path} is not valid UTF-8 text; binary template assets are not supported`);
+    this.name = "NotUtf8Error";
+  }
+}
+
+/**
+ * Order matters only in the sense that it is applied left to right on a single pass per string;
+ * it does not matter *which* order. No template literal is a substring of another, and no
+ * replacement value can ever contain any of the three: a valid `title` has spaces but never `-`
+ * or `_`, and `snake`/`kebab` never contain spaces or the other separator. That makes this
+ * order-independent for any name `parseName` accepts, not just the fixture's.
  */
 function substitute(text: string, name: NameVariants): string {
   return text
@@ -37,6 +65,9 @@ function substitute(text: string, name: NameVariants): string {
     .replaceAll(TEMPLATE_NAME.snake, name.snake)
     .replaceAll(TEMPLATE_NAME.kebab, name.kebab);
 }
+
+/** Fatal: throws on the first invalid byte sequence rather than emitting U+FFFD. */
+const strictUtf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
 async function isNonEmptyDir(dir: string): Promise<boolean> {
   try {
@@ -63,7 +94,7 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   const { templateDir, targetDir, name } = options;
 
   if (await isNonEmptyDir(targetDir)) {
-    throw new Error(`${targetDir} exists and is not empty`);
+    throw new TargetNotEmptyError(targetDir);
   }
 
   const sources = (await collect(templateDir, "")).sort();
@@ -76,7 +107,14 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
     const absolute = join(targetDir, ...targetRel.split("/"));
     await mkdir(dirname(absolute), { recursive: true });
 
-    const raw = await readFile(join(templateDir, ...source.split("/")), "utf8");
+    const sourcePath = join(templateDir, ...source.split("/"));
+    const bytes = await readFile(sourcePath);
+    let raw: string;
+    try {
+      raw = strictUtf8Decoder.decode(bytes);
+    } catch {
+      throw new NotUtf8Error(sourcePath);
+    }
     await writeFile(absolute, substitute(raw, name), "utf8");
     written.push(targetRel);
   }

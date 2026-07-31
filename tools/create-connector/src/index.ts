@@ -12,7 +12,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { generate } from "./generate.js";
+import { generate, TargetNotEmptyError } from "./generate.js";
 import { parseName } from "./names.js";
 
 const LANGUAGES = new Set(["ts", "python"]);
@@ -24,13 +24,13 @@ const USAGE = `Usage: create-connector <name> [--lang ts|python] [--dir <path>]
   --dir           where to write it (default: ./<name>)
 `;
 
-interface Parsed {
+export interface Parsed {
   readonly name: string;
   readonly lang: string;
   readonly dir: string | undefined;
 }
 
-function parseArgv(argv: readonly string[]): Parsed | { readonly error: string } {
+export function parseArgv(argv: readonly string[]): Parsed | { readonly error: string } {
   let name: string | undefined;
   let lang = "ts";
   let dir: string | undefined;
@@ -66,6 +66,16 @@ function parseArgv(argv: readonly string[]): Parsed | { readonly error: string }
   return { name, lang, dir };
 }
 
+/**
+ * Exit code for a failure `generate` raises. `2` is reserved for "the target exists and is not
+ * empty" specifically — Task 5's CI jobs branch on it — everything else is a generic usage/
+ * validation failure. Narrowing on the exported error class rather than pattern-matching
+ * `Error#message` keeps this correct if either side's wording ever changes independently.
+ */
+export function exitCodeForGenerateError(error: unknown): number {
+  return error instanceof TargetNotEmptyError ? 2 : 1;
+}
+
 function fail(message: string, code: number): never {
   console.error(`create-connector: ${message}\n\n${USAGE}`);
   process.exit(code);
@@ -92,13 +102,29 @@ export async function main(argv: readonly string[]): Promise<void> {
     console.log(`Created ${name.kebab} in ${targetDir} (${String(result.files.length)} files)`);
     console.log(
       parsed.lang === "ts"
-        ? `\nNext:\n  cd ${name.kebab}\n  npm install\n  npm test`
-        : `\nNext:\n  cd ${name.kebab}\n  python -m pip install -e .\n  python -m pytest`,
+        ? `\nNext:\n  cd ${targetDir}\n  npm install\n  npm test`
+        : `\nNext:\n  cd ${targetDir}\n  python -m pip install -e .\n  python -m pytest`,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    fail(message, /not empty/.test(message) ? 2 : 1);
+    fail(message, exitCodeForGenerateError(error));
   }
 }
 
-await main(process.argv.slice(2));
+/**
+ * Only run the CLI when this module is the process entry point. Bare `import`s of this file —
+ * from tests, most importantly — must not trigger a live run; without this guard, `main`'s only
+ * caller would be this line, `export` would be dead weight, and `parseArgv` /
+ * `exitCodeForGenerateError` would be untestable without also spawning the whole CLI.
+ */
+function isEntryPoint(): boolean {
+  const invoked = process.argv[1];
+  if (invoked === undefined) {
+    return false;
+  }
+  return fileURLToPath(import.meta.url) === resolve(invoked);
+}
+
+if (isEntryPoint()) {
+  await main(process.argv.slice(2));
+}

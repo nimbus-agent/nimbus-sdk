@@ -27,6 +27,11 @@ const NAME_PATTERN = /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/;
  * Python keywords and soft keywords, plus names that would collide with a directory the
  * ecosystem treats specially. Not exhaustive of every stdlib module — shadowing `json` is
  * legal and merely unwise — but a name that cannot be imported at all is worth refusing.
+ *
+ * The Windows reserved device names (`con`, `prn`, `aux`, `nul`, `com1`-`com9`, `lpt1`-`lpt9`)
+ * are here in full, not just the four best-known ones: `mkdir com1` fails on Windows exactly
+ * like `mkdir con` does, and `build-test` runs on `windows-2025`. Guarding some of the set and
+ * not the rest would be an inconsistency with no principled reason behind it.
  */
 const RESERVED = new Set([
   "and",
@@ -76,6 +81,24 @@ const RESERVED = new Set([
   "prn",
   "aux",
   "nul",
+  "com1",
+  "com2",
+  "com3",
+  "com4",
+  "com5",
+  "com6",
+  "com7",
+  "com8",
+  "com9",
+  "lpt1",
+  "lpt2",
+  "lpt3",
+  "lpt4",
+  "lpt5",
+  "lpt6",
+  "lpt7",
+  "lpt8",
+  "lpt9",
 ]);
 
 export function parseName(raw: string): NameVariants | { readonly error: string } {

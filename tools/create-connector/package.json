@@ -15,8 +15,8 @@
     "templates"
   ],
   "scripts": {
-    "build": "tsc --project tsconfig.json",
-    "typecheck": "tsc --project tsconfig.json --noEmit",
+    "build": "tsc --project tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
     "lint": "biome check src/ templates/",
     "test": "bun test src/"
   },

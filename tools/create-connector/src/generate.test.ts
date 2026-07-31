@@ -3,7 +3,7 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { generate } from "./generate.ts";
+import { generate, NotUtf8Error, TargetNotEmptyError } from "./generate.ts";
 import { parseName, TEMPLATE_NAME } from "./names.ts";
 
 const FIXTURE = join(import.meta.dir, "__fixtures__", "mini");
@@ -100,5 +100,28 @@ describe("generate", () => {
     await expect(
       generate({ templateDir: FIXTURE, targetDir: target, name: nameOrThrow("my-conn") }),
     ).rejects.toThrow(/not empty/);
+    // The exit-code contract (Task 5's CI jobs branch on it) is structural, not a message
+    // regex: `index.ts` narrows on this class, not on wording either side could change.
+    await expect(
+      generate({ templateDir: FIXTURE, targetDir: target, name: nameOrThrow("my-conn") }),
+    ).rejects.toBeInstanceOf(TargetNotEmptyError);
+  });
+
+  test("refuses a template file that is not valid UTF-8, rather than corrupting it silently", async () => {
+    // A real non-UTF-8 byte sequence: 0xFF is not a legal UTF-8 lead byte anywhere in the
+    // standard. Reading this as "utf8" would previously have silently produced U+FFFD, which
+    // the whole-tree guard would never catch because it only ever inspects decoded text.
+    const binaryTemplate = await mkdtemp(join(tmpdir(), "nimbus-scaffold-bin-"));
+    try {
+      await writeFile(join(binaryTemplate, "icon.png"), Buffer.from([0xff, 0xd8, 0xff, 0x00]));
+      await expect(
+        generate({ templateDir: binaryTemplate, targetDir: target, name: nameOrThrow("my-conn") }),
+      ).rejects.toBeInstanceOf(NotUtf8Error);
+      await expect(
+        generate({ templateDir: binaryTemplate, targetDir: target, name: nameOrThrow("my-conn") }),
+      ).rejects.toThrow(/not valid UTF-8/);
+    } finally {
+      await rm(binaryTemplate, { recursive: true, force: true });
+    }
   });
 });

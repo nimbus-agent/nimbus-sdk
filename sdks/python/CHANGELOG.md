@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.1.2...python-v0.2.0) (2026-07-31)
+
+
+### Features
+
+* **python:** bind the IPC surface and execute both conformance corpora ([#84](https://github.com/nimbus-agent/nimbus-sdk/issues/84)) ([0d93f3e](https://github.com/nimbus-agent/nimbus-sdk/commit/0d93f3e88f734bcc6ae4f04c646df9a5c3412de8))
+
 ## [0.1.2](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.1.1...python-v0.1.2) (2026-07-31)
 
 

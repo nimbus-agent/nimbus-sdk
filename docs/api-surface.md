@@ -1878,12 +1878,17 @@ From `./ndjson-line-reader.js`.
 ```ts
 export declare class NdjsonLineReader {
     private readonly lineLimitCtor;
+
     private readonly decoder;
     private pending;
     private latched;
+
+    private streamStarted;
     constructor(opts?: NdjsonLineReaderOptions);
     private throwLineTooLong;
     private failIfLatched;
+
+    private decode;
     push(chunk: Uint8Array): string[];
 
     flushFrames(): NdjsonFlushResult;

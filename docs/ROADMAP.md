@@ -193,8 +193,8 @@ cited source of truth; a contract-version field is defined and negotiated.
 *Goal: demonstrate a second, fully independent language SDK that speaks the exact
 same contract.*
 
-- [x] A **Python SDK** that passes the conformance suite — *Pillar 2*. Promotion to
-  **official** is a separate, governance step; see the note below.
+- [x] An official **Python SDK** that passes the conformance suite — *Pillar 2*.
+  Promoted by [RFC-0008](./rfcs/0008-python-sdk-official.md).
 - [ ] `create-nimbus-connector` scaffolding for TypeScript **and** Python — *Pillar 4*
 - [ ] Per-language quickstarts — *Pillar 4*
 - [ ] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*
@@ -208,21 +208,18 @@ same contract.*
   an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
   confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
 
-> **Boxes 1 and 5–7 are done.** A Python release can be cut end-to-end from a merged
-> commit — release PR → PyPI publish with attestations, no long-lived token — and
-> verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that way. And the Python
-> binding now executes both published conformance corpora: `negotiation`, all three
-> case kinds including the 15 `hello` cases it used to skip, and all 25 `framing`
-> cases. Nothing is deferred, so **the suite is green for both languages in CI** —
-> two clauses of the exit criteria, met.
+> **Boxes 1 and 5–7 are done, and Python is now an official SDK.** A Python release can
+> be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
+> no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that
+> way. The binding executes both published conformance corpora, every case kind, with
+> nothing deferred, so **the suite is green for both languages in CI** — two clauses of
+> the exit criteria, met.
 >
-> **"Official" is a separate designation, and it is not this box's to grant.**
-> [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official) sets four criteria.
-> Python meets the first two — it passes the full suite in CI, and it publishes with
-> the strongest provenance its ecosystem supports (PEP 740 attestations, verified
-> post-publish). The remaining two are a **named SDK owner** and **an accepted RFC
-> recording the promotion**. Both are governance work, not SDK work, and neither is
-> blocked by anything technical.
+> Promotion to **official** was a separate, governance step, and it is complete:
+> [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
+> recorded as met in [RFC-0008](./rfcs/0008-python-sdk-official.md), which also names the
+> SDK owner. TypeScript, the reference implementation, predates that process and has no
+> promotion RFC of its own; RFC-0008 records the asymmetry rather than resolving it.
 >
 > What still remains for the phase is boxes 2–4 — scaffolding, quickstarts, and the
 > diagnostics contract — plus a Python-authored connector running against the gateway,

@@ -18,6 +18,7 @@ widening the contract.
 | [0005](./0005-contract-version-negotiation.md) | Contract-version negotiation | accepted | [#67](https://github.com/nimbus-agent/nimbus-sdk/pull/67) |
 | [0006](./0006-empty-vs-invalid-negotiation.md) | Empty versus invalid in contract-version negotiation | accepted | [#81](https://github.com/nimbus-agent/nimbus-sdk/pull/81) |
 | [0007](./0007-corpus-gaps-from-the-python-binding.md) | Two corpus gaps the Python binding walked into | accepted | [#90](https://github.com/nimbus-agent/nimbus-sdk/pull/90) |
+| [0008](./0008-python-sdk-official.md) | Promote the Python SDK to official | accepted | [#91](https://github.com/nimbus-agent/nimbus-sdk/pull/91) |
 
 ## Statuses
 

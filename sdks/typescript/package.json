@@ -31,6 +31,12 @@
       "types": "./dist/ipc/index.d.ts",
       "import": "./dist/ipc/index.js",
       "default": "./dist/ipc/index.js"
+    },
+    "./connector-kit": {
+      "bun": "./src/connector-kit/index.ts",
+      "types": "./dist/connector-kit/index.d.ts",
+      "import": "./dist/connector-kit/index.js",
+      "default": "./dist/connector-kit/index.js"
     }
   },
   "files": [

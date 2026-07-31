@@ -1561,6 +1561,262 @@ From `./jmap-fastmail/index.js`.
 export declare function viewEmail(raw: unknown): JmapEmailView | null;
 ```
 
+## `./connector-kit`
+
+25 exports.
+
+### `BearerJsonFetchResult` *(type-only)*
+
+From `./fetch-bearer-json.js`.
+
+```ts
+export type BearerJsonFetchResult = {
+    ok: boolean;
+    status: number;
+    json: unknown;
+    text: string;
+};
+```
+
+### `HttpJsonBodyResponse` *(type-only)*
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export type HttpJsonBodyResponse = {
+    ok: boolean;
+    status: number;
+    json: unknown;
+    text: string;
+};
+```
+
+### `HttpTextResponse` *(type-only)*
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export type HttpTextResponse = {
+    ok: boolean;
+    status: number;
+    text: string;
+};
+```
+
+### `McpListResult` *(type-only)*
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export type McpListResult = {
+    content: Array<{
+        type: "text";
+        text: string;
+    }>;
+};
+```
+
+### `RegisterSimpleToolFn` *(type-only)*
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export type RegisterSimpleToolFn = (name: string, description: string, inputShape: Record<string, unknown>, handler: (args: unknown) => Promise<McpListResult>) => unknown;
+```
+
+### `RestFetchResult` *(type-only)*
+
+From `./rest-tool-kit.js`.
+
+```ts
+export type RestFetchResult = {
+    ok: boolean;
+    status: number;
+    json: unknown;
+    text: string;
+};
+```
+
+### `RestFetcherConfig` *(type-only)*
+
+From `./rest-tool-kit.js`.
+
+```ts
+export type RestFetcherConfig = {
+
+    apiBase: string;
+
+    token: string;
+
+    defaultHeaders?: Record<string, string>;
+};
+```
+
+### `RestToolRegistrar` *(type-only)*
+
+From `./rest-tool-kit.js`.
+
+```ts
+export type RestToolRegistrar = <T>(name: string, description: string, schema: ZodObjectSchema<T>, handler: (args: T) => Promise<McpListResult>) => void;
+```
+
+### `ZodObjectSchema` *(type-only)*
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export type ZodObjectSchema<T> = {
+    readonly shape: Record<string, unknown>;
+    safeParse: (args: unknown) => {
+        success: true;
+        data: T;
+    } | {
+        success: false;
+        error: {
+            message: string;
+        };
+    };
+};
+```
+
+### `createRegisterSimpleTool`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function createRegisterSimpleTool(server: unknown): RegisterSimpleToolFn;
+```
+
+### `createZodToolRegistrar`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function createZodToolRegistrar(registerSimpleTool: RegisterSimpleToolFn): <T>(name: string, description: string, schema: ZodObjectSchema<T>, handler: (args: T) => Promise<McpListResult>) => void;
+```
+
+### `encodeBasicAuthHeader`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function encodeBasicAuthHeader(email: string, token: string): string;
+```
+
+### `fetchBearerAuthorizedJson`
+
+From `./fetch-bearer-json.js`.
+
+```ts
+export declare function fetchBearerAuthorizedJson(url: string, token: string, init?: RequestInit, defaultHeaders?: Record<string, string>): Promise<BearerJsonFetchResult>;
+```
+
+### `fetchWithTimeout`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs?: number): Promise<Response>;
+```
+
+### `makeRestFetcher`
+
+From `./rest-tool-kit.js`.
+
+```ts
+export declare function makeRestFetcher(cfg: RestFetcherConfig): (pathOrUrl: string, init?: RequestInit) => Promise<RestFetchResult>;
+```
+
+### `makeRestToolRegistrar`
+
+From `./rest-tool-kit.js`.
+
+```ts
+export declare function makeRestToolRegistrar(cfg: {
+    registrar: RestToolRegistrar;
+    tokenEnv: string;
+    serviceLabel: string;
+    fetch: (token: string, pathOrUrl: string, init?: RequestInit) => Promise<HttpJsonBodyResponse>;
+
+    snippetMax?: number;
+}): <T>(name: string, description: string, schema: ZodObjectSchema<T>, buildPath: (args: T) => string, buildInit?: (args: T) => RequestInit) => void;
+```
+
+### `mcpJsonResult`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function mcpJsonResult(data: unknown): McpListResult;
+```
+
+### `mcpJsonResultFromTextIfOk`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function mcpJsonResultFromTextIfOk(serviceLabel: string, res: HttpTextResponse, options?: {
+    maxSnippet?: number;
+    jsonParseErrorMessage?: string;
+}): McpListResult;
+```
+
+### `mcpJsonResultIfOk`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function mcpJsonResultIfOk(serviceLabel: string, res: HttpJsonBodyResponse, snippetMax?: number): McpListResult;
+```
+
+### `parseJsonTextIfOk`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function parseJsonTextIfOk(serviceLabel: string, res: HttpTextResponse, maxSnippet?: number): unknown;
+```
+
+### `putOptionalBoolean`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function putOptionalBoolean(body: Record<string, unknown>, key: string, value: boolean | undefined): void;
+```
+
+### `putOptionalNonEmptyString`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function putOptionalNonEmptyString(body: Record<string, unknown>, key: string, value: string | undefined): void;
+```
+
+### `registerZodTool`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function registerZodTool<T>(registerSimpleTool: RegisterSimpleToolFn, name: string, description: string, schema: ZodObjectSchema<T>, handler: (args: T) => Promise<McpListResult>): void;
+```
+
+### `requireProcessEnv`
+
+From `./mcp-tool-kit.js`.
+
+```ts
+export declare function requireProcessEnv(envVarName: string): string;
+```
+
+### `resolveUrlWithBase`
+
+From `./fetch-bearer-json.js`.
+
+```ts
+export declare function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): string;
+```
+
 ## `./ipc`
 
 9 exports.

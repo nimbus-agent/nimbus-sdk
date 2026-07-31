@@ -9,7 +9,7 @@
  * documentation guard derives from `buildSurface()`. `scripts/smoke-calls.test.ts` asserts
  * this list covers every one of them, so adding a battery fails until it has a call here.
  *
- * Each `run` receives the three entry points already imported by the smoke, so no entry
+ * Each `run` receives the four entry points already imported by the smoke, so no entry
  * re-resolves them.
  */
 
@@ -221,6 +221,37 @@ export const SMOKE_CALLS = [
       const resolved = mod.probePath();
       if (!existsSync(resolved)) throw new Error(`probePath() → ${resolved} does not exist`);
       if (typeof testing.runSandboxContractTests !== "function") throw new Error("missing export");
+    },
+  },
+  {
+    module: "connector-kit/mcp-tool-kit",
+    run: (_sdk, _testing, _ipc, connectorKit) => {
+      const result = connectorKit.mcpJsonResult({ a: 1 });
+      const expected = JSON.stringify({ a: 1 }, null, 2);
+      if (result.content[0]?.text !== expected) {
+        throw new Error(`mcpJsonResult produced an unexpected wrapper: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
+    module: "connector-kit/fetch-bearer-json",
+    run: (_sdk, _testing, _ipc, connectorKit) => {
+      const resolved = connectorKit.resolveUrlWithBase("https://api.example.com", "/v1/x");
+      if (resolved !== "https://api.example.com/v1/x") {
+        throw new Error(`resolveUrlWithBase returned an unexpected value: ${resolved}`);
+      }
+    },
+  },
+  {
+    module: "connector-kit/rest-tool-kit",
+    run: (_sdk, _testing, _ipc, connectorKit) => {
+      const fetcher = connectorKit.makeRestFetcher({
+        apiBase: "https://api.example.com",
+        token: "t",
+      });
+      if (typeof fetcher !== "function") {
+        throw new Error("makeRestFetcher did not return a fetcher function");
+      }
     },
   },
 ];

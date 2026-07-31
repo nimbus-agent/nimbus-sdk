@@ -27,6 +27,7 @@ A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops
 | [`distribution-channel`](./modules/distribution-channel.md) | Channel resolution |
 | [`ipc`](./modules/ipc.md) | NDJSON line reading and IPC framing |
 | [`testing`](./modules/testing.md) | `MockGateway`, contract tests, the sandbox probe |
+| [`connector-kit`](./modules/connector-kit.md) | Dependency-free MCP connector helpers: Zod tool registration, Bearer-auth REST fetch |
 
 ## Examples
 

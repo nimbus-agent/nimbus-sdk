@@ -323,7 +323,10 @@ This is the proof the guard is real: with `negotiate-both-empty` still present, 
 - [ ] **Step 3: Restore the two cases and verify green**
 
 ```bash
-git checkout -- docs/spec/conformance/v1/negotiation/
+git restore --source=HEAD -- \
+  docs/spec/conformance/v1/negotiation/index.json \
+  docs/spec/conformance/v1/negotiation/cases/negotiate-empty-local-invalid-remote.json \
+  docs/spec/conformance/v1/negotiation/cases/negotiate-invalid-local-empty-remote.json
 git status --porcelain docs/spec/
 ```
 

@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Opened:** 2026-07-31
-- **Landed:** *(pending)*
+- **Landed:** [#81](https://github.com/nimbus-agent/nimbus-sdk/pull/81)
 - **Affects:** `docs/spec/negotiation/v1/contract-version.md` §6, the negotiation conformance corpus, both bindings' corpus runners
 - **Roadmap:** [Phase 2](../ROADMAP.md#phase-2--prove-polyglot-with-python) — no box of its own. It de-risks box 1 by settling the negotiation case list *before* the Python IPC binding is written against it, rather than after
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs)
@@ -15,7 +15,7 @@ invalid member only with a **non-empty** counterpart. `negotiate-empty-local` is
 `local: []`, `remote: ["1"]`; `negotiate-leading-zero` is `local: ["01"]`, `remote: ["1"]`.
 Nothing in the corpus combines the two, so nothing in it answers:
 
-```
+```text
 negotiateContractVersion([], ["01"])
 ```
 

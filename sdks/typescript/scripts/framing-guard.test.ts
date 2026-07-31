@@ -11,6 +11,12 @@
  *
  * This file covers `src/` under Bun. `framing-node.mjs` covers the built `dist/` under
  * Node; both are required, because `TextDecoder` edge behavior differs between them.
+ *
+ * **Chunk-scoped BOM detection.** A corpus whose only split-mark case delivers all three octets
+ * in one chunk would pass a reader that sniffs a chunk's raw prefix instead of tracking the
+ * decoder's stream — spec §5 requires the latter. An anti-binding wrapper at the end of this
+ * file proves `bom-split-across-chunks` tells the two apart (RFC-0007 Gap 2); without it, that
+ * property is asserted by the case alone, with nothing to notice if a later edit weakened it.
  */
 
 import { describe, expect, test } from "bun:test";
@@ -155,4 +161,72 @@ describe("framing guard — cases", () => {
       ).toEqual([]);
     });
   }
+});
+
+describe("framing guard — the corpus discriminates on chunk-scoped BOM detection", () => {
+  /**
+   * The wrong binding, in full. On the very first chunk only, it sniffs that chunk's raw octet
+   * prefix for the mark — the RFC-0007 Gap 2 reading framing.md §5 rejected ("a reader that
+   * sniffs the raw octet prefix of each chunk ... instead of tracking the stream"). When the
+   * first chunk's prefix is not the full three-octet mark but does start with its leading octet,
+   * it decodes that one chunk in isolation, not through the reader's own streaming decoder, to
+   * decide there is nothing to strip. An isolated decode of an incomplete lead octet yields
+   * U+FFFD — non-empty — so it starts the real reader's own stream early: by the time the mark's
+   * remaining octets arrive several pushes later, the real reader believes its stream already
+   * started and no longer retroactively strips them. Every other chunk, and every case that does
+   * not begin with that leading octet, passes straight through to the real `NdjsonLineReader`
+   * unmodified, so this asserts a property of the *corpus* rather than testing a private
+   * reimplementation of framing against itself.
+   *
+   * A **subclass** could not do this: `extends NdjsonLineReader` overriding `push` and calling
+   * `super.push()` still runs the parent's own correct, stream-scoped strip underneath every
+   * call, and the guard would pass for the wrong reason. This is composition — a private `#inner`
+   * instance — precisely so nothing runs underneath it that it did not choose to call.
+   */
+  class ChunkPrefixBomSniffer {
+    #inner = new NdjsonLineReader();
+    #decided = false;
+
+    push(chunk: Uint8Array): string[] {
+      let bytes = chunk;
+      if (!this.#decided) {
+        this.#decided = true;
+        const hasFullMark =
+          chunk.length >= 3 && chunk[0] === 0xef && chunk[1] === 0xbb && chunk[2] === 0xbf;
+        const looksLikeMarkStart = chunk.length > 0 && chunk[0] === 0xef;
+        if (hasFullMark) {
+          bytes = chunk.subarray(3);
+        } else if (looksLikeMarkStart) {
+          const text = new TextDecoder("utf-8", { fatal: false }).decode(chunk);
+          bytes = new TextEncoder().encode(text);
+        }
+      }
+      return this.#inner.push(bytes);
+    }
+
+    flushFrames() {
+      return this.#inner.flushFrames();
+    }
+  }
+
+  test("at least one case refuses a binding that sniffs only a chunk's raw octet prefix", () => {
+    // Spec §5 requires the mark to be recognized as opening the *stream*, not any one chunk.
+    // Some case must therefore disagree with the wrapper above; if none does, the corpus admits
+    // a chunk-scoped reading and a binding written from it passes CI while being non-conformant.
+    const caught = (loadIndex() as { cases: IndexEntry[] }).cases
+      .filter((entry) => {
+        const failures: string[] = checkCase(
+          () => new ChunkPrefixBomSniffer(),
+          readCorpusJson(entry.file),
+        );
+        return failures.length > 0;
+      })
+      .map((entry) => entry.file);
+
+    expect(
+      caught,
+      "no framing case distinguishes stream-scoped BOM detection from a chunk-scoped sniffer " +
+        "— the RFC-0007 bom-split-across-chunks case is missing or no longer discriminates",
+    ).not.toEqual([]);
+  });
 });

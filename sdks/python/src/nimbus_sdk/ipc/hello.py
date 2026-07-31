@@ -67,7 +67,7 @@ def _reject_json_constant(name: str) -> NoReturn:
     ``JSON.parse`` throws on ``NaN``, ``Infinity`` and ``-Infinity``; Python's parser
     accepts all three. Without this hook the two bindings answer a frame containing one
     with *different refusal reasons* — the exact divergence the corpus exists to catch,
-    and which none of the 14 hello cases covers.
+    and which none of the 15 hello cases covers.
     """
     raise ValueError(f"non-JSON constant: {name}")
 

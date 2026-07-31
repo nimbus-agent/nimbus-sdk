@@ -63,15 +63,17 @@ The failing-test step: it proves the index drives execution rather than the dire
     },
 ```
 
-- [ ] **Step 2: Run the Python runner to verify it fails**
+- [ ] **Step 2: Resync the bundled spec, then run the Python runner to verify it fails**
+
+**The reinstall is mandatory and must come first.** You just edited `docs/spec/`, and `spec_root()` prefers the gitignored `src/nimbus_sdk/_data/spec` snapshot over it. Without resyncing, this step **silently passes on the previous snapshot** instead of failing — which is not merely a delay, it is the exact false-green the failing-step exists to rule out.
 
 ```bash
-cd sdks/python && python -m pytest tests/test_negotiation_corpus.py -q
+cd sdks/python && python -m pip install -e . && python -m pytest tests/test_negotiation_corpus.py -q
 ```
 
 Expected: **collection error** — a `FileNotFoundError` naming `cases/hello-empty-object.json`, raised by `load_corpus` while building `CASES` at import time, so no tests run at all.
 
-If it passes instead, stop and diagnose: the index is not being read, and the rest of this task rests on a false premise.
+If you instead see `38 passed`, the resync did not take effect; do not proceed until this step fails as described.
 
 - [ ] **Step 3: Create the case file**
 
@@ -225,7 +227,7 @@ In `docs/spec/conformance/v1/framing/index.json`, find the entry whose `file` is
 
 - [ ] **Step 2: Resync the bundled spec, then run the Python runner to verify it fails**
 
-**The reinstall is mandatory and must come first.** You just edited `docs/spec/`, and `spec_root()` prefers the gitignored `src/nimbus_sdk/_data/spec` snapshot over it. Without resyncing, this step **silently passes on the previous snapshot** instead of failing — which is not merely a delay, it is the exact false-green the failing-step exists to rule out. This bit Task 1's implementer, who saw 24 passed where the failure was required.
+**The reinstall is mandatory and must come first.** You just edited `docs/spec/`, and `spec_root()` prefers the gitignored `src/nimbus_sdk/_data/spec` snapshot over it. Without resyncing, this step **silently passes on the previous snapshot** instead of failing — which is not merely a delay, it is the exact false-green the failing-step exists to rule out. This bit Task 1's implementer, who saw 38 passed where the failure was required.
 
 ```bash
 cd sdks/python && python -m pip install -e . && python -m pytest tests/test_framing_corpus.py -q

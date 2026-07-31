@@ -74,11 +74,15 @@ the §5 order an absent `nimbus` is `wrong-message` before `contractVersions` is
 consulted; a reader that checks the array first answers `missing-versions`. So the single
 case pins the ordering *and* the absent-`nimbus` clause that no case exercised.
 
-**The BOM case splits one octet per chunk** rather than 2+1 or 1+2. Both splits catch a
-chunk-scoped reader, but one-per-chunk is the strictest: the first two pushes decode to the
-empty string while the decoder buffers, so it also catches a reader whose stream-start flag
-is keyed to "has a push happened" rather than "has anything been decoded" — a distinction a
-2+1 split cannot make, and one a real implementation got wrong.
+**The BOM case splits one octet per chunk** rather than 2+1 or 1+2. Every split catches
+the two readers this RFC has already named — a chunk-prefix sniffer, and one whose
+stream-start flag flips on the first `push` rather than on the first non-empty decoded
+output — because `EF BB` decodes to the empty string just as `EF` does. What separates
+the splits is a third mistake: a reader that allows stripping for a fixed number of
+early pushes, on the assumption a mark can straddle at most one boundary. Measured
+against such a reader, 1+1+1 catches it and both 2+1 and 1+2 do not. One octet per
+chunk is therefore the finest split the mark admits, and the only one that catches
+every class considered here.
 
 ## Compatibility impact
 
@@ -121,11 +125,13 @@ would retroactively make a conformant reader non-conformant, which `v1` does not
 
 **A third case for `missing-versions` versus `empty-versions`.** This was proposed and
 **measured to be unnecessary**: a reader conflating the two is already caught by
-`hello-missing-versions`. Included here because "we checked and the corpus already covers
-it" is worth recording as firmly as a gap is.
+`hello-missing-versions` and `hello-empty-versions` between them, with
+`hello-versions-not-array` pinning the non-array half. Included here because "we checked
+and the corpus already covers it" is worth recording as firmly as a gap is.
 
-**More BOM split permutations** (2+1, 1+2) alongside one-per-chunk. Rejected as redundant:
-one-per-chunk strictly dominates them, catching every reader they would catch and one more.
+**More BOM split permutations** (2+1, 1+2) alongside one-per-chunk. Rejected as
+redundant: measured against every reader class considered above, 1+1+1 catches
+everything they catch and one they do not, so they add cases without adding coverage.
 
 ## How it is enforced
 
@@ -142,8 +148,10 @@ asserted after:
 | Reader sniffing each chunk's raw octet prefix for `EF BB BF` | passes 24/24 | fails on `bom-split-across-chunks` |
 
 `sdks/python/tests/test_spec.py` pins both corpus sizes exactly, so a case cannot be
-removed without a deliberate edit, and `negotiation-guard.test.ts` asserts index and disk
-agree in both directions.
+removed without a deliberate edit. `negotiation-guard.test.ts` asserts index and disk
+agree in both directions for the negotiation corpus. `framing-guard.test.ts` checks the
+framing corpus disk→index explicitly; the reverse direction holds because its per-case
+loop reads each indexed file and would throw if one went missing.
 
 ## Out of scope
 
@@ -151,4 +159,5 @@ agree in both directions.
   behavior.
 - **A normative nesting depth**, per the rejected alternative above.
 - **Mid-stream byte-order-mark behavior**, which §5 leaves undefined deliberately.
-- **The `hello` frame's shape**, frozen by RFC-0005 §5 across every future contract major.
+- **The `hello` frame's shape**, frozen by `contract-version.md` §5 (RFC-0005) across
+  every future contract major.

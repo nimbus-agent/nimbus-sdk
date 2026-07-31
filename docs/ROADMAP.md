@@ -212,7 +212,7 @@ same contract.*
 > commit — release PR → PyPI publish with attestations, no long-lived token — and
 > verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that way. And the Python
 > binding now executes both published conformance corpora: `negotiation`, all three
-> case kinds including the 14 `hello` cases it used to skip, and all 24 `framing`
+> case kinds including the 15 `hello` cases it used to skip, and all 25 `framing`
 > cases. Nothing is deferred, so **the suite is green for both languages in CI** —
 > two clauses of the exit criteria, met.
 >

@@ -200,6 +200,14 @@ pipeline; another's gateway path might reach this algorithm with a set read stra
 manifest nobody validated. Making the algorithm total — it never assumes, it always checks —
 closes that gap for the cost of one pass over each set.
 
+**Emptiness does not short-circuit.** An empty set on either side is not a reason to skip
+validating the other: `negotiateContractVersion([], ["01"])` is `invalid-version`, not
+`no-common-version`. An empty set is answered by the intersection below, and only once
+validation has passed. This follows from "before anything else happens" above, and is stated
+separately because it is the one corner where a reader can reach the opposite conclusion and
+find the algorithm's other rules still satisfied — see
+[RFC-0006](../../../rfcs/0006-empty-vs-invalid-negotiation.md).
+
 **Then intersect.** The agreed version is the member both sets share that is **numerically the
 largest**. If the intersection is empty, that is a refusal too, `no-common-version` (§7).
 

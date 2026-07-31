@@ -67,6 +67,21 @@
       "reason": "A duplicated member reaching the algorithm directly is accepted, not refused — uniqueness is enforced one layer earlier (§4, §5), never re-checked here."
     },
     {
+      "file": "cases/negotiate-empty-local-invalid-remote.json",
+      "section": "§6",
+      "reason": "An empty side does not short-circuit — the other side is still validated, so this is invalid-version rather than the no-common-version an empty set alone would produce. Also the only negotiate case placing a malformed member in the remote set, so a binding that validates only its own set fails here."
+    },
+    {
+      "file": "cases/negotiate-invalid-local-empty-remote.json",
+      "section": "§6",
+      "reason": "The mirror of negotiate-empty-local-invalid-remote, so a binding that short-circuits on one side only cannot pass by satisfying the other."
+    },
+    {
+      "file": "cases/negotiate-both-empty.json",
+      "section": "§6",
+      "reason": "Two empty sets are no-common-version — emptiness is an intersection failure, never a validation failure, so the fix for the two cases above cannot overshoot into treating an empty set as an error."
+    },
+    {
       "file": "cases/hello-canonical.json",
       "section": "§5",
       "reason": "The canonical frame the reference encoder emits."

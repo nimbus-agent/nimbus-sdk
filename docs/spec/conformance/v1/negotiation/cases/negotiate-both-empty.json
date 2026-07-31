@@ -1,0 +1,7 @@
+{
+  "description": "Both sets empty: nothing to validate and nothing to intersect. no-common-version, because emptiness is an intersection failure and never a validation failure.",
+  "kind": "negotiate",
+  "local": [],
+  "remote": [],
+  "expect": { "ok": false, "reason": "no-common-version", "exit": 20 }
+}

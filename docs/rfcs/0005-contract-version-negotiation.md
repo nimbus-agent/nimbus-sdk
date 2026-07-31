@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Opened:** 2026-07-30
-- **Landed:** *(pending)*
+- **Landed:** 2026-07-30 in [#67](https://github.com/nimbus-agent/nimbus-sdk/pull/67)
 - **Affects:** `docs/spec/`, `@nimbus-dev/sdk` (`contract-version`, `ipc/hello`), `ExtensionManifest`
 - **Roadmap:** [Phase 1](../ROADMAP.md#phase-1--lift-the-contract-out-of-typescript), box 5 — the last open task in the phase, and one of its exit criteria
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 7 (versioning & compatibility)

@@ -191,6 +191,13 @@ validating against an older copy is therefore unaffected by additions.
 Six guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
+The guards hold the *documents* to each other and to the TypeScript reference. What
+holds the contract to being **language-neutral** is that a second binding executes the
+same fixtures: `sdks/python/` runs the `negotiation` corpus — all three case kinds —
+and the `framing` corpus, from the same `index.json` files the TypeScript guards read,
+with nothing deferred. A case added to either corpus therefore runs in both languages
+as soon as it is indexed, and a claim only one binding can satisfy fails somewhere.
+
 `sdks/typescript/scripts/schema-guard.test.ts` compares each schema's declared properties and
 optionality against the emitted TypeScript — descending into inline object types, so `oauth` is
 covered — and runs every fixture through `ajv`, plus through `runContractTests` for the

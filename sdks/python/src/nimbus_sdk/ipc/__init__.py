@@ -16,12 +16,22 @@ from nimbus_sdk.ipc.hello import (
     encode_hello,
     parse_hello,
 )
+from nimbus_sdk.ipc.ndjson import (
+    IPC_MAX_LINE_BYTES,
+    FlushResult,
+    FrameTooLongError,
+    NdjsonLineReader,
+)
 
 __all__ = [
     "HELLO_MESSAGE",
+    "IPC_MAX_LINE_BYTES",
+    "FlushResult",
+    "FrameTooLongError",
     "HelloOk",
     "HelloRefused",
     "HelloResult",
+    "NdjsonLineReader",
     "encode_hello",
     "parse_hello",
 ]

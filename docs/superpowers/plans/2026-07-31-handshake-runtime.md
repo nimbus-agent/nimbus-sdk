@@ -534,7 +534,11 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Consumes: `CONTRACT_VERSIONS`, `negotiate_contract_version`, `NegotiationRefused` from `nimbus_sdk.contract`; `encode_hello`, `parse_hello`, `HelloRefused` from `nimbus_sdk.ipc.hello`; `NdjsonLineReader` from `nimbus_sdk.ipc.ndjson`.
 - Produces, for Task 4: `HandshakeIO` (Protocol), `HandshakeOk(version: str)`, `HandshakeRefused(reason: str)`, `HandshakeResult`, `perform_handshake(io, *, local_versions=CONTRACT_VERSIONS)`.
 
+**Do not add an `ok` field to the Python dataclasses.** It would make `if result.ok:` read the same in both languages, but it does not work and it breaks precedent. A plain `ok: bool` **does not narrow the union under `mypy --strict`**, so `if result.ok: print(result.version)` fails to typecheck — the suggestion produces code that looks portable and does not compile. `HandshakeOk(version="1", ok=False)` would also be constructible and meaningless. `isinstance` is the Python idiom, narrows correctly, and is what `contract.py`'s existing `NegotiationOk` / `NegotiationRefused` already use — neither carries an `ok` field. (`Literal[True]` / `Literal[False]` *would* narrow, but applying that to one result family and not the other is worse than either extreme.)
+
 **Note the deliberate asymmetry:** this function is **synchronous**, where TypeScript's is async. Python's standard streams block, and a startup handshake has nothing to overlap with; `async def` would drag every Python connector into an event loop for no gain. The behaviour is identical — only the calling convention differs.
+
+**An asyncio caller wraps it:** `await asyncio.to_thread(perform_handshake, io)`. The handshake runs once at startup, before the connector serves anything, so in practice there is nothing on the loop for it to block — but a connector that has already started other tasks should use `to_thread` rather than calling it directly. **Say so in the module docstring**, since a blocked event loop is invisible until it bites. An `async` sibling is additive if a real caller ever needs one; adding it now would double the surface with no caller, which is the situation this whole sub-project exists to correct.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -876,7 +880,9 @@ Each entry gives the chunks the peer delivers and the single result both binding
 
 Write it as JSON with a `_comment` key stating that it must never be edited to make a test pass, and an `exchanges` object keyed by the names above, each holding `chunks` (an array of strings) and `expect`.
 
-**Three of these are predictions, not observations**, and are the ones most likely to be wrong: `blank-lines-before-frame` assumes zero-length frames are dropped before the hello arrives; `crlf-terminated` assumes the trailing CR is stripped before parsing; `second-frame-ignored` assumes only the first frame is consumed. If a run disproves one, **correct the fixture to match reality and say so in the report** — the specification is silent on all three, so what matters is that the two bindings agree, not that they match my guess. If the two bindings disagree with *each other*, that is the finding this task exists for.
+`crlf-terminated` is **not** a guess, and needs no extra reader tests. `single-frame-crlf` in the framing corpus already pins that "a CRLF sender and an LF sender produce identical frames", and both bindings execute that corpus. Verified end to end before writing this: a CRLF-terminated hello yields the frame with its CR stripped, which then parses to `HelloOk(contract_versions=('1',))`.
+
+**Two of the others are predictions, not observations**, and are the ones most likely to be wrong: `blank-lines-before-frame` assumes zero-length frames are dropped before the hello arrives, and `second-frame-ignored` assumes only the first frame is consumed. If a run disproves either, **correct the fixture to match reality and say so in the report** — the specification is silent on both, so what matters is that the two bindings agree, not that they match my guess. If the two bindings disagree with *each other*, that is the finding this task exists for.
 
 - [ ] **Step 2: Write the Python side**
 

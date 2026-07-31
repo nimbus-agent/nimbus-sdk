@@ -78,9 +78,13 @@ def parse_hello(frame: str) -> HelloResult:
     Takes a string rather than bytes so it composes with :class:`NdjsonLineReader`
     without depending on it. Refuses as a value and never raises: a binding in another
     language has no exceptions to mirror, and the corpus compares outcomes. The one
-    caveat is depth, not exceptions: at extreme nesting Python answers ``not-json``
-    where a JavaScript engine may answer ``not-object``, a reason mismatch that cannot
-    be closed without a depth-limited parser.
+    caveat is depth, not exceptions: at extreme nesting the two bindings may disagree
+    on *which* refusal reason they give — ``not-json`` when a parser gives up,
+    ``not-object`` when it succeeds and yields a list — and the depth at which either
+    gives up is a property of the runtime, not of this contract. Python's guard is a
+    C-stack guard rather than the interpreter's recursion limit, so it trips at
+    different depths on different platforms and builds. Closing the mismatch would
+    need a depth-limited parser in both languages; the refusal itself never varies.
 
     Whitespace and member order are insignificant — this parses JSON, and a reader that
     compares bytes against the canonical form is non-conformant. Unknown members are

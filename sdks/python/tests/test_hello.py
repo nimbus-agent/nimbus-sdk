@@ -69,8 +69,31 @@ def test_a_non_json_constant_inside_the_frame_is_refused() -> None:
 
 
 def test_deeply_nested_json_refuses_rather_than_raising() -> None:
-    # json.loads raises RecursionError — not a ValueError — on deep nesting. At ~17k
-    # levels the frame is still only ~3% of the 1 MiB framing limit, so this is
-    # reachable from the first frame an untrusted peer sends.
-    frame = "[" * 40_000 + "]" * 40_000
-    assert parse_hello(frame) == HelloRefused(reason="not-json")
+    """Deep nesting must produce a refusal, never an exception.
+
+    ``json.loads`` can raise ``RecursionError`` — not a ``ValueError`` — on deeply
+    nested input, and a frame deep enough to trigger it is still a small fraction of
+    the §6 size limit, so it is reachable from the first frame an untrusted peer sends.
+    Before the guard in ``parse_hello`` it escaped a function documented never to raise.
+
+    **The reason is deliberately not asserted**, because it is not portable. The C
+    accelerator's guard is a *C-stack* guard, not Python's recursion limit — verified:
+    ``sys.setrecursionlimit(200)`` does not make it fire — so the depth at which it
+    trips varies with platform, interpreter build and available stack. On one machine
+    40 000 levels raised ``RecursionError`` (``not-json``); on the CI Linux and macOS
+    runners the identical frame parsed successfully into a list (``not-object``). An
+    earlier version of this test pinned ``not-json`` and passed on Windows while
+    failing both CI platforms.
+
+    That platform-dependent split is also the one place this binding cannot be held
+    identical to the TypeScript one: ``JSON.parse`` throws on input its own engine
+    finds too deep, which ``parseHello`` reports as ``not-json``, and the depth at
+    which each side gives up is a property of the runtime rather than the contract.
+    Closing it would need a depth-limited parser in both languages. No corpus case
+    exercises this, and none should without deciding a normative depth first.
+    """
+    for depth in (1_000, 40_000, 200_000):
+        frame = "[" * depth + "]" * depth
+        result = parse_hello(frame)
+        assert isinstance(result, HelloRefused), f"depth {depth} did not refuse"
+        assert result.reason in {"not-json", "not-object"}, result.reason

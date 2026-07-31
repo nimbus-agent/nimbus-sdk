@@ -937,7 +937,17 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
   ```bash
   grep -rn "MUTATION PROBE" sdks/ && echo "PROBE LEFT BEHIND" || echo "clean"
   ```
-- [ ] Both suites green: Python **123 passed, 6 skipped**; TypeScript **1076 pass / 0 fail**.
+- [ ] Both suites green: Python **126 passed, 6 skipped**; TypeScript **1076 pass / 0 fail**.
+
+  The Python figure is 3 higher than Task 3's expected 123, and that is not a
+  discrepancy to reconcile. The final whole-branch review found two cross-binding
+  divergences in `parse_hello` — `json.loads` accepting `NaN`/`Infinity`, and
+  `RecursionError` escaping a function documented never to raise — and the fix added
+  one test per class. Those three tests postdate Task 3, so the per-task expectations
+  above (92 → 98 → 123) remain correct **for the plan as written**: executing its code
+  blocks in order produces exactly those numbers, because `test_hello.py`'s block here
+  defines six tests, not nine. Do not "correct" the per-task counts to match the
+  branch total; that would make the plan disagree with its own code.
 - [ ] Every corpus kind is executed — this must print nothing:
   ```bash
   cd sdks/python && python -c "

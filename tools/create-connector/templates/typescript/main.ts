@@ -3,7 +3,9 @@
 /**
  * Handshake first, then serve.
  *
- * `docs/spec/negotiation/v1/contract-version.md` §5 has both peers announce unprompted, so the
+ * The contract-version spec §5
+ * (https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/spec/negotiation/v1/contract-version.md)
+ * has both peers announce unprompted, so the
  * gateway's hello and its first request commonly arrive in one read. `performHandshake` hands
  * back the complete frames it read past the hello as `pending`; anything it left half-read stays
  * in the `NdjsonLineReader` we supply. Both have to reach the MCP transport, or the session

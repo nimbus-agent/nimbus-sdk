@@ -1,9 +1,9 @@
 /**
  * Acceptance tests for the wire behaviour the gateway depends on. These drive the *built*
- * binary (`dist/main.js`) as a process, so run `npm run build` first — `npm test` does not
- * build for you, and testing a stale `dist/` is worse than not testing at all.
+ * binary (`dist/main.js`) as a process; `npm test` runs `pretest` first, so `dist/` is always
+ * current by the time they run.
  *
- * The third case is the one this project is shaped around. See its comment.
+ * The last two cases are the ones this project is shaped around. See their comments.
  */
 
 import assert from "node:assert/strict";
@@ -23,13 +23,15 @@ interface Run {
 }
 
 /**
- * Spawn the connector, deliver `input` as a **single** write, and collect everything it says.
+ * Spawn the connector, deliver `chunks` as that many separate writes `gapMs` apart, and
+ * collect everything it says.
  *
- * One write matters for the third case: the child is still starting when it lands, so both
- * frames sit in the pipe buffer before the first `read()` and arrive in the same chunk — which
- * is exactly what a gateway that announces unprompted does.
+ * A single chunk is written while the child is still starting, so it is sitting in the pipe
+ * buffer before the first `read()` and arrives whole — which is exactly what a gateway that
+ * announces unprompted does. More than one chunk, with a gap, forces the opposite: the child
+ * has certainly read the first before the second is written.
  */
-function drive(input: string): Promise<Run> {
+function drive(chunks: readonly string[], gapMs = 0): Promise<Run> {
   return new Promise((resolveRun, rejectRun) => {
     const child = spawn(process.execPath, [BINARY], { stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
@@ -46,8 +48,23 @@ function drive(input: string): Promise<Run> {
     child.on("close", (code) => {
       resolveRun({ code, stdout, stderr });
     });
-    child.stdin.write(input);
-    child.stdin.end();
+
+    let index = 0;
+    const writeNext = (): void => {
+      const chunk = chunks[index];
+      index += 1;
+      if (chunk === undefined) {
+        child.stdin.end();
+        return;
+      }
+      child.stdin.write(chunk);
+      if (index >= chunks.length) {
+        child.stdin.end();
+        return;
+      }
+      setTimeout(writeNext, gapMs);
+    };
+    writeNext();
   });
 }
 
@@ -73,9 +90,17 @@ const INITIALIZE = `${JSON.stringify({
   },
 })}\n`;
 
+/** The `initialize` response, found by its id and proved ours by its `serverInfo`. */
+function assertAnsweredInitialize(run: Run): void {
+  const response = frames(run.stdout).find((frame) => frame["id"] === 1);
+  assert.ok(response, `no response to the pipelined request; stdout was:\n${run.stdout}`);
+  const result = response["result"] as { serverInfo?: { name?: string } } | undefined;
+  assert.equal(result?.serverInfo?.name, manifest.id);
+}
+
 describe("handshake", () => {
   test("answers a hello it can satisfy and exits cleanly", async () => {
-    const run = await drive(hello(["1"]));
+    const run = await drive([hello(["1"])]);
     assert.equal(run.code, 0, run.stderr);
     const first = frames(run.stdout)[0];
     assert.equal(first?.["nimbus"], "hello");
@@ -83,28 +108,44 @@ describe("handshake", () => {
   });
 
   test("refuses a hello with no common major and exits 20", async () => {
-    const run = await drive(hello(["2"]));
+    const run = await drive([hello(["2"])]);
     assert.equal(run.code, 20);
     assert.match(run.stderr, /handshake refused/);
   });
 
   /**
-   * The defect this template exists to avoid.
+   * Half of the defect this template exists to avoid: the **complete** frames.
    *
    * The gateway may pipeline its first MCP request into the same chunk as its hello.
-   * `performHandshake` returns those extra frames as `pending`; a connector that starts its
-   * transport on raw `process.stdin` never sees them, and the session's first request is
-   * answered with silence. Serving them is *observable*: the pipelined `initialize` gets a
-   * JSON-RPC response carrying this connector's own `serverInfo`.
+   * `performHandshake` returns those extra frames as `result.pending`; a connector that starts
+   * its transport on raw `process.stdin` never sees them, and the session's first request is
+   * answered with silence.
    *
-   * If you restructure `main.ts` and drop the replay, this test fails. That is the point.
+   * If you restructure `main.ts` and drop the `pending` replay, this test fails.
    */
   test("answers a request pipelined into the hello's chunk", async () => {
-    const run = await drive(hello(["1"]) + INITIALIZE);
+    const run = await drive([hello(["1"]) + INITIALIZE]);
     assert.equal(run.code, 0, run.stderr);
-    const response = frames(run.stdout).find((frame) => frame["id"] === 1);
-    assert.ok(response, `no response to the pipelined request; stdout was:\n${run.stdout}`);
-    const result = response["result"] as { serverInfo?: { name?: string } } | undefined;
-    assert.equal(result?.serverInfo?.name, manifest.id);
+    assertAnsweredInitialize(run);
+  });
+
+  /**
+   * The other half: the frame the gateway left **half-written**.
+   *
+   * `pending` cannot carry it — it was never a complete line — so it survives only inside the
+   * `NdjsonLineReader` passed to `performHandshake`. That is why `main.ts` keeps pushing the
+   * rest of stdin *through that same reader* instead of forwarding raw chunks to the transport.
+   * Replaying `pending` and then forwarding raw chunks passes the test above and fails this
+   * one: the transport receives the tail of a JSON frame whose head the handshake consumed.
+   *
+   * The split is deliberate and the gap is real time, so the child has read the first chunk
+   * long before the second arrives. If the two ever coalesced this would merely degenerate into
+   * the test above — it can go falsely green, never falsely red.
+   */
+  test("completes a frame the hello's chunk left half-written", async () => {
+    const cut = 40;
+    const run = await drive([hello(["1"]) + INITIALIZE.slice(0, cut), INITIALIZE.slice(cut)], 300);
+    assert.equal(run.code, 0, run.stderr);
+    assertAnsweredInitialize(run);
   });
 });

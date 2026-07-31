@@ -5,12 +5,22 @@ stdio, then serves MCP tools over the same two streams.
 
 ```bash
 npm install
-npm run build     # tsc -> dist/
-npm test          # unit tests + acceptance tests against dist/main.js
+npm test          # typechecks, builds, then runs unit + acceptance tests
 npm start         # node dist/main.js
 ```
 
-`npm test` drives the built binary, so build before you test.
+The acceptance tests drive the built `dist/main.js` as a process, so `npm test` runs
+`typecheck` and `build` first (`pretest`). There is no way to test a stale `dist/`.
+
+| Script | What it does |
+| --- | --- |
+| `npm run typecheck` | `tsc --noEmit` over everything, **including the test files**. |
+| `npm run build` | `tsc` over the sources only, into `dist/`. Emits nothing if it errors. |
+| `npm test` | `pretest` (typecheck + build), then the tests. |
+| `npm start` | Runs the connector on stdio. |
+
+`package.json` sets `"private": true` so a scaffold cannot be published to npm by accident.
+Remove that line when you actually want to publish this connector.
 
 ## What is contract, and what is yours
 
@@ -29,12 +39,16 @@ opinion.
 | `main.ts` | The only file that knows a protocol exists: handshake, then MCP. |
 | `handlers.test.ts` | Unit tests for your logic. |
 | `main.test.ts` | Acceptance tests for the wire behaviour. Keep these. |
+| `tsconfig.json` | Typechecks everything, including tests. Emits nothing. |
+| `tsconfig.build.json` | The build: sources only, into `dist/`. |
 
 ## Read this before you restructure `main.ts`
 
-The gateway announces unprompted — `docs/spec/negotiation/v1/contract-version.md` §5 has both
-peers write their hello without waiting — so its hello and its **first MCP request very often
-arrive in the same read**.
+The gateway announces unprompted — [contract-version.md][spec] §5 has both peers write their
+hello without waiting — so its hello and its **first MCP request very often arrive in the same
+read**.
+
+[spec]: https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/spec/negotiation/v1/contract-version.md
 
 `performHandshake` handles that, but only if you take back what it gives you:
 
@@ -47,9 +61,15 @@ reader, and hands the transport that. `StdioServerTransport` takes a readable an
 this costs nothing.
 
 Serving on raw `process.stdin` after the handshake loses both — silently, with no error and no
-log line. The session's first request is simply never answered. `main.test.ts` has a test named
-`answers a request pipelined into the hello's chunk` that fails when this regresses; do not
-delete it.
+log line. The session's first request is simply never answered.
+
+`main.test.ts` guards each half with its own test, because a fix for one does not fix the other:
+
+- `answers a request pipelined into the hello's chunk` — fails if you drop the `pending` replay;
+- `completes a frame the hello's chunk left half-written` — fails if you replay `pending` but
+  then forward raw stdin chunks to the transport instead of pushing them through the reader.
+
+Do not delete either.
 
 ## Adding a tool
 

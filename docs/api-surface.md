@@ -1565,7 +1565,7 @@ export declare function viewEmail(raw: unknown): JmapEmailView | null;
 
 ## `./connector-kit`
 
-25 exports.
+39 exports.
 
 ### `BearerJsonFetchResult` *(type-only)*
 
@@ -1578,6 +1578,26 @@ export type BearerJsonFetchResult = {
     json: unknown;
     text: string;
 };
+```
+
+### `FieldExtractor` *(type-only)*
+
+From `./search-filter.js`.
+
+```ts
+export type FieldExtractor = (item: unknown) => readonly (string | null | undefined)[] | null;
+```
+
+### `FilterByQueryOptions` *(type-only)*
+
+From `./search-filter.js`.
+
+```ts
+export interface FilterByQueryOptions<T> {
+    readonly query: string;
+    readonly limit?: number | undefined;
+    readonly fields: (item: T) => readonly (string | null | undefined)[] | null;
+}
 ```
 
 ### `HttpJsonBodyResponse` *(type-only)*
@@ -1662,6 +1682,25 @@ From `./rest-tool-kit.js`.
 export type RestToolRegistrar = <T>(name: string, description: string, schema: ZodObjectSchema<T>, handler: (args: T) => Promise<McpListResult>) => void;
 ```
 
+### `SearchFilter` *(type-only)*
+
+From `./search-filter.js`.
+
+```ts
+export type SearchFilter = (rows: readonly unknown[], opts: SearchMatchOptions) => readonly unknown[];
+```
+
+### `SearchMatchOptions` *(type-only)*
+
+From `./search-filter.js`.
+
+```ts
+export interface SearchMatchOptions {
+    readonly query: string;
+    readonly limit?: number | undefined;
+}
+```
+
 ### `ZodObjectSchema` *(type-only)*
 
 From `./mcp-tool-kit.js`.
@@ -1679,6 +1718,22 @@ export type ZodObjectSchema<T> = {
         };
     };
 };
+```
+
+### `asObjectish`
+
+From `./search-filter.js`.
+
+```ts
+export declare function asObjectish(value: unknown): Record<string, unknown> | undefined;
+```
+
+### `asRecord`
+
+From `./search-filter.js`.
+
+```ts
+export declare function asRecord(value: unknown): Record<string, unknown> | undefined;
 ```
 
 ### `createRegisterSimpleTool`
@@ -1721,6 +1776,32 @@ From `./mcp-tool-kit.js`.
 export declare function fetchWithTimeout(url: string, init?: RequestInit, timeoutMs?: number): Promise<Response>;
 ```
 
+### `fieldsFromKeys`
+
+From `./search-filter.js`.
+
+```ts
+export declare function fieldsFromKeys(keys: readonly string[], opts?: {
+    readonly tags?: boolean;
+}): FieldExtractor;
+```
+
+### `filterByQuery`
+
+From `./search-filter.js`.
+
+```ts
+export declare function filterByQuery<T>(items: readonly T[], options: FilterByQueryOptions<T>): T[];
+```
+
+### `makeQueryFilter`
+
+From `./search-filter.js`.
+
+```ts
+export declare function makeQueryFilter(fields: FieldExtractor): (items: readonly unknown[], options: SearchMatchOptions) => unknown[];
+```
+
 ### `makeRestFetcher`
 
 From `./rest-tool-kit.js`.
@@ -1742,6 +1823,14 @@ export declare function makeRestToolRegistrar(cfg: {
 
     snippetMax?: number;
 }): <T>(name: string, description: string, schema: ZodObjectSchema<T>, buildPath: (args: T) => string, buildInit?: (args: T) => RequestInit) => void;
+```
+
+### `matchesResult`
+
+From `./search-filter.js`.
+
+```ts
+export declare function matchesResult(rows: unknown, filter: SearchFilter, opts: SearchMatchOptions): McpListResult;
 ```
 
 ### `mcpJsonResult`
@@ -1769,6 +1858,14 @@ From `./mcp-tool-kit.js`.
 
 ```ts
 export declare function mcpJsonResultIfOk(serviceLabel: string, res: HttpJsonBodyResponse, snippetMax?: number): McpListResult;
+```
+
+### `nestedString`
+
+From `./search-filter.js`.
+
+```ts
+export declare function nestedString(root: Record<string, unknown>, path: readonly string[]): string;
 ```
 
 ### `parseJsonTextIfOk`
@@ -1817,6 +1914,30 @@ From `./fetch-bearer-json.js`.
 
 ```ts
 export declare function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): string;
+```
+
+### `stringField`
+
+From `./search-filter.js`.
+
+```ts
+export declare function stringField(row: Record<string, unknown>, key: string): string;
+```
+
+### `tagNamesFromObjects`
+
+From `./search-filter.js`.
+
+```ts
+export declare function tagNamesFromObjects(row: Record<string, unknown>): string;
+```
+
+### `tagText`
+
+From `./search-filter.js`.
+
+```ts
+export declare function tagText(row: Record<string, unknown>): string;
 ```
 
 ## `./ipc`

@@ -1,21 +1,38 @@
 {
   "name": "@nimbus-dev/create-connector",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Scaffold a Nimbus MCP connector in TypeScript or Python",
   "license": "MIT",
   "type": "module",
-  "keywords": ["nimbus", "mcp", "connector", "scaffold", "create"],
+  "keywords": [
+    "nimbus",
+    "mcp",
+    "connector",
+    "scaffold",
+    "create"
+  ],
   "homepage": "https://github.com/nimbus-agent/nimbus-sdk/blob/main/tools/create-connector/README.md",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/nimbus-agent/nimbus-sdk.git",
     "directory": "tools/create-connector"
   },
-  "bugs": { "url": "https://github.com/nimbus-agent/nimbus-sdk/issues" },
-  "publishConfig": { "access": "public" },
-  "engines": { "node": ">=22" },
-  "bin": { "create-connector": "./dist/index.js" },
-  "files": ["dist", "templates"],
+  "bugs": {
+    "url": "https://github.com/nimbus-agent/nimbus-sdk/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "create-connector": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",

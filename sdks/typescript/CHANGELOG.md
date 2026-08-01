@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.13.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.12.0...typescript-v1.13.0) (2026-08-01)
+
+
+### Features
+
+* generate connectors that actually run, in TypeScript and Python ([#95](https://github.com/nimbus-agent/nimbus-sdk/issues/95)) ([288f81f](https://github.com/nimbus-agent/nimbus-sdk/commit/288f81f4933a9d34e262c6fec8cc841235e6f34c))
+
 ## [1.12.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.11.1...typescript-v1.12.0) (2026-07-31)
 
 

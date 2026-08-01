@@ -251,6 +251,7 @@ Create `sdks/typescript/src/diagnostics/event.test.ts`:
 
 ```ts
 import { describe, expect, test } from "bun:test";
+import { IPC_MAX_LINE_BYTES } from "../ipc/ndjson-line-reader.js";
 import { type EncodeResult, encodeDiagnostic } from "./event.js";
 
 const BASE = {
@@ -407,7 +408,10 @@ describe("encodeDiagnostic — member validation", () => {
   });
 
   test("rejects a line over the framing limit", () => {
-    const result = encodeDiagnostic({ ...BASE, extensionId: "x".repeat(70_000) });
+    // IPC_MAX_LINE_BYTES is 1 MiB. Repeating it exactly puts the extensionId alone at
+    // the limit, so the surrounding envelope carries the line over it. Driving this off
+    // the imported constant rather than a literal is the idiom handshake.test.ts uses.
+    const result = encodeDiagnostic({ ...BASE, extensionId: "x".repeat(IPC_MAX_LINE_BYTES) });
     expect(rejection(result).reason).toBe("line-too-long");
   });
 });
@@ -1014,7 +1018,9 @@ enforces completeness — a row skipped here fails that test rather than passing
 
 - [ ] **Step 5: Write the corpus runner and anti-vacuity gates**
 
-Append to `sdks/typescript/scripts/diagnostics-guard.test.ts`:
+Append to `sdks/typescript/scripts/diagnostics-guard.test.ts`. **First widen its existing
+`node:fs` import to `import { readdirSync, readFileSync } from "node:fs";`** — Task 1 could
+not import `readdirSync` unused without failing Biome's lint, so adding it is this task's job:
 
 ```ts
 import {

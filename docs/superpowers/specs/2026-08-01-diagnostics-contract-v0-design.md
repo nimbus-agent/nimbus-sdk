@@ -116,11 +116,37 @@ dotless ı, Go's simple-versus-full mapping — **cannot arise**, because there 
 fold. That section exists because a name-based check had to lowercase; this contract sidesteps
 the entire class of bug by never admitting an uppercase letter in the first place.
 
-**Integers only.** `json.dumps(1.0)` produces `"1.0"`; `JSON.stringify(1.0)` produces `"1"` —
-the same event encodes to two different lines, which would make an exact-line corpus
-impossible. Restricting to integers removes the divergence at its source, and every field a
-diagnostic actually carries is one: counts, durations in milliseconds, byte sizes. Widening
-to floats later is a minor; narrowing later would be a major, so v0 starts strict.
+**Integer *values* only — not integer *types*.** `json.dumps(1.0)` produces `"1.0"`;
+`JSON.stringify(1.0)` produces `"1"` — the same event encodes to two different lines, which
+would make an exact-line corpus impossible. Restricting to integers removes the divergence at
+its source, and every field a diagnostic actually carries is one: counts, durations in
+milliseconds, byte sizes. Widening to floats later is a minor; narrowing later would be a
+major, so v0 starts strict.
+
+The distinction between *value* and *type* is load-bearing, and getting it backwards produces
+exactly the divergence the rule exists to prevent. **JSON has one number type.**
+`JSON.parse('{"a":1.0}')` yields `1`, indistinguishable from an integer literal; Python's
+`json.loads` yields the float `1.0`. So a rule phrased as "reject floats" is accepted by
+JavaScript — which cannot see a float there — and rejected by Python.
+
+The rule is therefore: **a number is valid if and only if its value is an integer within
+±(2⁵³−1), however the host language types it.** `1.0` and `1` are the same JSON value; both
+are accepted, and both encode as `1`. Python accepts a `float` whose `.is_integer()` is true
+and narrows it to `int` before serializing. The rejection case is `1.5`, never `1.0`.
+
+`float.is_integer()` returns false for `nan` and both infinities, so the same predicate
+implements the non-finite rejection below.
+
+**Field key order is normative: ascending by code point.** An exact-line corpus needs every
+member's position fixed, and `fields` is the one member whose key order is the caller's rather
+than the spec's — two call sites building the same event by different routes would otherwise
+produce two different lines. Sorting is identical in both languages over the `[a-z0-9]`
+alphabet, so this costs a binding one `sort()`.
+
+**Python's `json.dumps` needs two non-default arguments**, or every exact-line case fails:
+`ensure_ascii=False` (the default escapes non-ASCII as `\uXXXX`; `JSON.stringify` does not)
+and `separators=(",", ":")` (the default inserts a space after `:` and `,`; `JSON.stringify`
+does not).
 
 **The ±(2⁵³−1) bound** is
 [`contract-version.md` §6](../../spec/negotiation/v1/contract-version.md)'s float-precision
@@ -323,7 +349,10 @@ passing every other case:
 
 | Case | What it catches |
 |---|---|
-| `fields-float-rejected` | `1.0` encodes as `1.0` in Python, `1` in JavaScript |
+| `fields-float-rejected` (`1.5`) | A non-integral value. It must be `1.5`, **not** `1.0` — see the integral-value rule above |
+| `fields-integral-float-accepted` (`1.0`) | The same JSON value as `1`. Accepted by both, encoded as `1`; a binding that rejects floats by host type fails here |
+| `extension-id-non-ascii-accepted` | Python's `json.dumps` escapes non-ASCII by default and JavaScript does not — pins `ensure_ascii=False` |
+| `fields-sorted-by-key` | Caller insertion order must not reach the line |
 | `fields-nan-rejected` | `json.dumps` emits bare `NaN`, which is not JSON; `JSON.stringify` emits `null` |
 | `fields-two-pow-53-plus-one-rejected` | Python encodes it exactly; JavaScript cannot represent it |
 | `correlation-id-null-rejected` | `dict.get()` collapses absent and null — `predicates/v1` §2.1's trap |

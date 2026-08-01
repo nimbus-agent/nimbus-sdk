@@ -11,25 +11,20 @@ the same connector; only the host language differs.
 
 ## 1. Generate
 
-`@nimbus-dev/create-connector` is `private: true` and **not published yet**, so there is
-no `npm create nimbus-connector` line to give you — it would fail. Run it from a checkout:
-
 ```bash
-git clone https://github.com/nimbus-agent/nimbus-sdk && cd nimbus-sdk
-bun install
-bun run --cwd tools/create-connector build
-node tools/create-connector/dist/index.js weather-connector --dir ~/src/weather-connector
+npm create @nimbus-dev/connector@latest weather-connector
 ```
 
-Generate **outside** the checkout, as `--dir` does above. Inside it, Node's resolution walks
-up to the repository's workspace `node_modules` and satisfies `@nimbus-dev/sdk` from there —
-a resolution no real author has, and one that hides a broken dependency range until someone
-else hits it. The CI jobs generate into `$RUNNER_TEMP` for exactly this reason.
+That is `@nimbus-dev/create-connector` — `npm create @scope/foo` resolves to
+`@scope/create-foo`. `@latest` is not decoration: without a version tag npm may run an
+initializer it cached weeks ago.
+
+Node ≥22 is required.
 
 <!-- quoted-from: tools/create-connector/src/index.ts -->
 
 ```text
-Usage: create-connector <name> [--lang ts|python] [--dir <path>]
+Usage: npx @nimbus-dev/create-connector@latest <name> [--lang ts|python] [--dir <path>]
 
   <name>          lowercase kebab-case, starting with a letter (e.g. weather-connector)
   --lang          ts (default) or python
@@ -39,6 +34,14 @@ Usage: create-connector <name> [--lang ts|python] [--dir <path>]
 It writes 10 files and prints where they went. Exit codes: `0` on success, `1` for a
 usage or validation error, `2` when the target directory already exists and is not empty
 — it never writes into an occupied directory.
+
+> **Passing a flag through `npm create` needs `--`.** `npm create` is `npm init`, which runs
+> `npm exec` underneath and parses npm's own options first, so
+> `npm create @nimbus-dev/connector@latest my-conn --lang python` hands npm the `--lang` and
+> hands you a TypeScript project — with no error. Write
+> `npm create @nimbus-dev/connector@latest my-conn -- --lang python`, or use the `npx` form,
+> which forwards everything after the first positional argument unconditionally. The
+> [Python quickstart](./quickstart-python.md) uses `npx` for exactly this reason.
 
 ### The name rule, and why it is stricter than you expect
 
@@ -55,26 +58,6 @@ any single ecosystem — npm would accept `weather_connector`, Python would acce
 `manifest.id` only as a required non-empty string. An invalid name is rejected, never
 silently rewritten: a project named something its author did not type is worse than an
 error message.
-
-### The `cp -r` fallback
-
-The scaffolder only copies a tree and rewrites three literals out of it, so you can do
-its whole job by hand:
-
-```bash
-cp -r nimbus-sdk/tools/create-connector/templates/typescript weather-connector
-```
-
-Then replace, in **file contents and in path segments**:
-
-| Template literal | Yours |
-| --- | --- |
-| `nimbus-quickstart-connector` | `weather-connector` |
-| `nimbus_quickstart_connector` | `weather_connector` |
-| `Nimbus Quickstart Connector` | `Weather Connector` |
-
-The TypeScript template has no name in a path segment, so a content-only pass is enough
-here; the Python one does — see [quickstart-python.md](./quickstart-python.md).
 
 ## 2. Install, test, run
 

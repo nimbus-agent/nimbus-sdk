@@ -17,7 +17,7 @@ import { parseName } from "./names.js";
 
 const LANGUAGES = new Set(["ts", "python"]);
 
-const USAGE = `Usage: create-connector <name> [--lang ts|python] [--dir <path>]
+const USAGE = `Usage: npx @nimbus-dev/create-connector@latest <name> [--lang ts|python] [--dir <path>]
 
   <name>          lowercase kebab-case, starting with a letter (e.g. weather-connector)
   --lang          ts (default) or python

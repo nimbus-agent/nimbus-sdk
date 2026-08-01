@@ -260,7 +260,16 @@ the TypeScript template's ignore-file listed. Add it to the root `.gitignore`, a
 # so they no longer apply to their own subtrees. Everything else they list is covered above;
 # `.env` was not.
 .env
+
+# `npm pack` without --pack-destination drops the tarball in the package root. Every command in
+# this repository passes that flag, but debugging a packaging guard is exactly when someone runs
+# it bare, and `git add -A` would sweep the artifact into a commit.
+*.tgz
 ```
+
+`dist/` needs no addition: the root pattern has no leading slash, so it already matches
+`tools/create-connector/dist/` at any depth. Confirm that with
+`git check-ignore -v tools/create-connector/dist` and report which line matched.
 
 - [ ] **Step 8: Run the tests to verify they pass**
 
@@ -443,13 +452,13 @@ function run(command: string, args: readonly string[], cwd: string): string {
   const result = spawnSync(command, [...args], {
     cwd,
     encoding: "utf8",
-    // Node refuses to spawn a `.cmd` without a shell (EINVAL, the CVE-2024-27980 fix), and
-    // npm on Windows IS `npm.cmd`. `build-test` runs on windows-2025, so this is not optional.
-    // Caveat: under a shell, an argument containing a space is re-split. Every path here comes
-    // from `mkdtemp` under the system temp dir, which has no spaces on any CI runner — if you
-    // hit this locally under `C:\Users\First Last\`, quote the arguments rather than dropping
-    // the shell.
-    shell: process.platform === "win32",
+    // Node refuses to spawn a `.cmd` without a shell (EINVAL, the CVE-2024-27980 fix), and npm
+    // on Windows IS `npm.cmd`. `build-test` runs on windows-2025, so this is not optional — for
+    // npm. It is scoped to npm on purpose: `node` and `tar` are real `.exe`s on Windows and need
+    // no shell, and under a shell an argument containing a space is re-split. Every path here
+    // comes from `mkdtemp`, so on a CI runner nothing has a space; on a developer machine under
+    // `C:\Users\First Last\` the unscoped version would break `node` and `tar` for no reason.
+    shell: process.platform === "win32" && command === NPM,
   });
   if (result.status !== 0) {
     throw new Error(
@@ -989,6 +998,11 @@ that exists in the registry. Two lines are documented, so two lines run.
           # rule that decided the Python line. --prefer-online written after the spec would be
           # an argument to the scaffolder, which rejects unknown options by design.
           # --yes suppresses the "Ok to proceed?" prompt, which non-interactively is a hang.
+          #
+          # DO NOT rewrite these two lines as `npm exec`. They are copied verbatim from
+          # docs/quickstart-*.md and tools/create-connector/README.md, and executing the line the
+          # docs do NOT contain would prove the wrong thing — the `--lang`-swallow hazard lives
+          # in the difference between these forms. If a doc line changes, change it here too.
           REG="--registry=https://registry.npmjs.org/"
 
           # Retry shape copied from the two loops release.yml already runs: 8 attempts,

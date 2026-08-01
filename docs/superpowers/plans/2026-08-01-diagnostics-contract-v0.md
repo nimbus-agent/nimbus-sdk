@@ -658,7 +658,7 @@ git commit -m "feat(diagnostics): add the pure, total diagnostic event encoder"
 Append to `sdks/typescript/src/diagnostics/event.test.ts`:
 
 ```ts
-import { isDiagnosticEvent, meetsLevel, parseDiagnostic } from "./event.js";
+import { type DiagnosticLevel, isDiagnosticEvent, meetsLevel, parseDiagnostic } from "./event.js";
 
 describe("parseDiagnostic", () => {
   test("round-trips the canonical line", () => {
@@ -697,6 +697,16 @@ describe("meetsLevel", () => {
     expect(meetsLevel("info", "info")).toBe(true);
     expect(meetsLevel("debug", "info")).toBe(false);
     expect(meetsLevel("error", "debug")).toBe(true);
+  });
+
+  test("answers false for an unpublished level in either position", () => {
+    // Types are erased at runtime and this is a published export. Without the explicit
+    // guard TypeScript answers false by accident (indexOf → -1) and Python raises
+    // (ValueError) — the same call behaving two different ways.
+    const bogus = "trace" as unknown as DiagnosticLevel;
+    expect(meetsLevel(bogus, "info")).toBe(false);
+    expect(meetsLevel("error", bogus)).toBe(false);
+    expect(meetsLevel(bogus, bogus)).toBe(false);
   });
 });
 
@@ -757,9 +767,21 @@ export function isDiagnosticEvent(value: unknown): value is DiagnosticEvent {
  * Whether `level` is at or above `threshold` in the published order — a host filtering
  * at `threshold` keeps the event. Defined on `DIAGNOSTIC_LEVELS`' index rather than a
  * hard-coded number, which is what the drift guard in Task 4 protects.
+ *
+ * **Total: an argument that is not a published level answers `false`.** The types say
+ * both arguments are levels, but the types are erased at runtime and this is a published
+ * export — a JavaScript caller, or data crossing a boundary, reaches it untyped.
+ *
+ * The explicit guard is what keeps the two bindings honest. Left implicit, TypeScript's
+ * `indexOf` returns `-1` and answers `false` by accident, while Python's `.index()`
+ * raises `ValueError` — the same call, one silent answer and one crash. Neither language
+ * may rely on its own default here.
  */
 export function meetsLevel(level: DiagnosticLevel, threshold: DiagnosticLevel): boolean {
-  return DIAGNOSTIC_LEVELS.indexOf(level) >= DIAGNOSTIC_LEVELS.indexOf(threshold);
+  const at = DIAGNOSTIC_LEVELS.indexOf(level);
+  const floor = DIAGNOSTIC_LEVELS.indexOf(threshold);
+  if (at < 0 || floor < 0) return false;
+  return at >= floor;
 }
 ```
 
@@ -784,7 +806,7 @@ git commit -m "feat(diagnostics): add parseDiagnostic, isDiagnosticEvent and mee
 - Create: `docs/spec/conformance/v1/diagnostics/case.schema.json`
 - Create: `docs/spec/conformance/v1/diagnostics/index.schema.json`
 - Create: `docs/spec/conformance/v1/diagnostics/index.json`
-- Create: `docs/spec/conformance/v1/diagnostics/cases/*.json` (43 files, enumerated below)
+- Create: `docs/spec/conformance/v1/diagnostics/cases/*.json` (one per row of the table in Step 3)
 - Modify: `sdks/typescript/scripts/diagnostics-guard.test.ts`
 
 **Interfaces:**
@@ -918,7 +940,9 @@ Two complete examples showing the exact shape:
 }
 ```
 
-Write all 43. `event`/`line` is the input, `expect` the required outcome:
+Write one file per row. `event`/`line` is the input, `expect` the required outcome. The
+"every case on disk is indexed, and every indexed case exists" gate in Step 5 is what
+enforces completeness — a row skipped here fails that test rather than passing quietly:
 
 | File (`cases/`) | Kind | Input delta from BASE | Expect |
 |---|---|---|---|
@@ -932,6 +956,7 @@ Write all 43. `event`/`line` is the input, `expect` the required outcome:
 | `fields-two-pow-53-minus-one-accepted.json` | encode | `fields:{n:9007199254740991}` | ok |
 | `fields-negative-integer-accepted.json` | encode | `fields:{delta:-42}` | ok |
 | `fields-zero-accepted.json` | encode | `fields:{n:0}` | ok |
+| `fields-negative-zero-normalized.json` | encode | `fields:{n:-0.0}` | ok, `"n":0`. Verified: naive Python emits `-0.0` where JavaScript emits `0`. The integral-float narrowing already fixes this, so the case is a **regression pin** on that narrowing, not a new rule — a binding that skips `int()` passes every other numeric case and fails here |
 | `fields-boolean-accepted.json` | encode | `fields:{partial:true}` | ok |
 | `fields-null-rejected.json` | encode | `fields:{n:null}` | `invalid-field-value`, `/fields/n` |
 | `fields-nested-object-rejected.json` | encode | `fields:{a:{"b":1}}` | `invalid-field-value`, `/fields/a` |
@@ -1138,10 +1163,20 @@ git commit -m "test(diagnostics): publish the conformance corpus and its anti-va
 - Consumes: `encodeDiagnostic`, `DiagnosticEvent`, `EncodeResult`, `DiagnosticLevel` from Task 3.
 - Produces:
   - `type DiagnosticEmit = (line: string) => void | Promise<void>`
-  - `interface DiagnosticEmitter { debug/info/warn/error/audit(event: string, detail: EmitDetail): Promise<EncodeResult> }`
+  - `type EmitResult = EncodeResult | { readonly ok: false; readonly reason: "sink-failed"; readonly path: "" }`
+  - `interface DiagnosticEmitter { debug/info/warn/error/audit(event: string, detail: EmitDetail): Promise<EmitResult> }`
   - `interface EmitDetail { ts: string; correlationId?: string; fields?: Record<string, number | boolean>; error?: DiagnosticError }`
   - `function createEmitter(extensionId: string, emit: DiagnosticEmit): DiagnosticEmitter`
-  - `function expectNoRejectedDiagnostics(results: readonly EncodeResult[]): void` (from `./testing`)
+  - `function expectNoRejectedDiagnostics(results: readonly EmitResult[]): void` (from `./testing`)
+
+> **`sink-failed` is deliberately NOT a contract reason.** It is not in
+> `DiagnosticEncodeReason`, not in `case.schema.json`'s enum, and not in the spec's §5
+> table. A closed pipe is a property of one TypeScript wrapper's host environment — Python
+> ships no emitter at all and could never produce this token. Putting it in the
+> language-neutral contract would oblige every future binding to carry a reason its own
+> architecture may have no analogue for, and would force the "every reason token is
+> produced" gate to grow a permanent carve-out for a token no corpus case can ever reach.
+> A separate union at the wrapper layer costs one type alias and keeps that gate total.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1204,7 +1239,19 @@ describe("createEmitter", () => {
     });
     // Diagnostics must not be able to take down the connector they describe.
     const result = await nimbus.error("boom", { ts: TS });
-    expect(result.ok).toBe(false);
+    expect(result).toEqual({ ok: false, reason: "sink-failed", path: "" });
+  });
+
+  test("sink-failed is distinguishable from a refused event", async () => {
+    // Reusing an encoder reason here would tell an author their event was malformed
+    // when the event was fine and the pipe was closed.
+    const nimbus = createEmitter("acme-gcal", () => {
+      throw new Error("stderr closed");
+    });
+    const sink = await nimbus.info("sync.page", { ts: TS });
+    const refused = await nimbus.info("sync.page", { ts: TS, fields: { user: "ana@x.com" } });
+    expect(sink.ok || refused.ok).toBe(false);
+    expect(sink).not.toEqual(refused);
   });
 
   test("rejects an empty extensionId at construction", () => {
@@ -1245,6 +1292,15 @@ import {
 
 export type DiagnosticEmit = (line: string) => void | Promise<void>;
 
+/**
+ * A sink failure is a property of THIS wrapper's host, not of the contract — Python
+ * ships no emitter and could never produce it — so it lives in a union here rather than
+ * in `DiagnosticEncodeReason`, and never reaches `case.schema.json`.
+ */
+export type EmitResult =
+  | EncodeResult
+  | { readonly ok: false; readonly reason: "sink-failed"; readonly path: "" };
+
 export interface EmitDetail {
   ts: string;
   correlationId?: string;
@@ -1253,11 +1309,11 @@ export interface EmitDetail {
 }
 
 export interface DiagnosticEmitter {
-  debug(event: string, detail: EmitDetail): Promise<EncodeResult>;
-  info(event: string, detail: EmitDetail): Promise<EncodeResult>;
-  warn(event: string, detail: EmitDetail): Promise<EncodeResult>;
-  error(event: string, detail: EmitDetail): Promise<EncodeResult>;
-  audit(event: string, detail: EmitDetail): Promise<EncodeResult>;
+  debug(event: string, detail: EmitDetail): Promise<EmitResult>;
+  info(event: string, detail: EmitDetail): Promise<EmitResult>;
+  warn(event: string, detail: EmitDetail): Promise<EmitResult>;
+  error(event: string, detail: EmitDetail): Promise<EmitResult>;
+  audit(event: string, detail: EmitDetail): Promise<EmitResult>;
 }
 
 export function createEmitter(extensionId: string, emit: DiagnosticEmit): DiagnosticEmitter {
@@ -1268,7 +1324,7 @@ export function createEmitter(extensionId: string, emit: DiagnosticEmit): Diagno
     kind: "audit" | undefined,
     event: string,
     detail: EmitDetail,
-  ): Promise<EncodeResult> => {
+  ): Promise<EmitResult> => {
     const encoded = encodeDiagnostic({ ...detail, level, extensionId, event, ...(kind ? { kind } : {}) });
     if (!encoded.ok) return encoded;
     try {
@@ -1276,7 +1332,7 @@ export function createEmitter(extensionId: string, emit: DiagnosticEmit): Diagno
     } catch {
       // Captured, never rethrown: an awaited method that can reject is exactly the
       // hazard property 1 exists to prevent.
-      return { ok: false, reason: "line-too-long", path: "" };
+      return { ok: false, reason: "sink-failed", path: "" };
     }
     return encoded;
   };
@@ -1291,13 +1347,9 @@ export function createEmitter(extensionId: string, emit: DiagnosticEmit): Diagno
 }
 ```
 
-> **Note for the implementer:** the sink-failure branch reuses `line-too-long`, which is
-> wrong — a closed pipe is not an over-long line. Add a `sink-failed` token to
-> `DiagnosticEncodeReason` in `event.ts` and to `case.schema.json`'s reason enum, and
-> return that instead. It needs no corpus case (no corpus case can close a file
-> descriptor), so exclude it from the "every reason token is produced" gate with an
-> explicit `SINK_ONLY_REASONS = new Set(["sink-failed"])` in the guard, mirroring how
-> `test_negotiation_corpus.py` keeps an empty `DEFERRED_KINDS` rather than deleting it.
+Note that `send` returns `encoded` unchanged on success, so a caller receives the exact
+line that was written and can compare it — the emitter adds no information of its own on
+the happy path.
 
 - [ ] **Step 4: Write the testing helper**
 
@@ -1312,9 +1364,9 @@ Create `sdks/typescript/src/testing/diagnostics-assert.ts`:
  * results it got and asserts none were refused. The alternative — a NODE_ENV check
  * inside the emitter — would be an untestable, platform-dependent normative claim.
  */
-import type { EncodeResult } from "../diagnostics/event.js";
+import type { EmitResult } from "../diagnostics/emitter.js";
 
-export function expectNoRejectedDiagnostics(results: readonly EncodeResult[]): void {
+export function expectNoRejectedDiagnostics(results: readonly EmitResult[]): void {
   const rejected = results.filter((r) => !r.ok);
   if (rejected.length > 0) {
     const detail = rejected
@@ -1375,6 +1427,7 @@ export {
   type DiagnosticEmit,
   type DiagnosticEmitter,
   type EmitDetail,
+  type EmitResult,
 } from "./emitter.js";
 export {
   DIAGNOSTIC_CORRELATION_ID_PATTERN,
@@ -1741,7 +1794,9 @@ class EncodeRejected:
 EncodeResult = EncodeOk | EncodeRejected
 ```
 
-Four rules a Python implementation must get right, each of which the corpus catches:
+Five rules a Python implementation must get right. The corpus catches the first four; the
+fifth it cannot, because `case.schema.json` constrains `level` and `threshold` to the
+published enum — correctly, since an out-of-enum level is not a contract case:
 
 1. **`bool` before `int`.** `isinstance(True, int)` is `True` in Python, so the boolean branch must be checked first or `True` is treated as the integer 1.
 2. **Integral floats are accepted, then narrowed to `int`.** A JSON `1.0` arrives as a Python `float`; it is the same JSON value as `1` and must encode as `1`. Use:
@@ -1754,6 +1809,16 @@ Four rules a Python implementation must get right, each of which the corpus catc
    `float.is_integer()` returns `False` for `nan` and both infinities, so this also implements the non-finite rejection.
 3. **`json.dumps` must be `json.dumps(wire, ensure_ascii=False, separators=(",", ":"))`.** The defaults escape non-ASCII as `\uXXXX` (JavaScript does not) and insert a space after `:` and `,` (JavaScript does not). Both produce a line that fails `extension-id-non-ascii-accepted` and every exact-line case.
 4. **Byte length, not character length**, for the `IPC_MAX_LINE_BYTES` check: `len(line.encode("utf-8"))`.
+5. **`meets_level` is total and MUST NOT use bare `.index()`.** `tuple.index()` raises
+   `ValueError` on an unpublished level where TypeScript's `indexOf` returns `-1` and
+   answers `False` — the same call, one crash and one silent answer. Guard explicitly so
+   neither language relies on its own default:
+   ```python
+   def meets_level(level: str, threshold: str) -> bool:
+       if level not in DIAGNOSTIC_LEVELS or threshold not in DIAGNOSTIC_LEVELS:
+           return False
+       return DIAGNOSTIC_LEVELS.index(level) >= DIAGNOSTIC_LEVELS.index(threshold)
+   ```
 
 Also implement `parse_diagnostic`, `meets_level`, `ParseOk`, `ParseRejected`, `ParseResult` mirroring Task 3, and import `IPC_MAX_LINE_BYTES` from `nimbus_sdk.ipc.ndjson`.
 
@@ -1812,7 +1877,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from nimbus_sdk import __all__ as top_level
-from nimbus_sdk.diagnostics import format_timestamp
+from nimbus_sdk.diagnostics import format_timestamp, meets_level
 
 
 def test_format_timestamp_renders_the_canonical_form() -> None:
@@ -1828,6 +1893,30 @@ def test_format_timestamp_converts_a_non_utc_offset() -> None:
 def test_format_timestamp_refuses_a_naive_datetime() -> None:
     with pytest.raises(ValueError, match="timezone-aware"):
         format_timestamp(datetime(2026, 8, 1, 12, 0, 0))
+
+
+def test_format_timestamp_truncates_and_never_rounds() -> None:
+    # 999999µs is 999.999ms. Rounding would carry into the next SECOND and report a
+    # time that never happened; truncation cannot move the second, the day, or the year.
+    # The contract has no opinion here, so this is a choice — pinned so it stays one.
+    value = datetime(2026, 12, 31, 23, 59, 59, 999999, tzinfo=timezone.utc)
+    assert format_timestamp(value) == "2026-12-31T23:59:59.999Z"
+
+
+def test_format_timestamp_pads_sub_millisecond_values() -> None:
+    # 1µs truncates to 0ms and must render as .000, not .0 — the pattern is fixed-width.
+    value = datetime(2026, 8, 1, 12, 0, 0, 1, tzinfo=timezone.utc)
+    assert format_timestamp(value) == "2026-08-01T12:00:00.000Z"
+
+
+def test_meets_level_matches_the_typescript_binding_including_invalid_input() -> None:
+    assert meets_level("warn", "info") is True
+    assert meets_level("info", "info") is True
+    assert meets_level("debug", "info") is False
+    # tuple.index() would raise here; TypeScript's indexOf returns -1 and answers False.
+    # The explicit guard is what makes both bindings answer False.
+    assert meets_level("trace", "info") is False
+    assert meets_level("error", "trace") is False
 
 
 def test_diagnostics_names_are_not_hoisted_to_the_top_level() -> None:
@@ -1913,8 +2002,12 @@ git commit -m "docs: record the diagnostics contract in the roadmap and both cha
 2. **Python must pass `ensure_ascii=False, separators=(",", ":")`.** Both `json.dumps` defaults diverge from `JSON.stringify` — non-ASCII escaping and whitespace — and every exact-line case fails without them. Pinned by `extension-id-non-ascii-accepted`.
 3. **Field key order had to become normative.** The design assumed an exact-line corpus without saying what fixes key order; caller insertion order differs per call site. Keys are now sorted ascending by code point, which is identical in both languages for the `[a-z0-9]` alphabet.
 
-**One defect in the plan itself, left visible rather than silently patched:** Task 5's sink-failure branch returns `line-too-long`, which is wrong. The fix is spelled out in the note under that step — add a `sink-failed` reason and exclude it from the "every reason token" gate, since no corpus case can close a file descriptor.
+**Three fixes from the plan review**, all in the "same call, two behaviours" family the corpus exists to prevent:
 
-**Placeholder scan.** No TBD/TODO. The corpus case table is a complete specification of 43 files — file name, kind, exact input delta, exact expected outcome — with two files written out in full to fix the format.
+1. **`sink-failed` is its own union at the wrapper layer**, not a contract reason. The earlier draft returned `line-too-long` for a closed pipe — wrong, and it would have told an author their event was malformed when the event was fine. Adding it to `DiagnosticEncodeReason` and `case.schema.json` instead (as the review proposed) would oblige every future binding to carry a token its architecture may have no analogue for — Python ships no emitter and can never produce it — and force a permanent carve-out in the "every reason token is produced" gate. A separate `EmitResult` union costs one type alias and keeps that gate total.
+2. **`meetsLevel` / `meets_level` is explicitly total.** Left to language defaults, TypeScript's `indexOf` answers `false` by accident while Python's `.index()` raises `ValueError`. The corpus cannot catch this — `case.schema.json` constrains `level` and `threshold` to the enum, correctly — so it is pinned by unit tests on both sides.
+3. **`fields-negative-zero-normalized`** pins that `-0.0` encodes as `0`. Verified: naive Python emits `-0.0` where JavaScript emits `0`. The integral-float narrowing already fixes it, which makes this a regression pin on that narrowing rather than a new rule.
 
-**Type consistency.** `EncodeResult` / `ParseResult` / `EncodeOk` / `EncodeRejected` are used identically in Tasks 2, 3, 5, 6, 8. `createEmitter` is the name in the emitter, the barrel, the smoke call, and all three deprecation messages. `meetsLevel` (TS) / `meets_level` (Python) follow each language's convention, as the existing bindings already do.
+**Placeholder scan.** No TBD/TODO. The corpus case table specifies every file — name, kind, exact input delta, exact expected outcome — with two written out in full to fix the format, and the indexing gate enforces that none is skipped.
+
+**Type consistency.** `EncodeResult` / `ParseResult` / `EncodeOk` / `EncodeRejected` are used identically in Tasks 2, 3, 5, 6, 8. `EmitResult` appears only where the emitter does — Task 5's emitter and testing helper, and Task 6's barrel — and never in the encoder or the corpus. `createEmitter` is the name in the emitter, the barrel, the smoke call, and all three deprecation messages. `meetsLevel` (TS) / `meets_level` (Python) follow each language's convention, as the existing bindings already do.

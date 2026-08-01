@@ -23,9 +23,31 @@ function scriptedPeer(chunks: (string | null)[]): HandshakeIo & { written: strin
   };
 }
 
+/**
+ * The peers that must all produce the same agreement, one row per documented reason:
+ *
+ * - a hello terminated by a newline — the ordinary case, both peers declaring the same major;
+ * - the same hello delivered *without* its newline, because end-of-stream terminates the final
+ *   frame too;
+ * - the same hello again, standing for the promise that `options` is genuinely optional: with
+ *   nothing after the hello, `performHandshake(io)` works exactly as it did before `reader` and
+ *   `localVersions` existed. Every row calls it with one argument, so the row is that assertion.
+ *
+ * Kept as rows rather than three near-identical tests (Sonar S5976), with the reason as the row
+ * label so each still names itself in the report when it fails.
+ */
+const AGREEING_PEERS = [
+  ["both peers declare the same major", '{"nimbus":"hello","contractVersions":["1"]}\n'],
+  [
+    "end-of-stream delivered the final frame without its newline",
+    '{"nimbus":"hello","contractVersions":["1"]}',
+  ],
+  ["no options argument is supplied", '{"nimbus":"hello","contractVersions":["1"]}\n'],
+] as const;
+
 describe("performHandshake", () => {
-  test("agrees when both peers declare the same major", async () => {
-    const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n']);
+  test.each(AGREEING_PEERS)("agrees on version 1 when %s", async (_reason, frame) => {
+    const io = scriptedPeer([frame]);
     expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
@@ -98,11 +120,6 @@ describe("performHandshake", () => {
       reason: "no-common-version",
       pending: [],
     });
-  });
-
-  test("accepts a final frame that end-of-stream delivered without its newline", async () => {
-    const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 
   test("honours an explicit localVersions over the SDK default", async () => {
@@ -183,12 +200,5 @@ describe("performHandshake", () => {
     const reader = new NdjsonLineReader({ lineLimitError: FrameTooLong });
     const io = scriptedPeer([`{"nimbus":"hello","x":"${"y".repeat(IPC_MAX_LINE_BYTES)}"}\n`]);
     await expect(performHandshake(io, { reader })).rejects.toBeInstanceOf(FrameTooLong);
-  });
-
-  test("omitting reader still performs the handshake", async () => {
-    // The option is genuinely optional: with nothing after the hello (as in every other
-    // test here), performHandshake works exactly as it did before `reader` existed.
-    const io = scriptedPeer(['{"nimbus":"hello","contractVersions":["1"]}\n']);
-    expect(await performHandshake(io)).toEqual({ ok: true, version: "1", pending: [] });
   });
 });

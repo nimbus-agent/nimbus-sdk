@@ -20,8 +20,14 @@ serves MCP tools over the same two streams, follow
 [quickstart-python.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/quickstart-python.md).
 It scaffolds a project whose `manifest.py` declares `"runtime": "python"` — legal only
 since RFC-0009 widened the enum — and whose tests spawn the connector as a real process.
-The scaffolder is a TypeScript program run from a checkout; there is no `pip`-installable
-front end for it yet, and the quickstart documents the copy-the-template fallback.
+
+```bash
+npx @nimbus-dev/create-connector@latest my-connector --lang python
+```
+
+The scaffolder is a Node CLI published on npm, not a `pip`-installable front end. Running it
+needs Node 22+, but only at scaffold time — the project it generates has no Node dependency;
+neither `pyproject.toml` nor any test in the generated tree mentions it.
 
 ## What this is
 

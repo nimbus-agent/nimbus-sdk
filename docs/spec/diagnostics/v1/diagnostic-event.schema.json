@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/diagnostics/v1/diagnostic-event.schema.json",
+  "title": "Nimbus diagnostic event",
+  "description": "One diagnostic event as it appears on the wire. Closed: members this schema does not name are rejected, because an open envelope has unlimited places to put a secret.",
+  "type": "object",
+  "required": ["nimbus", "ts", "level", "extensionId", "event"],
+  "additionalProperties": false,
+  "properties": {
+    "nimbus": { "const": "diag" },
+    "ts": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{3}Z$",
+      "description": "One canonical form, not RFC 3339 generally: fixed-width UTC, exactly three fractional digits, Z only. Makes a plain string sort chronological in every language."
+    },
+    "level": { "enum": ["debug", "info", "warn", "error"] },
+    "extensionId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Emptiness, not blankness. No trimming is defined, so no two languages' disagreement about trim can reach this contract. The format belongs to the manifest rule registry, not here."
+    },
+    "event": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$" },
+    "kind": { "enum": ["diagnostic", "audit"] },
+    "correlationId": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,64}$" },
+    "fields": {
+      "type": "object",
+      "maxProperties": 16,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9]*$" },
+      "additionalProperties": {
+        "anyOf": [
+          { "type": "boolean" },
+          {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991,
+            "description": "An integer VALUE, not an integer host type. JSON has one number type; 1.0 and 1 are the same JSON value and MUST both be accepted, then encoded as 1."
+          }
+        ]
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9]*)*$" },
+        "retriable": { "type": "boolean" }
+      }
+    }
+  }
+}

@@ -5,7 +5,11 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "lib": ["ESNext"],
-    "types": ["bun", "node"],
+    // `["bun"]`, not `["bun", "node"]`, matching `sdks/typescript/tsconfig.json`. `@types/bun`
+    // pulls `@types/node` in transitively and supplies the `node:` builtins this package
+    // imports, so naming `node` here adds nothing — but it makes `tsc` demand a
+    // `@types/node` entry point that no package in this repo declares as a dependency.
+    "types": ["bun"],
 
     "strict": true,
     "noUnusedLocals": true,

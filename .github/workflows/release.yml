@@ -274,7 +274,12 @@ jobs:
         env:
           CI: "true"
 
-      - name: Preflight — OIDC available and npm meets the trusted-publishing floor
+      # npm can never unpublish a version after 72h, same as PyPI — see publish-python's
+      # preflight, which this mirrors. It publishes package.json's version, so that version
+      # must be checked before publishing rather than after.
+      - name: Preflight — OIDC available, npm meets the trusted-publishing floor, and version matches the release
+        env:
+          RELEASED_VERSION: ${{ needs.release-please.outputs.cc_version }}
         run: |
           set -euo pipefail
           if [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
@@ -288,7 +293,12 @@ jobs:
             echo "::error::npm $have is below the $need floor required for OIDC trusted publishing."
             exit 1
           fi
-          echo "preflight ok: OIDC token present, npm $have >= $need"
+          declared="$(node -p "require('./package.json').version")"
+          if [ "$declared" != "$RELEASED_VERSION" ]; then
+            echo "::error::package.json declares $declared but release-please released $RELEASED_VERSION."
+            exit 1
+          fi
+          echo "preflight ok: OIDC token present, npm $have >= $need, version $declared"
 
       # No NODE_AUTH_TOKEN: the npm trusted-publisher binding for
       # @nimbus-dev/create-connector authenticates this workflow via GitHub OIDC. That binding
@@ -386,21 +396,31 @@ jobs:
           # Retry shape copied from the two loops release.yml already runs: 8 attempts,
           # sleep attempt*10, ~4.5 min. A publish is followed by packument and tarball
           # propagation lag that has already turned two good releases red.
+          #
+          # The CLI refuses to write into a directory that exists and is not empty (exit 2,
+          # TargetNotEmptyError). If an attempt fails after it has started writing, the
+          # target is left non-empty, and every remaining attempt then fails on THAT rather
+          # than on the propagation lag being retried — a good publish would report a red
+          # smoke job. So `try` takes the target directory and clears it before each
+          # attempt, not just before the first.
           try() {
+            local target="$1"
+            shift
             for attempt in 1 2 3 4 5 6 7 8; do
+              rm -rf "$target"
               if "$@"; then return 0; fi
               if [ "$attempt" != 8 ]; then sleep $(( attempt * 10 )); fi
             done
             return 1
           }
 
-          if ! try npm create --yes --prefer-online $REG \
+          if ! try ts-smoke npm create --yes --prefer-online $REG \
                  "@nimbus-dev/connector@${PUBLISHED_VERSION}" ts-smoke; then
             echo "::error::the documented \`npm create\` line failed against the registry"
             exit 1
           fi
 
-          if ! try npx --yes --prefer-online $REG \
+          if ! try py-smoke npx --yes --prefer-online $REG \
                  "@nimbus-dev/create-connector@${PUBLISHED_VERSION}" py-smoke --lang python; then
             echo "::error::the documented \`npx --lang python\` line failed against the registry"
             exit 1

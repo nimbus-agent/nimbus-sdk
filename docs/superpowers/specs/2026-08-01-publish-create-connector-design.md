@@ -33,29 +33,38 @@ has already lost a name in — `nimbus-sdk` on PyPI belongs to an unrelated pack
 why the Python distribution is `nimbus-dev-sdk`. A name inside a scope we own cannot be taken
 from us.
 
-The two documented invocations:
+**The invocation differs by language, and the reason is npm's argument parsing, not taste.**
 
 ```bash
-npm create @nimbus-dev/connector@latest my-connector                    # TypeScript
-npm create @nimbus-dev/connector@latest my-connector -- --lang python   # Python
+npm create @nimbus-dev/connector@latest my-connector                     # TypeScript
+npx @nimbus-dev/create-connector@latest my-connector --lang python       # Python
 ```
 
-**Neither `@latest` nor `--` is decoration, and getting either wrong fails silently.**
+`@latest` is load-bearing in both. npm's docs are explicit: "If you want npm to use the latest
+version, or another specific version you must specify it." Without a tag npm may run a cached
+initializer, so an author following a current quickstart can be running an old scaffolder.
 
-`@latest` — npm's docs are explicit: "If you want npm to use the latest version, or another
-specific version you must specify it." Without a tag npm may run a cached initializer, so an
-author following a current quickstart can be running an old scaffolder.
-
-`--` — the docs state that npm's own flags precede `--` and the initializer's arguments follow
-it, illustrated as `npm init foo -- --hello` → `npm exec -- create-foo --hello`. Write
+**Why the Python line is `npx` and not `npm create`.** `npm create` is `npm init`, which runs
+`npm exec` underneath, and there npm's own flag parsing runs first: the docs state that npm's
+flags precede `--` and the initializer's arguments follow it, illustrated as
+`npm init foo -- --hello` → `npm exec -- create-foo --hello`. Write
 `npm create @nimbus-dev/connector@latest my-conn --lang python` and npm consumes `--lang` as its
 own config. The author is following the **Python** quickstart and receives a **TypeScript**
-project, with no error and no warning. That is the highest-consequence line in D2, and the
-verification section below says where it is executed rather than merely asserted.
+project, with no error and no warning.
 
-Positional arguments forward without `--`; only flags need it. The two lines above are therefore
-the minimum-ceremony forms that are also correct, and they are what the quickstarts must show
-verbatim.
+`npx` has no such failure mode. Its documented rule is that "all flags and options *must* be set
+prior to any positional arguments" — everything after the first positional goes to the command,
+unconditionally. npm's own example makes the strength of that guarantee explicit:
+`npx foo@latest bar --package=@npmcli/foo` executes `foo bar --package=@npmcli/foo`, forwarding
+even `--package`, which *is* an npm flag. So the form that carries a flag is documented as the
+form that cannot silently drop one.
+
+`npm create ... -- --lang python` remains correct and is worth showing once, as the equivalent —
+but it is not the line an author copies, because the failure mode of forgetting `--` is a wrong
+project rather than an error. The TypeScript line carries no flags, has no such hazard, and stays
+`npm create` because that is the idiom, and because ROADMAP box 2 closes on `npm create` working.
+
+Both lines are executed rather than asserted; see the verification section.
 
 The `bin` entry stays `create-connector`. A package with exactly one bin has it run regardless
 of the bin's name, so renaming it to match the package would change nothing and would break the
@@ -81,6 +90,18 @@ The honest wart is that a Python author's first instruction names Node. It is a 
 invocation, it is stated plainly in `docs/quickstart-python.md` rather than buried, and it is
 strictly better than today's instruction, which is to clone this repository and build a
 TypeScript workspace.
+
+**A containerised fallback — `docker run --rm -v "$(pwd)":/app -w /app node:22-alpine npx …` —
+is deliberately not documented.** Three reasons, in increasing order of weight. It is a second
+distribution story wearing a disguise, unexecuted by any CI job, and it would rot exactly as an
+undocumented second copy of the templates would. An environment that forbids a local Node install
+usually forbids a local Docker daemon too, so it does not serve the case it is named for. And as
+written it is actively harmful on Linux: the container runs as root, so every file in the
+author's new project lands root-owned on the host and the first edit fails until they `chown` a
+tree they just created. Making it correct needs `--user "$(id -u):$(id -g)"` plus a writable
+`HOME` for npm's cache — at which point the quickstart's first instruction is a four-flag Docker
+command, which is not a fallback anyone reaches for. If Node-free scaffolding is ever a real
+demand, the answer is the PyPI sibling rejected above, evaluated on its merits.
 
 ## `.gitignore`, and the guard that is not about `.gitignore`
 
@@ -129,6 +150,16 @@ the implementer to answer by running both, not to assume in either direction —
 The root `.gitignore` already covers everything both template ignore-files cover except `.env`,
 so it gains that one line and the template directories stay clean when worked in place.
 
+**`.gitignore` is not the only name npm treats specially** — the always-excluded set also holds
+at least `.git`, `.npmrc`, `node_modules` and `.DS_Store`, and the implementer should read npm's
+current list rather than trust that one. This does *not* become a second rename entry or a
+checklist: enumerating npm's rules here would drift against npm exactly as D1's enumeration of
+substitution sites would have drifted against the templates. The pack-and-generate guard covers
+the whole class by construction, which is why it is worth more than the rename it was introduced
+for. The rule for a future template author is therefore one sentence in
+`tools/create-connector/README.md`: **do not add a dotfile to a template assuming it ships — add
+it, and let the guard tell you.**
+
 ## Verification, and the one thing it cannot prove
 
 The scaffold jobs change shape, and the reason is the same one D1 gave for generating outside the
@@ -144,19 +175,33 @@ artifact, via a form that also exercises npm's `--` argument forwarding. The exa
 (`npm exec --package=file:…tgz -- create-connector …` or an equivalent) is for the implementer to
 establish by running it, not to copy from this document.
 
-**What no pre-publish job can prove is the literal `npm create @nimbus-dev/connector@latest`
-mapping**, because the registry has no such version until after the publish. Claiming otherwise
-would be exactly the convenient-invariant substitution this design rejects elsewhere. So it moves
-to where it can be true: a **post-publish smoke** in `release.yml`, after the provenance
-verification, running the documented line — both of them, including the `--lang python` form —
-against the real registry into a temporary directory and asserting the generated tree is the
-expected language. It mirrors the existing post-publish verify jobs: install what was actually
-published, and check it.
+**What no pre-publish job can prove is the literal registry invocations** — the `npm create`
+name mapping and the `npx` spec both need a version that exists in the registry, which is only
+true after the publish. Claiming otherwise would be exactly the convenient-invariant substitution
+this design rejects elsewhere. So it moves to where it can be true: a **post-publish smoke** in
+`release.yml`, after the provenance verification, running **both documented lines verbatim** —
+the `npm create` TypeScript line and the `npx --lang python` line — against the real registry into
+temporary directories, and asserting each produced the expected language's tree. Two lines are
+documented, so two lines are executed; proving one and shipping both is how the `--lang`-swallow
+hazard would reach an author anyway.
 
-That smoke job inherits their propagation-lag lesson wholesale. `npm create` resolves a packument
-and downloads a tarball; both are subject to the same lag that has already turned two good
-releases red. It retries, and `--prefer-online` or its equivalent is mandatory, because npm
-caches the negative packument.
+Three mechanics that job must get right, all of them consequences of what the sections above
+established:
+
+- **`--yes`.** Both `npm create` and `npx` prompt before installing a package that is not
+  present. Non-interactively that prompt is a hang or a refusal, not a pass.
+- **npm's own flags go before the package spec**, in both forms — that is the same parsing rule
+  that decided the Python line. A `--prefer-online` written after the spec is an argument to the
+  scaffolder, which rejects unknown options by design.
+- **The retry loop is the one `release.yml` already runs twice** — eight attempts,
+  `sleep $((attempt * 10))`, roughly four and a half minutes — not a new backoff curve. A publish
+  is followed by packument and tarball propagation lag that has already turned two good releases
+  red, and `--prefer-online` is mandatory because npm caches the negative packument. That loop is
+  the repository's tested answer to exactly this; inventing exponential backoff beside it would
+  give three different retry shapes in one workflow and no reason for any of them.
+
+`--registry=https://registry.npmjs.org/` is worth passing explicitly, so the smoke cannot be
+satisfied by whatever `.npmrc` the runner's Node setup left behind.
 
 ## The release train
 
@@ -193,11 +238,28 @@ repointed at the new package name. It binds to the **same workflow file** as the
 job, so the new trusted publisher names `.github/workflows/release.yml` exactly as the existing
 one does.
 
-**One detail the plan must pin.** With no prior tag for this component, release-please scans
-history from the beginning and would sweep D1's `feat:` commit (#95, which created the whole
-directory) into the first changelog. `bootstrap-sha` is the mechanism; its exact semantics
-against `last-release-sha` are for the implementer to confirm from release-please's own
-documentation before choosing between them.
+**Seeding the component's history: a tag, not `bootstrap-sha`.** With no prior release for this
+component, release-please scans history from the beginning and would sweep D1's `feat:` commit
+(#95, which created the whole directory) into the first changelog. The reflex is
+`bootstrap-sha`, and it is the wrong reach here: it is a repository-level knob being used for a
+single component's problem, and choosing between it and `last-release-sha` turns on semantics —
+whether the named commit is included or excluded — that decide precisely the one commit at issue.
+An earlier draft of this design deferred that question to the implementer. That was the wrong
+call: it hands someone a decision whose two plausible answers differ by exactly the outcome we
+are trying to control.
+
+Instead, **give the component the release it already effectively has**: the bootstrap publish of
+`0.0.0` is accompanied by a git tag `create-connector-v0.0.0` on `main`, which is the same
+scheme `include-component-in-tag` produces for every other release. release-please then finds a
+previous release by the ordinary mechanism, scans only the commits after it, and the `0.1.0`
+changelog contains D2 and nothing else. No repository-level configuration is added, the
+`bootstrap-sha`-versus-`last-release-sha` question never has to be answered, and the manifest
+entry (`"tools/create-connector": "0.0.0"`) agrees with both the tag and the on-disk version, so
+`release-config-guard.test.ts` passes as written.
+
+The tag belongs to the same manual bootstrap ritual as the first npm publish, for the same
+reason: both are one-time acts on the registry and on `main` that no CI job should perform. See
+STOP item 1.
 
 ## Versions
 
@@ -222,7 +284,11 @@ leaves two documents structured around a fact that is no longer true.
 
 `docs-excerpts.test.ts` keeps both pinned to the CLI's `USAGE` string via its `quoted-from`
 marker, and `USAGE` itself changes: it reads `Usage: create-connector <name> …`, which is the
-from-a-checkout invocation. It should read as the published one.
+from-a-checkout invocation. It becomes the `npx` line, for the reason that decided the Python
+quickstart — `USAGE` is what a user sees after getting the arguments wrong, so it must show the
+form whose arguments cannot be silently eaten. Because the marker pins it into both quickstarts,
+the `npm create` line is written in the surrounding prose rather than inside `USAGE`, and the two
+therefore cannot disagree.
 
 Also updated: `sdks/typescript/README.md`; `CLAUDE.md`'s scaffolder section, which currently opens
 "that **publishes nothing**"; and ROADMAP box 2, which is checked, with its built-but-unpublished
@@ -243,11 +309,15 @@ repository owner's step, not a task in a plan:
 2. `npm publish` version `0.0.0` from a clean checkout;
 3. configure the trusted publisher on npmjs.com — `nimbus-agent/nimbus-sdk`,
    `.github/workflows/release.yml`, matching the existing binding;
-4. **revoke the token.**
+4. **revoke the token;**
+5. push the tag `create-connector-v0.0.0` on `main`, which seeds the component's release history
+   so the first release-please changelog starts at D2 rather than at D1 — see the release-train
+   section.
 
 Every release after that is token-less OIDC with provenance. The implementation plan must be
 sequenced so nothing depends on this having happened until the merge that would publish, and must
-say so where a reader will hit it.
+say so where a reader will hit it. Steps 2 and 5 name the same version deliberately: one
+bootstrap, two artifacts, the registry and the tag agreeing from the start.
 
 **2. Whether `bun pm pack` reproduces npm's `.gitignore` stripping.** It decides whether the
 packaging guard can use this repository's existing pack idiom or must reach for `npm pack`. Cheap
@@ -274,8 +344,9 @@ documents.
 
 Six tasks: the `_gitignore` rename with its map and unit guards; the pack-and-generate packaging
 guard, mutation-proved; the two scaffold CI jobs repointed at the packed artifact; the
-release-please component with its manifest entry and `bootstrap-sha`; the `publish-create-connector`
-job plus the post-publish `npm create` smoke; the documentation rewrite and ROADMAP close.
+release-please component with its manifest entry; the `publish-create-connector` job plus the
+post-publish smoke that runs both documented invocations; the documentation rewrite and ROADMAP
+close.
 
 Publishable-package hygiene — removing `private: true`, adding `publishConfig.access`,
 `repository`, `description`, `keywords`, `homepage`, `bugs`, and the currently-absent `README.md`

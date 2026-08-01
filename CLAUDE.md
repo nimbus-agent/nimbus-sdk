@@ -155,6 +155,18 @@ python -m build                 # sdist + wheel into dist/
   `python -m pip install -e .` from `sdks/python/` **before** `pytest` — otherwise the
   suite reads the previous snapshot and passes while executing none of your changes.
   CI never hits this (it installs into a clean checkout); it is a local-only trap.
+- **A worktree under `.claude/worktrees/` silently borrows the parent checkout's
+  `node_modules`.** Node and TypeScript resolution walk *up* out of the worktree and into
+  `<repo>/node_modules`, so a package can resolve a dependency it never declares and every
+  local run goes green while CI — which checks out flat — fails. This is not hypothetical:
+  `tools/create-connector` named `"node"` in its `tsconfig` `types` without any package
+  declaring `@types/node`, six reviewers ran it clean, and it took down `build-test` on all
+  three OSes plus both scaffold jobs the moment it reached CI (fixed in #95's follow-up).
+  **To reproduce CI honestly, clone the branch somewhere outside the repository** —
+  `git clone --branch <branch> . <tmpdir>` then `bun install --frozen-lockfile` — and run the
+  gates there. This is the same failure the `scaffold-*` jobs generate into `$RUNNER_TEMP` to
+  avoid, one level up: resolution reaching past a boundary and satisfying a dependency the
+  real environment does not have.
 - **Two roots.** `sdks/typescript/scripts/paths.ts` distinguishes `packageRoot`
   (`package.json`, `src/`, `dist/`) from `repoRoot` (`docs/`, and the language-neutral
   `docs/spec/`). Scripts import from it rather than computing a root themselves.

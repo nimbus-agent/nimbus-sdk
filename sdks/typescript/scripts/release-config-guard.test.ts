@@ -20,6 +20,8 @@ interface PackageConfig {
 
 const config = JSON.parse(readFromRepo("release-please-config.json")) as {
   packages: Record<string, PackageConfig>;
+  "separate-pull-requests"?: boolean;
+  "always-update"?: boolean;
 };
 const manifest = JSON.parse(readFromRepo(".release-please-manifest.json")) as Record<
   string,
@@ -116,5 +118,31 @@ describe("the release-please configuration", () => {
         false,
       );
     }
+  });
+
+  /**
+   * Separate release PRs share ONE `.release-please-manifest.json`, so both of them edit the
+   * same file. Merging either one rewrites it, and release-please does not rewrite a release
+   * branch whose contents have not changed — so the other PR is left based on a stale main and
+   * GitHub reports a conflict on the manifest. That is not hypothetical: it happened to the
+   * python 0.4.0 PR the moment typescript 1.13.0 merged.
+   *
+   * `always-update` is release-please's own answer, documented as "useful if pull requests must
+   * not be out-of-date with the base branch": it refreshes the open release PRs on every run,
+   * so the surviving PR rebases itself instead of waiting for a human.
+   *
+   * The obvious-looking alternative — `separate-pull-requests: false` — is a trap here. A grouped
+   * PR takes `group-pull-request-title-pattern`, whose default omits `${version}`; release-please
+   * then cannot parse a version out of its own merged title and SILENTLY skips creating the
+   * release and tag (googleapis/release-please#2712, open). That fails in the worst direction:
+   * the manifest updates, the PR looks merged, and nothing publishes. Keep both keys as they are
+   * unless you have re-read that issue.
+   */
+  test("release PRs are kept rebased, so a shared-manifest conflict cannot strand one", () => {
+    expect(config["separate-pull-requests"]).toBe(true);
+    expect(
+      config["always-update"],
+      "always-update must stay true while separate-pull-requests is true — see the comment above",
+    ).toBe(true);
   });
 });

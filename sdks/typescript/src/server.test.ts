@@ -230,6 +230,6 @@ describe("NimbusExtensionServer.handshake", () => {
     // required parameter or becomes async, this fails and the package needs a major.
     const server = new NimbusExtensionServer({ manifest });
     expect(server.start()).toBeUndefined();
-    expect(NimbusExtensionServer.prototype.start.length).toBe(0);
+    expect(NimbusExtensionServer.prototype.start).toHaveLength(0);
   });
 });

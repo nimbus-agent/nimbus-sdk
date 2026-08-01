@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.3.0...python-v0.4.0) (2026-08-01)
+
+
+### Features
+
+* generate connectors that actually run, in TypeScript and Python ([#95](https://github.com/nimbus-agent/nimbus-sdk/issues/95)) ([288f81f](https://github.com/nimbus-agent/nimbus-sdk/commit/288f81f4933a9d34e262c6fec8cc841235e6f34c))
+
 ## [0.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.2.0...python-v0.3.0) (2026-07-31)
 
 

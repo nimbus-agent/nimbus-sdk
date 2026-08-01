@@ -170,10 +170,14 @@ then they run the **scaffolder** straight out of the checkout. That asymmetry is
 the `.gitignore` problem lives in, and it is not specific to `.gitignore`: no file the tarball
 would omit is visible to either job.
 
-Both jobs therefore pack the scaffolder from the commit under test and invoke the packed
-artifact, via a form that also exercises npm's `--` argument forwarding. The exact form
-(`npm exec --package=file:…tgz -- create-connector …` or an equivalent) is for the implementer to
-establish by running it, not to copy from this document.
+Both jobs therefore pack the scaffolder from the commit under test — `npm pack`, the same packer
+the packaging guard insists on and for the same reason — extract the tarball, and invoke it
+directly: `node "$RUNNER_TEMP/package/dist/index.js" …`. Argument forwarding through `npm create`
+and `npx` is deliberately not this job's business: both forms resolve a version from the
+registry, and the commit under test has not been published yet, so there is no version for either
+form to resolve. That coverage belongs to the post-publish smoke below, which runs the registry
+invocations for real. Extraction proves the one thing available before publish — that the tarball
+contains a complete, runnable tree — unambiguously.
 
 **What no pre-publish job can prove is the literal registry invocations** — the `npm create`
 name mapping and the `npx` spec both need a version that exists in the registry, which is only
@@ -323,6 +327,15 @@ bootstrap, two artifacts, the registry and the tag agreeing from the start.
 packaging guard can use this repository's existing pack idiom or must reach for `npm pack`. Cheap
 to answer by running both and diffing the tarball listings; expensive to get wrong, because the
 wrong answer produces a guard that passes against a tarball nobody will ever install.
+
+**Answered during implementation.** `npm pack --dry-run` and `bun pm pack --dry-run` produced
+identical listings — 25 files each, both including `templates/typescript/_gitignore` and
+`templates/python/_gitignore` verbatim, neither carrying the renamed `.gitignore` (a dry run does
+not run `generate`, so that rename is out of scope for this comparison). The two packers agree.
+That agreement is not why the guard and CI use `npm pack` anyway: the behaviour under test is
+npm's own exclusion rule, and a guard built on `bun pm pack` would silently stop meaning anything
+the day the two packers diverge. `npm pack` is used because the answer should not depend on a
+second tool continuing to agree with the first.
 
 ## Risks carried knowingly
 

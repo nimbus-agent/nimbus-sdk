@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Opened:** 2026-07-31
-- **Landed:** (pending — not yet merged; this RFC ships on `feat/create-connector`)
+- **Landed:** pending — ships with [#95](https://github.com/nimbus-agent/nimbus-sdk/pull/95)
 - **Affects:** `docs/spec/schemas/v1/extension-manifest.schema.json`, `docs/spec/rules/v1/manifest-rules.json`, the manifest conformance corpus, `sdks/typescript/src/types.ts`, `sdks/typescript/src/contract-tests.ts`
 - **Roadmap:** [Phase 2](../ROADMAP.md#phase-2--prove-polyglot-with-python) — box 2, `create-nimbus-connector` scaffolding for TypeScript **and** Python. This RFC is the prerequisite: scaffolding a Python connector is pointless if the manifest it authors cannot pass validation
 - **Pillars:** 1 (the contract), 2 (polyglot SDKs), 4 (authoring experience)

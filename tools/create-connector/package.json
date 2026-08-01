@@ -1,0 +1,29 @@
+{
+  "name": "@nimbus-dev/create-connector",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "create-connector": "./dist/index.js"
+  },
+  "//files": "BEFORE PUBLISHING: npm strips .gitignore from the tarball no matter what this list says, so templates/*/.gitignore would not reach anyone installing from the registry. Harmless while private is true. The usual fix is to ship the file under another name and rename it during generation -- a deliberate choice for whoever publishes, not something to work around pre-emptively.",
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc --project tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check src/ templates/",
+    "test": "bun test src/"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.1",
+    "@types/bun": "^1.3.14",
+    "typescript": "^7.0.2"
+  }
+}

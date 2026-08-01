@@ -9,6 +9,14 @@
       "reason": "Every required field present and well-formed."
     },
     {
+      "file": "manifest/valid-runtime-python.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "A Python connector can declare its runtime honestly. runtime: \"python\" was invalid before RFC-0009 widened manifest.runtime.enum; it is now accepted by both the schema and runContractTests."
+    },
+    {
       "file": "manifest/valid-prerelease-min-version.json",
       "shape": "ExtensionManifest",
       "expect": "valid",

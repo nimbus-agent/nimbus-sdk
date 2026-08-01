@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "noEmit": false,
+    "allowImportingTsExtensions": false
+  },
+  // The *.test.ts / __fixtures__ excludes below are load-bearing — this package co-locates
+  // its tests in src/, and __fixtures__ is a fixture tree (package.json + .txt), not
+  // TypeScript. Without these, dist/ would ship names.test.js and friends.
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/__fixtures__"]
+}

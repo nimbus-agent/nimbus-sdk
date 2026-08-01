@@ -13,6 +13,16 @@ import nimbus_sdk  # the import name differs from the distribution name
 PyPI has a flat namespace and `nimbus-sdk` belongs to an unrelated project, so the
 distribution is published as `nimbus-dev-sdk`.
 
+## Quickstart
+
+To go from nothing to a connector that performs the contract-version handshake and then
+serves MCP tools over the same two streams, follow
+[quickstart-python.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/quickstart-python.md).
+It scaffolds a project whose `manifest.py` declares `"runtime": "python"` — legal only
+since RFC-0009 widened the enum — and whose tests spawn the connector as a real process.
+The scaffolder is a TypeScript program run from a checkout; there is no `pip`-installable
+front end for it yet, and the quickstart documents the copy-the-template fallback.
+
 ## What this is
 
 The contract is defined once, language-neutrally, in

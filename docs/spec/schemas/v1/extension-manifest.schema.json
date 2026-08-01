@@ -33,7 +33,7 @@
     "homepage": { "type": "string" },
     "icon": { "type": "string" },
     "entrypoint": { "type": "string", "pattern": "[^\\s\\u0085]" },
-    "runtime": { "enum": ["bun", "node"] },
+    "runtime": { "enum": ["bun", "node", "python"] },
     "permissions": {
       "type": "array",
       "items": { "enum": ["read", "write", "delete"] }

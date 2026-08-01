@@ -1,0 +1,42 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "nimbus-quickstart-connector"
+version = "0.1.0"
+description = "A Nimbus connector that echoes what it is given."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  # The distribution is `nimbus-dev-sdk`; the import is `nimbus_sdk`. PyPI's namespace is
+  # flat and `nimbus-sdk` belongs to an unrelated project, so `pip install nimbus-sdk`
+  # installs the wrong package rather than failing.
+  "nimbus-dev-sdk>=0.3.0",
+  # Ceilinged at the next major: `mcp` 2.0 renamed `FastMCP` to `MCPServer` and moved the
+  # module, so a major bump is not a drop-in for `main.py`.
+  "mcp>=2.0.0,<3",
+  # Arrives transitively with `mcp`, but `main.py` imports it directly — `mcp`'s own
+  # `stdio_server` is typed in terms of `anyio.AsyncFile`, which `_ReplayStdin` subclasses.
+  "anyio>=4.9,<5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "mypy>=1.11", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nimbus_quickstart_connector"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "RUF"]
+
+[tool.mypy]
+files = ["src", "tests"]
+strict = true

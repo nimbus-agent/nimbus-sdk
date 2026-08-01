@@ -70,6 +70,20 @@ jobs:
         env:
           CI: "true"
 
+      # The scaffolder copies trees and rewrites path segments, so it runs on the same
+      # three-OS matrix as the SDK. Windows path separators are exactly the bug this catches.
+      - name: Typecheck the scaffolder
+        working-directory: tools/create-connector
+        run: bun run typecheck
+
+      - name: Lint the scaffolder
+        working-directory: tools/create-connector
+        run: bun run lint
+
+      - name: Test the scaffolder
+        working-directory: tools/create-connector
+        run: bun test src/
+
       # One tarball is published and loaded on every OS, so one build is what the
       # smoke jobs must exercise — not a per-OS rebuild the ecosystem never receives.
       - name: Upload dist for the Node smoke jobs
@@ -190,6 +204,316 @@ jobs:
       - name: Test
         run: python -m pytest -q
 
+  # The scaffolder's output has to be a project someone can actually run, and nothing above
+  # proves that: `build-test` only typechecks and unit-tests the generator. These two jobs
+  # pack the SDK from *this* commit, generate a connector, install the packed artifact into
+  # it, run the generated project's own suite, and then drive the built connector as a
+  # process to assert its handshake exit codes.
+  #
+  # Neither job caches dependencies, deliberately. A warm cache would resolve a dependency
+  # range that has since gone bad and stay green — which is the exact failure these jobs
+  # exist to surface.
+  #
+  # Both run *declared floors* rather than whatever the runner image happens to ship: Node 22,
+  # which is `engines.node` for the scaffolder and for the TypeScript template, and Python
+  # 3.11, which is the Python template's `requires-python`. A floor nothing executes is a
+  # promise nobody is keeping, and an unpinned toolchain quietly changes what is being tested.
+  scaffold-typescript:
+    runs-on: ubuntu-24.04
+    # A broken template does not hang, it crawls: the generated suite's split-frame case
+    # takes its full 10 s timeout to fail. Most of this budget is `npm install`.
+    timeout-minutes: 20
+    steps:
+      # Single-OS job, so `block` unconditionally. The matrices above degrade to `audit`
+      # only because harden-runner cannot block on Windows or macOS.
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: block
+          # registry.npmjs.org is what this job is *for*: the generated project installs its
+          # own dependencies from it, so a template whose ranges have gone bad fails here
+          # rather than in an author's terminal months from now. bun.sh and nodejs.org are
+          # the two toolchains, and nothing else is reachable.
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            registry.npmjs.org:443
+            bun.sh:443
+            nodejs.org:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      # Pinned to the floor `engines.node` declares — the scaffolder's, and here also the
+      # generated project's, since this is the Node the template is tested on. `scaffold-python`
+      # pins the same version for the scaffolder alone.
+      - name: Setup Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Pack the SDK from this commit
+        run: |
+          cd sdks/typescript
+          bun run build
+          bun pm pack --destination "$RUNNER_TEMP"
+
+      - name: Build the scaffolder
+        run: bun run --cwd tools/create-connector build
+
+      # Outside the repository tree on purpose. Inside it, Node resolution walks up to the
+      # workspace node_modules and satisfies @nimbus-dev/sdk from there — which is the one
+      # resolution a real author never has, and it would make this job green for the wrong
+      # reason.
+      - name: Generate a connector
+        run: |
+          cd "$RUNNER_TEMP"
+          node "$GITHUB_WORKSPACE/tools/create-connector/dist/index.js" demo-connector --dir "$RUNNER_TEMP/demo-connector"
+
+      # The tarball goes in first and on purpose: `npm install <tarball>` rewrites the
+      # dependency to a `file:` specifier, so the template's `^1.12.0` range is never
+      # resolved from the registry and the SDK under test is the one this commit built.
+      # Every *other* dependency still comes from npm, which is the range check.
+      - name: Install the packed SDK and the project's own dependencies
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          npm install "$RUNNER_TEMP"/nimbus-dev-sdk-*.tgz
+          npm install
+
+      # `pretest` runs typecheck+build, so `npm test` needs no separate build step.
+      - name: Test the generated project
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          npm test
+
+      # The suite above already drives the binary, but only through its own harness. This
+      # is the gateway's view: two frames in, two exit codes out.
+      - name: Drive it — agreement exits 0, a disjoint set exits 20
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          hello() { printf '{"nimbus":"hello","contractVersions":["%s"]}\n' "$1"; }
+
+          # A connector that never notices EOF would otherwise hang until the job's own
+          # 20-minute limit and be reported as "exceeded the maximum execution time", which
+          # names nothing. timeout(1) turns that into an attributable failure. 124 is its
+          # own exit code for the timeout case and collides with neither 0 nor 20, so it is
+          # checked first and never mistaken for a refusal.
+          set +e
+          agreed_out=$(hello 1 | timeout 60 node dist/main.js)
+          agreed=$?
+          refused_out=$(hello 2 | timeout 60 node dist/main.js)
+          refused=$?
+          set -e
+
+          echo "agreement: exit=$agreed stdout=$agreed_out"
+          echo "refusal:   exit=$refused stdout=$refused_out"
+
+          if [ "$agreed" -eq 124 ] || [ "$refused" -eq 124 ]; then
+            echo "::error::the connector did not exit within 60s (agreement=$agreed refusal=$refused); 124 is timeout(1)'s, not a handshake exit code"
+            exit 1
+          fi
+          if [ "$agreed" -ne 0 ]; then
+            echo "::error::an agreed version set must exit 0, got $agreed"
+            exit 1
+          fi
+          if ! printf '%s' "$agreed_out" | grep -q '"nimbus":"hello"'; then
+            echo "::error::the connector must answer the hello before serving; stdout was: $agreed_out"
+            exit 1
+          fi
+          if [ "$refused" -ne 20 ]; then
+            echo "::error::a disjoint version set must exit 20, got $refused"
+            exit 1
+          fi
+
+  scaffold-python:
+    runs-on: ubuntu-24.04
+    # Same shape as scaffold-typescript; here the slow part is resolving `mcp` and pydantic.
+    timeout-minutes: 20
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: block
+          # pypi.org + files.pythonhosted.org are what this job is for — the generated
+          # project's own dependency resolution. registry.npmjs.org, bun.sh and nodejs.org are
+          # here only because the scaffolder is itself a TypeScript program that has to be
+          # built and run before it can emit a Python project; nothing Python-side touches npm.
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            pypi.org:443
+            files.pythonhosted.org:443
+            registry.npmjs.org:443
+            bun.sh:443
+            nodejs.org:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      # Pinned for the same reason `scaffold-typescript` pins it, though here Node only runs
+      # the scaffolder: the runtime under test in this job is Python's.
+      - name: Setup Node 22
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      # The floor the template's own `requires-python` declares.
+      - name: Setup Python 3.11
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # `--wheel` skips the sdist, so `$RUNNER_TEMP` holds exactly one installable artifact
+      # and the glob below cannot become ambiguous.
+      - name: Build the SDK wheel from this commit
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build --wheel sdks/python --outdir "$RUNNER_TEMP"
+
+      - name: Build the scaffolder
+        run: bun run --cwd tools/create-connector build
+
+      # Outside the repository tree for the same reason as the TypeScript job: an editable
+      # install of the SDK, or a stray `src/` on the path, would satisfy `nimbus_sdk` from
+      # the checkout instead of from the artifact under test.
+      - name: Generate a connector
+        run: |
+          cd "$RUNNER_TEMP"
+          node "$GITHUB_WORKSPACE/tools/create-connector/dist/index.js" demo-connector --lang python --dir "$RUNNER_TEMP/demo-connector"
+
+      - name: Install the packed SDK and the project's own dependencies
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          # The wheel first: `nimbus-dev-sdk>=0.3.0` need not resolve from PyPI at the
+          # version this commit builds, and installing it up front satisfies the requirement
+          # so the editable install never asks. Note the underscores — PEP 427 normalises
+          # `-` to `_` in wheel filenames, so this glob does *not* spell the distribution
+          # name the way the npm tarball does.
+          python -m pip install "$RUNNER_TEMP"/nimbus_dev_sdk-*.whl
+          # `[dev]` is not optional in practice: pytest, mypy and ruff all live in that
+          # extra, so a bare `pip install -e .` gets as far as "No module named pytest".
+          python -m pip install -e ".[dev]"
+
+      # Ordering is not provenance. The step above works today only because the wheel's version
+      # happens to satisfy the template's `nimbus-dev-sdk>=0.3.0`, so pip finds the requirement
+      # already met and never asks the index. The moment that floor rises above the version this
+      # commit builds — or the wheel carries a pre-release qualifier, which a bare `>=` will not
+      # accept — pip silently resolves the *published* SDK and this job goes green having tested
+      # something other than the commit under review. The TypeScript side cannot do that:
+      # `npm install <tarball>` rewrites the dependency to `file:` unconditionally. This is the
+      # equivalent assertion, and it is the difference between "installed first" and
+      # "installed from here".
+      - name: Assert the SDK under test is the wheel this commit built
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          wheel=$(basename "$(ls "$RUNNER_TEMP"/nimbus_dev_sdk-*.whl)")
+          # PEP 427 filename grammar: {distribution}-{version}-{python}-{abi}-{platform}.whl
+          expected=$(echo "$wheel" | cut -d- -f2)
+
+          installed=$(python -c 'import importlib.metadata as m; print(m.version("nimbus-dev-sdk"))')
+          origin=$(python -c 'import nimbus_sdk; print(nimbus_sdk.__file__)')
+          # PEP 610: pip writes direct_url.json only for artifacts installed from a file or a
+          # URL, and omits it for anything resolved from an index. Its presence, naming this
+          # wheel, is the provenance claim; the version check below only localises a mismatch.
+          direct=$(python -c 'import importlib.metadata as m; print(m.distribution("nimbus-dev-sdk").read_text("direct_url.json") or "")')
+
+          echo "built here:      $wheel (version $expected)"
+          echo "installed:       $installed"
+          echo "imported from:   $origin"
+          echo "direct_url.json: ${direct:-<absent>}"
+
+          # Ordered most-specific first, so the message names the actual cause rather than a
+          # symptom of it.
+          if [ "$installed" != "$expected" ]; then
+            echo "::error::the generated project resolved nimbus-dev-sdk $installed, but this commit built $expected — pip satisfied the requirement from PyPI instead of from the wheel"
+            exit 1
+          fi
+          case "$origin" in
+            "$GITHUB_WORKSPACE"/*)
+              echo "::error::nimbus_sdk imported from the checkout ($origin), not from the installed wheel — the generated project is reading this repository's source instead of the artifact under test"
+              exit 1
+              ;;
+          esac
+          case "$origin" in
+            *site-packages*) ;;
+            *)
+              echo "::error::nimbus_sdk imported from $origin, which is not a site-packages directory"
+              exit 1
+              ;;
+          esac
+          case "$direct" in
+            *"$wheel"*) ;;
+            *)
+              echo "::error::nimbus-dev-sdk was not installed from $wheel — no PEP 610 direct_url.json names it, and pip writes none at all for a package resolved from an index; direct_url.json was: ${direct:-<absent>}"
+              exit 1
+              ;;
+          esac
+
+      - name: Test the generated project
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          python -m pytest -q
+
+      - name: Drive it — agreement exits 0, a disjoint set exits 20
+        run: |
+          cd "$RUNNER_TEMP/demo-connector"
+          hello() { printf '{"nimbus":"hello","contractVersions":["%s"]}\n' "$1"; }
+
+          # See scaffold-typescript's drive step: 124 is timeout(1)'s exit code, it collides
+          # with neither 0 nor 20, and it is checked before either.
+          set +e
+          agreed_out=$(hello 1 | timeout 60 python -m demo_connector.main)
+          agreed=$?
+          refused_out=$(hello 2 | timeout 60 python -m demo_connector.main)
+          refused=$?
+          set -e
+
+          echo "agreement: exit=$agreed stdout=$agreed_out"
+          echo "refusal:   exit=$refused stdout=$refused_out"
+
+          if [ "$agreed" -eq 124 ] || [ "$refused" -eq 124 ]; then
+            echo "::error::the connector did not exit within 60s (agreement=$agreed refusal=$refused); 124 is timeout(1)'s, not a handshake exit code"
+            exit 1
+          fi
+          if [ "$agreed" -ne 0 ]; then
+            echo "::error::an agreed version set must exit 0, got $agreed"
+            exit 1
+          fi
+          if ! printf '%s' "$agreed_out" | grep -q '"nimbus":"hello"'; then
+            echo "::error::the connector must answer the hello before serving; stdout was: $agreed_out"
+            exit 1
+          fi
+          if [ "$refused" -ne 20 ]; then
+            echo "::error::a disjoint version set must exit 20, got $refused"
+            exit 1
+          fi
+
   # release-please reads the commits that land on `main`, and this repo merges by squash
   # only — so for a PR that collects a stack, the PR title is the only subject the parser
   # will ever see. This job asserts that subject is a Conventional Commit and that it does
@@ -247,7 +571,7 @@ jobs:
   # dependency fails, the required check would never report, and PRs would hang
   # waiting for a status that never arrives.
   ci-complete:
-    needs: [build-test, node-smoke, python, commit-guard]
+    needs: [build-test, node-smoke, python, commit-guard, scaffold-typescript, scaffold-python]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -262,4 +586,4 @@ jobs:
 
       - name: Fail unless every CI job succeeded
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} commit-guard=${{ needs.commit-guard.result }}" && exit 1
+        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} commit-guard=${{ needs.commit-guard.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1

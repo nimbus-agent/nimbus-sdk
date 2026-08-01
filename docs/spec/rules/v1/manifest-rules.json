@@ -46,8 +46,8 @@
     {
       "id": "manifest.runtime.enum",
       "field": "runtime",
-      "requires": "exactly \"bun\" or \"node\"",
-      "enum": ["bun", "node"],
+      "requires": "exactly \"bun\", \"node\", or \"python\"",
+      "enum": ["bun", "node", "python"],
       "parameterized": false
     },
     {

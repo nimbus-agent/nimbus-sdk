@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext"],
+    // `["bun"]`, not `["bun", "node"]`, matching `sdks/typescript/tsconfig.json`. `@types/bun`
+    // pulls `@types/node` in transitively and supplies the `node:` builtins this package
+    // imports, so naming `node` here adds nothing — but it makes `tsc` demand a
+    // `@types/node` entry point that no package in this repo declares as a dependency.
+    "types": ["bun"],
+
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitReturns": true,
+    "allowUnreachableCode": false,
+
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "declaration": false,
+
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

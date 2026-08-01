@@ -1,0 +1,12 @@
+{
+  "id": "example-connector",
+  "displayName": "Example Connector",
+  "version": "0.1.0",
+  "description": "A minimal manifest that satisfies every required field.",
+  "author": "Nimbus Contributors",
+  "entrypoint": "./index.ts",
+  "runtime": "python",
+  "permissions": ["read"],
+  "hitlRequired": [],
+  "minNimbusVersion": "0.1.0"
+}

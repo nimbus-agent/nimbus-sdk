@@ -155,13 +155,15 @@ const RUNTIME_ENUM: ManifestRule = {
   id: "manifest.runtime.enum",
   field: "runtime",
   check: (manifest) =>
-    manifest["runtime"] === "bun" || manifest["runtime"] === "node"
+    manifest["runtime"] === "bun" ||
+    manifest["runtime"] === "node" ||
+    manifest["runtime"] === "python"
       ? []
       : [
           {
             rule: "manifest.runtime.enum",
             path: "/runtime",
-            message: 'manifest.runtime must be "bun" or "node"',
+            message: 'manifest.runtime must be "bun", "node", or "python"',
           },
         ],
 };

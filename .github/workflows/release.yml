@@ -36,6 +36,8 @@ jobs:
       ts_released: ${{ steps.release.outputs['sdks/typescript--release_created'] }}
       py_released: ${{ steps.release.outputs['sdks/python--release_created'] }}
       py_version: ${{ steps.release.outputs['sdks/python--version'] }}
+      cc_released: ${{ steps.release.outputs['tools/create-connector--release_created'] }}
+      cc_version: ${{ steps.release.outputs['tools/create-connector--version'] }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
@@ -208,6 +210,217 @@ jobs:
           expected-workflow: .github/workflows/release.yml
           expected-sha: ${{ github.sha }}
           severity: gate
+
+  publish-create-connector:
+    needs: release-please
+    if: needs.release-please.outputs.cc_released == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: tools/create-connector
+    permissions:
+      contents: read
+      # Required for npm provenance + token-less OIDC trusted publishing.
+      id-token: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          # Matches the SDK's publish job: audit, not block, so the sigstore signing chain's
+          # endpoints cannot drift the allowlist out from under a release.
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      - name: Setup Node (for npm publish --provenance)
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      # npm trusted publishing (token-less OIDC) requires npm >= 11.5.1, newer than the
+      # version bundled with Node 22.
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Build
+        run: bun run build
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      # release.yml and ci.yml fire independently off the same push, so this job cannot trust
+      # that CI already ran against this exact tree. pack-and-generate.test.ts is in here: it
+      # packs this package and generates from the tarball, so a `files` regression fails the
+      # release rather than shipping.
+      - name: Test
+        run: bun test src/
+        env:
+          CI: "true"
+
+      - name: Preflight — OIDC available and npm meets the trusted-publishing floor
+        run: |
+          set -euo pipefail
+          if [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+            echo "::error::ACTIONS_ID_TOKEN_REQUEST_TOKEN is unset — the job lacks 'id-token: write'."
+            echo "::error::Publishing now would succeed WITHOUT provenance and cannot be undone after 72h."
+            exit 1
+          fi
+          have="$(npm --version)"
+          need="11.5.1"
+          if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -n1)" != "$need" ]; then
+            echo "::error::npm $have is below the $need floor required for OIDC trusted publishing."
+            exit 1
+          fi
+          echo "preflight ok: OIDC token present, npm $have >= $need"
+
+      # No NODE_AUTH_TOKEN: the npm trusted-publisher binding for
+      # @nimbus-dev/create-connector authenticates this workflow via GitHub OIDC. That binding
+      # could only be created after a manual bootstrap publish of 0.0.0 — npm cannot configure
+      # a trusted publisher for a package that does not yet exist (npm/cli#8544).
+      - name: Publish to npm with provenance
+        run: npm publish --provenance --access public
+
+      - name: Verify the published tarball's registry signature (cryptographic)
+        env:
+          PUBLISHED_VERSION: ${{ needs.release-please.outputs.cc_version }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          cd "$tmp"
+          npm init -y >/dev/null
+          # Install and audit must retry TOGETHER: a publish is followed by packument lag AND
+          # attestation lag, and a loop that breaks on install alone then audits once reads the
+          # attestation 404 as a supply-chain failure. --prefer-online is mandatory because npm
+          # caches the negative packument. See the SDK's publish job for the incident this
+          # shape came from.
+          verified=""
+          for attempt in 1 2 3 4 5 6 7 8; do
+            if npm install "@nimbus-dev/create-connector@${PUBLISHED_VERSION}" \
+                 --no-audit --no-fund --prefer-online \
+              && npm audit signatures; then
+              verified=1
+              break
+            fi
+            if [ "$attempt" != 8 ]; then
+              sleep $(( attempt * 10 ))
+            fi
+          done
+          if [ -z "$verified" ]; then
+            echo "::error::@nimbus-dev/create-connector@${PUBLISHED_VERSION} could not be installed and signature-verified from the registry after 8 attempts (~4.5 min)."
+            exit 1
+          fi
+
+      - name: Verify provenance names this repo, workflow and commit
+        uses: nimbus-agent/.github/actions/verify-npm-provenance@5fb42792fa88287048fd24f704183b9a9b807a67
+        with:
+          package: "@nimbus-dev/create-connector"
+          version: ${{ needs.release-please.outputs.cc_version }}
+          expected-repo: nimbus-agent/nimbus-sdk
+          expected-workflow: .github/workflows/release.yml
+          expected-sha: ${{ github.sha }}
+          severity: gate
+
+  # Split from publish-create-connector for the same reason verify-python-publish is split from
+  # its publish job: this one only downloads and reads, so it is safe to re-run as many times as
+  # propagation lag requires, whereas re-running the publish would retry the upload.
+  #
+  # This job is the ONLY thing that executes the two invocations the quickstarts document. No
+  # pre-publish job can: `npm create @nimbus-dev/connector` and
+  # `npx @nimbus-dev/create-connector` both resolve against the registry. The `--lang python`
+  # line matters most — `npm create` would eat that flag as its own config, handing a Python
+  # author a TypeScript project with no error, which is why the docs use npx for it.
+  smoke-create-connector:
+    needs: [release-please, publish-create-connector]
+    if: needs.release-please.outputs.cc_released == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Run both documented invocations against the registry
+        env:
+          PUBLISHED_VERSION: ${{ needs.release-please.outputs.cc_version }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+
+          # npm's own flags go BEFORE the package spec in both forms — that is the same parsing
+          # rule that decided the Python line. --prefer-online written after the spec would be
+          # an argument to the scaffolder, which rejects unknown options by design.
+          # --yes suppresses the "Ok to proceed?" prompt, which non-interactively is a hang.
+          #
+          # DO NOT rewrite these two lines as `npm exec`. They are copied verbatim from
+          # docs/quickstart-*.md and tools/create-connector/README.md, and executing the line the
+          # docs do NOT contain would prove the wrong thing — the `--lang`-swallow hazard lives
+          # in the difference between these forms. If a doc line changes, change it here too.
+          REG="--registry=https://registry.npmjs.org/"
+
+          # Retry shape copied from the two loops release.yml already runs: 8 attempts,
+          # sleep attempt*10, ~4.5 min. A publish is followed by packument and tarball
+          # propagation lag that has already turned two good releases red.
+          try() {
+            for attempt in 1 2 3 4 5 6 7 8; do
+              if "$@"; then return 0; fi
+              if [ "$attempt" != 8 ]; then sleep $(( attempt * 10 )); fi
+            done
+            return 1
+          }
+
+          if ! try npm create --yes --prefer-online $REG \
+                 "@nimbus-dev/connector@${PUBLISHED_VERSION}" ts-smoke; then
+            echo "::error::the documented \`npm create\` line failed against the registry"
+            exit 1
+          fi
+
+          if ! try npx --yes --prefer-online $REG \
+                 "@nimbus-dev/create-connector@${PUBLISHED_VERSION}" py-smoke --lang python; then
+            echo "::error::the documented \`npx --lang python\` line failed against the registry"
+            exit 1
+          fi
+
+          # The language assertion is the point, not the exit code. If npm ate --lang, py-smoke
+          # is a TypeScript project and every check below still "succeeded".
+          if [ ! -f ts-smoke/package.json ] || [ ! -f ts-smoke/main.ts ]; then
+            echo "::error::npm create produced no TypeScript project; got: $(ls ts-smoke)"
+            exit 1
+          fi
+          if [ ! -f py-smoke/pyproject.toml ] || [ -f py-smoke/package.json ]; then
+            echo "::error::npx --lang python produced a TypeScript project — the flag was swallowed; got: $(ls py-smoke)"
+            exit 1
+          fi
+          if [ ! -f ts-smoke/.gitignore ] || [ ! -f py-smoke/.gitignore ]; then
+            echo "::error::a generated project has no .gitignore — npm stripped it from the published tarball"
+            exit 1
+          fi
+          echo "smoke ok: npm create -> TypeScript, npx --lang python -> Python, both with .gitignore"
 
   publish-python:
     needs: release-please

@@ -12,6 +12,11 @@
       "release-type": "python",
       "component": "python",
       "package-name": "nimbus-dev-sdk"
+    },
+    "tools/create-connector": {
+      "release-type": "node",
+      "component": "create-connector",
+      "package-name": "@nimbus-dev/create-connector"
     }
   }
 }

@@ -1,4 +1,5 @@
 {
   "sdks/typescript": "1.13.0",
-  "sdks/python": "0.4.0"
+  "sdks/python": "0.4.0",
+  "tools/create-connector": "0.0.0"
 }

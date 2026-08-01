@@ -6,6 +6,16 @@ sdks/python/dist/
 .DS_Store
 .docs-snippets/
 
+# The templates' own ignore-files ship as `_gitignore` (npm strips `.gitignore` from tarballs),
+# so they no longer apply to their own subtrees. Everything else they list is covered above;
+# `.env` was not.
+.env
+
+# `npm pack` without --pack-destination drops the tarball in the package root. Every command in
+# this repository passes that flag, but debugging a packaging guard is exactly when someone runs
+# it bare, and `git add -A` would sweep the artifact into a commit.
+*.tgz
+
 # Git worktrees live inside the repo tree, so without these an entire worktree
 # shows up as untracked content and `git add -A` will happily commit it.
 .claude/worktrees/

@@ -80,6 +80,13 @@ jobs:
         working-directory: tools/create-connector
         run: bun run lint
 
+      # pack-and-generate.test.ts runs the CLI out of a tarball packed from dist/, so dist/ has
+      # to exist. This also gets the scaffolder's own build covered on all three OSes, which it
+      # was not before.
+      - name: Build the scaffolder
+        working-directory: tools/create-connector
+        run: bun run build
+
       - name: Test the scaffolder
         working-directory: tools/create-connector
         run: bun test src/
@@ -271,17 +278,26 @@ jobs:
           bun run build
           bun pm pack --destination "$RUNNER_TEMP"
 
-      - name: Build the scaffolder
-        run: bun run --cwd tools/create-connector build
+      # Packed, not run from the checkout. `files` decides what a real author receives, and a
+      # file it omits — npm silently drops `.gitignore` from every tarball, which is why the
+      # templates carry `_gitignore` — is invisible to a job that runs dist/ in place.
+      # src/pack-and-generate.test.ts asserts the two trees match; this job then installs and
+      # runs what the tarball produced.
+      - name: Pack the scaffolder from this commit
+        run: |
+          bun run --cwd tools/create-connector build
+          cd tools/create-connector
+          npm pack --pack-destination "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP"/nimbus-dev-create-connector-*.tgz -C "$RUNNER_TEMP"
 
       # Outside the repository tree on purpose. Inside it, Node resolution walks up to the
       # workspace node_modules and satisfies @nimbus-dev/sdk from there — which is the one
       # resolution a real author never has, and it would make this job green for the wrong
       # reason.
-      - name: Generate a connector
+      - name: Generate a connector from the packed scaffolder
         run: |
           cd "$RUNNER_TEMP"
-          node "$GITHUB_WORKSPACE/tools/create-connector/dist/index.js" demo-connector --dir "$RUNNER_TEMP/demo-connector"
+          node "$RUNNER_TEMP/package/dist/index.js" demo-connector --dir "$RUNNER_TEMP/demo-connector"
 
       # The tarball goes in first and on purpose: `npm install <tarball>` rewrites the
       # dependency to a `file:` specifier, so the template's `^1.12.0` range is never
@@ -396,16 +412,20 @@ jobs:
           python -m pip install --upgrade pip build
           python -m build --wheel sdks/python --outdir "$RUNNER_TEMP"
 
-      - name: Build the scaffolder
-        run: bun run --cwd tools/create-connector build
+      - name: Pack the scaffolder from this commit
+        run: |
+          bun run --cwd tools/create-connector build
+          cd tools/create-connector
+          npm pack --pack-destination "$RUNNER_TEMP"
+          tar -xzf "$RUNNER_TEMP"/nimbus-dev-create-connector-*.tgz -C "$RUNNER_TEMP"
 
       # Outside the repository tree for the same reason as the TypeScript job: an editable
       # install of the SDK, or a stray `src/` on the path, would satisfy `nimbus_sdk` from
       # the checkout instead of from the artifact under test.
-      - name: Generate a connector
+      - name: Generate a connector from the packed scaffolder
         run: |
           cd "$RUNNER_TEMP"
-          node "$GITHUB_WORKSPACE/tools/create-connector/dist/index.js" demo-connector --lang python --dir "$RUNNER_TEMP/demo-connector"
+          node "$RUNNER_TEMP/package/dist/index.js" demo-connector --lang python --dir "$RUNNER_TEMP/demo-connector"
 
       - name: Install the packed SDK and the project's own dependencies
         run: |

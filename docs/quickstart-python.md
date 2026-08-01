@@ -15,26 +15,27 @@ connectors are the same connector; only the host language differs.
 
 ## 1. Generate
 
-The scaffolder is a TypeScript program even when it emits Python, and
-`@nimbus-dev/create-connector` is `private: true` and **not published yet** — so there is
-no `npm create` or `pipx` line to give you, and one would fail. Run it from a checkout:
-
 ```bash
-git clone https://github.com/nimbus-agent/nimbus-sdk && cd nimbus-sdk
-bun install
-bun run --cwd tools/create-connector build
-node tools/create-connector/dist/index.js weather-connector --lang python --dir ~/src/weather-connector
+npx @nimbus-dev/create-connector@latest weather-connector --lang python
 ```
 
-Generate **outside** the checkout, as `--dir` does above. Inside it, a stray `src/` on the
-path or the repository's own editable install can satisfy `nimbus_sdk` from the working tree
-rather than from the distribution you installed — which is a resolution no real author has.
-The CI jobs generate into `$RUNNER_TEMP` for exactly this reason.
+**Node ≥22 is required to run the scaffolder** — the scaffolder is a TypeScript program even
+when it emits Python. It is needed once, to generate. The project you get has no Node
+dependency: nothing in `pyproject.toml` or in any generated test mentions it.
+
+**Why `npx` and not `npm create` here.** `npm create` is `npm init`, which runs `npm exec`
+underneath and parses npm's own options before the command's, so
+`npm create @nimbus-dev/connector@latest weather-connector --lang python` hands npm the
+`--lang` — and hands you a **TypeScript** project, with no error and no warning. `npx`
+forwards everything after the first positional argument to the command unconditionally. The
+`npm create` equivalent is
+`npm create @nimbus-dev/connector@latest weather-connector -- --lang python`; the `--` is
+what makes it correct.
 
 <!-- quoted-from: tools/create-connector/src/index.ts -->
 
 ```text
-Usage: create-connector <name> [--lang ts|python] [--dir <path>]
+Usage: npx @nimbus-dev/create-connector@latest <name> [--lang ts|python] [--dir <path>]
 
   <name>          lowercase kebab-case, starting with a letter (e.g. weather-connector)
   --lang          ts (default) or python
@@ -62,26 +63,6 @@ name `Weather Connector`. That intersection is stricter than any single ecosyste
 would accept `Weather_Connector` — and stricter than the Nimbus contract itself, which
 constrains `manifest.id` only as a required non-empty string. An invalid name is
 rejected, never silently rewritten.
-
-### The `cp -r` fallback
-
-The scaffolder only copies a tree and rewrites three literals out of it, so you can do
-its whole job by hand:
-
-```bash
-cp -r nimbus-sdk/tools/create-connector/templates/python weather-connector
-mv weather-connector/src/nimbus_quickstart_connector weather-connector/src/weather_connector
-```
-
-That `mv` is the part a content-only search-and-replace forgets: the Python package's
-**directory name is the module name**, so `pyproject.toml` would otherwise declare a
-package that is not on disk. Then replace, in file contents:
-
-| Template literal | Yours |
-| --- | --- |
-| `nimbus-quickstart-connector` | `weather-connector` |
-| `nimbus_quickstart_connector` | `weather_connector` |
-| `Nimbus Quickstart Connector` | `Weather Connector` |
 
 ## 2. Install, test, run
 

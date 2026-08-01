@@ -60,12 +60,25 @@ the moment it is indexed.
 ## The scaffolder (`tools/create-connector`)
 
 The repository's third package, alongside `sdks/typescript` and `sdks/python` — and the
-second Bun workspace member, since `sdks/python` is not one — that **publishes nothing**: `@nimbus-dev/create-connector` is `private: true` and unreleased,
-so the only way to run it today is from a checkout —
-`bun run --cwd tools/create-connector build && node tools/create-connector/dist/index.js
-<name> [--lang ts|python]`. The two quickstarts say so rather than showing an
-`npm create` line that would fail.
+second Bun workspace member, since `sdks/python` is not one. It publishes to npm as
+`@nimbus-dev/create-connector`, and the two documented invocations are:
 
+```bash
+npm create @nimbus-dev/connector@latest my-connector                     # TypeScript
+npx @nimbus-dev/create-connector@latest my-connector --lang python       # Python
+```
+
+The Python line is `npx`, not `npm create`, on purpose: `npm create` is `npm init`, which
+runs `npm exec` underneath and parses npm's own options first, so a `--lang` passed to
+`npm create` without a `--` separator is silently swallowed and hands a Python author a
+TypeScript project with no error. `npx` forwards everything after the first positional
+argument unconditionally.
+
+- **A template dotfile does not automatically ship.** npm strips `.gitignore` from every
+  published tarball regardless of `files`, so `templates/*/_gitignore` is renamed by
+  `TEMPLATE_FILE_RENAMES` in `tools/create-connector/src/generate.ts`. It is not the only such
+  name. `src/pack-and-generate.test.ts` packs the package and asserts the tarball generates the
+  same tree the checkout does — that guard, not a list, is what protects a new template file.
 - `templates/typescript/` (10 files) and `templates/python/` (9 files) are **deliberately
   outside `tsconfig.json`'s `include`**, which is `["src/**/*"]`. They are not this
   package's sources — they depend on `@modelcontextprotocol/sdk`, `zod` and `mcp`, which

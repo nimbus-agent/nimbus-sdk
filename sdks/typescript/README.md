@@ -26,16 +26,13 @@ tools over the same two streams. Full walkthrough:
 (or [quickstart-python.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/quickstart-python.md)).
 
 ```bash
-# The scaffolder is not published yet, so run it from a checkout of this repository.
-git clone https://github.com/nimbus-agent/nimbus-sdk && cd nimbus-sdk
-bun install && bun run --cwd tools/create-connector build
-node tools/create-connector/dist/index.js weather-connector --dir ~/src/weather-connector
+npm create @nimbus-dev/connector@latest weather-connector
 ```
 
 <!-- quoted-from: tools/create-connector/src/index.ts -->
 
 ```text
-Usage: create-connector <name> [--lang ts|python] [--dir <path>]
+Usage: npx @nimbus-dev/create-connector@latest <name> [--lang ts|python] [--dir <path>]
 
   <name>          lowercase kebab-case, starting with a letter (e.g. weather-connector)
   --lang          ts (default) or python
@@ -45,9 +42,7 @@ Usage: create-connector <name> [--lang ts|python] [--dir <path>]
 `<name>` has to be an npm package name, a Python module name, and a directory name at
 once, so the CLI takes the intersection of all three: lowercase kebab-case starting with
 a letter. `my_connector`, `MyConnector` and `2fa-connector` are refused rather than
-quietly rewritten. `--dir` points outside the checkout on purpose: inside it, Node
-resolution walks up to the repository's workspace `node_modules` and satisfies
-`@nimbus-dev/sdk` from there, which is a resolution no real author has. Then:
+quietly rewritten. Then:
 
 ```bash
 cd ~/src/weather-connector

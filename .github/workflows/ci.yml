@@ -80,6 +80,13 @@ jobs:
         working-directory: tools/create-connector
         run: bun run lint
 
+      # pack-and-generate.test.ts runs the CLI out of a tarball packed from dist/, so dist/ has
+      # to exist. This also gets the scaffolder's own build covered on all three OSes, which it
+      # was not before.
+      - name: Build the scaffolder
+        working-directory: tools/create-connector
+        run: bun run build
+
       - name: Test the scaffolder
         working-directory: tools/create-connector
         run: bun test src/

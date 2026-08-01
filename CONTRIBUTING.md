@@ -2,6 +2,15 @@
 
 Thanks for helping improve the Nimbus SDK!
 
+## Questions
+
+Questions — including "would you accept a PR that does X?" — go to
+[Nimbus Discussions](https://github.com/nimbus-agent/Nimbus/discussions), the one board the
+ecosystem shares; this repo has none of its own. Bugs and concrete changes to the SDK belong
+in this repo's issues, where they can be fixed. A proposal that would widen the contract is
+neither: it goes through the [RFC process](./docs/GOVERNANCE.md#the-rfc-process), where the
+default answer is *no* and the burden is on the proposal.
+
 ## Prerequisites
 
 - [Bun](https://bun.sh) v1.2+

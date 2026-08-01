@@ -195,11 +195,11 @@ same contract.*
 
 - [x] An official **Python SDK** that passes the conformance suite — *Pillar 2*.
   Promoted by [RFC-0008](./rfcs/0008-python-sdk-official.md).
-- [ ] `create-nimbus-connector` scaffolding for TypeScript **and** Python — *Pillar 4*.
-  **Built, not published.** [`tools/create-connector/`](../tools/create-connector/) emits
-  both templates, and CI generates, installs, builds, tests and drives the output on every
-  run — but `@nimbus-dev/create-connector` is `private: true`, so the only way to run it is
-  from a checkout. The box stays open until it is published and `npm create` works.
+- [x] `create-nimbus-connector` scaffolding for TypeScript **and** Python — *Pillar 4*.
+  Published as [`@nimbus-dev/create-connector`](https://www.npmjs.com/package/@nimbus-dev/create-connector):
+  `npm create @nimbus-dev/connector@latest my-connector`. CI generates, installs, builds, tests
+  and drives the output on every run — from the packed tarball, so a file `files` omits fails the
+  build rather than reaching an author.
 - [x] Per-language quickstarts — *Pillar 4*.
   [TypeScript](./quickstart-typescript.md) and [Python](./quickstart-python.md), each
   pinned to the template it documents by a drift guard in
@@ -215,7 +215,7 @@ same contract.*
   an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
   confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
 
-> **Boxes 1, 3 and 5–7 are done, and Python is now an official SDK.** A Python release can
+> **Boxes 1–3 and 5–7 are done, and Python is now an official SDK.** A Python release can
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that
 > way. The binding executes both published conformance corpora, every case kind, with
@@ -228,11 +228,13 @@ same contract.*
 > SDK owner. TypeScript, the reference implementation, predates that process and has no
 > promotion RFC of its own; RFC-0008 records the asymmetry rather than resolving it.
 >
-> The quickstarts (box 3) are written, and the scaffolder they document (box 2) exists
-> and is exercised end to end in CI — it is only unpublished, which is what keeps that box
-> open. What still remains is publishing it and the diagnostics contract (box 4), plus a
-> Python-authored connector running against the gateway, which is the one exit clause this
-> repository cannot demonstrate on its own.
+> The scaffolder (box 2) is published as
+> [`@nimbus-dev/create-connector`](https://www.npmjs.com/package/@nimbus-dev/create-connector)
+> and the quickstarts (box 3) document the `npm create` / `npx` invocations that resolve
+> against the registry, so a first-time author no longer needs a checkout of this
+> repository to scaffold either language. What still remains is the diagnostics contract
+> (box 4), plus a Python-authored connector running against the gateway, which is the one
+> exit clause this repository cannot demonstrate on its own.
 
 **Exit criteria:** a Python-authored connector runs against the gateway and passes
 the same suite as the TS reference; the suite is green for both languages in CI; a

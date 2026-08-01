@@ -40,6 +40,7 @@ shipped as a minor rather than a major.
 - [Security](./docs/SECURITY.md) — the trust model
 - [Governance](./docs/GOVERNANCE.md) — how decisions are made
 - [Contributing](./CONTRIBUTING.md)
+- [Discussions](https://github.com/nimbus-agent/Nimbus/discussions) — where questions are asked, on the Nimbus board
 
 ## License
 

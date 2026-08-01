@@ -106,6 +106,23 @@ kinds: `negotiate` (two sets in, an agreed version or a typed refusal out), `hel
 a parsed set or a refusal reason out), and `declaration` (a manifest set and a hello set in,
 accept or the exact-match violation out).
 
+### `diagnostics/v1/`
+
+The [diagnostics / telemetry contract](./diagnostics/v1/diagnostics.md) — the one structured
+envelope both SDKs encode for a connector to report a diagnostic or an audit record to the
+gateway: the closed member set (`nimbus`, `ts`, `level`, `extensionId`, `event`, `kind`,
+`correlationId`, `fields`, `error`), the four ordered levels published in
+[`levels.json`](./diagnostics/v1/levels.json), the encoding rules that make two bindings
+produce byte-identical lines, and the fourteen-reason rejection table checked in a fixed
+order. Unlike the hello frame, the envelope is **closed** — an unknown member is rejected, not
+ignored — which is the entire redaction guarantee: there is nowhere in it that a secret or a
+row of user data may go. See [RFC-0010](../rfcs/0010-diagnostics-contract-v0.md).
+
+Its corpus, [`conformance/v1/diagnostics/`](./conformance/v1/diagnostics/), has three case
+kinds: `encode` (a value in, a line or a typed rejection out), `parse` (a line in, an event or
+a typed rejection out — the gateway's direction), and `level` (threshold comparison, pinning
+the published order).
+
 ### `conformance/v1/`
 
 Five corpora, because the contract has five kinds of assertion.

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { generate, NotUtf8Error, TargetNotEmptyError } from "./generate.ts";
+import { generate, NotUtf8Error, TargetNotEmptyError, TEMPLATE_FILE_RENAMES } from "./generate.ts";
 import { parseName, TEMPLATE_NAME } from "./names.ts";
 
 const FIXTURE = join(import.meta.dir, "__fixtures__", "mini");
@@ -53,6 +54,7 @@ describe("generate", () => {
     // pyproject.toml naming a package that is not on disk.
     await generate({ templateDir: FIXTURE, targetDir: target, name: nameOrThrow("my-conn") });
     expect(await walk(target)).toEqual([
+      ".gitignore",
       "README.md",
       "package.json",
       "plain.txt",
@@ -92,7 +94,13 @@ describe("generate", () => {
       targetDir: target,
       name: nameOrThrow("my-conn"),
     });
-    expect(result.files).toEqual(["README.md", "package.json", "plain.txt", "src/my_conn/mod.txt"]);
+    expect(result.files).toEqual([
+      ".gitignore",
+      "README.md",
+      "package.json",
+      "plain.txt",
+      "src/my_conn/mod.txt",
+    ]);
   });
 
   test("refuses a target that exists and is non-empty", async () => {
@@ -122,6 +130,33 @@ describe("generate", () => {
       ).rejects.toThrow(/not valid UTF-8/);
     } finally {
       await rm(binaryTemplate, { recursive: true, force: true });
+    }
+  });
+
+  test("renames _gitignore to .gitignore, and leaves no _gitignore behind", async () => {
+    // npm strips a file named `.gitignore` from a published tarball whatever `files` says, so
+    // the templates carry `_gitignore` and it is renamed here. Both halves are asserted: the
+    // file arrives under its real name, AND the template's name is gone. Checking only the
+    // first would pass an implementation that copied the file twice.
+    await generate({ templateDir: FIXTURE, targetDir: target, name: nameOrThrow("my-conn") });
+    const files = await walk(target);
+    expect(files).toContain(".gitignore");
+    expect(files).not.toContain("_gitignore");
+    expect(await readFile(join(target, ".gitignore"), "utf8")).toBe("node_modules/\n");
+  });
+
+  test("every rename maps a path the template actually has", async () => {
+    // A stale entry is invisible — it renames nothing and no test notices. This makes the map
+    // and the template trees fail together instead of drifting apart, which is the same reason
+    // the substitution is whole-tree rather than a list of sites.
+    for (const from of TEMPLATE_FILE_RENAMES.keys()) {
+      for (const template of ["typescript", "python"]) {
+        const path = join(import.meta.dir, "..", "templates", template, ...from.split("/"));
+        expect(
+          existsSync(path),
+          `templates/${template}/${from} is named in TEMPLATE_FILE_RENAMES but does not exist`,
+        ).toBe(true);
+      }
     }
   });
 });

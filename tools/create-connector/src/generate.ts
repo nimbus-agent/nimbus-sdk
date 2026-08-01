@@ -66,6 +66,26 @@ function substitute(text: string, name: NameVariants): string {
     .replaceAll(TEMPLATE_NAME.kebab, name.kebab);
 }
 
+/**
+ * Files whose name in a template cannot be their name in a generated project.
+ *
+ * npm strips a file called `.gitignore` from a published tarball no matter what `files` says, so
+ * the templates carry `_gitignore` and it is renamed on the way out. Without this, every project
+ * generated from the registry silently loses its ignore file and the author's first `git add -A`
+ * can commit `node_modules/`.
+ *
+ * A map with one entry, not create-vite's "any leading `_` becomes `.`" rule. The generic rule
+ * silently reinterprets the next template file whose name starts with an underscore, and
+ * `_private.py` is idiomatic Python — a scaffolder that renamed it to `.private.py` would produce
+ * a project that imports a module it cannot see.
+ *
+ * Keyed by the template-relative POSIX path rather than the basename, so a `_gitignore` added
+ * inside a subdirectory later is not renamed by accident.
+ */
+export const TEMPLATE_FILE_RENAMES: ReadonlyMap<string, string> = new Map([
+  ["_gitignore", ".gitignore"],
+]);
+
 /** Fatal: throws on the first invalid byte sequence rather than emitting U+FFFD. */
 const strictUtf8Decoder = new TextDecoder("utf-8", { fatal: true });
 
@@ -103,7 +123,9 @@ export async function generate(options: GenerateOptions): Promise<GenerateResult
   for (const source of sources) {
     // `source` is POSIX-joined; split on "/" and rejoin with the platform separator so this
     // works on Windows, where `build-test` also runs.
-    const targetRel = substitute(source, name);
+    // Rename first, then substitute: the map is keyed by the template's own path, and reversing
+    // the order would make every key depend on the name the caller happened to pass.
+    const targetRel = substitute(TEMPLATE_FILE_RENAMES.get(source) ?? source, name);
     const absolute = join(targetDir, ...targetRel.split("/"));
     await mkdir(dirname(absolute), { recursive: true });
 

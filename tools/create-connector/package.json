@@ -1,20 +1,21 @@
 {
   "name": "@nimbus-dev/create-connector",
   "version": "0.0.0",
-  "private": true,
+  "description": "Scaffold a Nimbus MCP connector in TypeScript or Python",
   "license": "MIT",
   "type": "module",
-  "engines": {
-    "node": ">=22"
+  "keywords": ["nimbus", "mcp", "connector", "scaffold", "create"],
+  "homepage": "https://github.com/nimbus-agent/nimbus-sdk/blob/main/tools/create-connector/README.md",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nimbus-agent/nimbus-sdk.git",
+    "directory": "tools/create-connector"
   },
-  "bin": {
-    "create-connector": "./dist/index.js"
-  },
-  "//files": "BEFORE PUBLISHING: npm strips .gitignore from the tarball no matter what this list says, so templates/*/.gitignore would not reach anyone installing from the registry. Harmless while private is true. The usual fix is to ship the file under another name and rename it during generation -- a deliberate choice for whoever publishes, not something to work around pre-emptively.",
-  "files": [
-    "dist",
-    "templates"
-  ],
+  "bugs": { "url": "https://github.com/nimbus-agent/nimbus-sdk/issues" },
+  "publishConfig": { "access": "public" },
+  "engines": { "node": ">=22" },
+  "bin": { "create-connector": "./dist/index.js" },
+  "files": ["dist", "templates"],
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",

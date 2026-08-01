@@ -85,7 +85,12 @@ describe("the packed tarball", () => {
         .trim()
         .split("\n")
         .at(-1) as string;
-      run("tar", ["-xzf", join(scratch, tarball), "-C", scratch], scratch);
+      // Pass the tarball as a bare filename, not `join(scratch, tarball)`: GNU tar (the one Git
+      // for Windows puts on PATH ahead of the OS's own bsdtar) treats any argument containing a
+      // colon as a `host:path` remote spec, so an absolute `C:\...` path makes it try to dial
+      // out to a host named `C` instead of reading a local file. `cwd` is already `scratch`, so
+      // a bare filename resolves to the same file without ever spelling the drive letter.
+      run("tar", ["-xzf", tarball], scratch);
       // npm tarballs always root at `package/`.
       const fromTarball = join(scratch, "package", "dist", "index.js");
       expect(existsSync(fromTarball), `${tarball} shipped no dist/index.js`).toBe(true);

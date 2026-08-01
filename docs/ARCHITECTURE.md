@@ -26,13 +26,14 @@ Three hard constraints shape every decision here:
 
 ## The public surface (the `exports` map)
 
-The package exposes exactly three entry points. Everything else is internal.
+The package exposes exactly four entry points. Everything else is internal.
 
 | Entry point | Source | Purpose |
 |---|---|---|
 | `@nimbus-dev/sdk` | `sdks/typescript/src/index.ts` | The main contract: connector/extension types, the Plugin API v1 surface, `NimbusExtensionServer`, and the battery modules. |
 | `@nimbus-dev/sdk/testing` | `sdks/typescript/src/testing/index.ts` | `MockGateway` + contract-test / sandbox-probe utilities for connector test suites. |
 | `@nimbus-dev/sdk/ipc` | `sdks/typescript/src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
+| `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, and the Bearer-auth REST fetcher. The generated TypeScript connector template imports from here. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.

@@ -9,6 +9,7 @@
  * worked.
  */
 
+import { realpathSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -144,7 +145,24 @@ function isEntryPoint(): boolean {
   if (invoked === undefined) {
     return false;
   }
-  return fileURLToPath(import.meta.url) === resolve(invoked);
+  // `import.meta.url` is already realpath-resolved by Node's module loader, but `process.argv[1]`
+  // is whatever path the process was launched with — a straight `resolve()` compares a resolved
+  // path against an unresolved one, and they silently diverge the moment a symlink sits anywhere
+  // on the invocation path. Two real-world cases hit this: npm installs a package's `bin` as a
+  // symlink, and `npx` runs it from a symlinked path under `~/.npm/_npx/…`; and on macOS,
+  // `os.tmpdir()` is `/var/folders/...`, itself a symlink to `/private/var/folders/...`, so any
+  // test or tool that invokes the CLI from a temp dir hits the same mismatch. When the comparison
+  // fails, `main()` never runs and the process exits 0 having done nothing — no error, no output
+  // — which is why this went unnoticed until CI ran on a symlinked macOS temp path. Resolving
+  // both sides through `realpathSync` (and failing closed if either side cannot be resolved, e.g.
+  // because the path does not exist) makes the comparison symlink-invariant instead.
+  let invokedRealPath: string;
+  try {
+    invokedRealPath = realpathSync(resolve(invoked));
+  } catch {
+    return false;
+  }
+  return fileURLToPath(import.meta.url) === invokedRealPath;
 }
 
 if (isEntryPoint()) {

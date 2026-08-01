@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.4.0...python-v0.5.0) (2026-08-01)
+
+
+### Features
+
+* publish the connector scaffolder to npm ([#106](https://github.com/nimbus-agent/nimbus-sdk/issues/106)) ([8e609d6](https://github.com/nimbus-agent/nimbus-sdk/commit/8e609d62eb9879e1fec98405b3522cf0c1e279f0))
+
 ## [0.4.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.3.0...python-v0.4.0) (2026-08-01)
 
 

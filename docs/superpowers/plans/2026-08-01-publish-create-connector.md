@@ -619,7 +619,9 @@ tarball completeness end to end, by extraction, which is unambiguous.
 **Interfaces:**
 - Consumes: `npm pack` producing `nimbus-dev-create-connector-0.0.0.tgz` (Task 1's package name
   and version).
-- Produces: nothing. Both jobs keep their names, so `ci-ok`'s `needs` list is untouched.
+- Produces: nothing. Both jobs keep their names, so the `ci-complete` gate job's `needs` list is
+  untouched. (D1's spec and plan call that job `ci-ok`; it is named `ci-complete` in
+  `.github/workflows/ci.yml`. Those documents are historical records and stay as written.)
 
 - [ ] **Step 1: Replace the build-and-generate steps in `scaffold-typescript`**
 

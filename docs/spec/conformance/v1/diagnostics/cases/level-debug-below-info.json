@@ -1,0 +1,10 @@
+{
+  "description": "debug is below info.",
+  "kind": "level",
+  "level": "debug",
+  "threshold": "info",
+  "expect": {
+    "ok": true,
+    "meets": false
+  }
+}

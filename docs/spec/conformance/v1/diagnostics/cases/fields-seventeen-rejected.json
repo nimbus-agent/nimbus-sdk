@@ -1,0 +1,34 @@
+{
+  "description": "Seventeen fields exceeds the limit.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "k0": 0,
+      "k1": 1,
+      "k2": 2,
+      "k3": 3,
+      "k4": 4,
+      "k5": 5,
+      "k6": 6,
+      "k7": 7,
+      "k8": 8,
+      "k9": 9,
+      "k10": 10,
+      "k11": 11,
+      "k12": 12,
+      "k13": 13,
+      "k14": 14,
+      "k15": 15,
+      "k16": 16
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "too-many-fields",
+    "path": "/fields"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "description": "A missing ts is refused.",
+  "kind": "encode",
+  "event": {
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-ts",
+    "path": "/ts"
+  }
+}

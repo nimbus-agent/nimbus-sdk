@@ -1,0 +1,15 @@
+{
+  "description": "A timestamp with no fractional digits is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-ts",
+    "path": "/ts"
+  }
+}

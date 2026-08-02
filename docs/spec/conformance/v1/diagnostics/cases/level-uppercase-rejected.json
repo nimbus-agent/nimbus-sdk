@@ -1,0 +1,15 @@
+{
+  "description": "An uppercase level is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "INFO",
+    "extensionId": "acme-gcal",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-level",
+    "path": "/level"
+  }
+}

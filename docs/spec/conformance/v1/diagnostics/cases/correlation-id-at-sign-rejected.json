@@ -1,0 +1,16 @@
+{
+  "description": "A correlationId outside the URL-safe alphabet is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "correlationId": "ana@x.com"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-correlation-id",
+    "path": "/correlationId"
+  }
+}

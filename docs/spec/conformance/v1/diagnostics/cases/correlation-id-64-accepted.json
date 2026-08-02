@@ -1,0 +1,15 @@
+{
+  "description": "A 64-character correlationId is at the limit and accepted.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "correlationId": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"correlationId\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}"
+  }
+}

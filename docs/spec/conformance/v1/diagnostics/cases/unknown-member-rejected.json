@@ -1,0 +1,16 @@
+{
+  "description": "An unknown member is refused, naming it.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "message": "row 7 failed"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "unknown-member",
+    "path": "/message"
+  }
+}

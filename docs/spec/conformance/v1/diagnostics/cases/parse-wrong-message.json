@@ -1,0 +1,10 @@
+{
+  "description": "A different nimbus message is refused by its discriminator.",
+  "kind": "parse",
+  "line": "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}",
+  "expect": {
+    "ok": false,
+    "reason": "wrong-message",
+    "path": "/nimbus"
+  }
+}

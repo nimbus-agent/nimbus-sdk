@@ -1,0 +1,10 @@
+{
+  "description": "A line that is not JSON is refused.",
+  "kind": "parse",
+  "line": "not json",
+  "expect": {
+    "ok": false,
+    "reason": "not-json",
+    "path": ""
+  }
+}

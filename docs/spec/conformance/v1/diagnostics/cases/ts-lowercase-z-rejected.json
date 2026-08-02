@@ -1,0 +1,15 @@
+{
+  "description": "Lowercase t and z are refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01t12:00:00.000z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-ts",
+    "path": "/ts"
+  }
+}

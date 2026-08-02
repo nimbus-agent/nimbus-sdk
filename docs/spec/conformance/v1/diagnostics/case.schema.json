@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/diagnostics/case.schema.json",
+  "title": "Diagnostics conformance case",
+  "description": "One case. Three kinds, because the specification has three separable assertions: encoding a value (encode), reading a line (parse), and the level ordering (level). A runner reads `kind` and dispatches.",
+  "type": "object",
+  "required": ["description", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["encode", "parse", "level"] },
+    "event": {
+      "description": "encode only. The candidate event. Deliberately unconstrained: most cases assert a malformed value is refused."
+    },
+    "line": {
+      "type": "string",
+      "description": "parse only. One decoded line, without its terminating LF. A string rather than a parsed object, because what is under test is the parsing."
+    },
+    "level": { "enum": ["debug", "info", "warn", "error"], "description": "level only." },
+    "threshold": { "enum": ["debug", "info", "warn", "error"], "description": "level only." },
+    "expect": {
+      "type": "object",
+      "required": ["ok"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "line": {
+          "type": "string",
+          "description": "encode only, on success: the exact canonical line."
+        },
+        "event": { "description": "parse only, on success: the decoded event, without `nimbus`." },
+        "meets": { "type": "boolean", "description": "level only." },
+        "reason": {
+          "enum": [
+            "not-json",
+            "not-object",
+            "wrong-message",
+            "unknown-member",
+            "invalid-ts",
+            "invalid-level",
+            "invalid-extension-id",
+            "invalid-event",
+            "invalid-kind",
+            "invalid-correlation-id",
+            "invalid-fields",
+            "invalid-field-key",
+            "invalid-field-value",
+            "too-many-fields",
+            "invalid-error",
+            "line-too-long"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "description": "On refusal: the JSON Pointer naming the offending member."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "ok": { "const": false } }, "required": ["ok"] },
+          "then": { "required": ["reason", "path"] }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "encode" } }, "required": ["kind"] },
+      "then": { "required": ["event", "expect"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "parse" } }, "required": ["kind"] },
+      "then": { "required": ["line", "expect"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "level" } }, "required": ["kind"] },
+      "then": { "required": ["level", "threshold", "expect"] }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "description": "A string field value is refused — the structural redaction guarantee.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "user": "ana@x.com"
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-value",
+    "path": "/fields/user"
+  }
+}

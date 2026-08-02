@@ -1,0 +1,10 @@
+{
+  "description": "An unknown member on the wire is refused.",
+  "kind": "parse",
+  "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"message\":\"leak\"}",
+  "expect": {
+    "ok": false,
+    "reason": "unknown-member",
+    "path": "/message"
+  }
+}

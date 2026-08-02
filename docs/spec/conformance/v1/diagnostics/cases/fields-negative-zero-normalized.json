@@ -1,0 +1,17 @@
+{
+  "description": "Negative zero encodes as 0, not -0.0.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "n": -0.0
+    }
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"fields\":{\"n\":0}}"
+  }
+}

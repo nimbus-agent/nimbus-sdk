@@ -1,0 +1,330 @@
+{
+  "spec": "../../../diagnostics/v1/diagnostics.md",
+  "cases": [
+    {
+      "file": "cases/encode-canonical.json",
+      "section": "§4",
+      "reason": "The reference line every binding must reproduce byte for byte. A binding that emits members in another order, or inserts whitespace, fails here first."
+    },
+    {
+      "file": "cases/encode-all-members.json",
+      "section": "§4",
+      "reason": "Every optional member present at once. Pins the full member order, which a case using only the required four cannot."
+    },
+    {
+      "file": "cases/fields-sorted-by-key.json",
+      "section": "§4",
+      "reason": "Field keys are emitted in code-point order, not the caller's insertion order. A binding that passes the map through unsorted produces a different line for the same event."
+    },
+    {
+      "file": "cases/fields-integral-float-accepted.json",
+      "section": "§4",
+      "reason": "1.0 and 1 are the same JSON value. JavaScript cannot tell them apart and Python can; the rule is integral VALUE, so both accept and both emit 1."
+    },
+    {
+      "file": "cases/extension-id-non-ascii-accepted.json",
+      "section": "§4",
+      "reason": "Non-ASCII is emitted literally. Python's json.dumps escapes by default, so a binding that omits ensure_ascii=False fails this and nothing else."
+    },
+    {
+      "file": "cases/fields-string-rejected.json",
+      "section": "§3",
+      "reason": "A string field value is refused — the structural redaction guarantee. If this passes, the envelope has somewhere to put a secret."
+    },
+    {
+      "file": "cases/fields-float-rejected.json",
+      "section": "§3",
+      "reason": "A non-integral number is refused. 1.5 is expressible in both languages, unlike 1.0 which is not distinguishable in JavaScript."
+    },
+    {
+      "file": "cases/fields-nan-rejected.json",
+      "section": "§3",
+      "reason": "JSON has no NaN literal; a value overflowing to Infinity is the expressible form. A binding checking only 'is a number' admits it."
+    },
+    {
+      "file": "cases/fields-two-pow-53-plus-one-rejected.json",
+      "section": "§3",
+      "reason": "2^53+1 is the first integer a double cannot represent exactly. Paired with the 2^53-1 case this pins the safe-integer bound, which Python — whose ints are unbounded — has no native reason to enforce."
+    },
+    {
+      "file": "cases/fields-negative-zero-normalized.json",
+      "section": "§4",
+      "reason": "Naive Python emits -0.0 where JavaScript emits 0. The integral-value narrowing already fixes this, so this is a regression pin on that narrowing — a binding that skips it passes every other numeric case and fails here."
+    },
+    {
+      "file": "cases/fields-two-pow-53-minus-one-accepted.json",
+      "section": "§3",
+      "reason": "The largest integer a double represents exactly is accepted — the upper edge of the safe range."
+    },
+    {
+      "file": "cases/fields-negative-integer-accepted.json",
+      "section": "§3",
+      "reason": "Negative integers are in range; the bound is symmetric."
+    },
+    {
+      "file": "cases/fields-zero-accepted.json",
+      "section": "§3",
+      "reason": "Zero is a value, not an absence. A binding using falsiness to test presence drops this field."
+    },
+    {
+      "file": "cases/fields-boolean-accepted.json",
+      "section": "§3",
+      "reason": "Booleans are one of the two admitted value types."
+    },
+    {
+      "file": "cases/fields-empty-object-accepted.json",
+      "section": "§3",
+      "reason": "An empty fields map is present-but-empty, and is emitted rather than dropped. A binding treating it as absent produces a shorter line."
+    },
+    {
+      "file": "cases/fields-null-rejected.json",
+      "section": "§3",
+      "reason": "null is neither a boolean nor an integer. A binding checking only 'not a string' admits it."
+    },
+    {
+      "file": "cases/fields-nested-object-rejected.json",
+      "section": "§3",
+      "reason": "Nesting would reopen the envelope: an arbitrary object has unlimited places to put a secret."
+    },
+    {
+      "file": "cases/fields-array-rejected.json",
+      "section": "§3",
+      "reason": "An array is an object in JSON terms and must be refused for the same reason as a nested object."
+    },
+    {
+      "file": "cases/fields-not-object-rejected.json",
+      "section": "§3",
+      "reason": "fields itself must be a map. The reason is invalid-fields, not invalid-field-value: there is no member to attribute it to."
+    },
+    {
+      "file": "cases/fields-uppercase-key-rejected.json",
+      "section": "§3",
+      "reason": "Field keys are lowercase. A binding matching case-insensitively accepts this."
+    },
+    {
+      "file": "cases/fields-underscore-key-rejected.json",
+      "section": "§3",
+      "reason": "Underscore is not in the field-key alphabet, which is narrower than the event-name alphabet."
+    },
+    {
+      "file": "cases/fields-sixteen-accepted.json",
+      "section": "§3",
+      "reason": "Sixteen fields is the limit and is accepted — the boundary is inclusive."
+    },
+    {
+      "file": "cases/fields-seventeen-rejected.json",
+      "section": "§3",
+      "reason": "Seventeen exceeds the limit. Paired with the sixteen case, this pins the boundary as inclusive rather than exclusive."
+    },
+    {
+      "file": "cases/ts-missing-rejected.json",
+      "section": "§3",
+      "reason": "ts is required. A binding defaulting it to the current clock would make the encoder impure and pass this silently."
+    },
+    {
+      "file": "cases/ts-microseconds-rejected.json",
+      "section": "§3",
+      "reason": "Python's datetime.isoformat() default. The single most likely wrong timestamp a Python binding emits."
+    },
+    {
+      "file": "cases/ts-offset-rejected.json",
+      "section": "§3",
+      "reason": "timespec='milliseconds' is the obvious fix for the microsecond case and is also wrong: +00:00 is not Z."
+    },
+    {
+      "file": "cases/ts-lowercase-z-rejected.json",
+      "section": "§3",
+      "reason": "Valid RFC 3339, refused here: lowercase breaks the plain string sort the canonical form exists to guarantee."
+    },
+    {
+      "file": "cases/ts-no-fraction-rejected.json",
+      "section": "§3",
+      "reason": "The fraction is fixed-width, not optional. Omitting it breaks fixed-width string comparison."
+    },
+    {
+      "file": "cases/ts-non-ascii-digit-rejected.json",
+      "section": "§3",
+      "reason": "Arabic-Indic digits. A binding whose regex engine makes \\d Unicode-aware — Python's and Rust's do — accepts this and passes every other timestamp case."
+    },
+    {
+      "file": "cases/level-debug-accepted.json",
+      "section": "§6",
+      "reason": "debug is a published level."
+    },
+    {
+      "file": "cases/level-info-accepted.json",
+      "section": "§6",
+      "reason": "info is a published level."
+    },
+    {
+      "file": "cases/level-warn-accepted.json",
+      "section": "§6",
+      "reason": "warn is a published level."
+    },
+    {
+      "file": "cases/level-error-accepted.json",
+      "section": "§6",
+      "reason": "error is a published level."
+    },
+    {
+      "file": "cases/level-unknown-rejected.json",
+      "section": "§6",
+      "reason": "The level set is closed. trace is a plausible fifth level and is not one."
+    },
+    {
+      "file": "cases/level-uppercase-rejected.json",
+      "section": "§6",
+      "reason": "Levels are lowercase; a binding upper-casing for display must not accept the upper-cased form back."
+    },
+    {
+      "file": "cases/extension-id-empty-rejected.json",
+      "section": "§3",
+      "reason": "The empty string is refused."
+    },
+    {
+      "file": "cases/extension-id-whitespace-accepted.json",
+      "section": "§3",
+      "reason": "Emptiness, not blankness: no trimming is defined, so no two languages' disagreement about trim can reach this contract. A binding reaching for trim() fails here."
+    },
+    {
+      "file": "cases/event-uppercase-rejected.json",
+      "section": "§3",
+      "reason": "Event names are lowercase dotted segments."
+    },
+    {
+      "file": "cases/event-underscore-rejected.json",
+      "section": "§3",
+      "reason": "Underscore is not a segment separator; the dot is."
+    },
+    {
+      "file": "cases/event-hyphen-rejected.json",
+      "section": "§3",
+      "reason": "Hyphen is not a segment separator either."
+    },
+    {
+      "file": "cases/event-empty-segment-rejected.json",
+      "section": "§3",
+      "reason": "A doubled dot makes an empty segment. A binding splitting on '.' and checking each part must reject the empty one."
+    },
+    {
+      "file": "cases/event-leading-digit-rejected.json",
+      "section": "§3",
+      "reason": "Every segment starts with a letter."
+    },
+    {
+      "file": "cases/kind-audit-accepted.json",
+      "section": "§3",
+      "reason": "audit is the second published kind, and is what the audit-logger migration targets."
+    },
+    {
+      "file": "cases/kind-unknown-rejected.json",
+      "section": "§3",
+      "reason": "The kind set is closed, like the level set."
+    },
+    {
+      "file": "cases/correlation-id-absent-accepted.json",
+      "section": "§3",
+      "reason": "correlationId is optional and its absence emits no member — the line has no null placeholder."
+    },
+    {
+      "file": "cases/correlation-id-null-rejected.json",
+      "section": "§3",
+      "reason": "Explicit null is not absence. Python's dict.get() collapses the two, so a binding using it accepts this."
+    },
+    {
+      "file": "cases/correlation-id-64-accepted.json",
+      "section": "§3",
+      "reason": "64 characters is the limit and is accepted — the boundary is inclusive."
+    },
+    {
+      "file": "cases/correlation-id-65-rejected.json",
+      "section": "§3",
+      "reason": "65 exceeds the limit. Paired with the 64 case this pins the boundary as inclusive."
+    },
+    {
+      "file": "cases/correlation-id-at-sign-rejected.json",
+      "section": "§3",
+      "reason": "The alphabet is URL-safe. An address-shaped id is the leak this bound exists to slow down."
+    },
+    {
+      "file": "cases/error-code-only-accepted.json",
+      "section": "§3",
+      "reason": "An error carries a code and nothing else by default."
+    },
+    {
+      "file": "cases/error-missing-code-rejected.json",
+      "section": "§3",
+      "reason": "code is the one required member of error."
+    },
+    {
+      "file": "cases/error-message-rejected.json",
+      "section": "§3",
+      "reason": "A free-form message is exactly what the envelope refuses to carry — it is where an exception string, and the row data inside it, would land."
+    },
+    {
+      "file": "cases/error-stack-rejected.json",
+      "section": "§3",
+      "reason": "A stack trace carries file paths and, in some runtimes, argument values."
+    },
+    {
+      "file": "cases/unknown-member-rejected.json",
+      "section": "§5",
+      "reason": "An unknown member is refused, where negotiation/cases/hello-unknown-member.json requires the opposite. That inversion is the redaction guarantee: the hello frame is open for forward compatibility, the envelope is closed because an open envelope has unlimited places to put a secret."
+    },
+    {
+      "file": "cases/not-object-null-rejected.json",
+      "section": "§5",
+      "reason": "null is not an event. The path is empty because no member is at fault."
+    },
+    {
+      "file": "cases/not-object-array-rejected.json",
+      "section": "§5",
+      "reason": "An array is not an event either — typeof [] is 'object' in JavaScript, so a binding testing only typeof accepts it."
+    },
+    {
+      "file": "cases/reason-order-unknown-before-ts.json",
+      "section": "§5",
+      "reason": "Two faults at once. §5's order makes unknown-member reachable first; a binding validating ts before scanning members passes every single-fault case and fails only here."
+    },
+    {
+      "file": "cases/parse-canonical.json",
+      "section": "§4",
+      "reason": "The decode direction round-trips: the parsed event omits `nimbus`, which is what makes encode(parse(line)) reproduce the line."
+    },
+    {
+      "file": "cases/parse-not-json.json",
+      "section": "§5",
+      "reason": "A line that is not JSON is refused before any member is inspected, and is distinguishable from a well-formed line carrying a bad member."
+    },
+    {
+      "file": "cases/parse-wrong-message.json",
+      "section": "§5",
+      "reason": "A hello frame on the diagnostic stream is refused by discriminator, not by member validation. Pins that the two message families cannot be confused."
+    },
+    {
+      "file": "cases/parse-missing-discriminator.json",
+      "section": "§5",
+      "reason": "An absent discriminator is wrong-message, not not-object: the line parsed fine, it is simply not a diagnostic."
+    },
+    {
+      "file": "cases/parse-unknown-member.json",
+      "section": "§5",
+      "reason": "Closedness applies on the way in as well as out. A gateway that validates only on encode would accept a leaking line off the wire."
+    },
+    {
+      "file": "cases/level-warn-meets-info.json",
+      "section": "§6",
+      "reason": "A level above the threshold passes the filter."
+    },
+    {
+      "file": "cases/level-info-meets-info.json",
+      "section": "§6",
+      "reason": "'At or above' includes equality. A binding using a strict > drops every event at exactly the configured level."
+    },
+    {
+      "file": "cases/level-debug-below-info.json",
+      "section": "§6",
+      "reason": "A level below the threshold is filtered out."
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "description": "A line with no discriminator is refused.",
+  "kind": "parse",
+  "line": "{}",
+  "expect": {
+    "ok": false,
+    "reason": "wrong-message",
+    "path": "/nimbus"
+  }
+}

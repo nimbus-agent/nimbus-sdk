@@ -1,0 +1,10 @@
+{
+  "description": "A null event is refused.",
+  "kind": "encode",
+  "event": null,
+  "expect": {
+    "ok": false,
+    "reason": "not-object",
+    "path": ""
+  }
+}

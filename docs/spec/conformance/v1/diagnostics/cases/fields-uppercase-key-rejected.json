@@ -1,0 +1,18 @@
+{
+  "description": "An uppercase field key is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "Items": 1
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-key",
+    "path": "/fields/Items"
+  }
+}

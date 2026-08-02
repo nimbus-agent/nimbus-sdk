@@ -1,0 +1,16 @@
+{
+  "description": "With two faults, the unknown member is reported before the bad timestamp.",
+  "kind": "encode",
+  "event": {
+    "ts": "nope",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "oops": 1
+  },
+  "expect": {
+    "ok": false,
+    "reason": "unknown-member",
+    "path": "/oops"
+  }
+}

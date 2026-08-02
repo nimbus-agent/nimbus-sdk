@@ -1,0 +1,10 @@
+{
+  "description": "An array event is refused.",
+  "kind": "encode",
+  "event": [],
+  "expect": {
+    "ok": false,
+    "reason": "not-object",
+    "path": ""
+  }
+}

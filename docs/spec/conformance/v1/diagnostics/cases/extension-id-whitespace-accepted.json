@@ -1,0 +1,14 @@
+{
+  "description": "A whitespace-only extensionId is accepted — emptiness, not blankness.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": " ",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\" \",\"event\":\"sync.page\"}"
+  }
+}

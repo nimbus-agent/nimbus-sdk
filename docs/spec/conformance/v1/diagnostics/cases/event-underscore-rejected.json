@@ -1,0 +1,15 @@
+{
+  "description": "An underscored event name is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync_page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-event",
+    "path": "/event"
+  }
+}

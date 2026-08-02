@@ -1,0 +1,15 @@
+{
+  "description": "An empty fields object is emitted, not dropped.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {}
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"fields\":{}}"
+  }
+}

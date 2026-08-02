@@ -290,6 +290,23 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "connector-kit/search-filter",
+    run: (_sdk, _testing, _ipc, connectorKit) => {
+      const filter = connectorKit.makeQueryFilter(connectorKit.fieldsFromKeys(["name"]));
+      const result = connectorKit.matchesResult(
+        [{ name: "Revenue" }, { name: "Latency" }],
+        filter,
+        {
+          query: "rev",
+        },
+      );
+      const parsed = JSON.parse(result.content[0]?.text ?? "null");
+      if (!Array.isArray(parsed?.matches) || parsed.matches.length !== 1) {
+        throw new Error(`matchesResult produced an unexpected wrapper: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
     module: "diagnostics/event",
     run: (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
       const result = diagnostics.encodeDiagnostic({

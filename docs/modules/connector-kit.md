@@ -1,11 +1,12 @@
-<!-- covers: connector-kit/fetch-bearer-json, connector-kit/mcp-tool-kit, connector-kit/rest-tool-kit -->
+<!-- covers: connector-kit/fetch-bearer-json, connector-kit/mcp-tool-kit, connector-kit/rest-tool-kit, connector-kit/search-filter -->
 
 # `connector-kit`
 
 Dependency-free helpers for hand-rolled MCP connectors: registering a Zod-validated tool
-against an MCP server, wrapping JSON fetch results into an MCP tool result, and a
-Bearer-auth REST fetcher with origin-locked URL resolution. Its own entry point:
-`import { makeRestFetcher } from "@nimbus-dev/sdk/connector-kit"`.
+against an MCP server, wrapping JSON fetch results into an MCP tool result, a
+Bearer-auth REST fetcher with origin-locked URL resolution, and a case-insensitive
+substring search filter for a "list" tool's `search`/`query` argument. Its own entry
+point: `import { makeRestFetcher } from "@nimbus-dev/sdk/connector-kit"`.
 
 ## When you reach for it
 
@@ -47,6 +48,16 @@ Zod object schema already satisfies, not an import of `zod` itself.
   `mcpJsonResultIfOk(serviceLabel, res)`. Tools with a non-standard tail — custom error
   text, 204-tolerance, a raw-text response — stay hand-written against the connector's own
   registrar rather than going through it.
+- **`matchesResult` builds the `{ matches }` envelope search tools return**, and takes the
+  unfiltered payload as `unknown`: a non-array `rows` (a fetch that failed shape, an API
+  that paginates differently than expected) degrades to an empty match set rather than
+  throwing. `makeQueryFilter` + `fieldsFromKeys` build the `SearchFilter` it takes as its
+  second argument; `filterByQuery` is what actually walks the rows and caps the result at
+  `limit` (default 50).
+- **`searchToolInputSchema` deliberately is not here.** It would construct a Zod object
+  schema for the `{ query, limit }` input, which needs a `zod` import — this module has
+  none. Connectors that use `matchesResult` bring their own Zod schema for the tool's
+  input shape.
 
 ## Example
 
@@ -111,3 +122,9 @@ correct.
   a `resolveUrlWithBase` + `fetchBearerAuthorizedJson` fetcher), `makeRestToolRegistrar`
   (the standard-tool-body factory described above). Types: `RestFetchResult`,
   `RestFetcherConfig`, `RestToolRegistrar`.
+- **`connector-kit/search-filter`** — `filterByQuery`, `makeQueryFilter` (build a
+  `SearchFilter` from a `FieldExtractor`), `matchesResult` (wrap a filtered result into the
+  `{ matches }` MCP envelope); field extractors `fieldsFromKeys`, `nestedString`,
+  `stringField`, `tagText`, `tagNamesFromObjects`; row-shape guards `asObjectish`,
+  `asRecord`. Types: `FilterByQueryOptions`, `FieldExtractor`, `SearchMatchOptions`,
+  `SearchFilter`.

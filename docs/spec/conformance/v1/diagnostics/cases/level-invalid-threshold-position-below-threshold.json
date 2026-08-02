@@ -1,0 +1,7 @@
+{
+  "description": "An unpublished threshold answers meets: false, never throws — the mirror of level-invalid-level-position-below-threshold.json on the other argument. Both positions must be checked independently: a binding that only guards the level argument (because that is the one a caller is more likely to mistype) still raises or misbehaves on this case.",
+  "kind": "level",
+  "level": "info",
+  "threshold": "trace",
+  "expect": { "ok": true, "meets": false }
+}

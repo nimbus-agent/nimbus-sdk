@@ -247,6 +247,15 @@ or above `info`. This definition is over the published array's index, never over
 hard-coded number in any binding's own source — which is exactly what the drift guard between
 this file and each runtime's own copy of the order protects.
 
+**An unpublished value in either position answers false, never an error.** `L` or `T` outside
+`levels.json`'s four values has no index to compare, in either argument position, and the
+comparison MUST answer `false` rather than raise. This is a genuine cross-language trap, not a
+formality: a binding that ports "look up the index" as `list.index(value)` inherits that
+method's behavior of raising when the value is absent — Python's `tuple.index()` and
+`list.index()` both do — where JavaScript's `Array.prototype.indexOf` returns `-1` and the
+caller keeps going. Total, order-preserving behavior across both bindings requires an explicit
+"value not found" check before the comparison, not the host language's default.
+
 ## 7. Transport
 
 A conformant emitter SHOULD write each encoded line to the connector's standard error stream,

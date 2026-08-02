@@ -19,22 +19,22 @@
     {
       "file": "cases/fields-integral-float-accepted.json",
       "section": "§4",
-      "reason": "A JSON number whose value is integral must be accepted and encoded without a fractional part, whatever host type carried it."
+      "reason": "The case file's fields.ms is the literal 118.0, an integral-valued JSON number — a JSON number whose value is integral must be accepted and encoded without a fractional part, whatever host type carried it. Python's json.loads parses 118.0 as a float; a binding that rejects a non-int host type rather than testing the value fails this case even though JavaScript's own JSON.parse silently collapses the same literal to 118 and cannot see the distinction at all."
     },
     {
       "file": "cases/fields-float-rejected.json",
-      "section": "§5",
-      "reason": "A genuinely fractional fields value is refused as invalid-field-value."
+      "section": "§4",
+      "reason": "The case file's fields.rate is the literal 1.5, genuinely fractional — the complement of the integral-value rule: a value whose magnitude is not a whole number is refused as invalid-field-value, not silently truncated or coerced."
     },
     {
       "file": "cases/fields-nan-rejected.json",
       "section": "§4",
-      "reason": "Non-finite numbers MUST be rejected — JSON has no NaN/Infinity literal, so a value overflowing to Infinity is the expressible form of the case."
+      "reason": "The case file's fields.n is the literal 1e400 — JSON has no NaN/Infinity literal, so a value overflowing to Infinity (JavaScript) or inf (Python) is the expressible form of the case. Non-finite numbers MUST be rejected as invalid-field-value; a generator that serializes this input through JSON.stringify before writing the fixture collapses it to null, which is indistinguishable from fields-null-rejected.json and leaves this rule with zero coverage — which is exactly what happened here in an earlier draft and is why this file's input must be edited by hand, never regenerated."
     },
     {
       "file": "cases/fields-two-pow-53-plus-one-rejected.json",
       "section": "§4",
-      "reason": "A fields value MUST NOT exceed +-(2^53-1) — the one bound both JavaScript and Python can hold exactly."
+      "reason": "The case file's fields.n is the literal 9007199254740993 (2^53+1) — a fields value MUST NOT exceed +-(2^53-1), the one bound both JavaScript and Python can hold exactly. JavaScript's own JSON.parse cannot represent 9007199254740993 exactly and silently rounds it to an adjacent double when this file is loaded, but the verdict (invalid-field-value) holds under either neighbor since both are still outside the safe-integer range; a Python binding parses the exact value 9007199254740993 and must reach the identical verdict."
     },
     {
       "file": "cases/fields-two-pow-53-minus-one-accepted.json",
@@ -54,7 +54,7 @@
     {
       "file": "cases/fields-negative-zero-normalized.json",
       "section": "§4",
-      "reason": "Regression pin on the integral-float narrowing: naive Python emits -0.0 where JavaScript emits 0, and a binding that skips normalizing through the integral check would pass every other numeric case and fail only here."
+      "reason": "The case file's fields.n is the literal -0.0. Regression pin on the integral-float narrowing: naive Python emits -0.0 where JavaScript's own JSON.stringify emits 0, and a binding that skips normalizing through the integral check would pass every other numeric case and fail only here — but only if the fixture's input is genuinely -0.0 on disk. A generator that serializes this input through JSON.stringify before writing the fixture collapses it to plain 0, making the fixture byte-identical to fields-zero-accepted.json and pinning nothing; this file's input is therefore edited by hand, never regenerated."
     },
     {
       "file": "cases/fields-boolean-accepted.json",
@@ -112,6 +112,11 @@
       "reason": "Seventeen field keys where one is invalid MUST report invalid-field-key, not too-many-fields — §5 orders the key-pattern row before the count row, and this is the only case that can tell the two orders apart, since fields-seventeen-rejected uses seventeen VALID keys."
     },
     {
+      "file": "cases/fields-bad-value-with-seventeen-keys.json",
+      "section": "§5",
+      "reason": "Seventeen field values where one is invalid MUST report invalid-field-value, not too-many-fields — §5 orders the value-pattern row before the count row too, one row below the key-pattern row fields-bad-key-with-seventeen-keys.json pins. A binding that checks the count before checking values passes fields-seventeen-rejected (all-valid values) and fails only here."
+    },
+    {
       "file": "cases/fields-bad-key-and-bad-value.json",
       "section": "§5",
       "reason": "invalid-field-key and invalid-field-value are two SEPARATE passes over the whole object: every key is checked before any value is, so a combined-fault input must still report invalid-field-key even when a bad value would be reached first under insertion order. A single interleaved key-then-value pass reports invalid-field-value here and fails only this case."
@@ -167,7 +172,7 @@
       "reason": "The ts pattern is spelled [0-9], never \\d, so a Unicode digit that looks like an ASCII one is refused rather than silently accepted by a Unicode-aware regex engine."
     },
     {
-      "file": "cases/level-each-accepted.json",
+      "file": "cases/level-debug-accepted.json",
       "section": "§5",
       "reason": "debug is one of the four accepted level tokens."
     },
@@ -299,31 +304,36 @@
     {
       "file": "cases/line-too-long-rejected.json",
       "section": "§5",
-      "reason": "The encoded line MUST NOT exceed IPC_MAX_LINE_BYTES; this is line-too-long's only producer in the corpus, since §5.1 makes the reason encode-only and no parse case may expect it."
+      "reason": "The encoded line MUST NOT exceed IPC_MAX_LINE_BYTES; this is line-too-long's only producer in the corpus, since §5.1 makes the reason encode-only and no parse case may expect it. Generated (repeat), one octet over the limit, and paired with line-at-limit-accepted.json to pin the boundary from both sides."
+    },
+    {
+      "file": "cases/line-at-limit-accepted.json",
+      "section": "§5",
+      "reason": "A line of exactly IPC_MAX_LINE_BYTES octets is accepted — the limit is inclusive, and the implementation's check is strictly greater-than. A binding using >= instead would reject this line while passing every other case, since line-too-long-rejected.json alone only pins the over-limit side."
     },
     {
       "file": "cases/parse-canonical.json",
-      "section": "§5",
+      "section": "§5.1",
       "reason": "The canonical line round-trips: parsing it recovers the event, without the nimbus discriminator."
     },
     {
       "file": "cases/parse-not-json.json",
-      "section": "§5",
+      "section": "§5.1",
       "reason": "not-json is the only reason checked before the table's own rows — there is no parsed value to classify until the line has parsed as JSON at all."
     },
     {
       "file": "cases/parse-wrong-message.json",
-      "section": "§5",
+      "section": "§5.1",
       "reason": "wrong-message is inserted immediately after not-object and before every remaining row of the table, unknown-member included — a well-formed envelope for a different message is refused before its members are checked."
     },
     {
       "file": "cases/parse-missing-discriminator.json",
-      "section": "§5",
+      "section": "§5.1",
       "reason": "wrong-message covers both a present-but-wrong nimbus and an absent one — an empty object has no discriminator to match."
     },
     {
       "file": "cases/parse-unknown-member.json",
-      "section": "§5",
+      "section": "§5.1",
       "reason": "Once a line is known to be diag-discriminated JSON, the remaining table rows apply exactly as on encode — an unknown member is refused on parse too, not only on encode."
     },
     {
@@ -340,6 +350,16 @@
       "file": "cases/level-debug-below-info.json",
       "section": "§6",
       "reason": "debug's index is less than info's, so debug does not meet an info threshold."
+    },
+    {
+      "file": "cases/level-invalid-level-position-below-threshold.json",
+      "section": "§6",
+      "reason": "An unpublished level answers meets: false rather than throwing — Python's tuple.index() raises where JavaScript's indexOf returns -1, and a binding that ports index() directly raises here while passing every case built only from the four published levels."
+    },
+    {
+      "file": "cases/level-invalid-threshold-position-below-threshold.json",
+      "section": "§6",
+      "reason": "The mirror of level-invalid-level-position-below-threshold.json on the threshold argument — both positions must be checked independently, so a binding that only guards level still fails here."
     }
   ]
 }

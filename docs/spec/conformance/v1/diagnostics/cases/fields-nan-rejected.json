@@ -7,7 +7,7 @@
     "extensionId": "acme-gcal",
     "event": "sync.page",
     "fields": {
-      "n": null
+      "n": 1e400
     }
   },
   "expect": {

@@ -26,8 +26,8 @@
           },
           "section": {
             "type": "string",
-            "pattern": "^§[0-9]+$",
-            "description": "The specification section this case pins."
+            "pattern": "^§[0-9]+(\\.[0-9]+)*$",
+            "description": "The specification section this case pins. Wider than the negotiation corpus's pattern on purpose: diagnostics.md has a real subsection (§5.1, the two parse-only reasons) that a chapter-only pattern cannot name, and a case citing it should say so precisely rather than rounding up to its parent."
           },
           "reason": { "type": "string", "pattern": "\\S" }
         }

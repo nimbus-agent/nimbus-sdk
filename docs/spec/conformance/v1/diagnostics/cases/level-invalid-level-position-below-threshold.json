@@ -1,0 +1,7 @@
+{
+  "description": "An unpublished level in the level position answers meets: false, never throws. Python's tuple.index() raises ValueError for a value it does not contain, where JavaScript's indexOf returns -1 and keeps going — a binding that ports index() directly raises here and fails this case, even though it would pass every case built only from the four published levels.",
+  "kind": "level",
+  "level": "trace",
+  "threshold": "info",
+  "expect": { "ok": true, "meets": false }
+}

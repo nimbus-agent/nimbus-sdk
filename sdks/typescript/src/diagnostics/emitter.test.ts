@@ -86,4 +86,52 @@ describe("createEmitter", () => {
   test("rejects an empty extensionId at construction", () => {
     expect(() => createEmitter("", () => {})).toThrow();
   });
+
+  test("captures a throwing getter on a top-level detail member, and never writes", async () => {
+    const written: string[] = [];
+    const nimbus = createEmitter("acme-gcal", (line) => {
+      written.push(line);
+    });
+    const hostile: EmitDetail = {
+      ts: TS,
+      get fields(): Record<string, number | boolean> {
+        throw new Error("boom");
+      },
+    };
+    // An object spread would invoke this getter before `encodeDiagnostic`'s own
+    // hardening ever saw the value — the fix reads `detail` through the same
+    // snapshot-then-read discipline `event.ts` uses for its own input.
+    const result = await nimbus.info("sync.page", hostile);
+    expect(result).toEqual({ ok: false, reason: "not-object", path: "" });
+    expect(written).toEqual([]);
+  });
+
+  test("an un-awaited call with a hostile detail produces no unhandled rejection", async () => {
+    // This is the actual hazard: the natural call shape is fire-and-forget, so a throw
+    // here — rather than a returned rejection — would surface as an unhandled promise
+    // rejection able to take the connector down.
+    const nimbus = createEmitter("acme-gcal", () => {});
+    const hostile: EmitDetail = {
+      ts: TS,
+      get correlationId(): string {
+        throw new Error("boom");
+      },
+    };
+
+    let sawUnhandledRejection = false;
+    const onUnhandledRejection = () => {
+      sawUnhandledRejection = true;
+    };
+    process.on("unhandledRejection", onUnhandledRejection);
+    try {
+      // Deliberately not awaited.
+      nimbus.info("sync.page", hostile);
+      // Give the microtask/task queue a turn so a rejection, if any, has a chance to
+      // surface as "unhandled" before this test's own assertions run.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    } finally {
+      process.off("unhandledRejection", onUnhandledRejection);
+    }
+    expect(sawUnhandledRejection).toBe(false);
+  });
 });

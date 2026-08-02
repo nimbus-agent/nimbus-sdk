@@ -4,7 +4,11 @@
  * Three properties this module must never lose:
  *   1. It never throws from a log call. Diagnostics must not be able to take down the
  *      connector they are describing. That includes an error thrown by the caller's own
- *      sink — captured into the returned result, never rethrown.
+ *      sink — captured into the returned result, never rethrown — and a throwing getter
+ *      on the caller's own `detail` object, snapshotted before it is read a second time
+ *      (see {@link snapshotDetail}) for the same reason `event.ts`'s own `snapshot()`
+ *      exists: the natural call shape is fire-and-forget, so an uncaught throw here would
+ *      surface as an unhandled promise rejection, not a catchable exception.
  *   2. It never writes a line the encoder refused. A half-valid line on a stream a
  *      gateway parses as NDJSON turns an authoring bug into the gateway's problem, which
  *      is worse than silence.
@@ -50,6 +54,37 @@ export interface DiagnosticEmitter {
 }
 
 const SINK_FAILED: EmitResult = { ok: false, reason: "sink-failed", path: "" };
+const NOT_OBJECT: EmitResult = { ok: false, reason: "not-object", path: "" };
+
+/**
+ * Copies `detail`'s own top-level members into a plain object, reading each one exactly
+ * once, before anything downstream touches `detail` again. Returns `null` if any read
+ * throws.
+ *
+ * This exists because `send` below used to build the event with `{ ...detail, ... }`,
+ * and an object spread eagerly invokes every getter on its source — *before*
+ * `encodeDiagnostic` and the `snapshot()` hardening inside `event.ts` ever see the
+ * value. A hostile `detail` (a throwing getter on `ts`, `correlationId`, `fields`, or
+ * `error`) therefore reached the caller as a thrown exception one layer above the place
+ * that was built specifically to survive it — and since the natural call shape is
+ * fire-and-forget (`nimbus.info(...)`, unawaited), that throw surfaced as an unhandled
+ * promise rejection: exactly the hazard invariant 1 exists to rule out.
+ *
+ * Deliberately scoped to `detail`'s own members only. A getter *inside* `fields` or
+ * `error` is copied by reference here — never invoked — and is already handled by
+ * `encodeDiagnostic`'s own snapshot of those nested objects; duplicating that protection
+ * here would just be two places that have to agree on the same behavior.
+ */
+const snapshotDetail = (detail: EmitDetail): Record<string, unknown> | null => {
+  try {
+    const source = detail as unknown as Record<string, unknown>;
+    const copy: Record<string, unknown> = {};
+    for (const key of Object.keys(source)) copy[key] = source[key];
+    return copy;
+  } catch {
+    return null;
+  }
+};
 
 export function createEmitter(extensionId: string, emit: DiagnosticEmit): DiagnosticEmitter {
   if (extensionId === "") throw new Error("extensionId must be non-empty");
@@ -60,8 +95,11 @@ export function createEmitter(extensionId: string, emit: DiagnosticEmit): Diagno
     event: string,
     detail: EmitDetail,
   ): Promise<EmitResult> => {
+    const snapshot = snapshotDetail(detail);
+    if (snapshot === null) return NOT_OBJECT;
+
     const encoded = encodeDiagnostic({
-      ...detail,
+      ...snapshot,
       level,
       extensionId,
       event,

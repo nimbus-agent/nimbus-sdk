@@ -53,8 +53,8 @@ the release-please bump.
   `handshake.py` (`perform_handshake`, `HandshakeIO`, `HandshakeOk`, `HandshakeRefused`,
   `HandshakeResult`) — the one exchange this package performs end to end. It is
   **synchronous** where TypeScript's `performHandshake` is async, which with the
-  `isinstance`-vs-tagged-union split is one of the only two ways the bindings differ
-  *behaviorally* on purpose.
+  `isinstance`-vs-tagged-union split is one of the three ways the bindings differ
+  *behaviorally* — and one of the two that are deliberate. See the inventory below.
 - `nimbus_sdk.diagnostics` (`sdks/python/src/nimbus_sdk/diagnostics/`) — the Python
   binding of `docs/spec/diagnostics/v1/diagnostics.md`: `encode_diagnostic`,
   `parse_diagnostic`, `meets_level`, `DIAGNOSTIC_KINDS`, `DIAGNOSTIC_LEVELS`, and the

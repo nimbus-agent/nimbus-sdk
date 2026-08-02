@@ -75,8 +75,19 @@ const NOT_OBJECT: EmitResult = { ok: false, reason: "not-object", path: "" };
  * audit record through a method that never asked for one: `kind` is a *fixed* member this
  * function decides, never a caller-supplied one, and `audit()`'s entire purpose is
  * controlling which calls get to set it.
+ *
+ * Declared as a `Record` keyed by `keyof EmitDetail` rather than a bare array so the
+ * compiler holds it in sync both ways: `satisfies` rejects a key that is not a member,
+ * and `Record` requires every member to be present. An omission is the dangerous half —
+ * a new `EmitDetail` member missing from this list would be silently dropped from every
+ * emitted event with no test failing, because this filter is the choke point.
  */
-const DETAIL_KEYS = ["ts", "correlationId", "fields", "error"] as const;
+const DETAIL_KEYS = {
+  ts: true,
+  correlationId: true,
+  fields: true,
+  error: true,
+} as const satisfies Record<keyof EmitDetail, true>;
 
 /**
  * Copies `detail`'s own top-level members into a plain object, reading each one exactly
@@ -125,7 +136,7 @@ export function createEmitter(extensionId: string, emit: DiagnosticEmit): Diagno
     // `encodeDiagnostic`, so the fixed members below are the only source of `kind`,
     // `level`, `extensionId`, and `event` in the encoded event.
     const allowedDetail: Record<string, unknown> = {};
-    for (const key of DETAIL_KEYS) {
+    for (const key of Object.keys(DETAIL_KEYS)) {
       if (key in snapshot) allowedDetail[key] = snapshot[key];
     }
 

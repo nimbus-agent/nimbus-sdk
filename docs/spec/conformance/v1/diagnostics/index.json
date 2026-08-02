@@ -12,6 +12,11 @@
       "reason": "Every optional member populated at once, in the fixed member order §4 requires."
     },
     {
+      "file": "cases/error-member-order-normalized.json",
+      "section": "§4",
+      "reason": "§4 rule 5 requires error's members be emitted code-then-retriable, but every other case already supplies them in that order, so a binding emitting them in input-insertion order passed the whole corpus. This case supplies retriable first."
+    },
+    {
       "file": "cases/fields-sorted-by-key.json",
       "section": "§4",
       "reason": "fields keys are sorted ascending by code point regardless of the caller's insertion order."

@@ -287,6 +287,14 @@ describe("parseDiagnostic", () => {
     expect(parseRejection(parseDiagnostic("not json")).reason).toBe("not-json");
   });
 
+  test("rejects valid JSON that is not an object, before checking the discriminator", () => {
+    // §5.1 places not-object between not-json and wrong-message. Each of these parses as
+    // JSON but is not a JSON object, so none of them can reach the discriminator check.
+    for (const notObject of ['"42"', "null", "[1,2]", "42", "true"]) {
+      expect(parseRejection(parseDiagnostic(notObject)).reason).toBe("not-object");
+    }
+  });
+
   test("rejects a line whose discriminator is wrong or missing", () => {
     expect(
       parseRejection(parseDiagnostic('{"nimbus":"hello","contractVersions":["1"]}')).reason,

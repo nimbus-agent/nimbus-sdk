@@ -202,6 +202,15 @@ with these two reasons inserted rather than prepended wholesale:
 4. The table's rows 2 through 14, `unknown-member` through `line-too-long`, in the order
    already listed above.
 
+**`line-too-long` is encode-only.** A parser reaches it only by re-serializing the value it
+just validated purely to measure that serialization's byte length — work a parser has no
+other reason to do. A line reaching a parser was already delivered by a reader bounded at
+`IPC_MAX_LINE_BYTES` ([`wire/v1/framing.md`](../../wire/v1/framing.md) §6), so the length
+question was already answered by the transport before parsing began. A conformant parser
+MUST validate without re-serializing and MUST NOT produce `line-too-long`, and MUST NOT
+invent a separate parse-side length check to compensate for its absence — both bindings
+MUST agree that this reason is unreachable from the parse direction.
+
 | Reason | Triggers when |
 |---|---|
 | `not-json` | The line does not parse as JSON at all. |

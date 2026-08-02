@@ -131,9 +131,30 @@ const escapePointerToken = (token: string): string =>
  */
 const isEncodableInteger = (value: number): boolean => Number.isSafeInteger(value);
 
+/** Narrows a string to a published level without a cast — `.includes` alone doesn't. */
+const isDiagnosticLevelValue = (value: string): value is DiagnosticLevel =>
+  (DIAGNOSTIC_LEVELS as readonly string[]).includes(value);
+
+/** Narrows an arbitrary value to a published kind without a cast. */
+const isDiagnosticKindValue = (value: unknown): value is DiagnosticKind =>
+  (DIAGNOSTIC_KINDS as readonly unknown[]).includes(value);
+
+/**
+ * Reasons a value can fail *validation* — every {@link DiagnosticEncodeReason} except
+ * `line-too-long`, which can only be known after serialization (it measures the encoded
+ * line's UTF-8 byte length) and so belongs to {@link encodeDiagnostic} alone. Excluding it
+ * here is a compiler-checked version of §5.1's statement that `line-too-long` is
+ * encode-only: {@link validateDiagnosticEvent} cannot construct one.
+ */
+type ValidationReason = Exclude<DiagnosticEncodeReason, "line-too-long">;
+
+type ValidationFailure = { readonly reason: ValidationReason; readonly path: string };
+
+const fail = (reason: ValidationReason, path: string): ValidationFailure => ({ reason, path });
+
 type FieldsValidation =
-  | { readonly ok: true; readonly fields: Record<string, unknown> }
-  | { readonly ok: false; readonly failure: EncodeResult };
+  | { readonly ok: true; readonly fields: Record<string, number | boolean> }
+  | { readonly ok: false; readonly failure: ValidationFailure };
 
 /**
  * Checked in the §5 order: `invalid-fields`, then `invalid-field-key` and
@@ -147,69 +168,94 @@ type FieldsValidation =
  * input. The two-pass shape is the one every binding can implement identically.
  */
 const validateFields = (fieldsRaw: unknown): FieldsValidation => {
-  if (!isRecord(fieldsRaw)) return { ok: false, failure: no("invalid-fields", "/fields") };
+  if (!isRecord(fieldsRaw)) return { ok: false, failure: fail("invalid-fields", "/fields") };
   const fields = snapshot(fieldsRaw);
-  if (fields === null) return { ok: false, failure: no("invalid-fields", "/fields") };
+  if (fields === null) return { ok: false, failure: fail("invalid-fields", "/fields") };
 
   const keys = Object.keys(fields);
   for (const key of keys) {
     if (!DIAGNOSTIC_FIELD_KEY_PATTERN.test(key)) {
-      return { ok: false, failure: no("invalid-field-key", `/fields/${escapePointerToken(key)}`) };
-    }
-  }
-  for (const key of keys) {
-    const value = fields[key];
-    if (typeof value === "boolean") continue;
-    if (typeof value !== "number" || !isEncodableInteger(value)) {
       return {
         ok: false,
-        failure: no("invalid-field-value", `/fields/${escapePointerToken(key)}`),
+        failure: fail("invalid-field-key", `/fields/${escapePointerToken(key)}`),
       };
     }
   }
-  if (keys.length > DIAGNOSTIC_MAX_FIELDS) {
-    return { ok: false, failure: no("too-many-fields", "/fields") };
+  const validated: Record<string, number | boolean> = {};
+  for (const key of keys) {
+    const value = fields[key];
+    if (typeof value === "boolean") {
+      validated[key] = value;
+      continue;
+    }
+    if (typeof value !== "number" || !isEncodableInteger(value)) {
+      return {
+        ok: false,
+        failure: fail("invalid-field-value", `/fields/${escapePointerToken(key)}`),
+      };
+    }
+    validated[key] = value;
   }
-  return { ok: true, fields };
+  if (keys.length > DIAGNOSTIC_MAX_FIELDS) {
+    return { ok: false, failure: fail("too-many-fields", "/fields") };
+  }
+  return { ok: true, fields: validated };
 };
 
 type ErrorValidation =
-  | { readonly ok: true; readonly error: Record<string, unknown> }
-  | { readonly ok: false; readonly failure: EncodeResult };
+  | { readonly ok: true; readonly error: DiagnosticError }
+  | { readonly ok: false; readonly failure: ValidationFailure };
 
 const validateError = (errorRaw: unknown): ErrorValidation => {
-  if (!isRecord(errorRaw)) return { ok: false, failure: no("invalid-error", "/error") };
+  if (!isRecord(errorRaw)) return { ok: false, failure: fail("invalid-error", "/error") };
   const error = snapshot(errorRaw);
-  if (error === null) return { ok: false, failure: no("invalid-error", "/error") };
+  if (error === null) return { ok: false, failure: fail("invalid-error", "/error") };
 
   for (const key of Object.keys(error)) {
     if (key !== "code" && key !== "retriable") {
-      return { ok: false, failure: no("invalid-error", `/error/${escapePointerToken(key)}`) };
+      return { ok: false, failure: fail("invalid-error", `/error/${escapePointerToken(key)}`) };
     }
   }
   const { code, retriable } = error;
   if (typeof code !== "string" || !DIAGNOSTIC_NAME_PATTERN.test(code)) {
-    return { ok: false, failure: no("invalid-error", "/error/code") };
+    return { ok: false, failure: fail("invalid-error", "/error/code") };
   }
   if (retriable !== undefined && typeof retriable !== "boolean") {
-    return { ok: false, failure: no("invalid-error", "/error/retriable") };
+    return { ok: false, failure: fail("invalid-error", "/error/retriable") };
   }
-  return { ok: true, error };
+  const validated: DiagnosticError = { code };
+  if (retriable !== undefined) validated.retriable = retriable;
+  return { ok: true, error: validated };
 };
 
-export function encodeDiagnostic(eventInput: unknown): EncodeResult {
-  if (!isRecord(eventInput)) return no("not-object", "");
+type ValidationResult =
+  | { readonly ok: true; readonly event: DiagnosticEvent }
+  | { readonly ok: false; readonly failure: ValidationFailure };
+
+/**
+ * Validation only — no serialization. The one place §5's member checks live; both
+ * directions this module offers delegate to it rather than duplicating it:
+ * {@link encodeDiagnostic} serializes its success arm and additionally enforces
+ * `line-too-long`, and {@link parseDiagnostic} needs nothing beyond this, because a line
+ * that has already been decoded was necessarily delivered by a reader bounded at
+ * `IPC_MAX_LINE_BYTES` — there is nothing left to serialize and no line-length check to
+ * make on the parse side.
+ */
+const validateDiagnosticEvent = (eventInput: unknown): ValidationResult => {
+  if (!isRecord(eventInput)) return { ok: false, failure: fail("not-object", "") };
 
   // The top-level snapshot is what makes a throwing getter unobservable: every read
   // below this point is against the plain copy, never against the caller's own object,
   // so an accessor can throw or misbehave at most once and never mid-validation.
   const event = snapshot(eventInput);
-  if (event === null) return no("not-object", "");
+  if (event === null) return { ok: false, failure: fail("not-object", "") };
 
   // Closedness is checked first: an unknown member is a leak, and reporting it before
   // any value problem is what §5's reason order requires.
   for (const key of Object.keys(event)) {
-    if (!KNOWN_MEMBERS.has(key)) return no("unknown-member", `/${escapePointerToken(key)}`);
+    if (!KNOWN_MEMBERS.has(key)) {
+      return { ok: false, failure: fail("unknown-member", `/${escapePointerToken(key)}`) };
+    }
   }
 
   const {
@@ -223,39 +269,66 @@ export function encodeDiagnostic(eventInput: unknown): EncodeResult {
     error: errorRaw,
   } = event;
 
-  if (typeof ts !== "string" || !DIAGNOSTIC_TS_PATTERN.test(ts)) return no("invalid-ts", "/ts");
-  if (typeof level !== "string" || !(DIAGNOSTIC_LEVELS as readonly string[]).includes(level)) {
-    return no("invalid-level", "/level");
+  if (typeof ts !== "string" || !DIAGNOSTIC_TS_PATTERN.test(ts)) {
+    return { ok: false, failure: fail("invalid-ts", "/ts") };
+  }
+  if (typeof level !== "string" || !isDiagnosticLevelValue(level)) {
+    return { ok: false, failure: fail("invalid-level", "/level") };
   }
   if (typeof extensionId !== "string" || extensionId === "") {
-    return no("invalid-extension-id", "/extensionId");
+    return { ok: false, failure: fail("invalid-extension-id", "/extensionId") };
   }
   if (typeof name !== "string" || !DIAGNOSTIC_NAME_PATTERN.test(name)) {
-    return no("invalid-event", "/event");
+    return { ok: false, failure: fail("invalid-event", "/event") };
   }
-  if (kind !== undefined && !(DIAGNOSTIC_KINDS as readonly unknown[]).includes(kind)) {
-    return no("invalid-kind", "/kind");
+  if (kind !== undefined && !isDiagnosticKindValue(kind)) {
+    return { ok: false, failure: fail("invalid-kind", "/kind") };
   }
   if (
     correlationId !== undefined &&
     (typeof correlationId !== "string" || !DIAGNOSTIC_CORRELATION_ID_PATTERN.test(correlationId))
   ) {
-    return no("invalid-correlation-id", "/correlationId");
+    return { ok: false, failure: fail("invalid-correlation-id", "/correlationId") };
   }
 
-  let fields: Record<string, unknown> | undefined;
+  let fields: Record<string, number | boolean> | undefined;
   if (fieldsRaw !== undefined) {
     const validated = validateFields(fieldsRaw);
-    if (!validated.ok) return validated.failure;
+    if (!validated.ok) return validated;
     fields = validated.fields;
   }
 
-  let errorValue: Record<string, unknown> | undefined;
+  let errorValue: DiagnosticError | undefined;
   if (errorRaw !== undefined) {
     const validated = validateError(errorRaw);
-    if (!validated.ok) return validated.failure;
+    if (!validated.ok) return validated;
     errorValue = validated.error;
   }
+
+  const validatedEvent: DiagnosticEvent = { ts, level, extensionId, event: name };
+  if (kind !== undefined) validatedEvent.kind = kind;
+  if (correlationId !== undefined) validatedEvent.correlationId = correlationId;
+  if (fields !== undefined) validatedEvent.fields = fields;
+  if (errorValue !== undefined) validatedEvent.error = errorValue;
+
+  return { ok: true, event: validatedEvent };
+};
+
+export function encodeDiagnostic(eventInput: unknown): EncodeResult {
+  const validated = validateDiagnosticEvent(eventInput);
+  if (!validated.ok) {
+    return { ok: false, reason: validated.failure.reason, path: validated.failure.path };
+  }
+  const {
+    ts,
+    level,
+    extensionId,
+    event: name,
+    kind,
+    correlationId,
+    fields,
+    error,
+  } = validated.event;
 
   const wire: Record<string, unknown> = { nimbus: "diag" };
   wire["ts"] = ts;
@@ -272,8 +345,8 @@ export function encodeDiagnostic(eventInput: unknown): EncodeResult {
       .map((k): [string, unknown] => [k, fields[k]]);
     wire["fields"] = Object.fromEntries(sortedEntries);
   }
-  if (errorValue !== undefined) {
-    wire["error"] = errorValue;
+  if (error !== undefined) {
+    wire["error"] = error;
   }
 
   const line = JSON.stringify(wire);
@@ -295,9 +368,19 @@ export type ParseResult =
  * reproduce `l` exactly.
  *
  * Reason order follows §5.1: `not-json`, then `not-object`, then `wrong-message`, then
- * §5's fourteen-row table starting at `unknown-member` — all delegated to
- * {@link encodeDiagnostic}, which already snapshots its input and inherits the
- * two-pass `fields` validation, so this function does not re-implement either.
+ * §5's fourteen-row table starting at `unknown-member` — the last of these delegated to
+ * {@link validateDiagnosticEvent}, the same member-validation core `encodeDiagnostic`
+ * itself calls, so the two directions cannot drift apart on what a valid event is.
+ *
+ * **This function never reports `line-too-long`**, even though `DiagnosticParseReason`
+ * (being `DiagnosticEncodeReason | "not-json" | "wrong-message"`) is wide enough to carry
+ * it. `line-too-long` measures a serialized line's UTF-8 byte length, and this function
+ * only validates — it never re-serializes what it just parsed. That is also a deliberate
+ * behavioural choice, not an oversight: a line that reached this function was already
+ * delivered by a reader bounded at `IPC_MAX_LINE_BYTES` (`wire/v1/framing.md` §6), so
+ * "too long to have arrived at all" is a transport concern already enforced upstream, and
+ * "too long to emit" does not apply to a value that was never re-encoded. See
+ * `docs/spec/diagnostics/v1/diagnostics.md` §5.1, which records this as encode-only.
  */
 export function parseDiagnostic(line: string): ParseResult {
   let decoded: unknown;
@@ -310,24 +393,11 @@ export function parseDiagnostic(line: string): ParseResult {
   if (decoded["nimbus"] !== "diag") return { ok: false, reason: "wrong-message", path: "/nimbus" };
 
   const { nimbus: _discriminator, ...rest } = decoded;
-  const encoded = encodeDiagnostic(rest);
-  if (!encoded.ok) return { ok: false, reason: encoded.reason, path: encoded.path };
-
-  // `encoded.ok` already proves `rest` conforms to `DiagnosticEvent` — `encodeDiagnostic`
-  // is the one function in this module that decides that question. Rather than assert it
-  // with a cast (which would defeat the type system at exactly the boundary this function
-  // exists to police), re-check it through `isDiagnosticEvent`, a genuine type predicate
-  // over the same validation. That narrows `rest` for the compiler with no cast at all.
-  if (!isDiagnosticEvent(rest)) {
-    // Unreachable: `encodeDiagnostic(rest)` above already returned `ok: true`, and
-    // `isDiagnosticEvent` is defined as exactly that same check — so this branch can
-    // only run if the two disagreed, which would be a bug in this module rather than a
-    // caller error. `encoded` is narrowed to its `ok: true` arm by this point and no
-    // longer carries a `reason`/`path` to report, so this reports `not-object` rather
-    // than fabricating one.
-    return { ok: false, reason: "not-object", path: "" };
+  const validated = validateDiagnosticEvent(rest);
+  if (!validated.ok) {
+    return { ok: false, reason: validated.failure.reason, path: validated.failure.path };
   }
-  return { ok: true, event: rest };
+  return { ok: true, event: validated.event };
 }
 
 /** Whether a value is an encodable diagnostic event. Total; never throws. */

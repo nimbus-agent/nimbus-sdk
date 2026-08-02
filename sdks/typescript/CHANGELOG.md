@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.15.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.14.0...typescript-v1.15.0) (2026-08-02)
+
+
+### Features
+
+* **connector-kit:** export the connector search kit ([#111](https://github.com/nimbus-agent/nimbus-sdk/issues/111)) ([b920864](https://github.com/nimbus-agent/nimbus-sdk/commit/b920864254e5b38bb6980db0558c9c3f2bba6cb2))
+
 ## [1.14.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.13.0...typescript-v1.14.0) (2026-08-01)
 
 

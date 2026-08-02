@@ -37,7 +37,7 @@ published package.
   diagnostics is a separate contract, normatively specified at
   `docs/spec/diagnostics/v1/diagnostics.md` with its own conformance corpus. It is the
   structural replacement for `createScopedAuditLogger`'s free-form payload, which
-  `audit-logger` now marks `@deprecated` (since `1.15.0`, removal no earlier than
+  `audit-logger` now marks `@deprecated` (since `1.16.0`, removal no earlier than
   `2.0.0`). This makes it a **five**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive

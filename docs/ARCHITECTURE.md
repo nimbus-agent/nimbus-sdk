@@ -197,7 +197,7 @@ boundary without leaking data:
 
 - **Audit** — the injected `AuditLogger` (`AuditEmit` sink supplied by the gateway)
   for structured, security-relevant events. Its free-form payload is `@deprecated`
-  as of `1.15.0` in favor of the diagnostics envelope below — see
+  as of `1.16.0` in favor of the diagnostics envelope below — see
   [DEPRECATION-POLICY.md](./DEPRECATION-POLICY.md) — and may be removed no earlier
   than a `2.0.0` major bump.
 - **Diagnostics** — the structured, redaction-safe diagnostic envelope (levels,

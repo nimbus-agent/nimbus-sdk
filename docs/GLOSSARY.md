@@ -51,7 +51,7 @@ The SDK never performs consent itself.
 
 **Audit logger** — the scoped, injected `AuditLogger` a connector writes structured
 audit events to. The gateway provides the sink (`AuditEmit`); the SDK defines the
-shape. Its free-form payload is `@deprecated` as of `1.15.0` in favor of the
+shape. Its free-form payload is `@deprecated` as of `1.16.0` in favor of the
 **diagnostics** envelope below; may be removed no earlier than `2.0.0`.
 
 **Diagnostics** — the structured, redaction-safe envelope a connector uses to

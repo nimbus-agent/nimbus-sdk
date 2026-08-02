@@ -81,7 +81,7 @@ export interface AppStoreConnectJwtParams {
 
 ### `AuditEmit` *(type-only)*
 
-**Deprecated:** since 1.15.0 — use `createEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0.
+**Deprecated:** since 1.15.0 — use `DiagnosticEmit` from `@nimbus-dev/sdk/diagnostics` (the callback `createEmitter` consumes) instead. May be removed in 2.0.0.
 
 From `./audit-logger.js`.
 

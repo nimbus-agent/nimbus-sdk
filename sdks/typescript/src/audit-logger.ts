@@ -1,4 +1,4 @@
-/** @deprecated since 1.15.0 — use `createEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0. */
+/** @deprecated since 1.15.0 — use `DiagnosticEmit` from `@nimbus-dev/sdk/diagnostics` (the callback `createEmitter` consumes) instead. May be removed in 2.0.0. */
 export type AuditEmit = (action: string, payload: Record<string, unknown>) => Promise<void>;
 
 /** @deprecated since 1.15.0 — use `DiagnosticEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0. */

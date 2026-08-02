@@ -1,6 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { IPC_MAX_LINE_BYTES } from "../ipc/ndjson-line-reader.js";
-import { type EncodeResult, encodeDiagnostic } from "./event.js";
+import {
+  type DiagnosticLevel,
+  type EncodeResult,
+  encodeDiagnostic,
+  isDiagnosticEvent,
+  meetsLevel,
+  type ParseResult,
+  parseDiagnostic,
+} from "./event.js";
 
 const BASE = {
   ts: "2026-08-01T12:00:00.000Z",
@@ -14,8 +22,12 @@ const line = (result: EncodeResult): string => {
   return result.line;
 };
 
-const rejection = (result: EncodeResult): { reason: string; path: string } => {
-  if (result.ok) throw new Error(`expected a rejection, got ${result.line}`);
+// Widened to both result unions rather than casting a ParseResult to an EncodeResult:
+// their ok-branches carry different members (`line` vs `event`), so `as` is not a legal
+// assertion between them. Every rejected branch is structurally identical, so one helper
+// reads both.
+const rejection = (result: EncodeResult | ParseResult): { reason: string; path: string } => {
+  if (result.ok) throw new Error("expected a rejection, got an accepted result");
   return { reason: result.reason, path: result.path };
 };
 
@@ -179,5 +191,64 @@ describe("encodeDiagnostic — reason order", () => {
     expect(rejection(encodeDiagnostic({ ...BASE, ts: "nope", oops: 1 })).reason).toBe(
       "unknown-member",
     );
+  });
+});
+
+describe("parseDiagnostic", () => {
+  test("round-trips the canonical line", () => {
+    const encoded = line(encodeDiagnostic({ ...BASE, fields: { items: 42 } }));
+    const parsed = parseDiagnostic(encoded);
+    if (!parsed.ok) throw new Error(`expected ok, got ${parsed.reason}`);
+    // `nimbus` is wire framing, not event data, so it is absent from the parsed event —
+    // which is what makes encode(parse(line)) === line hold.
+    expect(parsed.event).toEqual({ ...BASE, fields: { items: 42 } });
+    expect(line(encodeDiagnostic(parsed.event))).toBe(encoded);
+  });
+
+  test("rejects a line that is not JSON", () => {
+    expect(rejection(parseDiagnostic("not json")).reason).toBe("not-json");
+  });
+
+  test("rejects a line whose discriminator is wrong or missing", () => {
+    expect(rejection(parseDiagnostic('{"nimbus":"hello","contractVersions":["1"]}')).reason).toBe(
+      "wrong-message",
+    );
+    expect(rejection(parseDiagnostic("{}")).reason).toBe("wrong-message");
+  });
+
+  test("rejects an unknown member on the wire", () => {
+    const bad =
+      '{"nimbus":"diag","ts":"2026-08-01T12:00:00.000Z","level":"info","extensionId":"a","event":"b","message":"leak"}';
+    expect(rejection(parseDiagnostic(bad))).toEqual({
+      reason: "unknown-member",
+      path: "/message",
+    });
+  });
+});
+
+describe("meetsLevel", () => {
+  test("is true at or above the threshold", () => {
+    expect(meetsLevel("warn", "info")).toBe(true);
+    expect(meetsLevel("info", "info")).toBe(true);
+    expect(meetsLevel("debug", "info")).toBe(false);
+    expect(meetsLevel("error", "debug")).toBe(true);
+  });
+
+  test("answers false for an unpublished level in either position", () => {
+    // Types are erased at runtime and this is a published export. Without the explicit
+    // guard TypeScript answers false by accident (indexOf → -1) and Python raises
+    // (ValueError) — the same call behaving two different ways.
+    const bogus = "trace" as unknown as DiagnosticLevel;
+    expect(meetsLevel(bogus, "info")).toBe(false);
+    expect(meetsLevel("error", bogus)).toBe(false);
+    expect(meetsLevel(bogus, bogus)).toBe(false);
+  });
+});
+
+describe("isDiagnosticEvent", () => {
+  test("agrees with encodeDiagnostic on every input", () => {
+    for (const value of [BASE, { ...BASE, fields: { a: 1 } }, {}, null, { ...BASE, x: 1 }]) {
+      expect(isDiagnosticEvent(value)).toBe(encodeDiagnostic(value).ok);
+    }
   });
 });

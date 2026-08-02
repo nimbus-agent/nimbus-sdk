@@ -221,7 +221,7 @@ same contract.*
   an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
   confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
 
-> **Boxes 1–3 and 5–7 are done, and Python is now an official SDK.** A Python release can
+> **Boxes 1–7 are done, and Python is now an official SDK.** A Python release can
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that
 > way. The binding executes both published conformance corpora, every case kind, with

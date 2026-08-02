@@ -26,7 +26,7 @@ Three hard constraints shape every decision here:
 
 ## The public surface (the `exports` map)
 
-The package exposes exactly four entry points. Everything else is internal.
+The package exposes exactly five entry points. Everything else is internal.
 
 | Entry point | Source | Purpose |
 |---|---|---|
@@ -34,6 +34,7 @@ The package exposes exactly four entry points. Everything else is internal.
 | `@nimbus-dev/sdk/testing` | `sdks/typescript/src/testing/index.ts` | `MockGateway` + contract-test / sandbox-probe utilities for connector test suites. |
 | `@nimbus-dev/sdk/ipc` | `sdks/typescript/src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
 | `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, and the Bearer-auth REST fetcher. The generated TypeScript connector template imports from here. |
+| `@nimbus-dev/sdk/diagnostics` | `sdks/typescript/src/diagnostics/index.ts` | The diagnostics / telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the closed `DiagnosticEvent` envelope, and `createEmitter` for a sink-backed `DiagnosticEmitter`. The redaction-safe replacement for the scoped audit logger's free-form payload. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.

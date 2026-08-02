@@ -161,6 +161,9 @@ describe("encodeDiagnostic — member validation", () => {
     expect(
       rejection(encodeDiagnostic({ ...BASE, error: { code: "x", message: "boom" } })).path,
     ).toBe("/error/message");
+    expect(
+      rejection(encodeDiagnostic({ ...BASE, error: { code: "x", stack: "at foo (a.ts:1)" } })).path,
+    ).toBe("/error/stack");
   });
 
   test("rejects a line over the framing limit", () => {
@@ -169,6 +172,30 @@ describe("encodeDiagnostic — member validation", () => {
     // the imported constant rather than a literal is the idiom handshake.test.ts uses.
     const result = encodeDiagnostic({ ...BASE, extensionId: "x".repeat(IPC_MAX_LINE_BYTES) });
     expect(rejection(result).reason).toBe("line-too-long");
+  });
+
+  test("rejects a line over the limit built from multi-byte characters", () => {
+    // "é" is one UTF-16 code unit but two UTF-8 bytes. A check driven off `.length`
+    // (code units) rather than the real UTF-8 byte count would see roughly half the
+    // true size here and wrongly accept it.
+    const extensionId = "é".repeat(Math.ceil(IPC_MAX_LINE_BYTES / 2));
+    expect(extensionId.length).toBeLessThan(IPC_MAX_LINE_BYTES);
+    expect(rejection(encodeDiagnostic({ ...BASE, extensionId })).reason).toBe("line-too-long");
+  });
+
+  test("accepts a line at exactly the byte limit and rejects one byte over", () => {
+    const byteLength = (s: string): number => new TextEncoder().encode(s).length;
+    // extensionId must be non-empty, so measure the envelope's overhead with a
+    // one-character extensionId and subtract that one ASCII byte back out.
+    const overhead = byteLength(line(encodeDiagnostic({ ...BASE, extensionId: "x" }))) - 1;
+    const atLimit = "x".repeat(IPC_MAX_LINE_BYTES - overhead);
+    const overLimit = "x".repeat(IPC_MAX_LINE_BYTES - overhead + 1);
+
+    const atLimitResult = line(encodeDiagnostic({ ...BASE, extensionId: atLimit }));
+    expect(byteLength(atLimitResult)).toBe(IPC_MAX_LINE_BYTES);
+    expect(rejection(encodeDiagnostic({ ...BASE, extensionId: overLimit })).reason).toBe(
+      "line-too-long",
+    );
   });
 });
 
@@ -179,5 +206,55 @@ describe("encodeDiagnostic — reason order", () => {
     expect(rejection(encodeDiagnostic({ ...BASE, ts: "nope", oops: 1 })).reason).toBe(
       "unknown-member",
     );
+  });
+
+  test("decides invalid-field-key across every key before invalid-field-value for any", () => {
+    // "a" is scanned first and its value is a bad string, but "B" fails the key pattern.
+    // The two-pass shape §5 requires reports invalid-field-key regardless of scan order.
+    expect(rejection(encodeDiagnostic({ ...BASE, fields: { a: "bad", B: 1 } })).reason).toBe(
+      "invalid-field-key",
+    );
+  });
+});
+
+describe("encodeDiagnostic — hostile input", () => {
+  test("a throwing getter is treated as a malformed object, never propagated", () => {
+    const throwingTopLevel = {
+      ...BASE,
+      get ts() {
+        throw new Error("boom");
+      },
+    };
+    expect(rejection(encodeDiagnostic(throwingTopLevel)).reason).toBe("not-object");
+
+    const throwingFieldValue = {
+      ...BASE,
+      fields: {
+        get boom() {
+          throw new Error("boom");
+        },
+      },
+    };
+    expect(rejection(encodeDiagnostic(throwingFieldValue)).reason).toBe("invalid-fields");
+
+    const throwingErrorMember = {
+      ...BASE,
+      error: {
+        get code() {
+          throw new Error("boom");
+        },
+      },
+    };
+    expect(rejection(encodeDiagnostic(throwingErrorMember)).reason).toBe("invalid-error");
+  });
+});
+
+describe("encodeDiagnostic — JSON Pointer escaping", () => {
+  test("RFC 6901-escapes '~' and '/' in a reported path", () => {
+    expect(rejection(encodeDiagnostic({ ...BASE, "a/b": 1 })).path).toBe("/a~1b");
+    expect(rejection(encodeDiagnostic({ ...BASE, "a~b": 1 })).path).toBe("/a~0b");
+    expect(
+      rejection(encodeDiagnostic({ ...BASE, error: { code: "x", "m/sg": "boom" } })).path,
+    ).toBe("/error/m~1sg");
   });
 });

@@ -163,6 +163,25 @@ them in the order below: each row is reachable only once every row above it has 
 | `invalid-error` | `error` is present and is not an object, is missing `code`, has a `code` that fails the §3 pattern, has a `retriable` that is not a boolean, or carries any member other than `code` and `retriable`. |
 | `line-too-long` | The encoded line, in UTF-8 octets, exceeds `IPC_MAX_LINE_BYTES`. |
 
+A `path` value is a JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901)), and
+every caller-controlled token it carries MUST be escaped per RFC 6901 §3: `~` becomes `~0`
+and `/` becomes `~1`, `~` escaped first so the `~0` it introduces is never re-escaped by the
+second substitution. This is reachable, not theoretical: a caller supplying a member literally
+named `a/b` — rejected as `unknown-member` — MUST render as `/a~1b`, never `/a/b`, because the
+unescaped form is indistinguishable from a two-level pointer into a nested member that was
+never sent. A binding that interpolates a caller-controlled key into `path` without this step
+produces a syntactically valid but semantically wrong pointer, and does so silently — nothing
+about the line itself signals the mistake.
+
+`invalid-field-key` and `invalid-field-value` (the two rows above for `fields`) are evaluated
+as two SEPARATE passes over the whole object: every key is checked against the pattern first,
+across every member, before any value is checked at all. `{"a":"bad","B":1}` MUST report
+`invalid-field-key` at `/fields/B`, never `invalid-field-value` at `/fields/a`, even though
+`a`'s value would be reached first under insertion order. A single pass that checks a key and
+then its value before moving to the next key is the shape one binding reaches for naturally and
+another does not, and the two would then disagree on exactly this combined-fault input; fixing
+the pass structure, not just the reason order, is what keeps them identical.
+
 ### 5.1 Two reasons that belong to parsing only
 
 The table above governs both directions: it is what a caller-supplied value is checked

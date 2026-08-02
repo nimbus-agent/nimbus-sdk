@@ -195,11 +195,18 @@ debugger to the gateway. Two SDK-defined channels carry signal back across the
 boundary without leaking data:
 
 - **Audit** — the injected `AuditLogger` (`AuditEmit` sink supplied by the gateway)
-  for structured, security-relevant events.
-- **Diagnostics** — a planned structured telemetry contract (levels, correlation
-  ids, timing) the gateway can surface, under the same data-minimization rule as the
-  batteries: no secrets, no row/body data. See
-  [roadmap Pillar 8](./ROADMAP.md#8-observability--diagnostics).
+  for structured, security-relevant events. Its free-form payload is `@deprecated`
+  as of `1.15.0` in favor of the diagnostics envelope below — see
+  [DEPRECATION-POLICY.md](./DEPRECATION-POLICY.md) — and may be removed no earlier
+  than a `2.0.0` major bump.
+- **Diagnostics** — the structured, redaction-safe diagnostic envelope (levels,
+  correlation ids, timing) the gateway can surface, under the same data-minimization
+  rule as the batteries: no secrets, no row/body data, enforced structurally by a
+  closed envelope shape rather than left to author discipline. Published as the
+  fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`, with the Python
+  binding at `nimbus_sdk.diagnostics`. See
+  [roadmap Pillar 8](./ROADMAP.md#8-observability--diagnostics) and the normative
+  spec at [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md).
 
 Both are *contracts the SDK defines*, not I/O the SDK performs — the gateway owns the
 sink, the SDK owns the shape.

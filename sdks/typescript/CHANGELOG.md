@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [Unreleased]
+
+### Features
+
+* **diagnostics:** publish `@nimbus-dev/sdk/diagnostics`, a fifth `exports` entry point binding the diagnostics / telemetry contract v0 — `encodeDiagnostic`, `parseDiagnostic`, `isDiagnosticEvent`, `meetsLevel`, and `createEmitter` for building a sink-backed `DiagnosticEmitter`. The envelope (`ts`, `level`, `extensionId`, `event`, plus optional `kind`, `correlationId`, `fields`, `error`) is closed and validated rather than trusted: unknown members are rejected, and `fields` only ever holds numbers and booleans, so there is nowhere in a conformant event for a secret, a row, or free text to go — redaction is a structural property of the shape, not a rule an author has to remember. Normatively specified at `docs/spec/diagnostics/v1/diagnostics.md`, executed by a 72-case corpus both the TypeScript and Python bindings run byte-identically.
+* **audit-logger:** deprecate `createScopedAuditLogger`'s free-form payload (`AuditLogger`, `AuditEmit`) in favor of the diagnostics envelope above. Marked `@deprecated` as of this release; the export itself is not removed before a `2.0.0` major bump.
+
 ## [1.14.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.13.0...typescript-v1.14.0) (2026-08-01)
 
 

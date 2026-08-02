@@ -29,12 +29,21 @@ published package.
   `mcpJsonResult` and its variants, and `makeRestFetcher` / `makeRestToolRegistrar` (the
   Bearer-auth REST fetcher, with `resolveUrlWithBase` as its SSRF chokepoint). Still
   dependency-free — `ZodObjectSchema` is a structural type, not an import of `zod`. The
-  generated connector template imports from here, so it is a **four**-entry `exports` map.
+  generated connector template imports from here.
+- `./diagnostics` (`sdks/typescript/src/diagnostics/index.ts`) — the diagnostics /
+  telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` /
+  `meetsLevel` and the `DiagnosticEvent` envelope types, plus `createEmitter` and the
+  `DiagnosticEmit` / `DiagnosticEmitter` sink types. A separate entry point because
+  diagnostics is a separate contract, normatively specified at
+  `docs/spec/diagnostics/v1/diagnostics.md` with its own conformance corpus. It is the
+  structural replacement for `createScopedAuditLogger`'s free-form payload, which
+  `audit-logger` now marks `@deprecated` (since `1.15.0`, removal no earlier than
+  `2.0.0`). This makes it a **five**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
 
-## Python surface (two import roots, deliberately)
+## Python surface (three import roots, deliberately)
 
 - `nimbus_sdk` (`sdks/python/src/nimbus_sdk/__init__.py`) — the contract-version
   constants, the negotiation algorithm, and `load_schema` / `load_corpus` / `spec_root`.
@@ -44,18 +53,35 @@ the release-please bump.
   `handshake.py` (`perform_handshake`, `HandshakeIO`, `HandshakeOk`, `HandshakeRefused`,
   `HandshakeResult`) — the one exchange this package performs end to end. It is
   **synchronous** where TypeScript's `performHandshake` is async, which with the
-  `isinstance`-vs-tagged-union split is one of the only two ways the bindings differ on
-  purpose.
+  `isinstance`-vs-tagged-union split is one of the only two ways the bindings differ
+  *behaviorally* on purpose.
+- `nimbus_sdk.diagnostics` (`sdks/python/src/nimbus_sdk/diagnostics/`) — the Python
+  binding of `docs/spec/diagnostics/v1/diagnostics.md`: `encode_diagnostic`,
+  `parse_diagnostic`, `meets_level`, `DIAGNOSTIC_KINDS`, `DIAGNOSTIC_LEVELS`, and the
+  `EncodeOk` / `EncodeRejected` / `ParseOk` / `ParseRejected` result types, plus a
+  Python-only `format_timestamp` helper. It runs the same `diagnostics` conformance
+  corpus as TypeScript, byte-identically.
 
-**The IPC names are NOT re-exported from `nimbus_sdk`, and must not be.** The split
-mirrors the `.` vs `./ipc` boundary the TypeScript `exports` map publishes: it states
-that the IPC surface is a separate contract. Python has no bundling reason to need a
-second entry point, so the boundary is documentation — and hoisting the names to the
-top level as a convenience would erase it.
+**The IPC and diagnostics names are NOT re-exported from `nimbus_sdk`, and must not
+be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` boundary the TypeScript
+`exports` map publishes: it states that each is a separate contract. Python has no
+bundling reason to need a second or third entry point, so the boundary is
+documentation — and hoisting the names to the top level as a convenience would erase
+it.
 
 Both bindings execute the published conformance corpora: `negotiation` (all three
-kinds) and `framing`. Nothing is deferred, so a new corpus case runs in both languages
-the moment it is indexed.
+kinds), `framing`, and `diagnostics`. Nothing is deferred, so a new corpus case runs in
+both languages the moment it is indexed.
+
+**The bindings differ in exactly two *behavioral* ways** — sync-vs-async
+`performHandshake`/`perform_handshake`, and `isinstance`-vs-tagged-union narrowing.
+Diagnostics adds two *surface* asymmetries, not a third behavioral one, and they
+belong with the `connector-kit`-shaped gap Phase 3 of [`docs/ROADMAP.md`](./docs/ROADMAP.md)
+already tracks: Python ships no emitter (`createEmitter` / `DiagnosticEmitter` has no
+Python counterpart — nothing in this dependency-free package writes to a sink), and
+Python alone ships `format_timestamp`, since Python has no built-in equivalent of
+`Date#toISOString()`. Neither changes what the same operation returns in both
+languages; they are surface, not behavior.
 
 ## The scaffolder (`tools/create-connector`)
 

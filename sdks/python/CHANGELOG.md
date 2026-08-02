@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+* **diagnostics:** add `nimbus_sdk.diagnostics`, a third import root binding the diagnostics / telemetry contract v0 — `encode_diagnostic`, `parse_diagnostic`, `meets_level`, `DIAGNOSTIC_KINDS`, `DIAGNOSTIC_LEVELS`, and the `EncodeOk` / `EncodeRejected` / `ParseOk` / `ParseRejected` result types, plus a Python-only `format_timestamp` helper (Python has no built-in `Date#toISOString()` equivalent). Like `nimbus_sdk.ipc`, it is deliberately **not** re-exported from `nimbus_sdk` — the diagnostics surface is its own contract. The envelope is closed and validated: unknown members are rejected and `fields` only ever holds numbers and booleans, so redaction is structural rather than a rule an author has to remember. This binding executes the same 72-case corpus as the TypeScript reference, byte-identically; this package ships no emitter — only the encode/parse/level surface — so writing an encoded line to a sink is left to the caller. (The free-form audit-logger payload this supersedes was a TypeScript-only export; Python never had one to deprecate.)
+
 ## [0.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.4.0...python-v0.5.0) (2026-08-01)
 
 

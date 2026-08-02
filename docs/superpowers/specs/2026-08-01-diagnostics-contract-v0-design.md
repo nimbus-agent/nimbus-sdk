@@ -17,9 +17,9 @@ token, or an interpolated error message from reaching whatever the gateway does 
 Pillar 8's guarantee — *"no secrets, no row/body data in logs, ever"* — is currently a
 sentence in a roadmap, enforced by author discipline.
 
-Meanwhile [`wire/v1/framing.md`](../../spec/wire/v1/framing.md) §5 has an open referral. It
-requires that "a peer's diagnostics MUST travel somewhere other than the frame stream" and
-names no alternative, because no document owned the answer.
+Meanwhile [`contract-version.md`](../../spec/negotiation/v1/contract-version.md) §5 has an
+open referral. It requires that "a peer's diagnostics MUST travel somewhere other than the
+frame stream" and names no alternative, because no document owned the answer.
 
 ## What v0 changes, in one line
 

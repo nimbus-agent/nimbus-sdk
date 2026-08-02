@@ -196,7 +196,7 @@ Expected: FAIL — `ENOENT` on `docs/spec/diagnostics/v1/diagnostics.md`.
 Follow the structure of `docs/spec/negotiation/v1/contract-version.md`. Required sections, with the content sourced from the design spec's "The envelope" and "Why each constraint exists":
 
 1. Header — `**Status:** normative. **Contract version:** `v1`.` plus the RFC 2119 paragraph and the "corpus is the tiebreaker" paragraph naming `../../conformance/v1/diagnostics/`.
-2. **§1 Scope.** In: the envelope, the levels, the encoding rules, the rejection reasons. Out: the transport (SHOULD stderr-NDJSON, MUST NOT the frame stream — cite `wire/v1/framing.md` §5), sampling, rate limiting, retention, and `createScopedAuditLogger`'s free-form payload, which is deprecated on its own schedule.
+2. **§1 Scope.** In: the envelope, the levels, the encoding rules, the rejection reasons. Out: the transport (SHOULD stderr-NDJSON, MUST NOT the frame stream — cite `negotiation/v1/contract-version.md` §5), sampling, rate limiting, retention, and `createScopedAuditLogger`'s free-form payload, which is deprecated on its own schedule.
 3. **§2 Terminology** — event, level, emitter, sink.
 4. **§3 The envelope** — the member table from the design spec, verbatim.
 5. **§4 Encoding** — the canonical line form. State all four rules: fixed member order, `fields` keys sorted ascending by code point, no insignificant whitespace, and non-ASCII characters NOT escaped. State the integral-value rule explicitly: *"A binding MUST accept a JSON number whose value is an integer, however its host language types it, and MUST encode it without a fractional part. `1.0` and `1` are the same JSON value; a binding that rejects the former is non-conformant."*
@@ -980,7 +980,7 @@ enforces completeness — a row skipped here fails that test rather than passing
 | `ts-lowercase-z-rejected.json` | encode | `ts:"2026-08-01t12:00:00.000z"` | `invalid-ts` |
 | `ts-no-fraction-rejected.json` | encode | `ts:"2026-08-01T12:00:00Z"` | `invalid-ts` |
 | `ts-non-ascii-digit-rejected.json` | encode | `ts:"٢٠٢٦-08-01T12:00:00.000Z"` | `invalid-ts` |
-| `level-each-accepted.json` | encode | `level:"debug"` | ok — plus three siblings for `info`, `warn`, `error`, named `level-info-accepted.json` etc. |
+| `level-debug-accepted.json` | encode | `level:"debug"` | ok — plus three siblings for `info`, `warn`, `error`, named `level-info-accepted.json` etc. |
 | `level-unknown-rejected.json` | encode | `level:"trace"` | `invalid-level`, `/level` |
 | `level-uppercase-rejected.json` | encode | `level:"INFO"` | `invalid-level`, `/level` |
 | `extension-id-empty-rejected.json` | encode | `extensionId:""` | `invalid-extension-id` |

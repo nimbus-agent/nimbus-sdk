@@ -38,13 +38,24 @@ from nimbus_sdk.diagnostics import (
 )
 
 
+def _is_count(value: object) -> bool:
+    """``case.schema.json`` types ``count`` as JSON Schema ``integer`` — a constraint
+    on VALUE, not on JSON's number type. Ajv is satisfied by the literal ``3.0``, and
+    ``json.loads`` hands that back as a Python ``float``, not an ``int``. Narrowing to
+    ``isinstance(count, int)`` alone would silently stop recognising such a case as a
+    repeat node instead of resolving it — this mirrors the ``bool``-before-``int``
+    and integral-float handling ``event.py`` itself needs for the exact same reason.
+    """
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
 def _is_repeat_node(value: object) -> bool:
     if not isinstance(value, dict):
         return False
     repeat = value.get("repeat")
     if not isinstance(repeat, dict):
         return False
-    return isinstance(repeat.get("utf8"), str) and isinstance(repeat.get("count"), int)
+    return isinstance(repeat.get("utf8"), str) and _is_count(repeat.get("count"))
 
 
 def _is_concat_node(value: object) -> bool:
@@ -62,8 +73,8 @@ def _resolve_text_like(value: object) -> str:
         utf8 = repeat["utf8"]
         count = repeat["count"]
         assert isinstance(utf8, str)
-        assert isinstance(count, int)
-        return utf8 * count
+        assert _is_count(count)
+        return utf8 * int(count)
     if _is_concat_node(value):
         assert isinstance(value, dict)
         parts = value["concat"]
@@ -108,6 +119,14 @@ DEFERRED_KINDS: set[str] = set()
 
 def test_every_corpus_kind_is_accounted_for() -> None:
     assert {case["kind"] for case in CASES} == IMPLEMENTED_KINDS | DEFERRED_KINDS
+
+
+def test_the_corpus_is_not_empty() -> None:
+    # Mirrors diagnostics-guard.test.ts's own floor: `> 0` passes the moment a single
+    # case exists, which is not the same claim as "the corpus is substantial" — and a
+    # corpus truncated down to a handful of cases would make every assertion in this
+    # module vacuously true rather than failing loudly.
+    assert len(CASES) > 20
 
 
 @pytest.mark.parametrize(

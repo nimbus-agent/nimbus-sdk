@@ -1,7 +1,19 @@
 """The diagnostic event envelope — ``docs/spec/diagnostics/v1/diagnostics.md``.
 
-Pure and total: no clock, no entropy, no I/O, and never raises. The caller supplies
-``ts`` and ``correlationId``; this module only ever validates and encodes them.
+Pure and total: no clock, no entropy, no I/O, and never raises — with one named
+exception the spec itself declines to settle. A caller-supplied ``extensionId``
+containing a lone UTF-16 surrogate (e.g. a literal ``"\\ud800"``) makes
+``json.dumps(..., ensure_ascii=False)`` raise ``UnicodeEncodeError`` inside
+:func:`encode_diagnostic`, because Python cannot encode an unpaired surrogate as
+UTF-8. Spec §8 ("Lone surrogates in extensionId are undefined behaviour in v0") names
+this exact mechanism and declines to give it a verdict until the manifest rule
+registry — which owns ``extensionId``'s actual format — constrains the identifier
+enough to rule the question out structurally. This module does not catch the
+exception and invent a rejection reason to paper over it: doing so would put a
+verdict in the binding that the contract deliberately withholds.
+
+The caller supplies ``ts`` and ``correlationId``; this module only ever validates
+and encodes them.
 
 The envelope is CLOSED where the hello frame is open. ``contract-version.md`` §5
 requires a hello's unknown members be ignored; §3 here requires a diagnostic event's
@@ -138,20 +150,28 @@ def _validate_fields(
     if not isinstance(fields_raw, dict):
         return None, _Failure("invalid-fields", "/fields")
 
-    keys = list(fields_raw.keys())
-    for key in keys:
-        if DIAGNOSTIC_FIELD_KEY_PATTERN.fullmatch(key) is None:
+    # A caller-supplied dict is not restricted to string keys the way a JSON object
+    # is — and unlike a JavaScript object, whose keys are unconditionally coerced to
+    # strings (`Object.keys({1: 2})` is `["1"]`). `re.fullmatch` raises `TypeError` on
+    # a non-string, which would break this module's "never raises" guarantee for
+    # plausible connector code such as `fields={error_code: 1}`. `str(key)` mirrors
+    # JavaScript's implicit coercion, so a non-string key is judged — and reported —
+    # exactly as the stringified key TypeScript would see, never as a raw exception.
+    entries = [(key, key if isinstance(key, str) else str(key)) for key in fields_raw]
+
+    for _, key_str in entries:
+        if DIAGNOSTIC_FIELD_KEY_PATTERN.fullmatch(key_str) is None:
             return None, _Failure(
-                "invalid-field-key", f"/fields/{_escape_pointer_token(key)}"
+                "invalid-field-key", f"/fields/{_escape_pointer_token(key_str)}"
             )
 
     validated: dict[str, object] = {}
-    for key in keys:
-        value = fields_raw[key]
+    for original_key, key_str in entries:
+        value = fields_raw[original_key]
         # Rule 1: bool BEFORE int. isinstance(True, int) is True in Python, so a
         # boolean reaching the int branch below would be treated as 0 or 1.
         if isinstance(value, bool):
-            validated[key] = value
+            validated[key_str] = value
             continue
         # Rule 2: an integral float is the same JSON value as an int and must be
         # accepted, narrowed to int before it reaches json.dumps. is_integer() is
@@ -160,16 +180,16 @@ def _validate_fields(
         if isinstance(value, float):
             if not value.is_integer():
                 return None, _Failure(
-                    "invalid-field-value", f"/fields/{_escape_pointer_token(key)}"
+                    "invalid-field-value", f"/fields/{_escape_pointer_token(key_str)}"
                 )
             value = int(value)
         if not isinstance(value, int) or value < -MAX_SAFE_INT or value > MAX_SAFE_INT:
             return None, _Failure(
-                "invalid-field-value", f"/fields/{_escape_pointer_token(key)}"
+                "invalid-field-value", f"/fields/{_escape_pointer_token(key_str)}"
             )
-        validated[key] = value
+        validated[key_str] = value
 
-    if len(keys) > DIAGNOSTIC_MAX_FIELDS:
+    if len(entries) > DIAGNOSTIC_MAX_FIELDS:
         return None, _Failure("too-many-fields", "/fields")
 
     return validated, None

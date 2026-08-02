@@ -40,7 +40,11 @@ describe("published artifacts", () => {
   });
 
   test("the schema spells every pattern exactly as the spec does", () => {
-    type PatternedProperty = { pattern?: string; propertyNames?: { pattern: string } };
+    type PatternedProperty = {
+      pattern?: string;
+      propertyNames?: { pattern: string };
+      properties?: Record<string, PatternedProperty>;
+    };
     type PatternedSchema = { properties: Record<string, PatternedProperty> };
 
     // Reads through the index signature with bracket access, so a missing or misspelled
@@ -51,11 +55,17 @@ describe("published artifacts", () => {
       schema.properties[key]?.pattern;
     const fieldKeyPatternOf = (schema: PatternedSchema, key: string): string | undefined =>
       schema.properties[key]?.propertyNames?.pattern;
+    const nestedPatternOf = (
+      schema: PatternedSchema,
+      key: string,
+      nestedKey: string,
+    ): string | undefined => schema.properties[key]?.properties?.[nestedKey]?.pattern;
 
     const schema = readJson(EVENT_SCHEMA_PATH) as PatternedSchema;
     expect(patternOf(schema, "ts")).toBe(TS_PATTERN);
     expect(patternOf(schema, "event")).toBe(NAME_PATTERN);
     expect(patternOf(schema, "correlationId")).toBe(CORRELATION_ID_PATTERN);
     expect(fieldKeyPatternOf(schema, "fields")).toBe(FIELD_KEY_PATTERN);
+    expect(nestedPatternOf(schema, "error", "code")).toBe(NAME_PATTERN);
   });
 });

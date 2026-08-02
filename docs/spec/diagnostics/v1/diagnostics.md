@@ -172,20 +172,27 @@ only, because each concerns a channel that has no counterpart on the encode side
 starts from an in-memory value that is already JSON-shaped and whose `nimbus` member the
 encoder itself supplies as the literal `"diag"`, never something a caller can get wrong.
 
-A conformant parser MUST check these two before the fourteen-row table above, in this order:
+A conformant parser MUST check reasons in exactly this order — the fourteen-row table above,
+with these two reasons inserted rather than prepended wholesale:
+
+1. `not-json` — the only reason checked before the table's own first row. There is no parsed
+   value to classify as an object or not until the line has parsed as JSON at all.
+2. `not-object` — the table's own row 1, reached in its normal position.
+3. `wrong-message` — inserted immediately after `not-object` and before every remaining row of
+   the table, `unknown-member` included.
+4. The table's rows 2 through 14, `unknown-member` through `line-too-long`, in the order
+   already listed above.
 
 | Reason | Triggers when |
 |---|---|
 | `not-json` | The line does not parse as JSON at all. |
 | `wrong-message` | `nimbus` is absent, or present but not exactly the string `"diag"`. |
 
-`not-json` precedes `not-object` — there is no parsed value to classify as an object or not
-until the line has parsed as JSON at all — and `wrong-message` is checked immediately after
-`not-object` and before `invalid-ts`, mirroring the first three rows of
+This mirrors the first three rows of
 [`contract-version.md`](../../negotiation/v1/contract-version.md)'s seven-row hello table,
 which names the same three tokens for the same reason: a message that does not even claim to
 be the kind of frame this document describes should be told apart before any member-level
-check runs.
+check runs — `unknown-member`, the closedness check, included.
 
 `sink-failed` is deliberately **not** a reason this document defines. Whether writing an
 already-encoded line to whatever sink a caller supplied succeeds is an I/O outcome, not a

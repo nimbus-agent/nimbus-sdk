@@ -119,7 +119,27 @@ const snapshot = (source: Record<string, unknown>): Record<string, unknown> | nu
  * being reasoned about per call site.
  */
 const escapePointerToken = (token: string): string =>
-  token.replace(/~/g, "~0").replace(/\//g, "~1");
+  token.replaceAll("~", "~0").replaceAll("/", "~1");
+
+/**
+ * Orders two `fields` keys by code point, which is what §4's key-ordering rule requires
+ * and what Python's `sorted()` does — so both bindings emit the same line.
+ *
+ * **Do not replace this with `String.localeCompare`**, however insistently a linter asks
+ * for it. `localeCompare` is locale-dependent, and a locale-dependent comparison is the
+ * exact failure [`predicates/v1` §3.1](../../../../docs/spec/predicates/v1/README.md)
+ * documents for case folding: under a Turkish locale the same two keys can order
+ * differently, and the two bindings would then disagree on the bytes for an input the
+ * corpus happens not to cover. `<` and `>` on strings compare UTF-16 code units, which
+ * over this member's `[a-z0-9]` alphabet is exactly code-point order.
+ *
+ * It exists as a named function rather than an inline arrow only so the reasoning above
+ * has somewhere to live; passing no comparator at all would sort identically today.
+ */
+const byCodePoint = (a: string, b: string): number => {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+};
 
 /**
  * True for a JSON number whose VALUE is an integer, whatever its host type.
@@ -341,7 +361,7 @@ export function encodeDiagnostic(eventInput: unknown): EncodeResult {
     // Key order is normative, so `fields` is rebuilt sorted rather than passed through:
     // insertion order is the caller's, and two callers must not produce two lines.
     const sortedEntries = Object.keys(fields)
-      .sort()
+      .sort(byCodePoint)
       .map((k): [string, unknown] => [k, fields[k]]);
     wire["fields"] = Object.fromEntries(sortedEntries);
   }

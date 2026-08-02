@@ -157,8 +157,7 @@ export function testEmitsOnlyValidDiagnostics(): void {
 
 ## Making dropped diagnostics loud in your own tests
 
-`createEmitter` (`@nimbus-dev/sdk/diagnostics`, not yet published from this entry point)
-never throws and never writes a line the wire contract's encoder refused — an invalid
+[`createEmitter`](./diagnostics.md) (`@nimbus-dev/sdk/diagnostics`) never throws and never writes a line the wire contract's encoder refused — an invalid
 event is dropped, and the caller gets back an `{ ok: false, reason, path }` result instead
 of a written line. That is the correct behavior in production: a typo in an event name or
 an out-of-range field value must not be able to crash, or even destabilize, the connector

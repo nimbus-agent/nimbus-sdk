@@ -9,7 +9,7 @@
  * documentation guard derives from `buildSurface()`. `scripts/smoke-calls.test.ts` asserts
  * this list covers every one of them, so adding a battery fails until it has a call here.
  *
- * Each `run` receives the four entry points already imported by the smoke, so no entry
+ * Each `run` receives the five entry points already imported by the smoke, so no entry
  * re-resolves them.
  */
 
@@ -286,6 +286,32 @@ export const SMOKE_CALLS = [
       });
       if (typeof fetcher !== "function") {
         throw new Error("makeRestFetcher did not return a fetcher function");
+      }
+    },
+  },
+  {
+    module: "diagnostics/event",
+    run: (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
+      const result = diagnostics.encodeDiagnostic({
+        ts: "2026-08-01T12:00:00.000Z",
+        level: "info",
+        extensionId: "smoke",
+        event: "smoke.run",
+      });
+      if (!result.ok) throw new Error(`encodeDiagnostic refused a valid event: ${result.reason}`);
+    },
+  },
+  {
+    module: "diagnostics/emitter",
+    run: async (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
+      const lines = [];
+      const emitter = diagnostics.createEmitter("smoke", (line) => {
+        lines.push(line);
+      });
+      if (typeof emitter.info !== "function") throw new Error("createEmitter returned no info()");
+      const result = await emitter.info("smoke.run", { ts: "2026-08-01T12:00:00.000Z" });
+      if (!result.ok || lines.length !== 1) {
+        throw new Error(`createEmitter's info() did not emit a line: ${JSON.stringify(result)}`);
       }
     },
   },

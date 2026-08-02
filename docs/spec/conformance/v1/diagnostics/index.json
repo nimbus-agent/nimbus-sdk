@@ -322,6 +322,11 @@
       "reason": "not-json is the only reason checked before the table's own rows — there is no parsed value to classify until the line has parsed as JSON at all."
     },
     {
+      "file": "cases/parse-not-object-array.json",
+      "section": "§5.1",
+      "reason": "not-object (the table's row 1) is reached in its normal position and checked before wrong-message (inserted immediately after it) — an array has no nimbus member to be right or wrong about, so a binding that checked wrong-message first would need one to exist before it could even ask. No other parse case in this corpus is syntactically valid JSON and still not an object, so this is the only executable form of that ordering."
+    },
+    {
       "file": "cases/parse-wrong-message.json",
       "section": "§5.1",
       "reason": "wrong-message is inserted immediately after not-object and before every remaining row of the table, unknown-member included — a well-formed envelope for a different message is refused before its members are checked."

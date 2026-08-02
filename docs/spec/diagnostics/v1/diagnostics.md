@@ -97,7 +97,7 @@ envelope, and the two documents pin opposite behaviors on purpose.
 ## 4. Encoding
 
 The canonical line form is the exact bytes a conformant encoder MUST produce for a given
-valid event, so that two bindings encoding the same input produce byte-identical output. Four
+valid event, so that two bindings encoding the same input produce byte-identical output. Six
 rules together define it:
 
 1. **Fixed member order.** A conformant encoder MUST emit an event's members, when present,
@@ -115,6 +115,19 @@ rules together define it:
    directly rather than a `\uXXXX` escape for any code point that does not require one.
    `JSON.stringify` already does this; Python's `json.dumps` does not unless called with
    `ensure_ascii=False`, which a conformant Python encoder MUST pass.
+5. **`error`'s internal member order is fixed too.** When `error` is present, a conformant
+   encoder MUST emit its own members `code` then `retriable`, in that order — rule 1 fixes
+   the envelope's nine-member order but says nothing about the order inside a nested object,
+   so `error`, being the one member with members of its own, needs the rule restated one
+   level deeper. Pinned by `encode-all-members.json`.
+6. **A `fields` value of negative zero normalises to `0`.** JavaScript's `-0` and Python's
+   `-0.0` are the same JSON *value* as `0`, so a conformant encoder MUST emit the bare digit
+   `0` for it, never `-0`. This is the integral-value rule's own corollary, not a separate
+   concession: `-0` already satisfies "the value's magnitude is a whole number," so it was
+   always in scope, and the failure mode this rule rules out is a binding that reaches for
+   its host language's default numeric formatter (which reproduces the sign) instead of
+   normalising through the same integral check every other `fields` value passes through.
+   Pinned by `fields-negative-zero-normalized.json`.
 
 **The integral-value rule.** A binding MUST accept a JSON number whose value is an integer,
 however its host language types it, and MUST encode it without a fractional part. `1.0` and
@@ -288,6 +301,25 @@ code.
 can still encode something meaningful into 64 URL-safe characters. This constraint removes
 the *accidental* path a free-text field would otherwise leave open; it does not, and does not
 claim to, remove the deliberate one.
+
+**`extensionId`, `event`, and `error.code` are bounded by shape, not by length — and
+`extensionId` is not even bounded by shape.** The structural-redaction guarantee in §3 is
+real for `fields`: its values are closed to booleans and bounded integers, so there is no
+room in a `fields` value for a sentence. It is a narrower guarantee for the three
+caller-controlled strings elsewhere in the envelope. `event` and `error.code` share the
+pattern `^[a-z][a-z0-9]*(\.[a-z][a-z0-9]*)*$`, which rules out whitespace, punctuation, and
+case, but names no length bound — nothing in this document stops a caller from writing an
+`event` or an `error.code` with as many dotted segments as they like. `extensionId` has no
+pattern at all, only the non-empty check §3 states — the corpus's own accepted case for it,
+`line-at-limit-accepted.json`, is a string 1,048,475 characters long. This is a deliberate
+deferral, not an oversight — §3 already
+states that `extensionId`'s actual format belongs to the manifest rule registry, not to this
+document, and constraining it here would be inventing a rule this document does not own. But
+deferring *where* a format lives is not the same claim as *no* format being needed, and a
+reader who takes the closed envelope to mean every member is inert would be wrong about
+these three. What §3's closedness proves is that a secret cannot travel through a member
+this document does not name; it does not prove that the caller-controlled strings it does
+name cannot carry one.
 
 **Lone surrogates in `extensionId` are undefined behaviour in v0.** `extensionId` is checked
 only for emptiness (§3); nothing here excludes an ill-formed UTF-16 sequence such as a lone

@@ -204,13 +204,17 @@ same contract.*
   [TypeScript](./quickstart-typescript.md) and [Python](./quickstart-python.md), each
   pinned to the template it documents by a drift guard in
   `tools/create-connector/src/docs-excerpts.test.ts`.
-- [x] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*.
-  Specified normatively at [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md)
-  under [RFC-0010](./rfcs/0010-diagnostics-contract-v0.md), with a 72-case
-  language-neutral conformance corpus both bindings execute byte-identically —
-  published as TypeScript's fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`,
-  and Python's third import root, `nimbus_sdk.diagnostics`. `createScopedAuditLogger`'s
-  free-form payload is `@deprecated` in favor of it.
+- [x] A **diagnostics / telemetry contract v0** encoded and parsed identically by both
+  SDKs — *Pillar 8*. Specified normatively at
+  [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md) under
+  [RFC-0010](./rfcs/0010-diagnostics-contract-v0.md), with a 73-case language-neutral
+  conformance corpus both bindings execute byte-identically — published as TypeScript's
+  fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`, and Python's third import
+  root, `nimbus_sdk.diagnostics`. `createScopedAuditLogger`'s free-form payload is
+  `@deprecated` in favor of it. **Emitting is TypeScript-only**: `createEmitter` /
+  `DiagnosticEmitter` have no Python counterpart, so a Python connector encodes and
+  parses events but has no built-in helper that writes one to a sink — see
+  `CLAUDE.md` and `sdks/python/README.md`.
 - [x] **Automated Python releases via release-please** — add a `python` component to
   `release-please-config.json` so merged Conventional Commits open a release PR and
   maintain the Python `CHANGELOG`, exactly as the `node` component does today — *Pillars 5, 7*

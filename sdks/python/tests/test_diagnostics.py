@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from datetime import UTC, datetime, timedelta, timezone
@@ -8,7 +9,9 @@ import pytest
 
 import nimbus_sdk
 from nimbus_sdk import __all__ as top_level
+from nimbus_sdk import spec_root
 from nimbus_sdk.diagnostics import (
+    DIAGNOSTIC_LEVELS,
     EncodeRejected,
     ParseRejected,
     encode_diagnostic,
@@ -64,6 +67,24 @@ def test_meets_level_matches_the_typescript_binding_including_invalid_input() ->
     # The explicit guard is what makes both bindings answer False.
     assert meets_level("trace", "info") is False
     assert meets_level("error", "trace") is False
+
+
+def test_diagnostic_levels_matches_the_published_levels_json() -> None:
+    """Drift guard: ``DIAGNOSTIC_LEVELS`` is a second, unguarded copy of
+    ``levels.json``'s order (spec §6). TypeScript holds its own copy of the same order
+    to the published file in ``sdks/typescript/scripts/diagnostics-guard.test.ts``
+    ("the runtime level set matches the published data"); this is Python's
+    counterpart. Spec §6 claims this guard exists for "each runtime's own copy" — before
+    this test, Python's copy was the one runtime not actually holding that claim.
+
+    Reads through ``spec_root()`` rather than a hardcoded ``docs/spec`` path, so this
+    test — like the corpus tests in ``test_diagnostics_corpus.py`` — exercises the
+    bundled copy under ``python -m pip install -e .`` and not a stale snapshot.
+    """
+    levels_path = spec_root() / "diagnostics" / "v1" / "levels.json"
+    with levels_path.open(encoding="utf-8") as handle:
+        published = json.load(handle)
+    assert list(DIAGNOSTIC_LEVELS) == published["levels"]
 
 
 def test_diagnostics_names_are_not_hoisted_to_the_top_level() -> None:
@@ -170,7 +191,7 @@ def test_non_json_constants_are_refused_like_json_parse() -> None:
     # three. Without the parse_constant hook, a bare NaN in a diagnostic line changes
     # verdict from not-json (matching TypeScript) to invalid-field-value or similar,
     # depending on where the constant lands — a silent cross-binding divergence the
-    # 72-case corpus cannot catch, because it is built from valid JSON throughout.
+    # 73-case corpus cannot catch, because it is built from valid JSON throughout.
     # Mirrors test_hello.py's identically-named test for nimbus_sdk.ipc.
     for line in ("NaN", "Infinity", "-Infinity"):
         assert parse_diagnostic(line) == ParseRejected(reason="not-json", path="")

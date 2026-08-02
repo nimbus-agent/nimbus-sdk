@@ -55,10 +55,14 @@ shape. Its free-form payload is `@deprecated` as of `1.15.0` in favor of the
 **diagnostics** envelope below; may be removed no earlier than `2.0.0`.
 
 **Diagnostics** — the structured, redaction-safe envelope a connector uses to
-report what it is doing (levels, correlation ids, timing) without carrying row
-data, secrets, or free text — the successor to the audit logger's free-form
-payload. Published from `@nimbus-dev/sdk/diagnostics` (TypeScript) and
-`nimbus_sdk.diagnostics` (Python), specified normatively in
+report what it is doing (levels, correlation ids, timing). Its closed member set has
+no open-ended field for row data or free text — the `fields` member, in particular,
+accepts only booleans and bounded integers, never a string — the successor to the
+audit logger's free-form payload. The guarantee is about closing off free-form
+channels, not about every member: `extensionId`, `event`, and `error.code` are still
+caller-controlled strings the contract does not length-bound (see spec §8). Published
+from `@nimbus-dev/sdk/diagnostics` (TypeScript) and `nimbus_sdk.diagnostics`
+(Python), specified normatively in
 [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md).
 
 **Sandbox** — the gateway-side isolation a connector process runs inside. Defined and

@@ -8,7 +8,7 @@ SHA-256, and the two token mints built on top of it (Google service accounts, Ap
 Connect).
 
 Reached through the main entry point — `import { signJwt } from "@nimbus-dev/sdk"`. There
-is no `@nimbus-dev/sdk/crypto` subpath; the `exports` map has exactly three entries.
+is no `@nimbus-dev/sdk/crypto` subpath; the `exports` map has exactly five entries.
 
 ## When you reach for it
 

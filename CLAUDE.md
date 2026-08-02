@@ -73,15 +73,28 @@ Both bindings execute the published conformance corpora: `negotiation` (all thre
 kinds), `framing`, and `diagnostics`. Nothing is deferred, so a new corpus case runs in
 both languages the moment it is indexed.
 
-**The bindings differ in exactly two *behavioral* ways** — sync-vs-async
-`performHandshake`/`perform_handshake`, and `isinstance`-vs-tagged-union narrowing.
-Diagnostics adds two *surface* asymmetries, not a third behavioral one, and they
-belong with the `connector-kit`-shaped gap Phase 3 of [`docs/ROADMAP.md`](./docs/ROADMAP.md)
-already tracks: Python ships no emitter (`createEmitter` / `DiagnosticEmitter` has no
-Python counterpart — nothing in this dependency-free package writes to a sink), and
-Python alone ships `format_timestamp`, since Python has no built-in equivalent of
-`Date#toISOString()`. Neither changes what the same operation returns in both
-languages; they are surface, not behavior.
+**The bindings differ in three *behavioral* ways.** Two predate this branch —
+sync-vs-async `performHandshake`/`perform_handshake`, and `isinstance`-vs-tagged-union
+narrowing. Diagnostics adds a third, verified by execution: given
+`extensionId: "\ud800"` (a lone UTF-16 surrogate), `encodeDiagnostic` returns
+`{ ok: true, line: ... }` — `JSON.stringify` and `TextEncoder` both pass an ill-formed
+code point through rather than rejecting it — while `encode_diagnostic` raises
+`UnicodeEncodeError`, because `line.encode("utf-8")` cannot represent an unpaired
+surrogate at all. This is permitted, not a bug: `docs/spec/diagnostics/v1/diagnostics.md`
+§8 declares a lone surrogate in `extensionId` undefined behaviour in v0 — `extensionId`
+is checked only for emptiness, no case in the conformance corpus pins a verdict for this
+input, and neither binding may invent one until the manifest rule registry constrains
+the identifier's format enough to rule the question out structurally. `event.py`'s own
+docstring discloses the exact mechanism.
+
+Diagnostics separately adds two *surface* asymmetries, not further behavioral ones, and
+they belong with the `connector-kit`-shaped gap Phase 3 of
+[`docs/ROADMAP.md`](./docs/ROADMAP.md) already tracks: Python ships no emitter
+(`createEmitter` / `DiagnosticEmitter` has no Python counterpart — nothing in this
+dependency-free package writes to a sink), and Python alone ships `format_timestamp`,
+since Python has no built-in equivalent of `Date#toISOString()`. Neither changes what
+the same operation returns in both languages on a defined input; they are surface, not
+behavior.
 
 ## The scaffolder (`tools/create-connector`)
 

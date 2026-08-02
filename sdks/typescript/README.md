@@ -174,9 +174,11 @@ each half with its own test — keep them.
   `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the
   closed `DiagnosticEvent` envelope, and `createEmitter` for building a sink-backed
   `DiagnosticEmitter`. Validated rather than trusted — a `fields` member holds only
-  numbers and booleans, so there is nowhere in a conformant event for a secret or a
-  row of user data to go. The redaction-safe replacement for the scoped audit
-  logger's free-form payload above.
+  numbers and booleans, so there is nowhere in a `fields` value for a secret or a row
+  of user data to go. That guarantee covers `fields`, not every string on the
+  envelope: `extensionId`, `event`, and `error.code` are still caller-controlled
+  strings this contract does not length-bound (spec §8). The redaction-safe
+  replacement for the scoped audit logger's free-form payload above.
 
 Changing an exported type is a semver-relevant change.
 

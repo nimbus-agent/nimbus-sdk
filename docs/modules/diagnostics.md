@@ -45,12 +45,19 @@ rejected. That inversion is the entire guarantee.
 An open envelope has an unbounded number of places to put a secret — a `message` field,
 a `context` blob, an extra key nobody reviewed — and every one of them is a channel a row
 value, a credential, or a stack trace can travel through unexamined. This envelope has
-none of those places. Once `nimbus`, `ts`, `level`, `extensionId`, `event`, `kind`,
-`correlationId`, `fields`, and `error` are accounted for, there is nowhere left to write
-anything: `fields` admits only bounded identifiers as keys and only booleans or integers
-as values, `error` admits only a dotted `code` and an optional `retriable` boolean, and
-every other shape at every position is a rejection, not a pass-through. Redaction here
-is not a filter applied to free text — it is the absence of anywhere free text could go.
+none of those *extra* places: `nimbus`, `ts`, `level`, `extensionId`, `event`, `kind`,
+`correlationId`, `fields`, and `error` are the whole set, and every other shape at every
+position is a rejection, not a pass-through. Within that set, `fields` is closed to free
+text entirely — it admits only bounded identifiers as keys and only booleans or integers
+as values, so there is no room in a `fields` value for a sentence — and `error` admits
+only a dotted `code` and an optional `retriable` boolean, never a `message` or a `stack`.
+That is not the whole envelope, though: `extensionId`, `event`, and `error.code` are still
+caller-controlled strings, and this document does not bound their length (`extensionId`
+has no pattern at all — see spec
+[§8](../spec/diagnostics/v1/diagnostics.md#8-what-this-specification-does-not-give-you)).
+Redaction here is a filter on *shape* — it removes every place an unreviewed, free-form
+field could go — not a proof that no caller-controlled string on the envelope could be
+misused.
 
 ## Levels
 
@@ -119,7 +126,11 @@ export async function syncPage(itemCount: number): Promise<void> {
 }
 ```
 
-`nimbus.audit(...)` is the same shape with `kind: "audit"` implied. Every method resolves
+`nimbus.audit(...)` always encodes at `level: "info"`, with `kind: "audit"` implied — both
+are fixed, not just `kind`. There is currently no way to record an audited *failure*
+through this emitter: an audit record at `level: "warn"` or `"error"` needs a caller to
+build one with `encodeDiagnostic` directly (`{ ..., level: "warn", kind: "audit" }`),
+bypassing `createEmitter` entirely. Every method resolves
 to an `EmitResult`: the encoder's own result on success or on a validation refusal, or
 `{ ok: false, reason: "sink-failed", path: "" }` if `emit` itself threw or rejected.
 `"sink-failed"` is deliberately not one of the spec's rejection reasons — whether a write

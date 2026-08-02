@@ -1903,6 +1903,7 @@ export interface DiagnosticEmitter {
     info(event: string, detail: EmitDetail): Promise<EmitResult>;
     warn(event: string, detail: EmitDetail): Promise<EmitResult>;
     error(event: string, detail: EmitDetail): Promise<EmitResult>;
+
     audit(event: string, detail: EmitDetail): Promise<EmitResult>;
 }
 ```
@@ -1964,7 +1965,7 @@ export type DiagnosticLevel = (typeof DIAGNOSTIC_LEVELS)[number];
 From `./event.js`.
 
 ```ts
-export type DiagnosticParseReason = DiagnosticEncodeReason | "not-json" | "wrong-message";
+export type DiagnosticParseReason = Exclude<DiagnosticEncodeReason, "line-too-long"> | "not-json" | "wrong-message";
 ```
 
 ### `EmitDetail` *(type-only)*

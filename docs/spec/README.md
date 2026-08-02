@@ -115,8 +115,12 @@ gateway: the closed member set (`nimbus`, `ts`, `level`, `extensionId`, `event`,
 [`levels.json`](./diagnostics/v1/levels.json), the encoding rules that make two bindings
 produce byte-identical lines, and the fourteen-reason rejection table checked in a fixed
 order. Unlike the hello frame, the envelope is **closed** — an unknown member is rejected, not
-ignored — which is the entire redaction guarantee: there is nowhere in it that a secret or a
-row of user data may go. See [RFC-0010](../rfcs/0010-diagnostics-contract-v0.md).
+ignored — which is the entire redaction guarantee: an open envelope has an unbounded number of
+places to put a secret or a row of user data, and this one has none beyond the nine members it
+names. That guarantee is about the *shape* of the envelope, not a proof that every member is
+inert — `fields` is closed to free text by construction, but `extensionId`, `event`, and
+`error.code` remain caller-controlled strings this document does not length-bound (§8). See
+[RFC-0010](../rfcs/0010-diagnostics-contract-v0.md).
 
 Its corpus, [`conformance/v1/diagnostics/`](./conformance/v1/diagnostics/), has three case
 kinds: `encode` (a value in, a line or a typed rejection out), `parse` (a line in, an event or
@@ -125,7 +129,7 @@ the published order).
 
 ### `conformance/v1/`
 
-Five corpora, because the contract has five kinds of assertion.
+Six corpora, because the contract has six kinds of assertion.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -173,6 +177,17 @@ above, with its own [`index.json`](./conformance/v1/negotiation/index.json) and
 check respectively. Separate from the document index for the same reason the framing and
 predicate corpora are: widening the published document index would make an older validator
 reject entries it cannot interpret.
+
+**Diagnostics cases** — [`diagnostics/`](./conformance/v1/diagnostics/) is the executable
+form of the [diagnostics / telemetry contract](./diagnostics/v1/diagnostics.md) above, with
+its own [`index.json`](./conformance/v1/diagnostics/index.json) and
+[`case.schema.json`](./conformance/v1/diagnostics/case.schema.json). Three case kinds —
+`encode` (a value in, a line or a typed rejection out), `parse` (a line in, an event or a
+typed rejection out — the gateway's direction), and `level` (threshold comparison, pinning
+the published order) — cover the encoder, the parser, and §6's ordering respectively.
+Separate from the document index for the same reason the framing, predicate, and
+negotiation corpora are: widening the published document index would make an older
+validator reject entries it cannot interpret.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
@@ -260,6 +275,15 @@ corpus distinguishes validate-then-intersect from short-circuit-on-empty (RFC-00
 manifest rule ids are covered by `sdks/typescript/scripts/rules-guard.test.ts`
 instead, which already asserts every published rule — old and new alike — is declared
 identically by the registry and the rule table, and is asserted by at least one fixture.
+
+`sdks/typescript/scripts/diagnostics-guard.test.ts` asserts the published patterns (`ts`,
+`event`, `correlationId`, `fields` key) are spelled identically across the event schema and
+the spec's own prose, that `levels.json` and the runtime's `DIAGNOSTIC_LEVELS` agree, that
+the corpus validates against its schemas and every case agrees with `encodeDiagnostic`,
+`parseDiagnostic`, and `meetsLevel` respectively, that every envelope member has both an
+accepting and a rejecting case, that every rejection reason is produced by at least one
+case, and that no parse case expects `line-too-long` — §5.1 requires that reason be
+encode-only.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

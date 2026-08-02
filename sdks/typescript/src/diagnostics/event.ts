@@ -354,7 +354,10 @@ export function encodeDiagnostic(eventInput: unknown): EncodeResult {
   return { ok: true, line };
 }
 
-export type DiagnosticParseReason = DiagnosticEncodeReason | "not-json" | "wrong-message";
+export type DiagnosticParseReason =
+  | Exclude<DiagnosticEncodeReason, "line-too-long">
+  | "not-json"
+  | "wrong-message";
 
 export type ParseResult =
   | { readonly ok: true; readonly event: DiagnosticEvent }
@@ -372,9 +375,11 @@ export type ParseResult =
  * {@link validateDiagnosticEvent}, the same member-validation core `encodeDiagnostic`
  * itself calls, so the two directions cannot drift apart on what a valid event is.
  *
- * **This function never reports `line-too-long`**, even though `DiagnosticParseReason`
- * (being `DiagnosticEncodeReason | "not-json" | "wrong-message"`) is wide enough to carry
- * it. `line-too-long` measures a serialized line's UTF-8 byte length, and this function
+ * **This function never reports `line-too-long`** — `DiagnosticParseReason` is
+ * `Exclude<DiagnosticEncodeReason, "line-too-long"> | "not-json" | "wrong-message"`,
+ * so the type itself cannot carry it; this is the parse-side mirror of how
+ * {@link ValidationReason} already excludes it for {@link validateDiagnosticEvent}.
+ * `line-too-long` measures a serialized line's UTF-8 byte length, and this function
  * only validates — it never re-serializes what it just parsed. That is also a deliberate
  * behavioural choice, not an oversight: a line that reached this function was already
  * delivered by a reader bounded at `IPC_MAX_LINE_BYTES` (`wire/v1/framing.md` §6), so

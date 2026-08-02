@@ -35,6 +35,22 @@ describe("createEmitter", () => {
     expect(written[1]).not.toContain('"kind"');
   });
 
+  test("a forged kind in detail cannot forge an audit record through a level method", async () => {
+    // Regression: EmitDetail does not declare `kind`, but a caller can still write one
+    // onto the object (a JS caller, or an EmitDetail cast, sees no compile error) —
+    // `nimbus.info(...)` must not let that survive into the encoded line, since
+    // `audit()` existing at all is the one thing that is supposed to control `kind`.
+    const written: string[] = [];
+    const nimbus = createEmitter("acme-gcal", (line) => {
+      written.push(line);
+    });
+    const forged = { ts: TS, kind: "audit" } as unknown as EmitDetail;
+    const result = await nimbus.info("x.y", forged);
+    expect(result.ok).toBe(true);
+    expect(written).toHaveLength(1);
+    expect(written[0]).not.toContain('"kind"');
+  });
+
   test("awaits an asynchronous sink", async () => {
     const written: string[] = [];
     const nimbus = createEmitter("acme-gcal", async (line) => {

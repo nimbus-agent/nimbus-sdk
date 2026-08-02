@@ -50,11 +50,33 @@ export interface DiagnosticEmitter {
   info(event: string, detail: EmitDetail): Promise<EmitResult>;
   warn(event: string, detail: EmitDetail): Promise<EmitResult>;
   error(event: string, detail: EmitDetail): Promise<EmitResult>;
+  /**
+   * Encodes at `level: "info"` with `kind: "audit"` — always, both fixed. There is
+   * currently no way to record an audited *failure* through this emitter: an audit
+   * record at `level: "warn"` or `"error"` needs a caller to construct one with
+   * `encodeDiagnostic({ ..., level: "warn", kind: "audit" })` directly, bypassing this
+   * interface. This is a real gap, not an oversight papered over — see the discussion
+   * in `docs/modules/diagnostics.md`'s `createEmitter` section before changing it;
+   * whether `audit` should take a `level` parameter is an API decision for that
+   * document's own review, not something to change quietly here.
+   */
   audit(event: string, detail: EmitDetail): Promise<EmitResult>;
 }
 
 const SINK_FAILED: EmitResult = { ok: false, reason: "sink-failed", path: "" };
 const NOT_OBJECT: EmitResult = { ok: false, reason: "not-object", path: "" };
+
+/**
+ * `EmitDetail`'s own declared members. `snapshotDetail` copies every own key it finds —
+ * intentionally, so a hostile getter is still caught — but that means an undeclared key
+ * (`kind`, `level`, `nimbus`, or anything else) survives into the snapshot too. Filtering
+ * down to exactly this list before building the encoder's input is what stops a caller
+ * from writing `nimbus.info("x.y", {ts, kind: "audit"} as EmitDetail)` and forging an
+ * audit record through a method that never asked for one: `kind` is a *fixed* member this
+ * function decides, never a caller-supplied one, and `audit()`'s entire purpose is
+ * controlling which calls get to set it.
+ */
+const DETAIL_KEYS = ["ts", "correlationId", "fields", "error"] as const;
 
 /**
  * Copies `detail`'s own top-level members into a plain object, reading each one exactly
@@ -98,8 +120,17 @@ export function createEmitter(extensionId: string, emit: DiagnosticEmit): Diagno
     const snapshot = snapshotDetail(detail);
     if (snapshot === null) return NOT_OBJECT;
 
+    // Only the four declared EmitDetail members pass through. An undeclared key in
+    // `snapshot` — `kind` included — is dropped here rather than reaching
+    // `encodeDiagnostic`, so the fixed members below are the only source of `kind`,
+    // `level`, `extensionId`, and `event` in the encoded event.
+    const allowedDetail: Record<string, unknown> = {};
+    for (const key of DETAIL_KEYS) {
+      if (key in snapshot) allowedDetail[key] = snapshot[key];
+    }
+
     const encoded = encodeDiagnostic({
-      ...snapshot,
+      ...allowedDetail,
       level,
       extensionId,
       event,

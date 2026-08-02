@@ -1940,6 +1940,243 @@ From `./search-filter.js`.
 export declare function tagText(row: Record<string, unknown>): string;
 ```
 
+## `./diagnostics`
+
+24 exports.
+
+### `DIAGNOSTIC_CORRELATION_ID_PATTERN`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_CORRELATION_ID_PATTERN: RegExp;
+```
+
+### `DIAGNOSTIC_FIELD_KEY_PATTERN`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_FIELD_KEY_PATTERN: RegExp;
+```
+
+### `DIAGNOSTIC_KINDS`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_KINDS: readonly ["diagnostic", "audit"];
+```
+
+### `DIAGNOSTIC_LEVELS`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_LEVELS: readonly ["debug", "info", "warn", "error"];
+```
+
+### `DIAGNOSTIC_MAX_FIELDS`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_MAX_FIELDS = 16;
+```
+
+### `DIAGNOSTIC_NAME_PATTERN`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_NAME_PATTERN: RegExp;
+```
+
+### `DIAGNOSTIC_TS_PATTERN`
+
+From `./event.js`.
+
+```ts
+export declare const DIAGNOSTIC_TS_PATTERN: RegExp;
+```
+
+### `DiagnosticEmit` *(type-only)*
+
+From `./emitter.js`.
+
+```ts
+export type DiagnosticEmit = (line: string) => void | Promise<void>;
+```
+
+### `DiagnosticEmitter` *(type-only)*
+
+From `./emitter.js`.
+
+```ts
+export interface DiagnosticEmitter {
+    debug(event: string, detail: EmitDetail): Promise<EmitResult>;
+    info(event: string, detail: EmitDetail): Promise<EmitResult>;
+    warn(event: string, detail: EmitDetail): Promise<EmitResult>;
+    error(event: string, detail: EmitDetail): Promise<EmitResult>;
+    audit(event: string, detail: EmitDetail): Promise<EmitResult>;
+}
+```
+
+### `DiagnosticEncodeReason` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export type DiagnosticEncodeReason = "not-object" | "unknown-member" | "invalid-ts" | "invalid-level" | "invalid-extension-id" | "invalid-event" | "invalid-kind" | "invalid-correlation-id" | "invalid-fields" | "invalid-field-key" | "invalid-field-value" | "too-many-fields" | "invalid-error" | "line-too-long";
+```
+
+### `DiagnosticError` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export interface DiagnosticError {
+    code: string;
+    retriable?: boolean;
+}
+```
+
+### `DiagnosticEvent` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export interface DiagnosticEvent {
+    ts: string;
+    level: DiagnosticLevel;
+    extensionId: string;
+    event: string;
+    kind?: DiagnosticKind;
+    correlationId?: string;
+    fields?: Record<string, number | boolean>;
+    error?: DiagnosticError;
+}
+```
+
+### `DiagnosticKind` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export type DiagnosticKind = (typeof DIAGNOSTIC_KINDS)[number];
+```
+
+### `DiagnosticLevel` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export type DiagnosticLevel = (typeof DIAGNOSTIC_LEVELS)[number];
+```
+
+### `DiagnosticParseReason` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export type DiagnosticParseReason = DiagnosticEncodeReason | "not-json" | "wrong-message";
+```
+
+### `EmitDetail` *(type-only)*
+
+From `./emitter.js`.
+
+```ts
+export interface EmitDetail {
+    ts: string;
+    correlationId?: string;
+    fields?: Record<string, number | boolean>;
+    error?: DiagnosticError;
+}
+```
+
+### `EmitResult` *(type-only)*
+
+From `./emitter.js`.
+
+```ts
+export type EmitResult = EncodeResult | {
+    readonly ok: false;
+    readonly reason: "sink-failed";
+    readonly path: "";
+};
+```
+
+### `EncodeResult` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export type EncodeResult = {
+    readonly ok: true;
+    readonly line: string;
+} | {
+    readonly ok: false;
+    readonly reason: DiagnosticEncodeReason;
+    readonly path: string;
+};
+```
+
+### `ParseResult` *(type-only)*
+
+From `./event.js`.
+
+```ts
+export type ParseResult = {
+    readonly ok: true;
+    readonly event: DiagnosticEvent;
+} | {
+    readonly ok: false;
+    readonly reason: DiagnosticParseReason;
+    readonly path: string;
+};
+```
+
+### `createEmitter`
+
+From `./emitter.js`.
+
+```ts
+export declare function createEmitter(extensionId: string, emit: DiagnosticEmit): DiagnosticEmitter;
+```
+
+### `encodeDiagnostic`
+
+From `./event.js`.
+
+```ts
+export declare function encodeDiagnostic(event: unknown): EncodeResult;
+```
+
+### `isDiagnosticEvent`
+
+From `./event.js`.
+
+```ts
+export declare function isDiagnosticEvent(value: unknown): value is DiagnosticEvent;
+```
+
+### `meetsLevel`
+
+From `./event.js`.
+
+```ts
+export declare function meetsLevel(level: DiagnosticLevel, threshold: DiagnosticLevel): boolean;
+```
+
+### `parseDiagnostic`
+
+From `./event.js`.
+
+```ts
+export declare function parseDiagnostic(line: string): ParseResult;
+```
+
 ## `./ipc`
 
 14 exports.
@@ -2104,7 +2341,7 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ## `./testing`
 
-2 exports.
+3 exports.
 
 ### `MockGateway`
 
@@ -2114,6 +2351,14 @@ From `(local)`.
 export declare class MockGateway {
     callTool(_toolName: string, _input: Record<string, unknown>): Promise<unknown>;
 }
+```
+
+### `expectNoRejectedDiagnostics`
+
+From `./diagnostics-assert.js`.
+
+```ts
+export declare function expectNoRejectedDiagnostics(results: readonly EmitResult[]): void;
 ```
 
 ### `runSandboxContractTests`

@@ -286,6 +286,48 @@ export const SMOKE_CALLS = [
       }
     },
   },
+  {
+    module: "diagnostics/event",
+    run: (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
+      const result = diagnostics.encodeDiagnostic({
+        ts: "2026-08-01T12:00:00.000Z",
+        level: "info",
+        extensionId: "smoke",
+        event: "smoke.run",
+      });
+      if (!result.ok) throw new Error(`encodeDiagnostic refused a valid event: ${result.reason}`);
+      const parsed = diagnostics.parseDiagnostic(result.line);
+      if (!parsed.ok) throw new Error(`parseDiagnostic refused its own line: ${parsed.reason}`);
+      if (!diagnostics.meetsLevel("warn", "info")) {
+        throw new Error("meetsLevel says warn is below info");
+      }
+    },
+  },
+  {
+    module: "diagnostics/emitter",
+    run: async (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
+      const lines = [];
+      const emitter = diagnostics.createEmitter("smoke", (line) => {
+        lines.push(line);
+      });
+      const result = await emitter.info("smoke.run", { ts: "2026-08-01T12:00:00.000Z" });
+      if (!result.ok) throw new Error(`createEmitter refused a valid event: ${result.reason}`);
+      if (lines.length !== 1) throw new Error(`the sink received ${lines.length} lines, not 1`);
+    },
+  },
+  {
+    module: "testing/diagnostics-assert",
+    run: (_sdk, testing) => {
+      testing.expectNoRejectedDiagnostics([]);
+      let threw = false;
+      try {
+        testing.expectNoRejectedDiagnostics([{ ok: false, reason: "invalid-ts", path: "/ts" }]);
+      } catch {
+        threw = true;
+      }
+      if (!threw) throw new Error("expectNoRejectedDiagnostics accepted a refused result");
+    },
+  },
 ];
 
 /** A minimal manifest that satisfies runContractTests. */

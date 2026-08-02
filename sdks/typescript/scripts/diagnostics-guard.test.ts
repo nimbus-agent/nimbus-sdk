@@ -40,12 +40,22 @@ describe("published artifacts", () => {
   });
 
   test("the schema spells every pattern exactly as the spec does", () => {
-    const schema = readJson(EVENT_SCHEMA_PATH) as {
-      properties: Record<string, { pattern?: string; propertyNames?: { pattern: string } }>;
-    };
-    expect(schema.properties.ts.pattern).toBe(TS_PATTERN);
-    expect(schema.properties.event.pattern).toBe(NAME_PATTERN);
-    expect(schema.properties.correlationId.pattern).toBe(CORRELATION_ID_PATTERN);
-    expect(schema.properties.fields.propertyNames?.pattern).toBe(FIELD_KEY_PATTERN);
+    type PatternedProperty = { pattern?: string; propertyNames?: { pattern: string } };
+    type PatternedSchema = { properties: Record<string, PatternedProperty> };
+
+    // Reads through the index signature with bracket access, so a missing or misspelled
+    // property yields `undefined` here — and fails the `toBe` assertion below — rather than
+    // throwing a TypeError, which is what a `schema.properties.ts`-style dotted read plus a
+    // non-null assertion would risk hiding.
+    const patternOf = (schema: PatternedSchema, key: string): string | undefined =>
+      schema.properties[key]?.pattern;
+    const fieldKeyPatternOf = (schema: PatternedSchema, key: string): string | undefined =>
+      schema.properties[key]?.propertyNames?.pattern;
+
+    const schema = readJson(EVENT_SCHEMA_PATH) as PatternedSchema;
+    expect(patternOf(schema, "ts")).toBe(TS_PATTERN);
+    expect(patternOf(schema, "event")).toBe(NAME_PATTERN);
+    expect(patternOf(schema, "correlationId")).toBe(CORRELATION_ID_PATTERN);
+    expect(fieldKeyPatternOf(schema, "fields")).toBe(FIELD_KEY_PATTERN);
   });
 });

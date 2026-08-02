@@ -37,6 +37,12 @@
       "types": "./dist/connector-kit/index.d.ts",
       "import": "./dist/connector-kit/index.js",
       "default": "./dist/connector-kit/index.js"
+    },
+    "./diagnostics": {
+      "bun": "./src/diagnostics/index.ts",
+      "types": "./dist/diagnostics/index.d.ts",
+      "import": "./dist/diagnostics/index.js",
+      "default": "./dist/diagnostics/index.js"
     }
   },
   "files": [

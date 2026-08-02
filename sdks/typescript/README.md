@@ -158,7 +158,8 @@ each half with its own test — keep them.
 
 - **`@nimbus-dev/sdk`** — the main contract: `NimbusExtensionServer`, the plugin
   API types, `ExtensionManifest` / `NimbusItem`, HITL requests, distribution-channel
-  resolution, the scoped audit logger, iCalendar + JMAP helpers, and the
+  resolution, the scoped audit logger (its free-form payload is `@deprecated` in favor
+  of `@nimbus-dev/sdk/diagnostics` below), iCalendar + JMAP helpers, and the
   `crypto` / `data-profile` / `agents` helper modules.
 - **`@nimbus-dev/sdk/testing`** — `MockGateway` + contract-test / sandbox-probe
   utilities for connector test suites.
@@ -169,6 +170,15 @@ each half with its own test — keep them.
   JSON fetcher with origin-locked URL resolution. Still dependency-free: `ZodObjectSchema`
   is a structural type, not an import of `zod`. This is the entry point the generated
   `main.ts` above imports from.
+- **`@nimbus-dev/sdk/diagnostics`** — the diagnostics / telemetry contract v0:
+  `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the
+  closed `DiagnosticEvent` envelope, and `createEmitter` for building a sink-backed
+  `DiagnosticEmitter`. Validated rather than trusted — a `fields` member holds only
+  numbers and booleans, so there is nowhere in a `fields` value for a secret or a row
+  of user data to go. That guarantee covers `fields`, not every string on the
+  envelope: `extensionId`, `event`, and `error.code` are still caller-controlled
+  strings this contract does not length-bound (spec §8). The redaction-safe
+  replacement for the scoped audit logger's free-form payload above.
 
 Changing an exported type is a semver-relevant change.
 

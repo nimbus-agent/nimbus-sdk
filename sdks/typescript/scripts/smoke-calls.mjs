@@ -9,7 +9,7 @@
  * documentation guard derives from `buildSurface()`. `scripts/smoke-calls.test.ts` asserts
  * this list covers every one of them, so adding a battery fails until it has a call here.
  *
- * Each `run` receives the four entry points already imported by the smoke, so no entry
+ * Each `run` receives the five entry points already imported by the smoke, so no entry
  * re-resolves them.
  */
 
@@ -209,6 +209,26 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "testing/diagnostics-assert",
+    run: (_sdk, testing) => {
+      // Must not throw: every result is `ok: true`.
+      testing.expectNoRejectedDiagnostics([{ ok: true, line: "{}" }]);
+
+      // Must throw: at least one result is `ok: false`, which is the entire point of the
+      // helper — a call site that swallows this exception is the require()-in-a-function-
+      // body failure mode this file exists to catch, applied to this module.
+      let threw = false;
+      try {
+        testing.expectNoRejectedDiagnostics([
+          { ok: false, reason: "invalid-field-value", path: "/fields/user" },
+        ]);
+      } catch {
+        threw = true;
+      }
+      if (!threw) throw new Error("expectNoRejectedDiagnostics did not throw on a refusal");
+    },
+  },
+  {
     module: "testing/index",
     run: async (_sdk, testing) => {
       const result = await new testing.MockGateway().callTool("x", {});
@@ -283,6 +303,32 @@ export const SMOKE_CALLS = [
       const parsed = JSON.parse(result.content[0]?.text ?? "null");
       if (!Array.isArray(parsed?.matches) || parsed.matches.length !== 1) {
         throw new Error(`matchesResult produced an unexpected wrapper: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
+    module: "diagnostics/event",
+    run: (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
+      const result = diagnostics.encodeDiagnostic({
+        ts: "2026-08-01T12:00:00.000Z",
+        level: "info",
+        extensionId: "smoke",
+        event: "smoke.run",
+      });
+      if (!result.ok) throw new Error(`encodeDiagnostic refused a valid event: ${result.reason}`);
+    },
+  },
+  {
+    module: "diagnostics/emitter",
+    run: async (_sdk, _testing, _ipc, _connectorKit, diagnostics) => {
+      const lines = [];
+      const emitter = diagnostics.createEmitter("smoke", (line) => {
+        lines.push(line);
+      });
+      if (typeof emitter.info !== "function") throw new Error("createEmitter returned no info()");
+      const result = await emitter.info("smoke.run", { ts: "2026-08-01T12:00:00.000Z" });
+      if (!result.ok || lines.length !== 1) {
+        throw new Error(`createEmitter's info() did not emit a line: ${JSON.stringify(result)}`);
       }
     },
   },

@@ -26,7 +26,7 @@ Three hard constraints shape every decision here:
 
 ## The public surface (the `exports` map)
 
-The package exposes exactly four entry points. Everything else is internal.
+The package exposes exactly five entry points. Everything else is internal.
 
 | Entry point | Source | Purpose |
 |---|---|---|
@@ -34,6 +34,7 @@ The package exposes exactly four entry points. Everything else is internal.
 | `@nimbus-dev/sdk/testing` | `sdks/typescript/src/testing/index.ts` | `MockGateway` + contract-test / sandbox-probe utilities for connector test suites. |
 | `@nimbus-dev/sdk/ipc` | `sdks/typescript/src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
 | `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, and the Bearer-auth REST fetcher. The generated TypeScript connector template imports from here. |
+| `@nimbus-dev/sdk/diagnostics` | `sdks/typescript/src/diagnostics/index.ts` | The diagnostics / telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the closed `DiagnosticEvent` envelope, and `createEmitter` for a sink-backed `DiagnosticEmitter`. The redaction-safe replacement for the scoped audit logger's free-form payload. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.
@@ -195,11 +196,18 @@ debugger to the gateway. Two SDK-defined channels carry signal back across the
 boundary without leaking data:
 
 - **Audit** — the injected `AuditLogger` (`AuditEmit` sink supplied by the gateway)
-  for structured, security-relevant events.
-- **Diagnostics** — a planned structured telemetry contract (levels, correlation
-  ids, timing) the gateway can surface, under the same data-minimization rule as the
-  batteries: no secrets, no row/body data. See
-  [roadmap Pillar 8](./ROADMAP.md#8-observability--diagnostics).
+  for structured, security-relevant events. Its free-form payload is `@deprecated`
+  as of `1.16.0` in favor of the diagnostics envelope below — see
+  [DEPRECATION-POLICY.md](./DEPRECATION-POLICY.md) — and may be removed no earlier
+  than a `2.0.0` major bump.
+- **Diagnostics** — the structured, redaction-safe diagnostic envelope (levels,
+  correlation ids, timing) the gateway can surface, under the same data-minimization
+  rule as the batteries: no secrets, no row/body data, enforced structurally by a
+  closed envelope shape rather than left to author discipline. Published as the
+  fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`, with the Python
+  binding at `nimbus_sdk.diagnostics`. See
+  [roadmap Pillar 8](./ROADMAP.md#8-observability--diagnostics) and the normative
+  spec at [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md).
 
 Both are *contracts the SDK defines*, not I/O the SDK performs — the gateway owns the
 sink, the SDK owns the shape.

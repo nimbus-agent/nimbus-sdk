@@ -1,0 +1,10 @@
+{
+  "description": "The canonical line plus an unknown member (message) is refused as unknown-member on the parse side, the same as on encode.",
+  "kind": "parse",
+  "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"message\":\"leak\"}",
+  "expect": {
+    "ok": false,
+    "reason": "unknown-member",
+    "path": "/message"
+  }
+}

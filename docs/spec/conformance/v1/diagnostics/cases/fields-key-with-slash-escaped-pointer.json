@@ -1,0 +1,18 @@
+{
+  "description": "A fields key literally containing a slash (a/b) is refused as invalid-field-key, with the path escaped per RFC 6901 as /fields/a~1b.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "a/b": 1
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-key",
+    "path": "/fields/a~1b"
+  }
+}

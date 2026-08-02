@@ -1,0 +1,10 @@
+{
+  "description": "The candidate event is null — valid JSON, not an object.",
+  "kind": "encode",
+  "event": null,
+  "expect": {
+    "ok": false,
+    "reason": "not-object",
+    "path": ""
+  }
+}

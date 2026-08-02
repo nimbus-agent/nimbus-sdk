@@ -53,8 +53,16 @@ Early. This release carries the contract-version constants, the negotiation algo
 and the published JSON Schemas. It also carries the IPC surface —
 `from nimbus_sdk.ipc import NdjsonLineReader, parse_hello, perform_handshake` —
 deliberately a separate import root from `nimbus_sdk`, mirroring the `.` vs `./ipc`
-split the TypeScript package publishes. It is not yet the full connector-authoring
-surface — see the
+split the TypeScript package publishes. It now also carries the diagnostics /
+telemetry contract v0 — `from nimbus_sdk.diagnostics import encode_diagnostic,
+parse_diagnostic, meets_level` — a third, likewise separate import root, running the
+same conformance corpus as the TypeScript reference byte-identically, plus a
+Python-only `format_timestamp` helper: `datetime.isoformat()` emits six fractional
+digits and a `+00:00` offset, and `timespec="milliseconds"` fixes only the first, so
+neither produces the contract's timestamp format on its own. This package ships no
+emitter — there is no Python counterpart to TypeScript's `createEmitter` — so
+writing an encoded line to a sink is left to the caller. It is not yet the full
+connector-authoring surface — see the
 [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
 
 `perform_handshake` is the one exchange this package performs end to end: write our

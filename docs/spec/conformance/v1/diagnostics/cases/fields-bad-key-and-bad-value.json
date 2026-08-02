@@ -1,0 +1,19 @@
+{
+  "description": "{a: \"bad\", B: 1}: key B violates the key pattern; key a's value is a string. Reports invalid-field-key at /fields/B, not invalid-field-value at /fields/a, because every key is validated across the whole object before any value is.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "a": "bad",
+      "B": 1
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-key",
+    "path": "/fields/B"
+  }
+}

@@ -2,6 +2,15 @@
 
 # `audit-logger`
 
+> **Deprecated.** The free-form `payload: Record<string, unknown>` this module accepts is
+> exactly the shape that lets a secret slip into an audit entry — there is nowhere to put
+> one in the redaction-structural envelope. `@nimbus-dev/sdk/diagnostics` is the
+> replacement, export for export: `createScopedAuditLogger` → `createEmitter`,
+> `AuditLogger` → `DiagnosticEmitter`, and `AuditEmit` → `DiagnosticEmit` (the callback
+> `createEmitter` consumes). See [its module page](./diagnostics.md). All three are marked
+> `@deprecated` as of 1.16.0 and will not be removed before **2.0.0**, per the
+> [deprecation policy](../DEPRECATION-POLICY.md).
+
 A scoped audit logger. You give it your extension id and a way to emit; it gives you a
 `log(action, payload)` that cannot forge another extension's identity.
 

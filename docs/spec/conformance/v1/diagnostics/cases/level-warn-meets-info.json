@@ -1,0 +1,10 @@
+{
+  "description": "warn is at or above an info threshold.",
+  "kind": "level",
+  "level": "warn",
+  "threshold": "info",
+  "expect": {
+    "ok": true,
+    "meets": true
+  }
+}

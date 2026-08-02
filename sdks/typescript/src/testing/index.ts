@@ -7,8 +7,11 @@
  *   - `runSandboxContractTests(manifestPath)` — fork the probe binary and
  *     verify the runtime sandbox enforces the manifest's declared
  *     `permissions.network` + `permissions.filesystem` (Phase 5 T2 PR 1).
+ *   - `expectNoRejectedDiagnostics(results)` — fail a connector's own test suite
+ *     loudly if any `DiagnosticEmitter` call was refused and silently dropped.
  */
 
+export { expectNoRejectedDiagnostics } from "./diagnostics-assert.js";
 export { runSandboxContractTests } from "./sandbox-contract.js";
 
 export class MockGateway {

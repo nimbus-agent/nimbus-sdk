@@ -1,0 +1,10 @@
+{
+  "description": "A syntactically valid object whose nimbus is hello, not diag, is refused as wrong-message.",
+  "kind": "parse",
+  "line": "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"]}",
+  "expect": {
+    "ok": false,
+    "reason": "wrong-message",
+    "path": "/nimbus"
+  }
+}

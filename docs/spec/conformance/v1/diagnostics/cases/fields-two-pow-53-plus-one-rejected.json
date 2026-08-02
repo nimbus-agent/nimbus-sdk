@@ -1,0 +1,18 @@
+{
+  "description": "2^53+1 exceeds the +-(2^53-1) fields bound and is refused, even though it is nominally an integer.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "n": 9007199254740993
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-value",
+    "path": "/fields/n"
+  }
+}

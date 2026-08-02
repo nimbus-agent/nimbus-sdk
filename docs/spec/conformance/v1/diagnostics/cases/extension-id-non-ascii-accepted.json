@@ -1,0 +1,14 @@
+{
+  "description": "extensionId containing a literal non-ASCII character (acmé) is accepted and the output line contains the literal UTF-8 byte, never a \\uXXXX escape.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acmé",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acmé\",\"event\":\"sync.page\"}"
+  }
+}

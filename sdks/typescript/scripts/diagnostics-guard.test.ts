@@ -223,3 +223,17 @@ describe("diagnostics corpus — execution", () => {
     });
   }
 });
+
+describe("audit-logger deprecation window", () => {
+  test("all three exports are marked, and the message survives extraction", () => {
+    const surface = readText("docs/api-surface.md");
+    for (const name of ["createScopedAuditLogger", "AuditLogger", "AuditEmit"]) {
+      const section = surface.split(`### \`${name}\``)[1] ?? "";
+      expect(section).toContain("**Deprecated:**");
+      // The extractor ends a @deprecated message at the next whitespace-preceded @word,
+      // so an unwrapped @nimbus-dev/sdk truncates it to "use". Backticks are required.
+      expect(section).toContain("`@nimbus-dev/sdk/diagnostics`");
+      expect(section).toContain("2.0.0");
+    }
+  });
+});

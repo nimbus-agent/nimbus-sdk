@@ -2,6 +2,14 @@
 
 # `audit-logger`
 
+> **Deprecated since 1.16.0.** The free-form `payload` is superseded by the diagnostics
+> envelope — see [`diagnostics.md`](./diagnostics.md) and use `createEmitter` from
+> `@nimbus-dev/sdk/diagnostics`, whose `audit()` method carries the same intent with
+> `kind: "audit"`. `payload` is `Record<string, unknown>`, so it accepts a row, an
+> exception, or a token; the envelope admits only bounded identifiers, integers and
+> booleans, which is the same guarantee enforced structurally instead of by discipline.
+> Nothing here stops working: removal is no earlier than 2.0.0.
+
 A scoped audit logger. You give it your extension id and a way to emit; it gives you a
 `log(action, payload)` that cannot forge another extension's identity.
 

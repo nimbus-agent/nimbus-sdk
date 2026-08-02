@@ -1,0 +1,10 @@
+{
+  "description": "info meets an info threshold — the comparison is inclusive.",
+  "kind": "level",
+  "level": "info",
+  "threshold": "info",
+  "expect": {
+    "ok": true,
+    "meets": true
+  }
+}

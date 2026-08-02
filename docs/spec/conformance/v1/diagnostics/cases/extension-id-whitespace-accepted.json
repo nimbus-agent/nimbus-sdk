@@ -1,0 +1,14 @@
+{
+  "description": "extensionId of a single space is accepted — the rule is emptiness, not blankness.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": " ",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\" \",\"event\":\"sync.page\"}"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "description": "Every optional member populated: kind, correlationId, fields, and error all present at once.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "kind": "audit",
+    "correlationId": "01J9Z4Q7",
+    "fields": {
+      "items": 42,
+      "partial": true
+    },
+    "error": {
+      "code": "token.expired",
+      "retriable": true
+    }
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"kind\":\"audit\",\"correlationId\":\"01J9Z4Q7\",\"fields\":{\"items\":42,\"partial\":true},\"error\":{\"code\":\"token.expired\",\"retriable\":true}}"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "description": "An empty extensionId is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-extension-id",
+    "path": "/extensionId"
+  }
+}

@@ -81,6 +81,8 @@ export interface AppStoreConnectJwtParams {
 
 ### `AuditEmit` *(type-only)*
 
+**Deprecated:** since 1.15.0 — use `createEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0.
+
 From `./audit-logger.js`.
 
 ```ts
@@ -88,6 +90,8 @@ export type AuditEmit = (action: string, payload: Record<string, unknown>) => Pr
 ```
 
 ### `AuditLogger` *(type-only)*
+
+**Deprecated:** since 1.15.0 — use `DiagnosticEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0.
 
 From `./audit-logger.js`.
 
@@ -1168,6 +1172,8 @@ export declare function createBriefGuard<T>(kind: string, extra: (b: Record<stri
 ```
 
 ### `createScopedAuditLogger`
+
+**Deprecated:** since 1.15.0 — use `createEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0.
 
 From `./audit-logger.js`.
 

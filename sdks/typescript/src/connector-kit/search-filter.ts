@@ -67,9 +67,42 @@ export function tagNamesFromObjects(row: Record<string, unknown>): string {
   return names.join(" ");
 }
 
+/**
+ * Normalise a caller-supplied `limit` into a finite, non-negative integer cap.
+ *
+ * `options.limit ?? 50` alone is not enough once this function is public API, because the
+ * cap is only ever compared with `>=` after a push. Three inputs went wrong:
+ * `limit: 0` and any negative returned **one** row (the break fires after the first push),
+ * and `limit: NaN` returned **every** row, because `n >= NaN` is false forever — an
+ * unbounded result set from an argument that asked for a bounded one. A fractional cap
+ * overshot by one for the same reason.
+ *
+ * Non-finite falls back to the documented default rather than to "unlimited": a caller who
+ * wants everything omits `limit`, and silently honouring `Infinity` would make NaN and
+ * Infinity behave alike when only one of them is plausibly deliberate.
+ *
+ * **This is the one deliberate divergence from `packages/mcp-connectors/shared/
+ * search-filter.ts`, which this module was otherwise copied from verbatim.** No generated
+ * connector can observe it: `searchToolInputSchema` types `limit` as
+ * `z.number().int().min(1).max(maxLimit).optional()` and the tool registrar `safeParse`s
+ * before the handler runs, so none of the corrected inputs can reach a connector's filter.
+ * The divergence exists for direct SDK consumers, who have no such schema in front of them.
+ */
+function normalizeCap(limit: number | undefined): number {
+  if (limit === undefined || !Number.isFinite(limit)) {
+    return 50;
+  }
+  return Math.max(0, Math.floor(limit));
+}
+
 export function filterByQuery<T>(items: readonly T[], options: FilterByQueryOptions<T>): T[] {
   const needle = options.query.toLowerCase();
-  const cap = options.limit ?? 50;
+  const cap = normalizeCap(options.limit);
+  // A zero cap asks for nothing; without this the first match is pushed before the `>=`
+  // check can stop it.
+  if (cap === 0) {
+    return [];
+  }
   const out: T[] = [];
   for (const item of items) {
     const parts = options.fields(item);

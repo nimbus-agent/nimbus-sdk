@@ -43,6 +43,32 @@ describe("filterByQuery", () => {
     expect(filterByQuery(many, { query: "n-", fields })).toHaveLength(50);
   });
 
+  // The cap is compared with `>=` only AFTER a push, so every degenerate limit below used
+  // to be off by one in the permissive direction — and NaN was off by the whole input.
+  // Unreachable from a connector (searchToolInputSchema requires an int >= 1) but reachable
+  // by any direct caller of this now-public export.
+  test("a zero limit returns nothing, not one row", () => {
+    expect(filterByQuery(rows, { query: "revenue", limit: 0, fields })).toHaveLength(0);
+  });
+
+  test("a negative limit returns nothing", () => {
+    expect(filterByQuery(rows, { query: "revenue", limit: -5, fields })).toHaveLength(0);
+  });
+
+  test("a non-finite limit falls back to the default cap rather than going unbounded", () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ name: `n-${i}`, tag: "x" }));
+    // Previously returned all 60: `n >= NaN` is false for every n, so the break never fired.
+    expect(filterByQuery(many, { query: "n-", limit: Number.NaN, fields })).toHaveLength(50);
+    expect(
+      filterByQuery(many, { query: "n-", limit: Number.POSITIVE_INFINITY, fields }),
+    ).toHaveLength(50);
+  });
+
+  test("a fractional limit floors rather than overshooting", () => {
+    // 2.5 previously yielded 3 — one more than the caller's own cap.
+    expect(filterByQuery(rows, { query: "", limit: 2.5, fields })).toHaveLength(2);
+  });
+
   test("fields returning null skips the item entirely", () => {
     const mixed = [{ name: "keep" }, { name: "skip" }, { name: "keep-too" }];
     const out = filterByQuery(mixed, {

@@ -23,3 +23,21 @@ export {
 } from "./mcp-tool-kit.js";
 export type { RestFetcherConfig, RestFetchResult, RestToolRegistrar } from "./rest-tool-kit.js";
 export { makeRestFetcher, makeRestToolRegistrar } from "./rest-tool-kit.js";
+export type {
+  FieldExtractor,
+  FilterByQueryOptions,
+  SearchFilter,
+  SearchMatchOptions,
+} from "./search-filter.js";
+export {
+  asObjectish,
+  asRecord,
+  fieldsFromKeys,
+  filterByQuery,
+  makeQueryFilter,
+  matchesResult,
+  nestedString,
+  stringField,
+  tagNamesFromObjects,
+  tagText,
+} from "./search-filter.js";

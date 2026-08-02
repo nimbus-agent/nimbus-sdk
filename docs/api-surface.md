@@ -1983,7 +1983,7 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ## `./testing`
 
-2 exports.
+3 exports.
 
 ### `MockGateway`
 
@@ -1993,6 +1993,14 @@ From `(local)`.
 export declare class MockGateway {
     callTool(_toolName: string, _input: Record<string, unknown>): Promise<unknown>;
 }
+```
+
+### `expectNoRejectedDiagnostics`
+
+From `./diagnostics-assert.js`.
+
+```ts
+export declare function expectNoRejectedDiagnostics(results: readonly EmitResult[]): void;
 ```
 
 ### `runSandboxContractTests`

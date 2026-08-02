@@ -1,4 +1,4 @@
-<!-- covers: contract-tests, testing/index, testing/sandbox-contract -->
+<!-- covers: contract-tests, testing/diagnostics-assert, testing/index, testing/sandbox-contract -->
 
 # `testing`
 
@@ -135,6 +135,50 @@ export async function checkContract(): Promise<string[]> {
 }
 ```
 
+Making a dropped diagnostic loud in your own suite — see the section below for why the
+emitter drops silently at runtime and this helper does the opposite in a test:
+
+```ts
+import { expectNoRejectedDiagnostics } from "@nimbus-dev/sdk/testing";
+
+// Shaped like the `EmitResult` values a `DiagnosticEmitter` method resolves to — the
+// type itself is not published, so this matches it structurally, the same way a real
+// caller collecting results from `nimbus.info(...)` and friends would, without an
+// import for a type this entry point does not export.
+const results = [
+  { ok: true, line: '{"nimbus":"diag","event":"sync.page"}' },
+  { ok: true, line: '{"nimbus":"diag","event":"sync.done"}' },
+] as const;
+
+export function testEmitsOnlyValidDiagnostics(): void {
+  expectNoRejectedDiagnostics(results);
+}
+```
+
+## Making dropped diagnostics loud in your own tests
+
+`createEmitter` (`@nimbus-dev/sdk/diagnostics`, not yet published from this entry point)
+never throws and never writes a line the wire contract's encoder refused — an invalid
+event is dropped, and the caller gets back an `{ ok: false, reason, path }` result instead
+of a written line. That is the correct behavior in production: a typo in an event name or
+an out-of-range field value must not be able to crash, or even destabilize, the connector
+it is trying to describe.
+
+It is the *wrong* behavior for a connector's own test suite, where a silently dropped
+diagnostic is a bug that should fail the build, not vanish. `expectNoRejectedDiagnostics`
+closes that gap without asking the emitter to behave differently depending on who is
+watching: collect the `EmitResult` values your test run produced, and hand the whole list
+to `expectNoRejectedDiagnostics`. It throws one `Error` naming every refused event's
+reason and JSON-Pointer path if any result has `ok: false`, and does nothing if every
+event encoded cleanly.
+
+The alternative — branching inside the emitter on `NODE_ENV` or an equivalent flag — was
+deliberately rejected. It would make "does this event validate" a claim about which
+process launched the connector rather than about the event itself, and that claim has no
+single answer across hosts: a normative behavior that depends on an ambient environment
+variable is untestable and unportable in exactly the way the rest of this contract works
+to avoid.
+
 The sandbox probe and the gateway mock:
 
 ```ts
@@ -171,6 +215,9 @@ correct.
   [`docs/spec/predicates/v1/`](../spec/predicates/v1/row-data-segments.json), with a drift
   guard holding the two together), `RowDataToolCandidate` (the `{ name, description? }` shape
   it takes), and `ExtensionContractError`.
+- **`testing/diagnostics-assert`** — `expectNoRejectedDiagnostics`. Throws if any
+  `EmitResult` in the list it is given has `ok: false`; otherwise a no-op. See "Making
+  dropped diagnostics loud in your own tests" above.
 - **`testing/index`** — `MockGateway`. `callTool` ignores both arguments and resolves to
   `{}`. It is a null object that lets a call site compile and run, not a mock you can
   script; substitute your own when a test needs a real answer.

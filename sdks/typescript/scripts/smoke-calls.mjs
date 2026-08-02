@@ -209,6 +209,26 @@ export const SMOKE_CALLS = [
     },
   },
   {
+    module: "testing/diagnostics-assert",
+    run: (_sdk, testing) => {
+      // Must not throw: every result is `ok: true`.
+      testing.expectNoRejectedDiagnostics([{ ok: true, line: "{}" }]);
+
+      // Must throw: at least one result is `ok: false`, which is the entire point of the
+      // helper — a call site that swallows this exception is the require()-in-a-function-
+      // body failure mode this file exists to catch, applied to this module.
+      let threw = false;
+      try {
+        testing.expectNoRejectedDiagnostics([
+          { ok: false, reason: "invalid-field-value", path: "/fields/user" },
+        ]);
+      } catch {
+        threw = true;
+      }
+      if (!threw) throw new Error("expectNoRejectedDiagnostics did not throw on a refusal");
+    },
+  },
+  {
     module: "testing/index",
     run: async (_sdk, testing) => {
       const result = await new testing.MockGateway().callTool("x", {});

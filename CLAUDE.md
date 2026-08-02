@@ -29,12 +29,19 @@ published package.
   `mcpJsonResult` and its variants, and `makeRestFetcher` / `makeRestToolRegistrar` (the
   Bearer-auth REST fetcher, with `resolveUrlWithBase` as its SSRF chokepoint). Still
   dependency-free — `ZodObjectSchema` is a structural type, not an import of `zod`. The
-  generated connector template imports from here, so it is a **four**-entry `exports` map.
+  generated connector template imports from here.
+- `./diagnostics` (`sdks/typescript/src/diagnostics/index.ts`) — the structured,
+  redaction-safe diagnostic envelope: `encodeDiagnostic` / `parseDiagnostic`,
+  `isDiagnosticEvent`, `meetsLevel`, and `createEmitter`. Its own entry point because
+  diagnostics is its own contract, specified at `docs/spec/diagnostics/v1/` and pinned by
+  the corpus at `docs/spec/conformance/v1/diagnostics/` (RFC-0010). Redaction is
+  structural: `fields` admits booleans and safe integers and nothing else, so there is
+  nowhere to put a secret. That makes it a **five**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
 
-## Python surface (two import roots, deliberately)
+## Python surface (three import roots, deliberately)
 
 - `nimbus_sdk` (`sdks/python/src/nimbus_sdk/__init__.py`) — the contract-version
   constants, the negotiation algorithm, and `load_schema` / `load_corpus` / `spec_root`.
@@ -44,14 +51,27 @@ the release-please bump.
   `handshake.py` (`perform_handshake`, `HandshakeIO`, `HandshakeOk`, `HandshakeRefused`,
   `HandshakeResult`) — the one exchange this package performs end to end. It is
   **synchronous** where TypeScript's `performHandshake` is async, which with the
-  `isinstance`-vs-tagged-union split is one of the only two ways the bindings differ on
-  purpose.
+  `isinstance`-vs-tagged-union split is one of the only two ways the bindings *behave*
+  differently on purpose.
+- `nimbus_sdk.diagnostics` (`sdks/python/src/nimbus_sdk/diagnostics/`) — `event.py`
+  (`encode_diagnostic`, `parse_diagnostic`, `meets_level`, `EncodeOk`, `EncodeRejected`,
+  `EncodeResult`, `ParseOk`, `ParseRejected`, `ParseResult`, `DIAGNOSTIC_LEVELS`,
+  `DIAGNOSTIC_KINDS`) and `timestamp.py` (`format_timestamp`).
 
-**The IPC names are NOT re-exported from `nimbus_sdk`, and must not be.** The split
-mirrors the `.` vs `./ipc` boundary the TypeScript `exports` map publishes: it states
-that the IPC surface is a separate contract. Python has no bundling reason to need a
-second entry point, so the boundary is documentation — and hoisting the names to the
-top level as a convenience would erase it.
+**The IPC and diagnostics names are NOT re-exported from `nimbus_sdk`, and must not be.**
+The split mirrors the `.` vs `./ipc` vs `./diagnostics` boundaries the TypeScript
+`exports` map publishes: it states that each is a separate contract. Python has no
+bundling reason to need extra entry points, so the boundary is documentation — and
+hoisting the names to the top level as a convenience would erase it.
+`tests/test_diagnostics.py` asserts the diagnostics names stay off the top level.
+
+**Two *surface* asymmetries, distinct from the two behavioral ones above.** Python ships
+no emitter — `createEmitter` is a TypeScript-only wrapper, which is why its `sink-failed`
+result is not a contract reason and never reaches `case.schema.json`. Python ships
+`format_timestamp`, which has no TypeScript counterpart, because
+`new Date().toISOString()` is already conformant while `datetime.isoformat()` produces six
+fractional digits and a `+00:00` offset — and `timespec="milliseconds"` fixes only the
+first of those.
 
 Both bindings execute the published conformance corpora: `negotiation` (all three
 kinds) and `framing`. Nothing is deferred, so a new corpus case runs in both languages

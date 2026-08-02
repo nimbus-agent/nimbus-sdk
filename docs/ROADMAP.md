@@ -204,7 +204,15 @@ same contract.*
   [TypeScript](./quickstart-typescript.md) and [Python](./quickstart-python.md), each
   pinned to the template it documents by a drift guard in
   `tools/create-connector/src/docs-excerpts.test.ts`.
-- [ ] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*
+- [x] A **diagnostics / telemetry contract v0** emitted by both SDKs — *Pillar 8*.
+  Specified normatively at [`spec/diagnostics/v1/`](./spec/diagnostics/v1/diagnostics.md),
+  pinned by 65 cases at
+  [`spec/conformance/v1/diagnostics/`](./spec/conformance/v1/diagnostics/) that both
+  bindings execute, and accepted as
+  [RFC-0010](./rfcs/0010-diagnostics-contract-v0.md). Redaction is structural rather than
+  a filter — the envelope admits bounded identifiers, safe integers and booleans, so
+  there is nowhere to put a secret. `createScopedAuditLogger`'s free-form payload is
+  deprecated in favour of it, with removal no earlier than 2.0.0.
 - [x] **Automated Python releases via release-please** — add a `python` component to
   `release-please-config.json` so merged Conventional Commits open a release PR and
   maintain the Python `CHANGELOG`, exactly as the `node` component does today — *Pillars 5, 7*
@@ -215,7 +223,7 @@ same contract.*
   an OIDC/provenance **preflight**, and a **post-publish install-and-verify** step that
   confirms the artifact + attestation from PyPI before the job is green — *Pillars 5, 7*
 
-> **Boxes 1–3 and 5–7 are done, and Python is now an official SDK.** A Python release can
+> **Every box is ticked, and Python is now an official SDK.** A Python release can
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that
 > way. The binding executes both published conformance corpora, every case kind, with
@@ -232,9 +240,15 @@ same contract.*
 > [`@nimbus-dev/create-connector`](https://www.npmjs.com/package/@nimbus-dev/create-connector)
 > and the quickstarts (box 3) document the `npm create` / `npx` invocations that resolve
 > against the registry, so a first-time author no longer needs a checkout of this
-> repository to scaffold either language. What still remains is the diagnostics contract
-> (box 4), plus a Python-authored connector running against the gateway, which is the one
-> exit clause this repository cannot demonstrate on its own.
+> repository to scaffold either language. The diagnostics contract (box 4) landed with
+> RFC-0010: a normative spec, a 65-case corpus both bindings execute, a fifth TypeScript
+> entry point, a third Python import root, and a deprecation window opened on the
+> audit logger's free-form payload.
+>
+> **Phase 2 is not complete.** Every box on the list is ticked, but the exit criteria are
+> not the box list: a Python-authored connector running against the gateway is the one
+> clause this repository cannot demonstrate on its own, since the gateway lives in the
+> [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo. That clause is what remains.
 
 **Exit criteria:** a Python-authored connector runs against the gateway and passes
 the same suite as the TS reference; the suite is green for both languages in CI; a

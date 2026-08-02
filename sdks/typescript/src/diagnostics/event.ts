@@ -280,3 +280,78 @@ export function encodeDiagnostic(eventInput: unknown): EncodeResult {
   if (new TextEncoder().encode(line).length > IPC_MAX_LINE_BYTES) return no("line-too-long", "");
   return { ok: true, line };
 }
+
+export type DiagnosticParseReason = DiagnosticEncodeReason | "not-json" | "wrong-message";
+
+export type ParseResult =
+  | { readonly ok: true; readonly event: DiagnosticEvent }
+  | { readonly ok: false; readonly reason: DiagnosticParseReason; readonly path: string };
+
+/**
+ * The gateway's direction: one decoded line in, an event or a refusal out.
+ *
+ * `nimbus` is stripped from the returned event. It is wire framing rather than event
+ * data, and stripping it is what makes `encodeDiagnostic(parseDiagnostic(l).event)`
+ * reproduce `l` exactly.
+ *
+ * Reason order follows §5.1: `not-json`, then `not-object`, then `wrong-message`, then
+ * §5's fourteen-row table starting at `unknown-member` — all delegated to
+ * {@link encodeDiagnostic}, which already snapshots its input and inherits the
+ * two-pass `fields` validation, so this function does not re-implement either.
+ */
+export function parseDiagnostic(line: string): ParseResult {
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(line);
+  } catch {
+    return { ok: false, reason: "not-json", path: "" };
+  }
+  if (!isRecord(decoded)) return { ok: false, reason: "not-object", path: "" };
+  if (decoded["nimbus"] !== "diag") return { ok: false, reason: "wrong-message", path: "/nimbus" };
+
+  const { nimbus: _discriminator, ...rest } = decoded;
+  const encoded = encodeDiagnostic(rest);
+  if (!encoded.ok) return { ok: false, reason: encoded.reason, path: encoded.path };
+
+  // `encoded.ok` already proves `rest` conforms to `DiagnosticEvent` — `encodeDiagnostic`
+  // is the one function in this module that decides that question. Rather than assert it
+  // with a cast (which would defeat the type system at exactly the boundary this function
+  // exists to police), re-check it through `isDiagnosticEvent`, a genuine type predicate
+  // over the same validation. That narrows `rest` for the compiler with no cast at all.
+  if (!isDiagnosticEvent(rest)) {
+    // Unreachable: `encodeDiagnostic(rest)` above already returned `ok: true`, and
+    // `isDiagnosticEvent` is defined as exactly that same check — so this branch can
+    // only run if the two disagreed, which would be a bug in this module rather than a
+    // caller error. `encoded` is narrowed to its `ok: true` arm by this point and no
+    // longer carries a `reason`/`path` to report, so this reports `not-object` rather
+    // than fabricating one.
+    return { ok: false, reason: "not-object", path: "" };
+  }
+  return { ok: true, event: rest };
+}
+
+/** Whether a value is an encodable diagnostic event. Total; never throws. */
+export function isDiagnosticEvent(value: unknown): value is DiagnosticEvent {
+  return encodeDiagnostic(value).ok;
+}
+
+/**
+ * Whether `level` is at or above `threshold` in the published order — a host filtering
+ * at `threshold` keeps the event. Defined on `DIAGNOSTIC_LEVELS`' index rather than a
+ * hard-coded number, which is what the drift guard in Task 4 protects.
+ *
+ * **Total: an argument that is not a published level answers `false`.** The types say
+ * both arguments are levels, but the types are erased at runtime and this is a published
+ * export — a JavaScript caller, or data crossing a boundary, reaches it untyped.
+ *
+ * The explicit guard is what keeps the two bindings honest. Left implicit, TypeScript's
+ * `indexOf` returns `-1` and answers `false` by accident, while Python's `.index()`
+ * raises `ValueError` — the same call, one silent answer and one crash. Neither language
+ * may rely on its own default here.
+ */
+export function meetsLevel(level: DiagnosticLevel, threshold: DiagnosticLevel): boolean {
+  const at = DIAGNOSTIC_LEVELS.indexOf(level);
+  const floor = DIAGNOSTIC_LEVELS.indexOf(threshold);
+  if (at < 0 || floor < 0) return false;
+  return at >= floor;
+}

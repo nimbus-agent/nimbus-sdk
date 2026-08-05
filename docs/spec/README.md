@@ -220,7 +220,7 @@ validating against an older copy is therefore unaffected by additions.
 
 ## How this stays true
 
-Six guards run on every pull request as part of `bun run test` (see
+Seven guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What

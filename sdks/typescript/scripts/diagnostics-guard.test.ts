@@ -3,7 +3,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
 import {
+  DIAGNOSTIC_CORRELATION_ID_PATTERN,
+  DIAGNOSTIC_FIELD_KEY_PATTERN,
   DIAGNOSTIC_LEVELS,
+  DIAGNOSTIC_NAME_PATTERN,
+  DIAGNOSTIC_TS_PATTERN,
   encodeDiagnostic,
   meetsLevel,
   parseDiagnostic,
@@ -50,6 +54,26 @@ describe("published artifacts", () => {
     // `\d` is ASCII-only in JavaScript and Unicode-aware in Python and Rust. A binding
     // transcribing it silently accepts "١٢٣". Spelled classes remove the keystroke.
     expect(readText(EVENT_SCHEMA_PATH)).not.toContain("\\\\d");
+  });
+
+  test("the runtime patterns spell every pattern exactly as the spec does", () => {
+    // The sibling of the two checks around it, on the third copy. The header above says
+    // every copy is compared against these constants; before this test the runtime copy
+    // was not, so `[0-9]` there rested on a source comment alone.
+    //
+    // It rests on a comment no longer, because a comment is not what a linter reads. A
+    // static analyser that flags `[0-9]` as a verbose spelling of `\d` is right about
+    // JavaScript in isolation — the two are identical there — and wrong about this
+    // contract: the spelling is normative across bindings, where `\d` is Unicode-aware
+    // (see `sdks/python/src/nimbus_sdk/diagnostics/event.py`'s identical note, and
+    // `cases/ts-non-ascii-digit-rejected.json`, which exists precisely to fail a binding
+    // that took the shorthand). Rewriting these to `\d` would leave every TypeScript
+    // test green while silently mistranslating the contract for the next binding
+    // transcribing it, so the accepted spelling is pinned rather than merely explained.
+    expect(DIAGNOSTIC_TS_PATTERN.source).toBe(TS_PATTERN);
+    expect(DIAGNOSTIC_NAME_PATTERN.source).toBe(NAME_PATTERN);
+    expect(DIAGNOSTIC_FIELD_KEY_PATTERN.source).toBe(FIELD_KEY_PATTERN);
+    expect(DIAGNOSTIC_CORRELATION_ID_PATTERN.source).toBe(CORRELATION_ID_PATTERN);
   });
 
   test("the schema spells every pattern exactly as the spec does", () => {

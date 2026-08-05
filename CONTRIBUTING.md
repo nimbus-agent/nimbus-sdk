@@ -79,9 +79,11 @@ satisfied — but write the prose anyway, since that is the point of the page.
 Code examples in `docs/modules/` and [`sdks/typescript/README.md`](./sdks/typescript/README.md)
 are typechecked against the built `dist/` by
 `sdks/typescript/scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
-standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, its
-`./testing` and `./ipc` entry points, or `node:` builtins. Use ` ```text ` for anything
-that is not meant to compile.
+standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, one of its
+other entry points — `./testing`, `./ipc`, `./connector-kit`, `./diagnostics` — or
+`node:` builtins. The allowed set is read from the package's own `exports` map, so an
+entry point added there is importable in a snippet the moment it exists. Use ` ```text `
+for anything that is not meant to compile.
 
 Whether the export is additive or breaking is governed by the
 [deprecation policy](./docs/DEPRECATION-POLICY.md); whether a new *battery* belongs here
@@ -103,8 +105,9 @@ at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
   narrow with a type guard. Biome enforces the rules in `biome.json`, including
   `noExplicitAny` and `noConsole` in `sdks/typescript/src/`.
 - **Public surface is the `exports` map.** The package exposes `.`, `./testing`,
-  and `./ipc`. Changing an exported type is a semver-relevant change — bump
-  accordingly (Conventional Commits drive release-please).
+  `./ipc`, `./connector-kit`, and `./diagnostics`. Changing an exported type is a
+  semver-relevant change — bump accordingly (Conventional Commits drive
+  release-please).
 
 ## Relationship to other repos
 

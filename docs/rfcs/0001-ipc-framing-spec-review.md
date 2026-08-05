@@ -1,6 +1,6 @@
 # Review of RFC-0001: A normative wire spec for NDJSON framing
 
-This document captures review comments, open questions, improvements, and suggestions for [RFC-0001](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/phase1-contract-spec/docs/rfcs/0001-ipc-framing-spec.md).
+This document captures review comments, open questions, improvements, and suggestions for [RFC-0001](./0001-ipc-framing-spec.md).
 
 ---
 

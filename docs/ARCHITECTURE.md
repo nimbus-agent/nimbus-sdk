@@ -33,7 +33,7 @@ The package exposes exactly five entry points. Everything else is internal.
 | `@nimbus-dev/sdk` | `sdks/typescript/src/index.ts` | The main contract: connector/extension types, the Plugin API v1 surface, `NimbusExtensionServer`, and the battery modules. |
 | `@nimbus-dev/sdk/testing` | `sdks/typescript/src/testing/index.ts` | `MockGateway` + contract-test / sandbox-probe utilities for connector test suites. |
 | `@nimbus-dev/sdk/ipc` | `sdks/typescript/src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
-| `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, and the Bearer-auth REST fetcher. The generated TypeScript connector template imports from here. |
+| `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, the Bearer-auth REST fetcher, and the search kit (`filterByQuery` / `makeQueryFilter` / `matchesResult` and friends) for in-connector query filtering. The generated TypeScript connector template imports from here. |
 | `@nimbus-dev/sdk/diagnostics` | `sdks/typescript/src/diagnostics/index.ts` | The diagnostics / telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the closed `DiagnosticEvent` envelope, and `createEmitter` for a sink-backed `DiagnosticEmitter`. The redaction-safe replacement for the scoped audit logger's free-form payload. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
@@ -61,9 +61,14 @@ This layer is frozen under semver (Plugin API v1 — see
 
 ### 2. The server scaffolding
 
-- `sdks/typescript/src/server.ts` — `NimbusExtensionServer`, the MCP server a connector
-  instantiates to register tools and start serving. This is the primary thing a
-  connector author touches.
+- `sdks/typescript/src/server.ts` — `NimbusExtensionServer`, the authoring shape a
+  connector's entry module is written against. **Today it is a typed skeleton, not a
+  running server:** `registerTool` has an empty body, `start()` validates `manifest.id`
+  and returns, and no tool dispatch lives in this package — the MCP loop, the dispatch,
+  and the credential handoff all belong to the gateway. Its one working method is
+  `handshake()`, a thin delegate to `performHandshake`. The generated connector template
+  does not use this class at all; it wires `McpServer` from `@modelcontextprotocol/sdk`
+  directly. See [`modules/server.md`](./modules/server.md).
 
 ### 3. The batteries (helper modules)
 
@@ -135,11 +140,12 @@ Key properties this model gives us:
 
 ## Target architecture: spec-first, one contract, many languages
 
-Today the contract is still largely the TypeScript types, but the lift-out into a
-**language-neutral spec** has started: the v1 JSON Schemas for `ExtensionManifest` /
-`NimbusItem` are published and CI-pinned in [`spec/`](./spec/README.md); the written
-IPC wire-protocol spec and contract-version negotiation are what remain. Together
-they become the single source of truth. TypeScript becomes the *reference binding*,
+The lift-out into a **language-neutral spec** is done for Phase 1: the v1 JSON Schemas
+for `ExtensionManifest` / `NimbusItem` are published and CI-pinned in
+[`spec/`](./spec/README.md), and so are the written IPC wire-protocol spec
+([`wire/v1/framing.md`](./spec/wire/v1/framing.md)) and contract-version negotiation
+([`negotiation/v1/contract-version.md`](./spec/negotiation/v1/contract-version.md)).
+Together they are the single source of truth. TypeScript is the *reference binding*,
 not the definition, and every other official SDK is another binding validated
 against **one shared conformance suite**.
 
@@ -182,9 +188,10 @@ snapshot test — [`api-surface.md`](./api-surface.md), regenerated with
 `sdks/typescript/scripts/api-surface.test.ts` — so that an unintended surface change
 fails CI. Deprecations follow the
 [deprecation policy](./DEPRECATION-POLICY.md) (mark in a released minor → carried
-through a later, separate minor release → removal at a major bump), and once the spec
-exists, a **contract-version** is negotiated between connector and gateway so both
-know which version they speak. The mechanics live in the
+through a later, separate minor release → removal at a major bump), and a
+**contract-version** is negotiated between connector and gateway — specified in
+[`negotiation/v1/contract-version.md`](./spec/negotiation/v1/contract-version.md) — so
+both know which version they speak. The mechanics live in the
 [roadmap](./ROADMAP.md#7-versioning--compatibility) and
 [governance](./GOVERNANCE.md#change-classes) docs; the architectural point is that
 the contract has *one* place it is defined and *one* process by which it moves.

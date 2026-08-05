@@ -253,42 +253,35 @@ type ValidationResult =
   | { readonly ok: false; readonly failure: ValidationFailure };
 
 /**
- * Validation only — no serialization. The one place §5's member checks live; both
- * directions this module offers delegate to it rather than duplicating it:
- * {@link encodeDiagnostic} serializes its success arm and additionally enforces
- * `line-too-long`, and {@link parseDiagnostic} needs nothing beyond this, because a line
- * that has already been decoded was necessarily delivered by a reader bounded at
- * `IPC_MAX_LINE_BYTES` — there is nothing left to serialize and no line-length check to
- * make on the parse side.
+ * §5's closedness check, which runs before any value check: an unknown member is a leak,
+ * and reporting it ahead of a value problem is what §5's reason order requires. Returns
+ * `null` when every member is one this document names.
  */
-const validateDiagnosticEvent = (eventInput: unknown): ValidationResult => {
-  if (!isRecord(eventInput)) return { ok: false, failure: fail("not-object", "") };
-
-  // The top-level snapshot is what makes a throwing getter unobservable: every read
-  // below this point is against the plain copy, never against the caller's own object,
-  // so an accessor can throw or misbehave at most once and never mid-validation.
-  const event = snapshot(eventInput);
-  if (event === null) return { ok: false, failure: fail("not-object", "") };
-
-  // Closedness is checked first: an unknown member is a leak, and reporting it before
-  // any value problem is what §5's reason order requires.
-  for (const key of Object.keys(event)) {
-    if (!KNOWN_MEMBERS.has(key)) {
-      return { ok: false, failure: fail("unknown-member", `/${escapePointerToken(key)}`) };
-    }
+const validateClosedness = (source: Record<string, unknown>): ValidationFailure | null => {
+  for (const key of Object.keys(source)) {
+    if (!KNOWN_MEMBERS.has(key)) return fail("unknown-member", `/${escapePointerToken(key)}`);
   }
+  return null;
+};
 
-  const {
-    ts,
-    level,
-    extensionId,
-    event: name,
-    kind,
-    correlationId,
-    fields: fieldsRaw,
-    error: errorRaw,
-  } = event;
+/** The four members every event carries, narrowed to their published types. */
+interface RequiredMembers {
+  readonly ts: string;
+  readonly level: DiagnosticLevel;
+  readonly extensionId: string;
+  readonly event: string;
+}
 
+type RequiredValidation =
+  | { readonly ok: true; readonly members: RequiredMembers }
+  | { readonly ok: false; readonly failure: ValidationFailure };
+
+/**
+ * `ts`, `level`, `extensionId`, `event` — checked in exactly that order, because §5 fixes
+ * the reason order and an event can be wrong in more than one way at once.
+ */
+const validateRequiredMembers = (source: Record<string, unknown>): RequiredValidation => {
+  const { ts, level, extensionId, event: name } = source;
   if (typeof ts !== "string" || !DIAGNOSTIC_TS_PATTERN.test(ts)) {
     return { ok: false, failure: fail("invalid-ts", "/ts") };
   }
@@ -301,6 +294,22 @@ const validateDiagnosticEvent = (eventInput: unknown): ValidationResult => {
   if (typeof name !== "string" || !DIAGNOSTIC_NAME_PATTERN.test(name)) {
     return { ok: false, failure: fail("invalid-event", "/event") };
   }
+  return { ok: true, members: { ts, level, extensionId, event: name } };
+};
+
+/** The two optional members whose values are scalars rather than nested objects. */
+interface OptionalScalars {
+  readonly kind?: DiagnosticKind;
+  readonly correlationId?: string;
+}
+
+type OptionalScalarValidation =
+  | { readonly ok: true; readonly members: OptionalScalars }
+  | { readonly ok: false; readonly failure: ValidationFailure };
+
+/** `kind` then `correlationId`, continuing §5's order after the required four. */
+const validateOptionalScalars = (source: Record<string, unknown>): OptionalScalarValidation => {
+  const { kind, correlationId } = source;
   if (kind !== undefined && !isDiagnosticKindValue(kind)) {
     return { ok: false, failure: fail("invalid-kind", "/kind") };
   }
@@ -310,26 +319,89 @@ const validateDiagnosticEvent = (eventInput: unknown): ValidationResult => {
   ) {
     return { ok: false, failure: fail("invalid-correlation-id", "/correlationId") };
   }
+  const members: { kind?: DiagnosticKind; correlationId?: string } = {};
+  if (kind !== undefined) members.kind = kind;
+  if (correlationId !== undefined) members.correlationId = correlationId;
+  return { ok: true, members };
+};
 
-  let fields: Record<string, number | boolean> | undefined;
+/** The two optional members whose values are nested objects, each with its own validator. */
+interface OptionalObjects {
+  readonly fields?: Record<string, number | boolean>;
+  readonly error?: DiagnosticError;
+}
+
+type OptionalObjectValidation =
+  | { readonly ok: true; readonly members: OptionalObjects }
+  | { readonly ok: false; readonly failure: ValidationFailure };
+
+/**
+ * `fields` then `error`, the last two rows of §5's order. Each is absent-or-valid: an
+ * absent member is never reported, and a present one is delegated whole to
+ * {@link validateFields} / {@link validateError}, whose own internal check order §5 fixes
+ * separately.
+ */
+const validateOptionalObjects = (source: Record<string, unknown>): OptionalObjectValidation => {
+  const members: { fields?: Record<string, number | boolean>; error?: DiagnosticError } = {};
+  const fieldsRaw = source["fields"];
   if (fieldsRaw !== undefined) {
     const validated = validateFields(fieldsRaw);
     if (!validated.ok) return validated;
-    fields = validated.fields;
+    members.fields = validated.fields;
   }
-
-  let errorValue: DiagnosticError | undefined;
+  const errorRaw = source["error"];
   if (errorRaw !== undefined) {
     const validated = validateError(errorRaw);
     if (!validated.ok) return validated;
-    errorValue = validated.error;
+    members.error = validated.error;
   }
+  return { ok: true, members };
+};
+
+/**
+ * Validation only — no serialization. The one place §5's member checks live; both
+ * directions this module offers delegate to it rather than duplicating it:
+ * {@link encodeDiagnostic} serializes its success arm and additionally enforces
+ * `line-too-long`, and {@link parseDiagnostic} needs nothing beyond this, because a line
+ * that has already been decoded was necessarily delivered by a reader bounded at
+ * `IPC_MAX_LINE_BYTES` — there is nothing left to serialize and no line-length check to
+ * make on the parse side.
+ *
+ * The four helpers above are called in §5's reason order and nothing else may reorder
+ * them: closedness, the required four, the optional scalars, the optional objects. The
+ * split is presentational — each helper is one contiguous run of the same table this
+ * function used to inline — and the sequence of checks a given input meets is unchanged.
+ */
+const validateDiagnosticEvent = (eventInput: unknown): ValidationResult => {
+  if (!isRecord(eventInput)) return { ok: false, failure: fail("not-object", "") };
+
+  // The top-level snapshot is what makes a throwing getter unobservable: every read
+  // below this point is against the plain copy, never against the caller's own object,
+  // so an accessor can throw or misbehave at most once and never mid-validation. It is
+  // also what lets the helpers below each read from `event` independently — the copy is
+  // inert, so four reads of it cost what one read of the caller's object would risk.
+  const event = snapshot(eventInput);
+  if (event === null) return { ok: false, failure: fail("not-object", "") };
+
+  const unknownMember = validateClosedness(event);
+  if (unknownMember !== null) return { ok: false, failure: unknownMember };
+
+  const required = validateRequiredMembers(event);
+  if (!required.ok) return required;
+  const scalars = validateOptionalScalars(event);
+  if (!scalars.ok) return scalars;
+  const objects = validateOptionalObjects(event);
+  if (!objects.ok) return objects;
+
+  const { ts, level, extensionId, event: name } = required.members;
+  const { kind, correlationId } = scalars.members;
+  const { fields, error } = objects.members;
 
   const validatedEvent: DiagnosticEvent = { ts, level, extensionId, event: name };
   if (kind !== undefined) validatedEvent.kind = kind;
   if (correlationId !== undefined) validatedEvent.correlationId = correlationId;
   if (fields !== undefined) validatedEvent.fields = fields;
-  if (errorValue !== undefined) validatedEvent.error = errorValue;
+  if (error !== undefined) validatedEvent.error = error;
 
   return { ok: true, event: validatedEvent };
 };

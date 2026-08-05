@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.15.0...typescript-v1.16.0) (2026-08-02)
+
+
+### Features
+
+* **diagnostics:** add the diagnostics / telemetry contract v0 ([#113](https://github.com/nimbus-agent/nimbus-sdk/issues/113)) ([86cec91](https://github.com/nimbus-agent/nimbus-sdk/commit/86cec914dd40866fad5adf200acb062c8e9d3489))
+
 ## [1.15.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.14.0...typescript-v1.15.0) (2026-08-02)
 
 

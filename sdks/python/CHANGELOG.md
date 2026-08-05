@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.5.0...python-v0.6.0) (2026-08-02)
+
+
+### Features
+
+* **diagnostics:** add the diagnostics / telemetry contract v0 ([#113](https://github.com/nimbus-agent/nimbus-sdk/issues/113)) ([86cec91](https://github.com/nimbus-agent/nimbus-sdk/commit/86cec914dd40866fad5adf200acb062c8e9d3489))
+
 ## [0.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.4.0...python-v0.5.0) (2026-08-01)
 
 

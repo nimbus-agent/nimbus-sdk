@@ -426,8 +426,8 @@ config; `.github/scripts/` was the alternative and costs new lint, typecheck, an
 
 ## Design-review disposition
 
-Reviewed in
-[`2026-07-30-release-pipeline-loose-ends-design-review.md`](./2026-07-30-release-pipeline-loose-ends-design-review.md).
+The design review that raised these points is no longer carried in-tree; its outcome is the
+table below, which is the record.
 
 | # | Point | Disposition |
 |---|---|---|

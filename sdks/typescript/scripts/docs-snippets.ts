@@ -152,12 +152,13 @@ export function extractSnippets(file: string, markdown: string): Snippet[] {
 /**
  * `compilerOptions.paths` mapping the package's own name onto its built declarations.
  *
- * Built from `collectEntryPoints()` output so a fourth entry point added to
+ * Built from `collectEntryPoints()` output so a new entry point added to
  * `package.json` becomes resolvable in snippets the moment it exists.
  *
  * **There is deliberately no wildcard.** A `"@nimbus-dev/sdk/*"` pattern would make
  * `@nimbus-dev/sdk/crypto` typecheck green while failing for every real consumer: the
- * `exports` map exposes exactly `.`, `./testing` and `./ipc`, and `crypto` is reached
+ * `exports` map exposes exactly `.`, `./testing`, `./ipc`, `./connector-kit` and
+ * `./diagnostics`, and `crypto` is reached
  * through the main entry. A guard that green-lights an import Node rejects is worse than
  * no guard.
  */

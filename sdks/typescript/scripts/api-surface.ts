@@ -471,7 +471,7 @@ function ordinalCompare(a: string, b: string): number {
 
 /**
  * Derive the entry points from the `exports` map rather than hardcoding them, so
- * adding a fourth entry point automatically brings it under the guard. The public
+ * adding an entry point automatically brings it under the guard. The public
  * surface cannot be widened without this noticing.
  */
 export function collectEntryPoints(packageJsonText: string): EntryPoint[] {

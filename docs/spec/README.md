@@ -235,6 +235,14 @@ TypeScript guards read, with nothing deferred. A case added to any of the three 
 runs in both languages as soon as it is indexed, and a claim only one binding can satisfy
 fails somewhere.
 
+That parity is stated per corpus rather than for the tree, because it does not hold for the
+whole tree. `predicates` and `sandbox` are executed by the **TypeScript** binding only — real
+corpora with real guards, but no second implementation runs them, so they carry no
+language-neutrality evidence. Treat a passing `predicates` or `sandbox` run as "the reference
+implementation agrees with the spec", not as "the spec is implementable twice".
+`sdks/typescript/scripts/corpus-parity.test.ts` derives both lists and fails if this paragraph
+and the bindings ever disagree — in either direction.
+
 `sdks/typescript/scripts/schema-guard.test.ts` compares each schema's declared properties and
 optionality against the emitted TypeScript — descending into inline object types, so `oauth` is
 covered — and runs every fixture through `ajv`, plus through `runContractTests` for the

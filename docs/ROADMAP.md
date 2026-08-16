@@ -207,7 +207,7 @@ same contract.*
 - [x] A **diagnostics / telemetry contract v0** encoded and parsed identically by both
   SDKs — *Pillar 8*. Specified normatively at
   [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md) under
-  [RFC-0010](./rfcs/0010-diagnostics-contract-v0.md), with a 73-case language-neutral
+  [RFC-0010](./rfcs/0010-diagnostics-contract-v0.md), with a language-neutral
   conformance corpus both bindings execute byte-identically — published as TypeScript's
   fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`, and Python's third import
   root, `nimbus_sdk.diagnostics`. `createScopedAuditLogger`'s free-form payload is

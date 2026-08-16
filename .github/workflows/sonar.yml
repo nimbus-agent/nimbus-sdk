@@ -29,7 +29,7 @@ jobs:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        uses: step-security/harden-runner@b09bb98e06d4d774595224525879c09bc6e98c40 # v2.20.1
         with:
           egress-policy: block
           allowed-endpoints: >
@@ -65,11 +65,16 @@ jobs:
       - name: Coverage (lcov for Sonar)
         # Overrides the job default working-directory: the scan step below is a `uses:`
         # step that always runs from the repository root, so it resolves this report's
-        # `SF:` paths against the repo root too. Running bun from the repo root here (with
-        # the package-qualified src path) makes bun emit `SF:sdks/typescript/src/...`,
-        # which is what the scan step can actually resolve.
+        # `SF:` paths against the repo root too. Running bun from the repo root (with the
+        # package-qualified src path, which is what the root `test:coverage` script holds)
+        # makes bun emit `SF:sdks/typescript/src/...`, which the scan step can resolve.
+        #
+        # The command lives in the root package.json rather than inline here so there is
+        # ONE owner of that path invariant. `sdks/typescript` used to carry its own
+        # `test:coverage` with a bare `src` path — the exact form this comment exists to
+        # avoid — reachable by anyone who ran it from the package directory.
         working-directory: .
-        run: bun test --coverage --coverage-reporter=lcov sdks/typescript/src
+        run: bun run test:coverage
         env:
           CI: "true"
 

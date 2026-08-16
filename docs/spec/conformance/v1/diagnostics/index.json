@@ -67,6 +67,11 @@
       "reason": "A boolean is one of the two accepted fields value types."
     },
     {
+      "file": "cases/fields-string-rejected.json",
+      "section": "§5",
+      "reason": "A string field value is refused. This is the redaction guarantee itself — the envelope admits no string-valued field, so there is nowhere to put an address, a token, or a row. It is pinned on its own rather than only inside fields-bad-value-with-seventeen-keys.json, where a string value competes with the too-many-fields rule and the case is really about which reason wins."
+    },
+    {
       "file": "cases/fields-null-rejected.json",
       "section": "§5",
       "reason": "null is neither a boolean nor an integer, so it is refused rather than treated as absence."

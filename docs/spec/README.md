@@ -208,8 +208,12 @@ is permitted — removing or narrowing a field requires a major. This spec's own
 resolves that as a new path segment rather than an edit to this one; the [deprecation
 policy](../DEPRECATION-POLICY.md) governs export deprecation windows, not this rule.
 
-All four schemas are **open**: none sets `additionalProperties: false`. An older consumer
-validating against an older copy is therefore unaffected by additions.
+The four **contract-shape** schemas — the three under `schemas/v1/` and `negotiation/hello`
+— are **open**: none sets `additionalProperties: false`, so an older consumer validating
+against an older copy is unaffected by additions.
+
+The diagnostics event schema is the deliberate exception: it is **closed**, for the
+redaction reason given above — an open envelope has unlimited places to put a secret.
 
 ## What is not here yet
 
@@ -220,15 +224,24 @@ validating against an older copy is therefore unaffected by additions.
 
 ## How this stays true
 
-Six guards run on every pull request as part of `bun run test` (see
+Seven guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
 holds the contract to being **language-neutral** is that a second binding executes the
 same fixtures: `sdks/python/` runs the `negotiation` corpus — all three case kinds —
-and the `framing` corpus, from the same `index.json` files the TypeScript guards read,
-with nothing deferred. A case added to either corpus therefore runs in both languages
-as soon as it is indexed, and a claim only one binding can satisfy fails somewhere.
+the `framing` corpus, and the `diagnostics` corpus, from the same `index.json` files the
+TypeScript guards read, with nothing deferred. A case added to any of the three therefore
+runs in both languages as soon as it is indexed, and a claim only one binding can satisfy
+fails somewhere.
+
+That parity is stated per corpus rather than for the tree, because it does not hold for the
+whole tree. `predicates` and `sandbox` are executed by the **TypeScript** binding only — real
+corpora with real guards, but no second implementation runs them, so they carry no
+language-neutrality evidence. Treat a passing `predicates` or `sandbox` run as "the reference
+implementation agrees with the spec", not as "the spec is implementable twice".
+`sdks/typescript/scripts/corpus-parity.test.ts` derives both lists and fails if this paragraph
+and the bindings ever disagree — in either direction.
 
 `sdks/typescript/scripts/schema-guard.test.ts` compares each schema's declared properties and
 optionality against the emitted TypeScript — descending into inline object types, so `oauth` is

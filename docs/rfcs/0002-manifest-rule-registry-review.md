@@ -1,6 +1,6 @@
 # Review of RFC-0002: A published rule registry for manifest validation
 
-This document captures review comments, open questions, improvements, and suggestions for [RFC-0002](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/phase1-manifest-rules/docs/rfcs/0002-manifest-rule-registry.md).
+This document captures review comments, open questions, improvements, and suggestions for [RFC-0002](./0002-manifest-rule-registry.md).
 
 ---
 

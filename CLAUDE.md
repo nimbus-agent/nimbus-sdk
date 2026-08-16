@@ -26,10 +26,12 @@ published package.
   helpers.
 - `./connector-kit` (`sdks/typescript/src/connector-kit/index.ts`) — helpers for
   hand-rolled MCP connectors: `createRegisterSimpleTool` / `registerZodTool`,
-  `mcpJsonResult` and its variants, and `makeRestFetcher` / `makeRestToolRegistrar` (the
-  Bearer-auth REST fetcher, with `resolveUrlWithBase` as its SSRF chokepoint). Still
-  dependency-free — `ZodObjectSchema` is a structural type, not an import of `zod`. The
-  generated connector template imports from here.
+  `mcpJsonResult` and its variants, `makeRestFetcher` / `makeRestToolRegistrar` (the
+  Bearer-auth REST fetcher, with `resolveUrlWithBase` as its SSRF chokepoint), and the
+  search kit from `connector-kit/search-filter` (`filterByQuery`, `makeQueryFilter`,
+  `matchesResult`, `stringField`, `tagText` and five more), shipped from this entry
+  point since `1.15.0`. Still dependency-free — `ZodObjectSchema` is a structural type,
+  not an import of `zod`. The generated connector template imports from here.
 - `./diagnostics` (`sdks/typescript/src/diagnostics/index.ts`) — the diagnostics /
   telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` /
   `meetsLevel` and the `DiagnosticEvent` envelope types, plus `createEmitter` and the

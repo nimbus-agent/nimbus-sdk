@@ -1,5 +1,17 @@
 # @nimbus-dev/sdk — Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* **connector-kit:** `resolveUrlWithBase` decides absoluteness by RFC 3986 scheme rather
+  than a `startsWith("http")` prefix test, and compares origins by the rule in
+  `docs/spec/connector-kit/v1/url-resolution.md` §6 — default ports elided, IPv6 hosts
+  bracketed, userinfo ignored. A legitimate relative path such as `httpdocs/x` no longer
+  throws; `ftp://evil.com` is now rejected as cross-origin rather than concatenated into a
+  malformed string; an absolute URL carrying a raw tab, LF or CR is now rejected rather
+  than silently stripped and fetched. See RFC-0011 for the semver reasoning.
+
 ## [1.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.15.0...typescript-v1.16.0) (2026-08-02)
 
 

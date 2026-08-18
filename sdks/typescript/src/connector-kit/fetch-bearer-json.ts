@@ -1,31 +1,82 @@
+/** RFC 3986 scheme followed by its colon. The one thing that makes an input absolute. */
+const ABSOLUTE_URL = /^[A-Za-z][A-Za-z0-9+.-]*:/;
+
+/** Removed by `new URL` and fetched as if absent. Spec §5 refuses them instead. */
+const FORBIDDEN_WHITESPACE = /[\t\n\r]/;
+
+/** Spec §6. Every other scheme has no default, so its port is always significant. */
+const DEFAULT_PORTS: Readonly<Record<string, number | undefined>> = { http: 80, https: 443 };
+
+/**
+ * The spec §6 origin string, or `undefined` when the URL has no host.
+ *
+ * Not `URL#origin`: that is `"null"` for every non-special scheme, which would put a
+ * JavaScript-ism into a message the conformance corpus pins for both bindings. Built by
+ * hand it is the same string Python's `urlsplit` can produce, and for `http`/`https` it
+ * is byte-identical to what `URL#origin` returns anyway.
+ */
+function originOf(url: string): string | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+  const scheme = parsed.protocol.slice(0, -1).toLowerCase();
+  const host = parsed.hostname.toLowerCase();
+  if (host === "") {
+    return undefined;
+  }
+  const fallback = DEFAULT_PORTS[scheme];
+  const port = parsed.port === "" ? fallback : Number(parsed.port);
+  if (port === undefined || port === fallback) {
+    return `${scheme}://${host}`;
+  }
+  return `${scheme}://${host}:${String(port)}`;
+}
+
+/**
+ * Resolve a path-or-URL against `baseUrl`, per
+ * `docs/spec/connector-kit/v1/url-resolution.md`.
+ *
+ * A relative input is concatenated onto the base (§4). An ABSOLUTE input is only allowed
+ * when it shares the base's origin — this is the single chokepoint that prevents a
+ * caller-supplied pagination link (`@odata.nextLink`, etc.) from redirecting a
+ * credential-bearing fetch at an attacker-controlled host (SSRF / bearer-token
+ * exfiltration). A cross-origin, malformed, or unbased absolute URL throws and is never
+ * fetched.
+ *
+ * Absoluteness is decided by §3's scheme rule, not by a `startsWith("http")` prefix test.
+ * The heuristic was wrong at both edges: it rejected the legitimate relative path
+ * `httpdocs/x`, and it read `ftp://evil.com` as relative and concatenated it. See
+ * RFC-0011 for the semver reasoning on that correction.
+ */
+export function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): string {
+  if (!ABSOLUTE_URL.test(pathOrUrl)) {
+    return `${baseUrl}${pathOrUrl}`;
+  }
+  const target = FORBIDDEN_WHITESPACE.test(pathOrUrl) ? undefined : originOf(pathOrUrl);
+  if (target === undefined) {
+    throw new Error("resolveUrlWithBase: refusing to fetch malformed absolute URL");
+  }
+  const base = originOf(baseUrl);
+  if (base === undefined) {
+    throw new Error("resolveUrlWithBase: base URL is not an absolute URL with a host");
+  }
+  if (target !== base) {
+    throw new Error(
+      `resolveUrlWithBase: refusing to fetch cross-origin URL (got ${target}, expected ${base})`,
+    );
+  }
+  return pathOrUrl;
+}
+
 export type BearerJsonFetchResult = {
   ok: boolean;
   status: number;
   json: unknown;
   text: string;
 };
-
-/**
- * Resolve a path-or-URL against `baseUrl`. A relative path is prefixed with the
- * base. An ABSOLUTE URL is only allowed when it shares the base's origin — this
- * is the single chokepoint that prevents a caller-supplied pagination link
- * (`@odata.nextLink`, etc.) from redirecting a credential-bearing fetch at an
- * attacker-controlled host (SSRF / bearer-token exfiltration). A cross-origin or
- * malformed absolute URL throws and is never fetched.
- */
-export function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): string {
-  if (!pathOrUrl.startsWith("http")) {
-    return `${baseUrl}${pathOrUrl}`;
-  }
-  const target = new URL(pathOrUrl);
-  const base = new URL(baseUrl);
-  if (target.origin !== base.origin) {
-    throw new Error(
-      `resolveUrlWithBase: refusing to fetch cross-origin URL (got ${target.origin}, expected ${base.origin})`,
-    );
-  }
-  return pathOrUrl;
-}
 
 export async function fetchBearerAuthorizedJson(
   url: string,

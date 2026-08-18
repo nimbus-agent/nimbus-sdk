@@ -25,6 +25,13 @@
   `https://api.example.comhttpdocs/x`. See RFC-0011's addendum for the finding and the
   resolution.
 
+## [1.17.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.16.0...typescript-v1.17.0) (2026-08-18)
+
+
+### Features
+
+* **connector-kit:** add the nimbus_sdk.connector_kit import root and specify URL resolution ([#126](https://github.com/nimbus-agent/nimbus-sdk/issues/126)) ([755dc8e](https://github.com/nimbus-agent/nimbus-sdk/commit/755dc8ed439c1b370ec5d4bf94c1538f4ecc5ea6))
+
 ## [1.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.15.0...typescript-v1.16.0) (2026-08-02)
 
 

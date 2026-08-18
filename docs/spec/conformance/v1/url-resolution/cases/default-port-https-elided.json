@@ -1,0 +1,6 @@
+{
+  "description": "An explicit :443 on https is the same origin as none. Python's urlsplit reports the port verbatim where the WHATWG parser elides it, so without the default-port table the bindings disagree on a legitimate pagination link.",
+  "base": "https://api.example.com",
+  "input": "https://api.example.com:443/x",
+  "expect": { "ok": true, "url": "https://api.example.com:443/x" }
+}

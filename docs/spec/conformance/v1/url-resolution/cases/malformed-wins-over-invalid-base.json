@@ -1,0 +1,10 @@
+{
+  "description": "When both the malformed condition and the invalid-base condition hold, malformed wins: §7 checks it first, before the base is inspected at all.",
+  "base": "api.example.com",
+  "input": "https://api.example.com/a\tb",
+  "expect": {
+    "ok": false,
+    "reason": "malformed",
+    "message": "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+  }
+}

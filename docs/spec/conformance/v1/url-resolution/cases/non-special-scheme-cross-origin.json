@@ -1,0 +1,10 @@
+{
+  "description": "A non-http scheme is absolute and rejected as cross-origin. The startsWith('http') heuristic read this as relative and concatenated it into https://api.example.comftp://evil.com — caught by 0 of the 0 cases that existed before this corpus, and by no test in the TypeScript suite either.",
+  "base": "https://api.example.com",
+  "input": "ftp://evil.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got ftp://evil.com, expected https://api.example.com)"
+  }
+}

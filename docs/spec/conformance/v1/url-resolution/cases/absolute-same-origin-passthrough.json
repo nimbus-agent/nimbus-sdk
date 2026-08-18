@@ -1,0 +1,6 @@
+{
+  "description": "A same-origin absolute URL is returned unchanged, query and all.",
+  "base": "https://api.example.com",
+  "input": "https://api.example.com/v1/x?page=2",
+  "expect": { "ok": true, "url": "https://api.example.com/v1/x?page=2" }
+}

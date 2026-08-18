@@ -1,0 +1,6 @@
+{
+  "description": "Scheme and host compare case-insensitively, and the input is still returned in the caller's casing.",
+  "base": "https://api.example.com",
+  "input": "HTTPS://API.Example.COM/x",
+  "expect": { "ok": true, "url": "HTTPS://API.Example.COM/x" }
+}

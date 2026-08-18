@@ -61,7 +61,12 @@ Python-only `format_timestamp` helper: `datetime.isoformat()` emits six fraction
 digits and a `+00:00` offset, and `timespec="milliseconds"` fixes only the first, so
 neither produces the contract's timestamp format on its own. This package ships no
 emitter — there is no Python counterpart to TypeScript's `createEmitter` — so
-writing an encoded line to a sink is left to the caller. It is not yet the full
+writing an encoded line to a sink is left to the caller. It now also carries the
+`connector_kit` batteries for hand-rolled MCP connectors — `from nimbus_sdk.connector_kit
+import resolve_url_with_base, json_result, require_env` — a fourth, likewise separate
+import root. This shipment carries the pure core: URL resolution (the kit's SSRF
+chokepoint), the environment seam, the MCP result builders, and the search helpers; the
+transport and the tool router follow in a later shipment. It is not yet the full
 connector-authoring surface — see the
 [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
 
@@ -86,6 +91,27 @@ It is **synchronous**, where the TypeScript binding is `async`. Python's standar
 block and a startup handshake has nothing to overlap with, so `async def` would drag every
 connector into an event loop for nothing; an asyncio caller wraps it with
 `await asyncio.to_thread(perform_handshake, io)`.
+
+## Connector kit
+
+`nimbus_sdk.connector_kit` is the Python binding of `@nimbus-dev/sdk/connector-kit` —
+batteries for a hand-rolled MCP connector, not a contract: unlike `ipc` and
+`diagnostics`, it has no conformance corpus of its own beyond `url-resolution`, which
+`resolve_url_with_base` binds. It is deliberately a separate import root from
+`nimbus_sdk`, matching the boundary the TypeScript `exports` map has published since
+`1.15.0` by giving `connector-kit` its own entry point.
+
+```python
+from nimbus_sdk.connector_kit import json_result, resolve_url_with_base
+
+# resolve_url_with_base is the kit's SSRF chokepoint: a relative path is prefixed onto
+# the base, and an absolute URL only passes through when it shares the base's origin.
+url = resolve_url_with_base("https://api.example.com", "/v1/issues")
+print(url)  # https://api.example.com/v1/issues
+
+result = json_result({"matches": []})
+print(result["content"][0]["text"])  # a pretty-printed JSON text block
+```
 
 ## License
 

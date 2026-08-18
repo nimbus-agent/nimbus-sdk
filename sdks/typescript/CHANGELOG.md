@@ -1,5 +1,30 @@
 # @nimbus-dev/sdk — Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+* **connector-kit:** `resolveUrlWithBase` decides absoluteness by RFC 3986 scheme rather
+  than a `startsWith("http")` prefix test, and compares origins by the rule in
+  `docs/spec/connector-kit/v1/url-resolution.md` §6 — default ports elided, IPv6 hosts
+  bracketed, userinfo ignored. A legitimate relative path such as `httpdocs/x` no longer
+  throws; `ftp://evil.com` is now rejected as cross-origin rather than concatenated into a
+  malformed string; an absolute URL carrying a raw tab, LF or CR is now rejected rather
+  than silently stripped and fetched. See RFC-0011 for the semver reasoning.
+* **connector-kit:** close a bearer-token exfiltration hole in `resolveUrlWithBase`'s
+  relative branch. Against a base with no trailing slash — the shape every configured
+  `apiBase` actually has — a relative input beginning with `@` or `.` used to extend the
+  authority once concatenated: `resolveUrlWithBase("https://api.example.com",
+  "@evil.com/x")` returned `https://api.example.com@evil.com/x`, a URL whose host is
+  `evil.com`, sending the connector's bearer token to the attacker. Pre-existing on `main`.
+  The relative branch is now held to the same origin check the absolute branch already
+  used; a relative input that would move the fetch off the base's origin is rejected as
+  `cross-origin` instead of returned. One case changes verdict as a result:
+  `resolveUrlWithBase("https://api.example.com", "httpdocs/x")` now throws `cross-origin`
+  (host `api.example.comhttpdocs`) instead of returning
+  `https://api.example.comhttpdocs/x`. See RFC-0011's addendum for the finding and the
+  resolution.
+
 ## [1.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.15.0...typescript-v1.16.0) (2026-08-02)
 
 

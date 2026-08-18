@@ -1,0 +1,6 @@
+{
+  "description": "A relative path is concatenated onto the base.",
+  "base": "https://api.example.com",
+  "input": "/v1/x",
+  "expect": { "ok": true, "url": "https://api.example.com/v1/x" }
+}

@@ -97,9 +97,31 @@ async function isNonEmptyDir(dir: string): Promise<boolean> {
   }
 }
 
+/**
+ * Tool cache directories a local `ruff` / `mypy` / `pytest` run leaves behind under
+ * `templates/python/` when one of those tools is pointed at it directly (rather than at
+ * a generated project, where they normally run). They are gitignored — `.gitignore`
+ * keeps them out of the checkout git tracks — but gitignoring a directory does not
+ * remove it from a developer's local disk, and this function reads the filesystem, not
+ * git. Left unfiltered, a stray one makes `generate()` copy it into every generated
+ * project, and `pack-and-generate.test.ts` — which diffs a checkout-built tree against
+ * a tarball-built one — reports a spurious "different file sets" failure that does not
+ * name the actual cause, because `npm pack` excludes gitignored paths from the tarball
+ * while this function does not exclude them from the checkout.
+ */
+const IGNORED_TEMPLATE_DIR_NAMES: ReadonlySet<string> = new Set([
+  ".ruff_cache",
+  "__pycache__",
+  ".mypy_cache",
+  ".pytest_cache",
+]);
+
 async function collect(dir: string, prefix: string): Promise<string[]> {
   const out: string[] = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory() && IGNORED_TEMPLATE_DIR_NAMES.has(entry.name)) {
+      continue;
+    }
     const rel = prefix === "" ? entry.name : posix.join(prefix, entry.name);
     if (entry.isDirectory()) {
       out.push(...(await collect(join(dir, entry.name), rel)));

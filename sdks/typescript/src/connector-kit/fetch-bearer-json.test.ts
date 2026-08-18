@@ -10,6 +10,10 @@ describe("resolveUrlWithBase", () => {
     expect(resolveUrlWithBase(base, "/v1/x")).toBe("https://api.example.com/v1/x");
   });
 
+  test("an empty input resolves to the base", () => {
+    expect(resolveUrlWithBase(base, "")).toBe(base);
+  });
+
   test("passes through an absolute same-origin URL unchanged", () => {
     const abs = "https://api.example.com/v1/x?page=2";
     expect(resolveUrlWithBase(base, abs)).toBe(abs);
@@ -33,15 +37,120 @@ describe("resolveUrlWithBase", () => {
     );
   });
 
-  test("throws on a malformed absolute-looking URL rather than passing it through", () => {
-    expect(() => resolveUrlWithBase(base, "http://")).toThrow();
+  test("an explicit default port is the same origin as none (spec §6)", () => {
+    // Python's urlsplit reports the port verbatim where the WHATWG URL parser elides it.
+    // Without the default-port table both bindings disagree on a legitimate pagination link.
+    const abs = "https://api.example.com:443/x";
+    expect(resolveUrlWithBase(base, abs)).toBe(abs);
+    expect(resolveUrlWithBase("http://api.example.com:80", "http://api.example.com/x")).toBe(
+      "http://api.example.com/x",
+    );
   });
 
-  test("a bare path that merely starts with 'http' as text is still relative-prefixed", () => {
-    // Guards the startsWith("http") heuristic: "httpdocs" is not a URL scheme, but the
-    // function only inspects the string prefix, so it takes the `new URL(...)` branch and
-    // must throw rather than silently falling back to string concatenation.
-    expect(() => resolveUrlWithBase(base, "httpdocs/x")).toThrow();
+  test("scheme and host compare case-insensitively", () => {
+    expect(resolveUrlWithBase(base, "HTTPS://API.Example.COM/x")).toBe("HTTPS://API.Example.COM/x");
+  });
+
+  test("an IPv6 host compares by its bracketed form, port included", () => {
+    const v6 = "http://[::1]:8080";
+    expect(resolveUrlWithBase(v6, `${v6}/x`)).toBe(`${v6}/x`);
+    expect(() => resolveUrlWithBase(v6, "http://[::1]:9090/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got http://[::1]:9090, expected http://[::1]:8080)",
+    );
+  });
+
+  test("userinfo is ignored — the host is what follows the last '@'", () => {
+    expect(() => resolveUrlWithBase(base, "https://api.example.com@evil.com/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://evil.com, expected https://api.example.com)",
+    );
+  });
+
+  test("a non-http scheme is absolute, and rejected as cross-origin rather than concatenated", () => {
+    // The heuristic read this as relative and produced "https://api.example.comftp://evil.com".
+    expect(() => resolveUrlWithBase(base, "ftp://evil.com/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got ftp://evil.com, expected https://api.example.com)",
+    );
+  });
+
+  test("an absolute URL with no host is malformed", () => {
+    expect(() => resolveUrlWithBase(base, "http://")).toThrow(
+      "resolveUrlWithBase: refusing to fetch malformed absolute URL",
+    );
+  });
+
+  test("a non-integer port is malformed", () => {
+    expect(() => resolveUrlWithBase(base, "https://api.example.com:notaport/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch malformed absolute URL",
+    );
+  });
+
+  test("a raw tab, LF or CR in an absolute URL is malformed, not silently stripped", () => {
+    // new URL removes these and fetches the stripped form. A pagination link containing one
+    // is a log-injection / request-smuggling signal, not a URL.
+    for (const ws of ["\t", "\n", "\r"]) {
+      expect(() => resolveUrlWithBase(base, `https://api.example.com/a${ws}b`)).toThrow(
+        "resolveUrlWithBase: refusing to fetch malformed absolute URL",
+      );
+    }
+  });
+
+  test("a bare path that merely starts with 'http' as text is relative, not absolute — but concatenating it moves the host, so it is refused", () => {
+    // §3 still classifies "httpdocs" as relative — there is no colon, so no scheme. The old
+    // startsWith("http") heuristic threw on this legitimate-looking path; §3 no longer does.
+    // But the base carries no trailing slash, so concatenating "httpdocs/x" moves the host to
+    // "api.example.comhttpdocs" — the §4 origin check refuses it as cross-origin.
+    expect(() => resolveUrlWithBase(base, "httpdocs/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.comhttpdocs, expected https://api.example.com)",
+    );
+  });
+
+  test("a relative input beginning with '@' turns the base's host into discarded userinfo once concatenated, and is refused", () => {
+    // Against a base with no trailing slash, concatenating "@evil.com/x" produces
+    // "https://api.example.com@evil.com/x", whose host is evil.com — the bearer token would
+    // go to the attacker. §4's origin check catches it before the fetch ever happens.
+    expect(() => resolveUrlWithBase(base, "@evil.com/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://evil.com, expected https://api.example.com)",
+    );
+  });
+
+  test("a relative input beginning with '.' extends the base's host into an attacker subdomain suffix once concatenated, and is refused", () => {
+    expect(() => resolveUrlWithBase(base, ".evil.com/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.com.evil.com, expected https://api.example.com)",
+    );
+  });
+
+  test("a relative input that stays on the base's own origin once concatenated is still accepted", () => {
+    // The anti-vacuity companion to the two tests above: the new origin check does not
+    // reject every relative input, only the ones that move the host.
+    expect(resolveUrlWithBase(base, "/v1/x")).toBe("https://api.example.com/v1/x");
+  });
+
+  test("a scheme-shaped relative segment is absolute, and malformed for want of a host", () => {
+    // The other edge of §3, disclosed rather than hidden: "notes:" is a valid RFC 3986
+    // scheme, so "notes:2024/x" takes the absolute branch and has no host.
+    expect(() => resolveUrlWithBase(base, "notes:2024/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch malformed absolute URL",
+    );
+  });
+
+  test("a base that is not an absolute URL with a host is rejected as such", () => {
+    expect(() => resolveUrlWithBase("api.example.com", "https://api.example.com/x")).toThrow(
+      "resolveUrlWithBase: base URL is not an absolute URL with a host",
+    );
+  });
+
+  test("the base is not parsed on the relative path", () => {
+    // §4: concatenation only. A base with no scheme is fine here — it is the caller's string.
+    expect(resolveUrlWithBase("api.example.com", "/x")).toBe("api.example.com/x");
+  });
+
+  test("a protocol-relative input is concatenated as a path, not resolved as an authority", () => {
+    // §4 is concatenation, never RFC 3986 relative-reference resolution. `//evil.com/x`
+    // has no scheme, so it is relative and never reaches the origin check — which makes
+    // this the one branch where a wrong implementation exfiltrates the token silently.
+    // `new URL("//evil.com/x", base)` would return https://evil.com/x.
+    expect(resolveUrlWithBase(base, "//evil.com/x")).toBe("https://api.example.com//evil.com/x");
+    expect(new URL(resolveUrlWithBase(base, "//evil.com/x")).hostname).toBe("api.example.com");
   });
 });
 

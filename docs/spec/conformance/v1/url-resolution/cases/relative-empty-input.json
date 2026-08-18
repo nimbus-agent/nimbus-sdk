@@ -1,0 +1,6 @@
+{
+  "description": "An empty input resolves to the base itself.",
+  "base": "https://api.example.com",
+  "input": "",
+  "expect": { "ok": true, "url": "https://api.example.com" }
+}

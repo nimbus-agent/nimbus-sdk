@@ -1,0 +1,10 @@
+{
+  "description": "A port that is not a decimal integer is malformed. Python reaches this by the ValueError urlsplit().port raises; TypeScript by new URL throwing.",
+  "base": "https://api.example.com",
+  "input": "https://api.example.com:notaport/x",
+  "expect": {
+    "ok": false,
+    "reason": "malformed",
+    "message": "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+  }
+}

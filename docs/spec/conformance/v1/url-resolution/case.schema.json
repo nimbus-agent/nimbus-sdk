@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/url-resolution/case.schema.json",
+  "title": "URL-resolution conformance case",
+  "description": "One resolution. A base, an input, and either the exact string returned or the exact refusal — reason and message both, so two bindings are held to the same words and not merely to the same verdict.",
+  "type": "object",
+  "required": ["description", "base", "input", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "base": {
+      "type": "string",
+      "description": "The base URL. Deliberately unconstrained: one case supplies a base that is not a URL at all, which is what invalid-base pins."
+    },
+    "input": {
+      "type": "string",
+      "description": "The path-or-URL being resolved. Unconstrained for the same reason — most cases assert a malformed value is refused."
+    },
+    "expect": {
+      "type": "object",
+      "required": ["ok"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "url": {
+          "type": "string",
+          "description": "On success: the exact string returned. Never a normalised form — §4 concatenates and §5 returns the input unchanged."
+        },
+        "reason": {
+          "enum": ["malformed", "invalid-base", "cross-origin"],
+          "description": "On refusal: the §7 reason."
+        },
+        "message": {
+          "type": "string",
+          "description": "On refusal: the exact §7 message. A binding that refuses for the right reason with different words fails the case, which is the point — the message is contract text."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "ok": { "const": true } } },
+          "then": { "required": ["url"] }
+        },
+        {
+          "if": { "properties": { "ok": { "const": false } } },
+          "then": { "required": ["reason", "message"] }
+        }
+      ]
+    }
+  }
+}

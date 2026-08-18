@@ -1,0 +1,301 @@
+# Nimbus connector-kit URL resolution contract v1
+
+**Status:** normative. **Contract version:** `v1`.
+
+This document specifies `resolveUrlWithBase` / `resolve_url_with_base` — the one function a
+hand-rolled REST connector calls to turn a caller-supplied path-or-URL into the URL it
+actually fetches. Every binding, in every language, MUST resolve and reject the identical
+input identically, because the value this function resolves is not fully trusted: it can be
+a pagination link (`@odata.nextLink` and friends) copied out of a JSON response the remote
+API sent back, and the fetch it feeds carries the connector's bearer token.
+
+The key words MUST, MUST NOT, SHOULD, SHOULD NOT, and MAY are to be interpreted as described
+in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
+
+The TypeScript reference implementation is `resolveUrlWithBase` in
+[`sdks/typescript/src/connector-kit/fetch-bearer-json.ts`](https://github.com/nimbus-agent/nimbus-sdk/tree/main/sdks/typescript/src/connector-kit/fetch-bearer-json.ts),
+published from the `./connector-kit` entry point; the Python reference implementation is
+`resolve_url_with_base` in `nimbus_sdk.connector_kit`. The executable form of this document is
+the corpus at [`../../conformance/v1/url-resolution/`](../../conformance/v1/url-resolution/).
+Where prose and corpus appear to disagree, the corpus is the tiebreaker — it is what CI runs.
+
+## §1 Scope
+
+`resolveUrlWithBase` is the single chokepoint that stops a caller-supplied pagination link
+from redirecting a credential-bearing fetch at an attacker-controlled host. A REST connector
+built on `makeRestFetcher` sends every outbound request through it: a relative path is
+resolved against the connector's configured API base, and an absolute URL is allowed through
+only when it shares the base's origin. Without this check, a connector that follows a
+`nextLink` the remote API handed back would fetch whatever host that link named, `Authorization`
+header and all.
+
+This document does not specify a general URL parser, and `resolveUrlWithBase` does not aim to
+be one. It answers exactly one question — does this input share an origin with this base, or
+does it not — and every rule below exists in service of answering that question the same way
+in every language, not in service of RFC 3986 conformance for its own sake.
+
+## §2 Terminology
+
+- **base** — the connector's configured API root, e.g. `https://api.example.com`. Supplied by
+  the connector author, not by a remote party.
+- **input** — the path-or-URL a caller passes to be resolved against the base. May be
+  attacker-influenced: a pagination link, a `Location` header, or any other string a remote
+  response handed back.
+- **absolute** — an input that names its own scheme, per §3. An absolute input is resolved by
+  the rules of §5 and §6; anything else is relative and resolved by §4.
+- **origin** — the tuple a resolved absolute URL is compared against the base on: scheme and
+  host, plus port where the port is not the scheme's default. Built precisely as §6 states.
+
+## §3 Absoluteness
+
+An input is absolute when, and only when, it matches:
+
+```
+^[A-Za-z][A-Za-z0-9+.-]*:
+```
+
+An RFC 3986 scheme followed by a colon. Nothing else makes an input absolute — not a leading
+`//`, not a leading `/`, not the substring `http` appearing anywhere in it.
+
+This replaces a prefix heuristic — checking whether the input starts with the literal string
+`http` — at both of that heuristic's wrong edges:
+
+- `httpdocs/x` is **relative**. It has no scheme; the colon this rule requires is absent. A
+  prefix heuristic reads its first four characters as `http` and misclassifies it as absolute,
+  rejecting a legitimate relative path a connector author never meant as a URL.
+- `notes:2024/x` is **absolute**, and therefore malformed and rejected (§5) rather than
+  concatenated onto the base. `notes` is a syntactically valid scheme, so the rule this
+  document specifies treats it as one. A scheme-shaped relative path segment is the price of a
+  rule that is otherwise correct, and this document names that price rather than hiding it: no
+  legitimate connector author writes a relative path whose first segment is followed
+  immediately by a colon, because that is indistinguishable from a URL scheme by construction,
+  in every language, not only in this one.
+
+## §4 Relative resolution
+
+A non-absolute input resolves to `base + input`, by **string concatenation** — nothing more.
+The base is not parsed, not validated, and not normalised for the purpose of building this
+string. An empty input resolves to the base unchanged, because concatenating the empty string
+changes nothing.
+
+A binding MUST NOT resolve the input as an RFC 3986 relative reference against the base.
+Concretely, a binding MUST NOT implement this step with `urllib.parse.urljoin` in Python, or
+with `new URL(input, base)` in JavaScript — both perform relative-reference resolution, not
+concatenation, and both are wrong here for the same reason. A future binding in Go or Rust
+will reach for its own language's equivalent of "resolve a relative URL against a base" as the
+natural one-line way to write this step, and deserves to be told, before it does, that the
+natural line is the wrong one.
+
+The distinction is load-bearing, not stylistic, and the reason is a single input:
+`//evil.com/x`. It has no scheme, so by §3 it is relative — and the two candidate readings of
+"resolve" disagree about where it points:
+
+```
+"https://api.example.com" + "//evil.com/x"                  -> https://api.example.com//evil.com/x   (host api.example.com)
+urljoin("https://api.example.com", "//evil.com/x")          -> https://evil.com/x                    (host evil.com)
+```
+
+Both lines were run; the second is the measured output of Python 3.14's
+`urllib.parse.urljoin`. Concatenation keeps the host `api.example.com` — the input becomes an
+oddly-shaped path on the connector's own origin, and the fetch stays where it was configured
+to go. `urljoin` treats `//evil.com/x` as a *network-authority reference* — the one RFC 3986
+construction that names a different host without naming a different scheme — and hands the
+credential-bearing fetch to `evil.com` instead.
+
+**Concatenation alone is not enough. The resolved result's origin MUST equal the base's
+origin, whenever the base has one.** A real base carries no trailing slash — every example in
+this document, and every configured `apiBase` a connector author writes, looks like
+`https://api.example.com`, not `https://api.example.com/`. Against a base shaped that way, a
+relative input beginning with `@` or `.` does not stay on the base's own origin merely because
+it was concatenated rather than resolved as an RFC 3986 reference — it **extends the
+authority**:
+
+| base | input | concatenated | host a fetch actually reaches |
+| --- | --- | --- | --- |
+| `https://api.example.com` | `@evil.com/x` | `https://api.example.com@evil.com/x` | `evil.com` |
+| `https://api.example.com` | `.evil.com/x` | `https://api.example.com.evil.com/x` | `api.example.com.evil.com` |
+| `https://api.example.com` | `httpdocs/x` | `https://api.example.comhttpdocs/x` | `api.example.comhttpdocs` |
+
+The first row hands the connector's bearer token to `evil.com`, degrading `api.example.com`
+to discarded userinfo — exactly the threat §1 names, reached through the one branch §1 does
+not mention, because it was written assuming concatenation could not misdirect a fetch on its
+own.
+
+A binding MUST therefore, after concatenating, compute the base's origin using the same
+origin construction §6 defines. If the base is not a parseable absolute URL with a host — it
+has no origin — the concatenation is returned unchanged: a base that is not a URL is not a
+credential-bearing endpoint, and this document has nothing further to check. If the base does
+have an origin, the binding MUST compute the concatenated result's origin the same way, and
+if the two differ — including when the result has no computable origin at all — the
+resolution MUST be refused with §7's `cross-origin` reason, using the exact §7 message,
+naming the concatenated result's origin as `<target>` and the base's origin as `<base>`. This
+is the same check, and the same rejection, that governs the absolute branch in §6 and §7; §4
+does not invent a second rule, it closes the one branch that used to skip the existing one.
+
+This is why §4 was the one branch where a wrong implementation could exfiltrate the token
+silently, and why it no longer is. Every input this document classifies as absolute now
+passes through the origin check before a fetch is ever made — and so, now, does every
+relative input once it has been concatenated. A protocol-relative input such as `//evil.com/x`
+is unaffected by this addition: concatenated onto `https://api.example.com`, it produces
+`https://api.example.com//evil.com/x`, whose host is still `api.example.com`, so the origin
+check it now passes through agrees with the check it would already have had to pass had it
+been classified absolute. The chokepoint's guarantee no longer depends on a relative input
+being harmless by construction; it depends on the origin check, uniformly, on both branches.
+
+## §5 Absolute resolution
+
+An absolute input (§3) is checked for two malformed conditions, in this order:
+
+1. **Forbidden whitespace.** If the input contains U+0009 (tab), U+000A (LF), or U+000D (CR)
+   anywhere in it, the input is `malformed`.
+2. **A missing host, or a non-integer port.** If, once the whitespace check passes, the input
+   cannot be resolved to a host at all, or names a port that is not a decimal integer, the
+   input is `malformed`.
+
+Both conditions are evaluated only on an absolute input; a relative input never reaches this
+section, because §4 resolves it by concatenation without inspecting it at all.
+
+**Why forbidden whitespace is checked before anything else, and why it is checked at all.**
+Left unchecked, an absolute input carrying a raw tab, LF, or CR does not fail — it succeeds
+silently, and the two reference constructs a binding might reach for disagree about what it
+succeeds *as*. `new URL(input)` strips U+0009/U+000A/U+000D wherever they occur and parses the
+stripped result; a binding that instead splits the string on whitespace, or that parses it with
+a stricter host/port grammar, does not. The same caller-supplied input then resolves to two
+different URLs in two conformant-looking bindings, which is exactly the kind of silent
+divergence this document exists to close off. Rejecting the input outright, rather than
+choosing one stripping behavior and mandating it, sidesteps the disagreement entirely: neither
+binding ever fetches a URL the caller did not literally write. This is also a security rule,
+not only a portability one — no legitimate REST API emits a pagination link with an embedded
+control character, and one that does is a log-injection or request-smuggling signal rather
+than a URL a connector should clean up and fetch. [RFC-0011](../../../rfcs/0011-url-resolution.md)
+§4 states the same reasoning as a compatibility claim; it is restated here because the
+normative document, not the RFC that argues for it, is what a binding is held to.
+
+**Why a bare space is deliberately not in the forbidden set.** U+0020 is not U+0009, U+000A, or
+U+000D, and that omission is not an oversight. A literal space in a URL is percent-encoded
+(`%20` or `+`) by every HTTP client this document is aware of before the request ever leaves
+the process, so a percent-encoded space never reaches this check as whitespace at all — it is
+three ordinary ASCII characters by the time an absolute input carries it. An *unencoded* space
+does occasionally appear in a real pagination link a remote API hands back verbatim, and
+rejecting it outright would break a caller depending on a working link for no corresponding
+gain: unlike a tab, LF, or CR, a raw space is not a construct that plausibly carries a smuggled
+newline or a spoofed log line, and `new URL` does not silently strip it in a way that would let
+two bindings disagree about the resulting URL. Tab, LF, and CR are forbidden because leaving
+them unchecked is both a portability hazard and a security signal; a bare space is neither, so
+it stays permitted.
+
+## §6 Origin
+
+The origin of a URL is the string `scheme://host` when the port is absent or equal to the
+scheme's default port, and `scheme://host:port` otherwise. Built as follows:
+
+- **`scheme` and `host` are lowercased.** `HTTPS://API.example.com` and
+  `https://api.example.com` share an origin.
+- **The default-port table** has exactly two entries: `80` for `http`, `443` for `https`.
+  Every other scheme has no default port, so a port present on a non-`http`/`https` scheme is
+  always significant to the origin string.
+- **An IPv6 host is bracketed.** `[::1]`, not `::1` — the bracket is part of the host as this
+  document uses the term, matching how a URL's authority component must write an IPv6 literal
+  to remain unambiguous with the port delimiter.
+- **Userinfo is ignored.** The host is whatever follows the **last** `@` in the authority
+  component. `user@api.example.com` and `api.example.com` name the same host; a userinfo
+  component never widens or narrows the origin comparison.
+
+## §7 Rejection
+
+Resolving an absolute input can fail for one of three reasons. A conformant implementation
+MUST check them in exactly this order — each is reachable only once every reason above it has
+been ruled out — and MUST use exactly this message for each:
+
+| Order | Reason | Message |
+| --- | --- | --- |
+| 1 | `malformed` | `resolveUrlWithBase: refusing to fetch malformed absolute URL` |
+| 2 | `invalid-base` | `resolveUrlWithBase: base URL is not an absolute URL with a host` |
+| 3 | `cross-origin` | `resolveUrlWithBase: refusing to fetch cross-origin URL (got <target>, expected <base>)` |
+
+`<target>` and `<base>` are the two origins from §6, not the two raw URLs.
+
+The camelCase `resolveUrlWithBase:` prefix is deliberate in both languages, Python's
+`resolve_url_with_base` included. The message is contract text, named for the contract's
+export, not for either binding's own spelling of the function it names — the corpus pins
+these messages once, and a Python binding that renamed the prefix to `resolve_url_with_base:`
+to match its own casing convention would still fail conformance. Byte-identical messages are
+what let one fixture pin the outcome for both languages at once.
+
+On success — the input is relative (§4), or absolute and same-origin — the function returns
+`input` **unchanged**. It never returns a normalised or re-serialised form, even when the
+input was absolute: the guarantee this document makes is about which origin a fetch reaches,
+not about what the URL string looks like afterward.
+
+## §8 Credentials across an origin change
+
+A binding MUST NOT carry credentials across an origin change. Concretely: whatever mechanism a
+binding's transport uses to carry the connector's bearer token — an `Authorization` header,
+most commonly — MUST NOT be attached to a request this document resolves to an origin other
+than the base's, and MUST NOT survive a redirect response that changes the origin either.
+
+This is a property the *contract* requires, not a property any one runtime happens to have.
+JavaScript's `fetch` satisfies same-origin-only credential attachment on a cross-origin
+redirect by stripping the `Authorization` header, per the Fetch standard; Python's
+`urllib.request` does not do this on its own; a Python binding built on it MUST implement the
+stripping itself rather than relying on the standard library to have done so. A future Go or
+Rust binding inherits this as a stated requirement of the contract instead of discovering it
+independently, the way JavaScript's behavior and Python's absence of it were each discovered
+here. The obligation binds **every** transport a binding accepts as a seam — not only whichever
+one it defaults to — because a connector author who substitutes their own fetcher is still
+bound by this document.
+
+This document names no third-party HTTP client and makes no claim about which ones strip
+`Authorization` on a cross-origin redirect by default. That is a security claim about code
+this document does not control, and it is a claim that has changed across library releases; a
+binding author who needs to know a specific client's current behavior needs to test that
+client, not read this paragraph.
+
+## §9 Undefined in v1
+
+This document does not define a verdict for a host that is not a sequence of ASCII letters,
+digits, `-`, and `.`, and is not a bracketed IPv6 literal — a non-ASCII or IDNA-encoded host,
+a backslash anywhere in the authority component (not only in the host proper — see below), or
+a host containing a space. A binding MAY reject such a host or MAY resolve and compare it
+using its own platform's URL parsing; no case in the conformance corpus pins a verdict for
+this input, and neither binding may invent one to make the other look wrong.
+
+The line is drawn here, rather than requiring every binding to normalise these hosts
+identically, because the two operations this document does require — bracketing an IPv6
+literal and lowercasing ASCII — are cheap and produce identical output in every language,
+where IDNA is neither. Punycode encoding requires a Unicode table this dependency-free package
+does not carry in either language, and agreeing on it would force TypeScript or Python to grow
+a real dependency, or both to carry a hand-rolled implementation neither can verify against
+the other. This follows the precedent [`diagnostics.md`](../../diagnostics/v1/diagnostics.md)
+§8 sets for a lone surrogate in `extensionId`: disclosing that a case is undefined, and why, is
+more honest than a document inventing a verdict it has no way to hold two languages to.
+
+**This also covers host canonicalisation, which is entirely undefined in v1, even for hosts
+that are plain ASCII.** `new URL` canonicalises a host in ways `urlsplit` does not, so the two
+reference bindings disagree on inputs that are ASCII-only and contain no space or backslash —
+inputs the wording above, read narrowly, would not otherwise flag. Verified:
+
+| base | input | TypeScript | Python |
+| --- | --- | --- | --- |
+| `https://192.168.0.1` | `https://0300.0250.0.1/x` (octal IPv4) | accepts as same-origin | rejects as `cross-origin` |
+| `https://192.168.0.1` | `https://0xC0A80001/x` (hex IPv4) | accepts as same-origin | rejects as `cross-origin` |
+| `https://127.0.0.1` | `https://127.1/x` (short-form IPv4) | accepts as same-origin | rejects as `cross-origin` |
+| `https://[::1]` | `https://[0:0:0:0:0:0:0:1]/x` (expanded IPv6) | accepts as same-origin | rejects as `cross-origin` |
+| `https://api.example.com` | `https://api%2Eexample.com/x` (percent-encoded host octet) | accepts as same-origin | rejects as `malformed` |
+
+**IPv4 alternate notations** (octal, hexadecimal, and short-form addresses), **IPv6 alternate
+spellings** (an address written with leading zeros or without the zero-compression `::` a
+canonical form would use), and **percent-encoded host octets** are undefined in v1 for the
+same reason IDNA is: WHATWG's URL parser canonicalises all of them before comparing, and
+`urlsplit` canonicalises none of them, and reproducing WHATWG host canonicalisation
+dependency-free in two languages costs more than these inputs are worth. Neither binding is
+unsafe on its own — each stays self-consistent with whatever HTTP client actually performs its
+fetch, TypeScript's `fetch` and Python's transport alike resolve a host the same way this
+document's origin check does — they simply disagree with each other on where the line between
+same-origin and cross-origin falls for these specific spellings. No case in the conformance
+corpus pins a verdict for any of them.
+
+---
+
+Changes here follow the [RFC process](../../../GOVERNANCE.md#the-rfc-process) — see
+[RFC-0011](../../../rfcs/0011-url-resolution.md).

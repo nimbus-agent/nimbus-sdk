@@ -1,0 +1,6 @@
+{
+  "description": "The anti-vacuity companion to the authority-extension cases: a relative input that stays on the base's own origin once concatenated is still accepted, proving §4's new origin check does not reject every relative input.",
+  "base": "https://api.example.com",
+  "input": "/v1/x",
+  "expect": { "ok": true, "url": "https://api.example.com/v1/x" }
+}

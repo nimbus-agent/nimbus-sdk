@@ -127,9 +127,23 @@ kinds: `encode` (a value in, a line or a typed rejection out), `parse` (a line i
 a typed rejection out — the gateway's direction), and `level` (threshold comparison, pinning
 the published order).
 
+### `connector-kit/v1/`
+
+The [URL resolution contract](./connector-kit/v1/url-resolution.md) — the rule behind
+`resolveUrlWithBase` / `resolve_url_with_base`, the chokepoint that stops a caller-supplied
+pagination link from redirecting a credential-bearing REST fetch at an attacker-controlled
+host. It specifies: what makes an input absolute (a scheme followed by a colon, and nothing
+else); that a relative input resolves against the base by string concatenation, never by RFC
+3986 relative-reference resolution — the one branch where getting this wrong exfiltrates the
+connector's bearer token silently; the two malformed conditions an absolute input is checked
+against, in order; how an origin is built for the same-origin comparison; the three rejection
+reasons, their evaluation order, and their exact messages; that credentials MUST NOT cross an
+origin change, on any transport a binding accepts; and what is left undefined for a
+non-ASCII or otherwise unusual host. See [RFC-0011](../rfcs/0011-url-resolution.md).
+
 ### `conformance/v1/`
 
-Six corpora, because the contract has six kinds of assertion.
+Seven corpora, because the contract has seven kinds of assertion.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -189,6 +203,15 @@ Separate from the document index for the same reason the framing, predicate, and
 negotiation corpora are: widening the published document index would make an older
 validator reject entries it cannot interpret.
 
+**URL-resolution cases** — [`url-resolution/`](./conformance/v1/url-resolution/) is the
+executable form of the [URL resolution contract](./connector-kit/v1/url-resolution.md)
+above, with its own [`index.json`](./conformance/v1/url-resolution/index.json) and
+[`case.schema.json`](./conformance/v1/url-resolution/case.schema.json). A case is a base, an
+input, and either the exact string returned or the exact refusal — reason and message
+both — so two bindings are held to the same words and not merely to the same verdict: a
+binding that refuses for the right reason with different wording still fails the case,
+because the message is contract text.
+
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
 - **`equivalence`** — the schema and `runContractTests` both cover these fields and must
@@ -224,16 +247,20 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Seven guards run on every pull request as part of `bun run test` (see
+Eight guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
 holds the contract to being **language-neutral** is that a second binding executes the
 same fixtures: `sdks/python/` runs the `negotiation` corpus — all three case kinds —
-the `framing` corpus, and the `diagnostics` corpus, from the same `index.json` files the
-TypeScript guards read, with nothing deferred. A case added to any of the three therefore
-runs in both languages as soon as it is indexed, and a claim only one binding can satisfy
-fails somewhere.
+the `framing` corpus, the `diagnostics` corpus, and the `url-resolution` corpus, from the
+same `index.json` files the TypeScript guards read, with nothing deferred. A case added to
+any of the four therefore runs in both languages as soon as it is indexed, and a claim only
+one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
+stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
+`url-resolution` holds a narrower one — that `resolveUrlWithBase` and
+`resolve_url_with_base`, two separate implementations of the same SSRF chokepoint rather
+than two ends of a protocol, reach the same verdict and the same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. `predicates` and `sandbox` are executed by the **TypeScript** binding only — real
@@ -297,6 +324,16 @@ the corpus validates against its schemas and every case agrees with `encodeDiagn
 accepting and a rejecting case, that every rejection reason is produced by at least one
 case, and that no parse case expects `line-too-long` — §5.1 requires that reason be
 encode-only.
+
+`sdks/typescript/scripts/url-resolution-guard.test.ts` validates the url-resolution corpus
+against its schemas, holds the index and the cases directory to each other, and drives every
+case through `resolveUrlWithBase`. It asserts every published §7 rejection reason —
+`malformed`, `invalid-base`, `cross-origin` — is asserted by at least one case, that every
+pinnable section (§3 through §7) is cited by at least one case, and that both outcomes are
+exercised. It also pins §4 specifically against relative-reference resolution: a
+protocol-relative case (`input` starting with `//`) must resolve by string concatenation,
+staying on the base's own host, rather than by `urljoin` / `new URL(input, base)`, which would
+read it as a network-authority reference and hand the fetch to a different host.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

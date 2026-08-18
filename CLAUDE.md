@@ -90,7 +90,7 @@ point, so the boundary is documentation — and hoisting the names to the top le
 convenience would erase it.
 
 Both bindings execute the published conformance corpora: `negotiation` (all three
-kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py` — the 25-case
+kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py` — the
 `url-resolution` corpus. Nothing is deferred, so a new corpus case runs in both
 languages the moment it is indexed.
 

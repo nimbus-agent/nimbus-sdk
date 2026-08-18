@@ -268,7 +268,7 @@ maintained."*
   (`createRegisterSimpleTool`, `mcpJsonResult`); `nimbus-dev-sdk` now carries part of the
   equivalent, as `nimbus_sdk.connector_kit` — a fourth Python import root shipping the
   pure core: `resolve_url_with_base` (the SSRF chokepoint, binding a new
-  [`url-resolution`](./spec/connector-kit/v1/url-resolution.md) corpus, 25 cases, both
+  [`url-resolution`](./spec/connector-kit/v1/url-resolution.md) corpus, both
   bindings execute), `require_env`, the `json_result` / `error_result` MCP result
   builders, and the `search_filter` port. Still missing: the transport, the tool router,
   and the `rest.py` REST factories. Until those land, the generated Python connector

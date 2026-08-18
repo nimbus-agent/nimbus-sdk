@@ -175,7 +175,7 @@ nothing left for a userinfo-specific rejection to buy.
 | `docs/spec/connector-kit/v1/url-resolution.md` added | none (spec document) | New path. Nobody validating against the existing spec areas is touched. |
 | TypeScript's `resolveUrlWithBase` corrected to the scheme rule | patch (`fix`) | Per §4 above: callers relying on a thrown error for a legitimate relative path are helped; callers relying on a malformed-but-non-throwing concatenation for a non-`http` absolute URL were never actually working; callers passing an absolute URL with embedded whitespace, genuinely, are newly rejected — on security grounds. |
 | `nimbus_sdk.connector_kit` added, not re-exported from `nimbus_sdk` | minor (`feat`, in the commit that adds it) | Nobody existing. A consumer must opt in to the new import root, mirroring the `.` / `./ipc` / `./diagnostics` boundary [`CLAUDE.md`](../../CLAUDE.md) already documents for Python. |
-| A new conformance corpus under `docs/spec/conformance/v1/connector-kit/` | none | New path, its own index — the same reasoning that kept framing, predicates, negotiation, and diagnostics off the shared document index applies here too. |
+| A new conformance corpus under `docs/spec/conformance/v1/url-resolution/` | none | New path, its own index — the same reasoning that kept framing, predicates, negotiation, and diagnostics off the shared document index applies here too. |
 
 ## Migration
 
@@ -216,7 +216,7 @@ afterward — normalising it would be a second, unrelated behavior change riding
 
 ## Out of scope
 
-- **The conformance corpus itself.** `docs/spec/conformance/v1/connector-kit/`, its
+- **The conformance corpus itself.** `docs/spec/conformance/v1/url-resolution/`, its
   `index.json`, its schema, and its cases are a later commit in this same feature, per the
   "Landed" line above.
 - **The TypeScript correction's implementation.** This RFC specifies and justifies the rule;

@@ -16,7 +16,7 @@ The TypeScript reference implementation is `resolveUrlWithBase` in
 [`sdks/typescript/src/connector-kit/fetch-bearer-json.ts`](https://github.com/nimbus-agent/nimbus-sdk/tree/main/sdks/typescript/src/connector-kit/fetch-bearer-json.ts),
 published from the `./connector-kit` entry point; the Python reference implementation is
 `resolve_url_with_base` in `nimbus_sdk.connector_kit`. The executable form of this document is
-the corpus at [`../../conformance/v1/connector-kit/`](../../conformance/v1/connector-kit/).
+the corpus at [`../../conformance/v1/url-resolution/`](../../conformance/v1/url-resolution/).
 Where prose and corpus appear to disagree, the corpus is the tiebreaker — it is what CI runs.
 
 ## §1 Scope
@@ -120,6 +120,35 @@ An absolute input (§3) is checked for two malformed conditions, in this order:
 
 Both conditions are evaluated only on an absolute input; a relative input never reaches this
 section, because §4 resolves it by concatenation without inspecting it at all.
+
+**Why forbidden whitespace is checked before anything else, and why it is checked at all.**
+Left unchecked, an absolute input carrying a raw tab, LF, or CR does not fail — it succeeds
+silently, and the two reference constructs a binding might reach for disagree about what it
+succeeds *as*. `new URL(input)` strips U+0009/U+000A/U+000D wherever they occur and parses the
+stripped result; a binding that instead splits the string on whitespace, or that parses it with
+a stricter host/port grammar, does not. The same caller-supplied input then resolves to two
+different URLs in two conformant-looking bindings, which is exactly the kind of silent
+divergence this document exists to close off. Rejecting the input outright, rather than
+choosing one stripping behavior and mandating it, sidesteps the disagreement entirely: neither
+binding ever fetches a URL the caller did not literally write. This is also a security rule,
+not only a portability one — no legitimate REST API emits a pagination link with an embedded
+control character, and one that does is a log-injection or request-smuggling signal rather
+than a URL a connector should clean up and fetch. [RFC-0011](../../../rfcs/0011-url-resolution.md)
+§4 states the same reasoning as a compatibility claim; it is restated here because the
+normative document, not the RFC that argues for it, is what a binding is held to.
+
+**Why a bare space is deliberately not in the forbidden set.** U+0020 is not U+0009, U+000A, or
+U+000D, and that omission is not an oversight. A literal space in a URL is percent-encoded
+(`%20` or `+`) by every HTTP client this document is aware of before the request ever leaves
+the process, so a percent-encoded space never reaches this check as whitespace at all — it is
+three ordinary ASCII characters by the time an absolute input carries it. An *unencoded* space
+does occasionally appear in a real pagination link a remote API hands back verbatim, and
+rejecting it outright would break a caller depending on a working link for no corresponding
+gain: unlike a tab, LF, or CR, a raw space is not a construct that plausibly carries a smuggled
+newline or a spoofed log line, and `new URL` does not silently strip it in a way that would let
+two bindings disagree about the resulting URL. Tab, LF, and CR are forbidden because leaving
+them unchecked is both a portability hazard and a security signal; a bare space is neither, so
+it stays permitted.
 
 ## §6 Origin
 

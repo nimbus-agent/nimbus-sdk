@@ -127,6 +127,20 @@ kinds: `encode` (a value in, a line or a typed rejection out), `parse` (a line i
 a typed rejection out — the gateway's direction), and `level` (threshold comparison, pinning
 the published order).
 
+### `connector-kit/v1/`
+
+The [URL resolution contract](./connector-kit/v1/url-resolution.md) — the rule behind
+`resolveUrlWithBase` / `resolve_url_with_base`, the chokepoint that stops a caller-supplied
+pagination link from redirecting a credential-bearing REST fetch at an attacker-controlled
+host. It specifies: what makes an input absolute (a scheme followed by a colon, and nothing
+else); that a relative input resolves against the base by string concatenation, never by RFC
+3986 relative-reference resolution — the one branch where getting this wrong exfiltrates the
+connector's bearer token silently; the two malformed conditions an absolute input is checked
+against, in order; how an origin is built for the same-origin comparison; the three rejection
+reasons, their evaluation order, and their exact messages; that credentials MUST NOT cross an
+origin change, on any transport a binding accepts; and what is left undefined for a
+non-ASCII or otherwise unusual host. See [RFC-0011](../rfcs/0011-url-resolution.md).
+
 ### `conformance/v1/`
 
 Six corpora, because the contract has six kinds of assertion.

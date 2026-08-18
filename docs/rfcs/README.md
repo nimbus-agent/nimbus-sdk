@@ -21,6 +21,7 @@ widening the contract.
 | [0008](./0008-python-sdk-official.md) | Promote the Python SDK to official | accepted | [#91](https://github.com/nimbus-agent/nimbus-sdk/pull/91) |
 | [0009](./0009-python-runtime.md) | `manifest.runtime` admits Python | accepted | [#95](https://github.com/nimbus-agent/nimbus-sdk/pull/95) |
 | [0010](./0010-diagnostics-contract-v0.md) | Diagnostics / telemetry contract v0 | accepted | [#113](https://github.com/nimbus-agent/nimbus-sdk/pull/113) |
+| [0011](./0011-url-resolution.md) | URL resolution for the connector kit | accepted | this document, the normative spec, and `docs/spec/README.md` |
 
 ## Statuses
 

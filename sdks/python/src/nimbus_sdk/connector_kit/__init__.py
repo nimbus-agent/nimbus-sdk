@@ -15,6 +15,7 @@ arrive in shipment 2.
 
 from __future__ import annotations
 
+from nimbus_sdk.connector_kit.env import require_env
 from nimbus_sdk.connector_kit.errors import (
     ConnectorKitError,
     HttpStatusError,
@@ -28,5 +29,6 @@ __all__ = [
     "HttpStatusError",
     "MissingEnvError",
     "UrlResolutionError",
+    "require_env",
     "resolve_url_with_base",
 ]

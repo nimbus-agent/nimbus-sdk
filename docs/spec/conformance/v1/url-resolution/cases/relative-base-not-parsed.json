@@ -1,0 +1,6 @@
+{
+  "description": "The base is not parsed, validated or normalised on the relative path.",
+  "base": "api.example.com",
+  "input": "/x",
+  "expect": { "ok": true, "url": "api.example.com/x" }
+}

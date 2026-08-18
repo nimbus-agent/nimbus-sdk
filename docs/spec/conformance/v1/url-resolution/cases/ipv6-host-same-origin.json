@@ -1,0 +1,6 @@
+{
+  "description": "An IPv6 host is bracketed in the origin string. Python's urlsplit().hostname strips the brackets and TypeScript's URL.hostname keeps them, so a binding comparing raw hostnames disagrees with the other on every IPv6 base.",
+  "base": "http://[::1]:8080",
+  "input": "http://[::1]:8080/x",
+  "expect": { "ok": true, "url": "http://[::1]:8080/x" }
+}

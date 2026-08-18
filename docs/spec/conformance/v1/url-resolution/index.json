@@ -1,0 +1,110 @@
+{
+  "spec": "../../../connector-kit/v1/url-resolution.md",
+  "cases": [
+    {
+      "file": "cases/relative-path-prefixed.json",
+      "section": "§4",
+      "reason": "A relative path is concatenated onto the base, per §4's string-concatenation rule."
+    },
+    {
+      "file": "cases/relative-empty-input.json",
+      "section": "§4",
+      "reason": "An empty input resolves to the base itself, because concatenating the empty string changes nothing."
+    },
+    {
+      "file": "cases/relative-scheme-like-prefix.json",
+      "section": "§3",
+      "reason": "A path merely beginning with the letters 'http' is relative — there is no colon, so no scheme. The startsWith('http') heuristic this rule replaces would have misclassified it as absolute and rejected a legitimate relative path."
+    },
+    {
+      "file": "cases/protocol-relative-is-a-path.json",
+      "section": "§4",
+      "reason": "A protocol-relative input has no scheme, so §3 makes it relative and §4 concatenates it — the host stays api.example.com. A binding implementing §4 with urllib.parse.urljoin or new URL(input, base) resolves it to https://evil.com/x instead and sends the bearer token there, and because the input is relative it never reaches the origin check that would have caught it. Caught by 0 of the other 20 cases: every one of them either carries a scheme or resolves to a path with no authority component."
+    },
+    {
+      "file": "cases/relative-base-not-parsed.json",
+      "section": "§4",
+      "reason": "The base is not parsed, validated or normalised on the relative path."
+    },
+    {
+      "file": "cases/absolute-same-origin-passthrough.json",
+      "section": "§5",
+      "reason": "A same-origin absolute URL is returned unchanged, query and all — §7 requires the input pass through verbatim on success."
+    },
+    {
+      "file": "cases/cross-origin-rejected.json",
+      "section": "§7",
+      "reason": "A cross-origin absolute URL is refused, naming both origins in the message."
+    },
+    {
+      "file": "cases/cross-scheme-rejected.json",
+      "section": "§6",
+      "reason": "The same host over a different scheme is a different origin, per §6's origin-tuple definition."
+    },
+    {
+      "file": "cases/cross-port-rejected.json",
+      "section": "§6",
+      "reason": "The same host on a different explicit port is a different origin."
+    },
+    {
+      "file": "cases/default-port-https-elided.json",
+      "section": "§6",
+      "reason": "An explicit :443 on https is the same origin as none. Python's urlsplit reports the port verbatim where the WHATWG parser elides it, so without the default-port table the bindings disagree on a legitimate pagination link."
+    },
+    {
+      "file": "cases/default-port-http-elided.json",
+      "section": "§6",
+      "reason": "The complement, with the default on the base rather than on the input: an explicit :80 on http is the same origin as none."
+    },
+    {
+      "file": "cases/host-and-scheme-case-folded.json",
+      "section": "§6",
+      "reason": "Scheme and host compare case-insensitively, and the input is still returned in the caller's casing."
+    },
+    {
+      "file": "cases/ipv6-host-same-origin.json",
+      "section": "§6",
+      "reason": "An IPv6 host is bracketed in the origin string. Python's urlsplit().hostname strips the brackets and TypeScript's URL.hostname keeps them, so a binding comparing raw hostnames disagrees with the other on every IPv6 base."
+    },
+    {
+      "file": "cases/ipv6-cross-port-rejected.json",
+      "section": "§6",
+      "reason": "Two listeners on one host differ by port alone — the origin change a same-host redirect makes, written down."
+    },
+    {
+      "file": "cases/userinfo-host-is-after-last-at.json",
+      "section": "§6",
+      "reason": "Userinfo is ignored: the host of https://api.example.com@evil.com is evil.com. A binding reading the netloc rather than the host accepts this and sends the bearer token to the attacker."
+    },
+    {
+      "file": "cases/non-special-scheme-cross-origin.json",
+      "section": "§6",
+      "reason": "A non-http scheme is absolute and rejected as cross-origin. The startsWith('http') heuristic read this as relative and concatenated it into https://api.example.comftp://evil.com — caught by 0 of the 0 cases that existed before this corpus, and by no test in the TypeScript suite either."
+    },
+    {
+      "file": "cases/no-host-rejected.json",
+      "section": "§5",
+      "reason": "An absolute URL with no host is malformed."
+    },
+    {
+      "file": "cases/scheme-shaped-relative-segment.json",
+      "section": "§3",
+      "reason": "The disclosed edge of §3: 'notes:' is a valid RFC 3986 scheme, so notes:2024/x is absolute and malformed for want of a host rather than being concatenated as a path."
+    },
+    {
+      "file": "cases/non-integer-port-rejected.json",
+      "section": "§5",
+      "reason": "A port that is not a decimal integer is malformed. Python reaches this by the ValueError urlsplit().port raises; TypeScript by new URL throwing."
+    },
+    {
+      "file": "cases/tab-in-absolute-rejected.json",
+      "section": "§5",
+      "reason": "A raw tab in an absolute URL is malformed. new URL removes U+0009/U+000A/U+000D and fetches the stripped form, so without this rule TypeScript silently fetches a URL the caller never wrote while Python fetches a different one or fails."
+    },
+    {
+      "file": "cases/invalid-base-rejected.json",
+      "section": "§7",
+      "reason": "A base that is not an absolute URL with a host is refused with its own reason, distinguishing caller misconfiguration from attacker input. Only reachable on the absolute path — §4 never parses the base."
+    }
+  ]
+}

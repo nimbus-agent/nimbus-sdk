@@ -143,7 +143,7 @@ non-ASCII or otherwise unusual host. See [RFC-0011](../rfcs/0011-url-resolution.
 
 ### `conformance/v1/`
 
-Six corpora, because the contract has six kinds of assertion.
+Seven corpora, because the contract has seven kinds of assertion.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -203,6 +203,17 @@ Separate from the document index for the same reason the framing, predicate, and
 negotiation corpora are: widening the published document index would make an older
 validator reject entries it cannot interpret.
 
+**URL-resolution cases** — [`url-resolution/`](./conformance/v1/url-resolution/) is the
+executable form of the [URL resolution contract](./connector-kit/v1/url-resolution.md)
+above, with its own [`index.json`](./conformance/v1/url-resolution/index.json) and
+[`case.schema.json`](./conformance/v1/url-resolution/case.schema.json). A case is a base, an
+input, and either the exact string returned or the exact refusal — reason and message
+both — so two bindings are held to the same words and not merely to the same verdict: a
+binding that refuses for the right reason with different wording still fails the case,
+because the message is contract text. `url-resolution` is executed by the **TypeScript**
+binding only for now; the Python runner arrives in the same branch (a later task of this
+shipment), at which point this disclosure sentence is deleted.
+
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
 - **`equivalence`** — the schema and `runContractTests` both cover these fields and must
@@ -238,7 +249,7 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Seven guards run on every pull request as part of `bun run test` (see
+Eight guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What

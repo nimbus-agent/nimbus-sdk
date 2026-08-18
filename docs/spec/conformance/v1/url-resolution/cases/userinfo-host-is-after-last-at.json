@@ -1,0 +1,10 @@
+{
+  "description": "Userinfo is ignored: the host of https://api.example.com@evil.com is evil.com. A binding reading the netloc rather than the host accepts this and sends the bearer token to the attacker.",
+  "base": "https://api.example.com",
+  "input": "https://api.example.com@evil.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://evil.com, expected https://api.example.com)"
+  }
+}

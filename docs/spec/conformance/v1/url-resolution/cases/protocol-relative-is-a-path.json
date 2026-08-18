@@ -1,0 +1,6 @@
+{
+  "description": "A protocol-relative input has no scheme, so §3 makes it relative and §4 concatenates it — the host stays api.example.com. A binding implementing §4 with urllib.parse.urljoin or new URL(input, base) resolves it to https://evil.com/x instead and sends the bearer token there, and because the input is relative it never reaches the origin check that would have caught it. Caught by 0 of the other 20 cases: every one of them either carries a scheme or resolves to a path with no authority component.",
+  "base": "https://api.example.com",
+  "input": "//evil.com/x",
+  "expect": { "ok": true, "url": "https://api.example.com//evil.com/x" }
+}

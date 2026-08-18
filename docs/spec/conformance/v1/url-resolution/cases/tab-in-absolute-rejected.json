@@ -1,0 +1,10 @@
+{
+  "description": "A raw tab in an absolute URL is malformed. new URL removes U+0009/U+000A/U+000D and fetches the stripped form, so without this rule TypeScript silently fetches a URL the caller never wrote while Python fetches a different one or fails.",
+  "base": "https://api.example.com",
+  "input": "https://api.example.com/a\tb",
+  "expect": {
+    "ok": false,
+    "reason": "malformed",
+    "message": "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+  }
+}

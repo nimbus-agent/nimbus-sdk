@@ -1,0 +1,10 @@
+{
+  "description": "The same host over a different scheme is a different origin.",
+  "base": "https://api.example.com",
+  "input": "http://api.example.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got http://api.example.com, expected https://api.example.com)"
+  }
+}

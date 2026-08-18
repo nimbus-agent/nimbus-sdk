@@ -1,0 +1,6 @@
+{
+  "description": "A path merely beginning with the letters 'http' is relative — there is no colon, so no scheme.",
+  "base": "https://api.example.com",
+  "input": "httpdocs/x",
+  "expect": { "ok": true, "url": "https://api.example.comhttpdocs/x" }
+}

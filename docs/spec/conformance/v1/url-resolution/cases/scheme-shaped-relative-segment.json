@@ -1,0 +1,10 @@
+{
+  "description": "The disclosed edge of §3: 'notes:' is a valid RFC 3986 scheme, so notes:2024/x is absolute and malformed for want of a host rather than being concatenated as a path.",
+  "base": "https://api.example.com",
+  "input": "notes:2024/x",
+  "expect": {
+    "ok": false,
+    "reason": "malformed",
+    "message": "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+  }
+}

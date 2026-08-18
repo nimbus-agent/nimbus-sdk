@@ -99,8 +99,8 @@ in Shipment 2 — they have no Shipment 1 caller.
 | `docs/spec/connector-kit/v1/url-resolution.md` | The normative document. Nine sections; §3–§7 are what the corpus pins, §8 is the credential-redirect MUST that Shipment 2 satisfies, §9 lists what is undefined in v1. |
 | `docs/spec/conformance/v1/url-resolution/case.schema.json` | One case: `description`, `base`, `input`, `expect`. |
 | `docs/spec/conformance/v1/url-resolution/index.schema.json` | The index manifest schema. `section` pattern `^§[0-9]+(\.[0-9]+)*$`. |
-| `docs/spec/conformance/v1/url-resolution/index.json` | The corpus. Twenty-one entries. |
-| `docs/spec/conformance/v1/url-resolution/cases/*.json` | Twenty-one case files. |
+| `docs/spec/conformance/v1/url-resolution/index.json` | The corpus. Twenty-five entries (21 written here; 4 ordering and whitespace-coverage cases added in Task 3 review). |
+| `docs/spec/conformance/v1/url-resolution/cases/*.json` | Twenty-five case files. |
 | `sdks/typescript/scripts/url-resolution-guard.test.ts` | The eighth guard: validates the schemas, executes every case against `resolveUrlWithBase`, and refuses to pass vacuously. |
 
 **Created — the Python surface**
@@ -640,7 +640,7 @@ git commit -m "fix(connector-kit): resolve URLs by scheme and origin, not by a p
 - Create: `docs/spec/conformance/v1/url-resolution/case.schema.json`
 - Create: `docs/spec/conformance/v1/url-resolution/index.schema.json`
 - Create: `docs/spec/conformance/v1/url-resolution/index.json`
-- Create: `docs/spec/conformance/v1/url-resolution/cases/` — twenty-one files
+- Create: `docs/spec/conformance/v1/url-resolution/cases/` — twenty-five files
 - Create: `sdks/typescript/scripts/url-resolution-guard.test.ts`
 - Modify: `docs/spec/README.md` (guard count, corpus count, the cases paragraph)
 
@@ -1203,7 +1203,7 @@ describe("the reference binding satisfies every case", () => {
 - [ ] **Step 7: Run the guard**
 
 Run: `cd sdks/typescript && bun test scripts/url-resolution-guard.test.ts`
-Expected: PASS, twenty-one case tests plus the schema and anti-vacuity tests.
+Expected: PASS, one test per case plus the schema and anti-vacuity tests.
 
 If `every case cites a section the document actually has` fails, your headings in
 `url-resolution.md` are not spelled `## §3 ...`. Fix the document, not the test — the check
@@ -1635,9 +1635,9 @@ def _ids() -> list[str]:
 
 def test_the_corpus_is_not_empty() -> None:
     # A load_corpus that silently returned [] would make every parametrised test below
-    # vanish rather than fail. Twenty-one is the count at the corpus's introduction; the
+    # vanish rather than fail. Twenty-five is the count at the corpus's introduction; the
     # TypeScript guard is what holds the exact list.
-    assert len(CASES) >= 21
+    assert len(CASES) >= 25
 
 
 def _outcome(case: dict[str, object]) -> bool:
@@ -1687,7 +1687,7 @@ were merely *stale* rather than *absent*, which is why the reinstall is a step a
 - [ ] **Step 3: Reinstall and run again**
 
 Run: `cd sdks/python && python -m pip install -e . && python -m pytest tests/test_url_resolution_corpus.py -q`
-Expected: PASS — twenty-one parametrised cases plus the two anti-vacuity tests.
+Expected: PASS — one parametrised case per corpus entry plus the two anti-vacuity tests.
 
 - [ ] **Step 4: Update the language-neutrality paragraph**
 

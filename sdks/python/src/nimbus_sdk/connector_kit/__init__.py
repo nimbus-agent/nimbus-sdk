@@ -22,13 +22,32 @@ from nimbus_sdk.connector_kit.errors import (
     MissingEnvError,
     UrlResolutionError,
 )
+from nimbus_sdk.connector_kit.results import (
+    JsonBodyResponse,
+    TextResponse,
+    error_result,
+    json_result,
+    json_result_from_text_if_ok,
+    json_result_if_ok,
+    parse_json_text_if_ok,
+)
+from nimbus_sdk.connector_kit.types import McpTextContent, McpToolResult
 from nimbus_sdk.connector_kit.urls import resolve_url_with_base
 
 __all__ = [
     "ConnectorKitError",
     "HttpStatusError",
+    "JsonBodyResponse",
+    "McpTextContent",
+    "McpToolResult",
     "MissingEnvError",
+    "TextResponse",
     "UrlResolutionError",
+    "error_result",
+    "json_result",
+    "json_result_from_text_if_ok",
+    "json_result_if_ok",
+    "parse_json_text_if_ok",
     "require_env",
     "resolve_url_with_base",
 ]

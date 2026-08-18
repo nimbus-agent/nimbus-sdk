@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **connector-kit:** add the `nimbus_sdk.connector_kit` import root — the pure core of
+  the Python binding of `@nimbus-dev/sdk/connector-kit`: `errors.py`, `urls.py`
+  (`resolve_url_with_base`, the SSRF chokepoint), `env.py` (`require_env`), `types.py`,
+  `results.py` (`json_result` and its `*_if_ok` variants), and `search_filter.py`. The
+  transport, the tool router, and `rest.py` follow in a later release.
+
 ## [0.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.5.0...python-v0.6.0) (2026-08-02)
 
 

@@ -81,16 +81,35 @@ def _origin(url: str) -> str | None:
 def resolve_url_with_base(base_url: str, path_or_url: str) -> str:
     """Resolve ``path_or_url`` against ``base_url``.
 
-    A relative input is concatenated onto the base (§4); the base is not parsed on
-    that path. An absolute input is returned unchanged only when it shares the
-    base's origin — the single chokepoint that stops a caller-supplied pagination
-    link from redirecting a credential-bearing fetch at an attacker-controlled host.
+    A relative input is concatenated onto the base (§4). A base with no trailing
+    slash lets a relative input extend the authority (``@evil.com/x``,
+    ``.evil.com/x``), so the concatenated result's origin is checked against the
+    base's origin the same way an absolute input is: if the base has a computable
+    origin and the concatenation doesn't share it, resolution is refused as
+    cross-origin. A base with no computable origin (not a parseable absolute URL)
+    skips the check — it is not a credential-bearing endpoint — and the
+    concatenation is returned unchanged.
+
+    An absolute input is returned unchanged only when it shares the base's origin —
+    the single chokepoint that stops a caller-supplied pagination link from
+    redirecting a credential-bearing fetch at an attacker-controlled host.
 
     Raises :class:`UrlResolutionError` on a malformed input, an unusable base, or an
     origin mismatch, with the exact §7 message in each case.
     """
     if not _ABSOLUTE_URL.match(path_or_url):
-        return f"{base_url}{path_or_url}"
+        concatenated = f"{base_url}{path_or_url}"
+        base = _origin(base_url)
+        if base is None:
+            return concatenated
+        target = _origin(concatenated)
+        if target != base:
+            got = target if target is not None else concatenated
+            raise UrlResolutionError(
+                f"resolveUrlWithBase: refusing to fetch cross-origin URL "
+                f"(got {got}, expected {base})"
+            )
+        return concatenated
     if _FORBIDDEN_WHITESPACE.intersection(path_or_url):
         raise UrlResolutionError(_MALFORMED)
     target = _origin(path_or_url)

@@ -14,7 +14,7 @@
     {
       "file": "cases/relative-scheme-like-prefix.json",
       "section": "§3",
-      "reason": "A path merely beginning with the letters 'http' is relative — there is no colon, so no scheme. The startsWith('http') heuristic this rule replaces would have misclassified it as absolute and rejected a legitimate relative path."
+      "reason": "A path merely beginning with the letters 'http' is relative — there is no colon, so no scheme. This is §3's disclosed edge: the startsWith('http') heuristic this rule replaces would have misclassified it as absolute and rejected a legitimate relative path. It is now refused anyway, for an unrelated reason discovered later: the base carries no trailing slash, so concatenating 'httpdocs/x' moves the host to api.example.comhttpdocs, and §4's origin check catches what the startsWith heuristic never would have reached in the first place."
     },
     {
       "file": "cases/protocol-relative-is-a-path.json",
@@ -25,6 +25,21 @@
       "file": "cases/relative-base-not-parsed.json",
       "section": "§4",
       "reason": "The base is not parsed, validated or normalised on the relative path."
+    },
+    {
+      "file": "cases/relative-userinfo-hijack-rejected.json",
+      "section": "§4",
+      "reason": "A relative input beginning with '@' turns the base's host into discarded userinfo once concatenated onto a base with no trailing slash, handing the bearer token to evil.com. Caught by 0 of the 24 cases that existed before this fix: every prior relative case either resolved to a path with no authority component or matched the base's own origin, so none of them exercised the authority-extension hole §4 concatenation opens on a slash-less base."
+    },
+    {
+      "file": "cases/relative-subdomain-suffix-rejected.json",
+      "section": "§4",
+      "reason": "A relative input beginning with '.' extends the base's host into an attacker-controlled subdomain suffix once concatenated onto a base with no trailing slash. Caught by 0 of the 24 cases that existed before this fix, for the same reason as relative-userinfo-hijack-rejected: nothing in the prior corpus concatenated past the base's own authority."
+    },
+    {
+      "file": "cases/relative-same-origin-path-accepted.json",
+      "section": "§4",
+      "reason": "The anti-vacuity companion to the two authority-extension cases above: a relative input that stays on the base's own origin once concatenated is still accepted, proving the new origin check does not reject every relative input."
     },
     {
       "file": "cases/absolute-same-origin-passthrough.json",

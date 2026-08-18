@@ -39,12 +39,18 @@ function originOf(url: string): string | undefined {
  * Resolve a path-or-URL against `baseUrl`, per
  * `docs/spec/connector-kit/v1/url-resolution.md`.
  *
- * A relative input is concatenated onto the base (§4). An ABSOLUTE input is only allowed
- * when it shares the base's origin — this is the single chokepoint that prevents a
- * caller-supplied pagination link (`@odata.nextLink`, etc.) from redirecting a
- * credential-bearing fetch at an attacker-controlled host (SSRF / bearer-token
- * exfiltration). A cross-origin, malformed, or unbased absolute URL throws and is never
- * fetched.
+ * A relative input is concatenated onto the base (§4) — but a base with no trailing
+ * slash lets a relative input **extend the authority** (`@evil.com/x`, `.evil.com/x`),
+ * so the concatenated result's origin is checked against the base's origin the same way
+ * an absolute input is: if the base has a computable origin and the concatenation
+ * doesn't share it, the resolution is refused as cross-origin rather than fetched. A
+ * base with no computable origin (not a parseable absolute URL) skips the check — it is
+ * not a credential-bearing endpoint — and the concatenation is returned unchanged. An
+ * ABSOLUTE input is only allowed when it shares the base's origin — this is the single
+ * chokepoint that prevents a caller-supplied pagination link (`@odata.nextLink`, etc.)
+ * from redirecting a credential-bearing fetch at an attacker-controlled host (SSRF /
+ * bearer-token exfiltration). A cross-origin, malformed, or unbased absolute URL throws
+ * and is never fetched.
  *
  * Absoluteness is decided by §3's scheme rule, not by a `startsWith("http")` prefix test.
  * The heuristic was wrong at both edges: it rejected the legitimate relative path
@@ -53,7 +59,18 @@ function originOf(url: string): string | undefined {
  */
 export function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): string {
   if (!ABSOLUTE_URL.test(pathOrUrl)) {
-    return `${baseUrl}${pathOrUrl}`;
+    const concatenated = `${baseUrl}${pathOrUrl}`;
+    const base = originOf(baseUrl);
+    if (base === undefined) {
+      return concatenated;
+    }
+    const target = originOf(concatenated);
+    if (target !== base) {
+      throw new Error(
+        `resolveUrlWithBase: refusing to fetch cross-origin URL (got ${target ?? concatenated}, expected ${base})`,
+      );
+    }
+    return concatenated;
   }
   const target = FORBIDDEN_WHITESPACE.test(pathOrUrl) ? undefined : originOf(pathOrUrl);
   if (target === undefined) {

@@ -99,8 +99,8 @@ in Shipment 2 — they have no Shipment 1 caller.
 | `docs/spec/connector-kit/v1/url-resolution.md` | The normative document. Nine sections; §3–§7 are what the corpus pins, §8 is the credential-redirect MUST that Shipment 2 satisfies, §9 lists what is undefined in v1. |
 | `docs/spec/conformance/v1/url-resolution/case.schema.json` | One case: `description`, `base`, `input`, `expect`. |
 | `docs/spec/conformance/v1/url-resolution/index.schema.json` | The index manifest schema. `section` pattern `^§[0-9]+(\.[0-9]+)*$`. |
-| `docs/spec/conformance/v1/url-resolution/index.json` | The corpus. Twenty entries. |
-| `docs/spec/conformance/v1/url-resolution/cases/*.json` | Twenty case files. |
+| `docs/spec/conformance/v1/url-resolution/index.json` | The corpus. Twenty-one entries. |
+| `docs/spec/conformance/v1/url-resolution/cases/*.json` | Twenty-one case files. |
 | `sdks/typescript/scripts/url-resolution-guard.test.ts` | The eighth guard: validates the schemas, executes every case against `resolveUrlWithBase`, and refuses to pass vacuously. |
 
 **Created — the Python surface**
@@ -145,8 +145,25 @@ against another.
 **Absoluteness (§3).** `input` is absolute when it matches `^[A-Za-z][A-Za-z0-9+.-]*:`
 — an RFC 3986 scheme followed by a colon. Nothing else makes it absolute.
 
-**Relative (§4).** A non-absolute input resolves to `base + input`, by string concatenation.
-The base is not parsed, not validated, and not normalised on this path.
+**Relative (§4).** A non-absolute input resolves to `base + input`, **by string
+concatenation** — never by RFC 3986 relative-reference resolution. The base is not parsed,
+not validated, and not normalised on this path.
+
+The distinction is load-bearing, not stylistic. A protocol-relative input `//evil.com/x`
+has no scheme and is therefore relative by §3, and the two readings of "resolve" disagree
+about where it points:
+
+```
+"https://api.example.com" + "//evil.com/x"                  -> https://api.example.com//evil.com/x   (host api.example.com)
+urljoin("https://api.example.com", "//evil.com/x")          -> https://evil.com/x                    (host evil.com)
+```
+
+Both lines were run; the second is the measured output of Python 3.14's
+`urllib.parse.urljoin`. `urljoin` is the one-line way a binding author naturally writes
+"resolve a relative path", and it hands a caller-supplied string a *network-authority
+reference* that redirects the credential-bearing fetch to another host — the exact
+exfiltration the chokepoint exists to prevent, reached through the branch that never checks
+an origin. Concatenation is the rule; `urljoin` and `new URL(input, base)` are both wrong.
 
 **Absolute (§5).** Checked in this order:
 
@@ -231,6 +248,14 @@ Sections, in this order and with these numbers (the corpus's `section` values ar
   hides).
 - **§4 Relative resolution.** `base + input`, by concatenation. No parsing of the base, no
   normalisation, no slash insertion or removal. An empty input resolves to the base.
+  State the prohibition as a MUST NOT and name both traps: a binding MUST NOT resolve the
+  input as an RFC 3986 relative reference against the base. Reproduce the two measured
+  `//evil.com/x` outputs from *The rule, in one place* above, and say why the difference
+  matters — a protocol-relative input is relative by §3 and so never reaches the origin
+  check, which makes §4 the one branch where a wrong implementation exfiltrates the token
+  silently. Name `urllib.parse.urljoin` and `new URL(input, base)` as the specific
+  constructs that are wrong here; a future Go or Rust binding will reach for its own
+  equivalent and deserves to be told before it does.
 - **§5 Absolute resolution.** The two malformed conditions, in order: forbidden whitespace
   (U+0009, U+000A, U+000D anywhere in the input), then a missing host or a non-integer port.
 - **§6 Origin.** The origin string and how it is built — lowercased scheme and host, the
@@ -459,6 +484,19 @@ describe("resolveUrlWithBase", () => {
     // §4: concatenation only. A base with no scheme is fine here — it is the caller's string.
     expect(resolveUrlWithBase("api.example.com", "/x")).toBe("api.example.com/x");
   });
+
+  test("a protocol-relative input is concatenated as a path, not resolved as an authority", () => {
+    // §4 is concatenation, never RFC 3986 relative-reference resolution. `//evil.com/x`
+    // has no scheme, so it is relative and never reaches the origin check — which makes
+    // this the one branch where a wrong implementation exfiltrates the token silently.
+    // `new URL("//evil.com/x", base)` would return https://evil.com/x.
+    expect(resolveUrlWithBase(base, "//evil.com/x")).toBe(
+      "https://api.example.com//evil.com/x",
+    );
+    expect(new URL(resolveUrlWithBase(base, "//evil.com/x")).hostname).toBe(
+      "api.example.com",
+    );
+  });
 });
 ```
 
@@ -598,7 +636,7 @@ git commit -m "fix(connector-kit): resolve URLs by scheme and origin, not by a p
 - Create: `docs/spec/conformance/v1/url-resolution/case.schema.json`
 - Create: `docs/spec/conformance/v1/url-resolution/index.schema.json`
 - Create: `docs/spec/conformance/v1/url-resolution/index.json`
-- Create: `docs/spec/conformance/v1/url-resolution/cases/` — twenty files
+- Create: `docs/spec/conformance/v1/url-resolution/cases/` — twenty-one files
 - Create: `sdks/typescript/scripts/url-resolution-guard.test.ts`
 - Modify: `docs/spec/README.md` (guard count, corpus count, the cases paragraph)
 
@@ -714,7 +752,7 @@ cannot reach outside the corpus.
 }
 ```
 
-- [ ] **Step 4: Write the twenty case files**
+- [ ] **Step 4: Write the twenty-one case files**
 
 Each is one JSON object matching `case.schema.json`. Write them exactly as given — the
 `base` and `input` values are load-bearing.
@@ -746,6 +784,16 @@ Each is one JSON object matching `case.schema.json`. Write them exactly as given
   "base": "https://api.example.com",
   "input": "httpdocs/x",
   "expect": { "ok": true, "url": "https://api.example.comhttpdocs/x" }
+}
+```
+
+`cases/protocol-relative-is-a-path.json`
+```json
+{
+  "description": "A protocol-relative input has no scheme, so §3 makes it relative and §4 concatenates it — the host stays api.example.com. A binding implementing §4 with urllib.parse.urljoin or new URL(input, base) resolves it to https://evil.com/x instead and sends the bearer token there, and because the input is relative it never reaches the origin check that would have caught it. Caught by 0 of the other 20 cases: every one of them either carries a scheme or resolves to a path with no authority component.",
+  "base": "https://api.example.com",
+  "input": "//evil.com/x",
+  "expect": { "ok": true, "url": "https://api.example.com//evil.com/x" }
 }
 ```
 
@@ -963,7 +1011,7 @@ Each is one JSON object matching `case.schema.json`. Write them exactly as given
 }
 ```
 
-- [ ] **Step 5: Write `index.json` listing all twenty**
+- [ ] **Step 5: Write `index.json` listing all twenty-one**
 
 Every case file above, in the order written, each with `file`, `section` and `reason`. The
 `reason` is prose explaining what the case buys — it is not the `expect.reason` enum. Copy
@@ -975,6 +1023,7 @@ against a specific wrong binding. Sections:
 | `relative-path-prefixed.json` | `§4` |
 | `relative-empty-input.json` | `§4` |
 | `relative-scheme-like-prefix.json` | `§3` |
+| `protocol-relative-is-a-path.json` | `§4` |
 | `relative-base-not-parsed.json` | `§4` |
 | `absolute-same-origin-passthrough.json` | `§5` |
 | `cross-origin-rejected.json` | `§7` |
@@ -1076,7 +1125,7 @@ describe("published artifacts", () => {
 
 describe("the corpus cannot pass vacuously", () => {
   test("it is non-empty", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(20);
+    expect(cases.length).toBeGreaterThanOrEqual(21);
   });
 
   test("both outcomes are exercised", () => {
@@ -1107,6 +1156,20 @@ describe("the corpus cannot pass vacuously", () => {
     }
   });
 
+  test("§4 is pinned against relative-reference resolution", () => {
+    // A protocol-relative input is the only case that distinguishes concatenation from
+    // urljoin / new URL(input, base), and it is the one whose absence would go unnoticed:
+    // every other relative case resolves identically under both readings.
+    const authorityReference = cases.filter(({ body }) => body.input.startsWith("//"));
+    expect(authorityReference.length, "no case pins a protocol-relative input").toBeGreaterThan(0);
+    for (const { body } of authorityReference) {
+      expect(body.expect.ok).toBe(true);
+      if (body.expect.ok) {
+        expect(body.expect.url).toBe(`${body.base}${body.input}`);
+      }
+    }
+  });
+
   test("a relative case and an absolute case disagree about the base, so §3 is load-bearing", () => {
     // Without this the corpus could be satisfied by a binding that treats every input as
     // relative: concatenation would pass every ok case and no refusal case would exist.
@@ -1134,7 +1197,7 @@ describe("the reference binding satisfies every case", () => {
 - [ ] **Step 7: Run the guard**
 
 Run: `cd sdks/typescript && bun test scripts/url-resolution-guard.test.ts`
-Expected: PASS, twenty case tests plus the schema and anti-vacuity tests.
+Expected: PASS, twenty-one case tests plus the schema and anti-vacuity tests.
 
 If `every case cites a section the document actually has` fails, your headings in
 `url-resolution.md` are not spelled `## §3 ...`. Fix the document, not the test — the check
@@ -1220,6 +1283,8 @@ case pins.
 
 from __future__ import annotations
 
+from urllib.parse import urljoin, urlsplit
+
 import pytest
 
 from nimbus_sdk.connector_kit import ConnectorKitError, UrlResolutionError, resolve_url_with_base
@@ -1264,6 +1329,19 @@ def test_malformed_message_does_not_echo_the_input() -> None:
 def test_every_forbidden_whitespace_character_is_refused(whitespace: str) -> None:
     with pytest.raises(UrlResolutionError):
         resolve_url_with_base(BASE, f"https://api.example.com/a{whitespace}b")
+
+
+def test_a_protocol_relative_input_is_concatenated_not_joined() -> None:
+    # §4 is concatenation, never RFC 3986 relative-reference resolution. Measured:
+    #   "https://api.example.com" + "//evil.com/x"          -> host api.example.com
+    #   urljoin("https://api.example.com", "//evil.com/x")  -> host evil.com
+    # "//evil.com/x" has no scheme, so §3 makes it relative and it never reaches the
+    # origin check — which makes this the one branch where the natural one-line
+    # implementation sends the bearer token to another host with nothing to stop it.
+    resolved = resolve_url_with_base(BASE, "//evil.com/x")
+    assert resolved == "https://api.example.com//evil.com/x"
+    assert urlsplit(resolved).hostname == "api.example.com"
+    assert urljoin(BASE, "//evil.com/x") == "https://evil.com/x"  # the trap, pinned
 
 
 def test_a_space_is_not_forbidden_whitespace() -> None:
@@ -1544,9 +1622,9 @@ def _ids() -> list[str]:
 
 def test_the_corpus_is_not_empty() -> None:
     # A load_corpus that silently returned [] would make every parametrised test below
-    # vanish rather than fail. Twenty is the count at the corpus's introduction; the
+    # vanish rather than fail. Twenty-one is the count at the corpus's introduction; the
     # TypeScript guard is what holds the exact list.
-    assert len(CASES) >= 20
+    assert len(CASES) >= 21
 
 
 def _outcome(case: dict[str, object]) -> bool:
@@ -1596,7 +1674,7 @@ were merely *stale* rather than *absent*, which is why the reinstall is a step a
 - [ ] **Step 3: Reinstall and run again**
 
 Run: `cd sdks/python && python -m pip install -e . && python -m pytest tests/test_url_resolution_corpus.py -q`
-Expected: PASS — twenty parametrised cases plus the two anti-vacuity tests.
+Expected: PASS — twenty-one parametrised cases plus the two anti-vacuity tests.
 
 - [ ] **Step 4: Update the language-neutrality paragraph**
 
@@ -1647,7 +1725,7 @@ Create `sdks/python/tests/test_connector_kit_env.py`:
 
 from __future__ import annotations
 
-import os
+from types import MappingProxyType
 
 import pytest
 
@@ -1689,10 +1767,22 @@ def test_the_default_tracks_later_mutations_of_os_environ(
     assert require_env("NIMBUS_TEST_TOKEN") == "later"
 
 
-def test_the_seam_is_read_only_by_annotation() -> None:
-    # Mapping, not MutableMapping: a helper whose job is reading the environment must not
-    # hand callers a seam that invites writing to it.
-    assert os.environ.get("PATH") is not None
+def test_an_immutable_mapping_is_an_acceptable_seam() -> None:
+    # `Mapping`, not `MutableMapping`, is what makes this work: a MappingProxyType has no
+    # __setitem__ at all. The annotation itself is held by `mypy --strict`, not by pytest —
+    # this is the runtime half of that claim, and it is the half that would actually break
+    # a caller if the parameter type were widened.
+    assert require_env("TOKEN", MappingProxyType({"TOKEN": "abc"})) == "abc"
+
+
+def test_reading_the_environment_never_writes_to_it() -> None:
+    # A helper whose job is reading must not mutate the seam it is handed — including not
+    # inserting a default for a missing key, which dict.setdefault-style code would.
+    supplied = {"TOKEN": "abc"}
+    require_env("TOKEN", supplied)
+    with pytest.raises(MissingEnvError):
+        require_env("ABSENT", supplied)
+    assert supplied == {"TOKEN": "abc"}
 ```
 
 - [ ] **Step 2: Run it to verify it fails**
@@ -2252,9 +2342,20 @@ def test_case_folding_is_lower_not_casefold() -> None:
 
 
 def test_the_dotted_capital_i_folds_the_way_javascript_folds_it() -> None:
-    # U+0130 is the other character the two foldings disagree about.
+    # NOT a second lower-vs-casefold case — measured on CPython 3.14 (UCD 16.0.0) and
+    # Node 24, all three agree that U+0130 folds to U+0069 U+0307:
+    #   "İstanbul".lower()      -> ['0x69', '0x307', '0x73', ...]
+    #   "İstanbul".casefold()   -> ['0x69', '0x307', '0x73', ...]
+    #   "İstanbul".toLowerCase()-> ['0x69', '0x307', '0x73', ...]
+    # It is here as a cross-binding parity pin: the fold expands one code point into two,
+    # which is where a binding doing a byte-wise or single-code-point fold breaks. The
+    # query is spelled with escapes because the combining dot is invisible in an editor.
     rows: list[object] = [{"name": "İstanbul"}]
     assert filter_by_query(rows, query="i̇stanbul", fields=_names) == rows
+    # And the bare ASCII spelling must NOT match, which is what makes the line above an
+    # assertion about the fold rather than about substring search: the combining dot sits
+    # between the "i" and the "s", so "istanbul" is not a substring of the folded haystack.
+    assert filter_by_query(rows, query="istanbul", fields=_names) == []
 
 
 # ─── as_record / as_objectish ─────────────────────────────────────────────────
@@ -2605,11 +2706,23 @@ Add to the import block and to `__all__`, both sorted: `FieldExtractor`, `Search
 Run: `cd sdks/python && python -m pytest tests/test_connector_kit_search_filter.py -q`
 Expected: PASS.
 
-`test_the_dotted_capital_i_folds_the_way_javascript_folds_it` is the one to watch. Confirm
-by hand what `"İstanbul".lower()` returns on your interpreter and write the query literal to
-match it; if it does not match JavaScript's `"İstanbul".toLowerCase()`, do **not** paper over
-it — record it as a fourth divergence in the module docstring and in
-`docs/modules/connector-kit.md`, the way `event.py` records the surrogate.
+The two folding tests were measured before this plan was written, so treat a failure as a
+real finding rather than as a literal to adjust:
+
+```
+CPython 3.14.6 / UCD 16.0.0        Node 24.18.1
+"İstanbul".lower()    -> 69 307    "İstanbul".toLowerCase() -> 69 307    (agree)
+"İstanbul".casefold() -> 69 307
+"Straße".lower()      -> ... df    "Straße".toLowerCase()   -> ... df    (agree)
+"Straße".casefold()   -> ... 73 73                                       (diverges)
+```
+
+`ß` is the **only** one of the two that discriminates `lower()` from `casefold()`; `İ` is a
+cross-binding parity pin. If your interpreter disagrees with either row, do **not** adjust
+the literal to match — record it as a fourth divergence in the module docstring and in
+`docs/modules/connector-kit.md`, the way `event.py` records the lone surrogate. Python's
+`str.lower()` is driven by the compiled Unicode database and is not locale-sensitive, so a
+disagreement means a UCD version difference worth naming, not a machine quirk.
 
 - [ ] **Step 6: Run the whole Python suite, lint and typecheck**
 
@@ -2821,8 +2934,32 @@ Follow-ups 1–5 are recorded, not done, which is what the design asks.
 is the one place this plan does not deliver what the design's Shipment 1 scope names, and
 the reason is external to the design.
 
-**Known open question for the executor.** `"İstanbul".lower()` — Python returns
-`"i̇stanbul"` (`i` + U+0307), and JavaScript's `toLowerCase` does the same. If your
-interpreter disagrees, Task 8 Step 5 says to record it rather than paper over it. Confirm
-the literal in the test file matches what your interpreter produces before assuming the
-implementation is wrong.
+**Measured, not assumed.** Three facts this plan asserts were run before it was written,
+and each is reproduced at the point it is used: `urljoin("https://api.example.com",
+"//evil.com/x")` returns `https://evil.com/x` (Task 3's protocol-relative case), and the
+`İ` / `ß` folding table in Task 8 Step 5. If any of them fails to reproduce on the
+executor's machine that is a finding to record, not a literal to adjust.
+
+## Carried to Shipment 2
+
+Named here so Shipment 2's plan starts from them rather than rediscovering them.
+
+1. **`res.text` must never raise.** `results.py` takes a `TextResponse` whose `text` is
+   already a `str`, so decoding is entirely the transport's problem — and a non-2xx body is
+   exactly where a server is most likely to return something that is not valid UTF-8 (a
+   proxy error page, a truncated gzip, a binary blob). If `UrllibTransport` decodes
+   strictly, `HttpStatusError` never gets raised: the transport dies with a
+   `UnicodeDecodeError` on the error path, which is the worst place to lose the status
+   code. `UrllibTransport` MUST decode with `errors="replace"`, and that belongs in a test
+   driving the real `http.server` fixture — a fake transport hands back a `str` and cannot
+   see the bug. Raised in review of this plan; it is a Shipment 2 requirement because
+   Shipment 1 ships no transport.
+2. **`AsyncTransport`**, deferred per D6 with an explicit trigger: a real connector whose
+   throughput is measurably hurt by the `to_thread` hop. Not "`mcp` is async".
+3. **A conformance harness for third-party transports** proving the §8 credential-redirect
+   rule. Worth having once more than one transport exists.
+4. **`requireProcessEnv` has no `env` seam** in TypeScript, failing INCLUSION-POLICY §2.
+   Task 6 makes the Python binding stricter than its original rather than replicating the
+   bug; the TypeScript fix is a separate change.
+5. **No Python surface-snapshot gate.** This shipment roughly doubles the Python public
+   surface with nothing equivalent to `api-surface.md` guarding it.

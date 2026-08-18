@@ -105,6 +105,26 @@
       "file": "cases/invalid-base-rejected.json",
       "section": "§7",
       "reason": "A base that is not an absolute URL with a host is refused with its own reason, distinguishing caller misconfiguration from attacker input. Only reachable on the absolute path — §4 never parses the base."
+    },
+    {
+      "file": "cases/lf-in-absolute-rejected.json",
+      "section": "§5",
+      "reason": "A raw line feed is the second of §5's three forbidden characters. §5 names U+0009, U+000A, and U+000D; a binding that checks only for tab passes the corpus without this case."
+    },
+    {
+      "file": "cases/cr-in-absolute-rejected.json",
+      "section": "§5",
+      "reason": "A raw carriage return is the third of §5's three forbidden characters. §5 names U+0009, U+000A, and U+000D; a binding that checks only for tab passes the corpus without this case."
+    },
+    {
+      "file": "cases/malformed-wins-over-invalid-base.json",
+      "section": "§7",
+      "reason": "§7 requires malformed to be checked before invalid-base. Here both conditions hold at once — the base is not a URL and the input carries forbidden whitespace — so this is the only case that can distinguish the order. A binding that validates its base before inspecting the input reports invalid-base here and fails."
+    },
+    {
+      "file": "cases/invalid-base-wins-over-cross-origin.json",
+      "section": "§7",
+      "reason": "§7 requires invalid-base to be checked before cross-origin. The existing invalid-base case uses an input whose host matches the base's text, so it cannot discriminate order; this one can — a binding comparing origins before validating the base reports cross-origin instead."
     }
   ]
 }

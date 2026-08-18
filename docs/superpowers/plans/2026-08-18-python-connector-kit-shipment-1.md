@@ -1153,7 +1153,9 @@ describe("the corpus cannot pass vacuously", () => {
 
   test("every case cites a section the document actually has", () => {
     const text = readText(SPEC_PATH);
-    for (const { entry } of index.cases) {
+    // `index.cases` holds IndexEntry directly — it is `cases` (the joined array) whose
+    // items are `{entry, body}`. Destructuring `{ entry }` here is a TypeError.
+    for (const entry of index.cases) {
       expect(text.includes(`## ${entry.section}`), `${entry.file} cites a missing section`).toBe(
         true,
       );

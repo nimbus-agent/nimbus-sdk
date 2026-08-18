@@ -128,3 +128,67 @@ correct.
   `stringField`, `tagText`, `tagNamesFromObjects`; row-shape guards `asObjectish`,
   `asRecord`. Types: `FilterByQueryOptions`, `FieldExtractor`, `SearchMatchOptions`,
   `SearchFilter`.
+
+## Python binding
+
+`nimbus_sdk.connector_kit` (`sdks/python/src/nimbus_sdk/connector_kit/`) is the Python
+binding of this module — its own import root, deliberately not re-exported from
+`nimbus_sdk`, mirroring the boundary this `./connector-kit` entry point has published
+since `1.15.0`. Shipment 1 ships the pure core, six modules: `errors.py` (the
+`ConnectorKitError` taxonomy), `urls.py` (`resolve_url_with_base`, binding
+[`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md) — the one corpus this
+kit runs, 25 cases, executed by both bindings), `env.py` (`require_env`), `types.py`
+(the `McpTextContent` / `McpToolResult` wire shapes), `results.py` (`json_result` and
+its `*_if_ok` variants, plus `error_result`), and `search_filter.py` (the port of
+`connector-kit/search-filter` above). The transport, the tool router, and `rest.py`'s
+REST factories — this module's `mcp-tool-kit` registration path and `rest-tool-kit` —
+are Shipment 2; see the Phase 3 box in [`ROADMAP.md`](../ROADMAP.md).
+
+### Three exports with no Python counterpart
+
+Stated so they read as decisions, not gaps:
+
+- **`createRegisterSimpleTool` / `registerZodTool` / `ZodObjectSchema`** — superseded by
+  the Shipment 2 router. Python's `mcp.Server` exposes no `.tool` method, so a
+  duck-typed registrar built on top of it would match nothing that exists.
+- **`fetchWithTimeout`** — `AbortSignal.any`'s signal-composition has no Python
+  analogue; there is no stdlib or `asyncio` primitive that merges two cancellation
+  sources into one the way `AbortSignal.any` does.
+- **`McpListResult` as a type** — the Python return is a `TypedDict` (`McpToolResult`),
+  not a class import, because `types.CallToolResult` is a pydantic model and this
+  dependency-free package cannot duck-type a pydantic import the way a structural
+  TypeScript type duck-types a Zod schema.
+
+### Asymmetries in Python's favour
+
+- **`require_env`'s `env` seam.** `require_env(name, env=os.environ)` takes the
+  environment as a replaceable parameter; `requireProcessEnv` reads `process.env`
+  directly with none. [`INCLUSION-POLICY.md`](../INCLUSION-POLICY.md) §2 requires a
+  substitutable effect to be reachable through a caller-replaceable parameter — the
+  Python binding meets that criterion where the TypeScript original does not. The
+  TypeScript gap is recorded as a follow-up rather than replicated here for symmetry.
+- **`HttpStatusError`'s `.status` / `.service` / `.snippet`.** TypeScript throws a bare
+  `Error` on a non-2xx response, carrying only the formatted message. Python's
+  `HttpStatusError` carries the three parts as attributes as well, so a caller can
+  branch on `.status` without re-parsing the message string.
+- **`error_result`.** TypeScript's kit has no counterpart, because its tool registrar
+  turns a thrown error into the `{ content, isError }` shape itself. Python's
+  Shipment 2 `ToolRouter` needs the builder directly, so it ships now with the rest of
+  `results.py`.
+
+### Divergences
+
+- **`json_result` refuses a non-finite number.** `json.dumps(..., allow_nan=False)`
+  raises `ValueError` on `NaN` / `Infinity` / `-Infinity`, where `JSON.stringify` silently
+  emits `null` for all three. This is the kit's only behavioral divergence: refusing is
+  the sole option that does not silently hand the other end a value it did not ask for.
+  A connector that can produce a non-finite number in tool output should treat it as a
+  bug in the tool, not paper over it with a decode-time `null`.
+- **Case folding does *not* diverge.** `search_filter.py` uses `str.lower()`, never
+  `.casefold()`, specifically because `casefold()` maps `ß` to `ss` where JavaScript's
+  `toLowerCase()` leaves it alone — a real divergence trap the module's docstring
+  documents and its test suite pins. `İ` (`U+0130`, dotted capital I) does **not** turn
+  out to be a second one: measured on CPython 3.14.6 / Unicode 16.0.0 and Node 24.18.1,
+  `str.lower()`, `str.casefold()`, and `String.prototype.toLowerCase()` all fold it to
+  the same two code points, `U+0069 U+0307`. `ß` remains the only character on which
+  `lower()` and `casefold()` themselves disagree.

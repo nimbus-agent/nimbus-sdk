@@ -10,6 +10,13 @@
   `results.py` (`json_result` and its `*_if_ok` variants), and `search_filter.py`. The
   transport, the tool router, and `rest.py` follow in a later release.
 
+## [0.7.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.6.0...python-v0.7.0) (2026-08-18)
+
+
+### Features
+
+* **connector-kit:** add the nimbus_sdk.connector_kit import root and specify URL resolution ([#126](https://github.com/nimbus-agent/nimbus-sdk/issues/126)) ([755dc8e](https://github.com/nimbus-agent/nimbus-sdk/commit/755dc8ed439c1b370ec5d4bf94c1538f4ecc5ea6))
+
 ## [0.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.5.0...python-v0.6.0) (2026-08-02)
 
 

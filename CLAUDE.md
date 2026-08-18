@@ -45,7 +45,7 @@ published package.
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
 
-## Python surface (three import roots, deliberately)
+## Python surface (four import roots, deliberately)
 
 - `nimbus_sdk` (`sdks/python/src/nimbus_sdk/__init__.py`) — the contract-version
   constants, the negotiation algorithm, and `load_schema` / `load_corpus` / `spec_root`.
@@ -63,21 +63,41 @@ the release-please bump.
   `EncodeOk` / `EncodeRejected` / `ParseOk` / `ParseRejected` result types, plus a
   Python-only `format_timestamp` helper. It runs the same `diagnostics` conformance
   corpus as TypeScript, byte-identically.
+- `nimbus_sdk.connector_kit` (`sdks/python/src/nimbus_sdk/connector_kit/`) — the Python
+  binding of `@nimbus-dev/sdk/connector-kit`'s batteries for hand-rolled MCP connectors.
+  Shipment 1 ships the pure core, six modules: `errors.py` (the `ConnectorKitError`
+  taxonomy — `UrlResolutionError`, `MissingEnvError`, `HttpStatusError`), `urls.py`
+  (`resolve_url_with_base`, the SSRF chokepoint, binding
+  `docs/spec/connector-kit/v1/url-resolution.md`), `env.py` (`require_env`), `types.py`
+  (the `McpTextContent` / `McpToolResult` wire shapes), `results.py` (`json_result` and
+  its `*_if_ok` variants, plus `error_result`), and `search_filter.py`
+  (`filter_by_query`, `make_query_filter`, `matches_result` and the field-extractor
+  helpers). The transport, the tool router, and `rest.py`'s REST factories are
+  Shipment 2 — see the Phase 3 box in `docs/ROADMAP.md`. `docs/modules/connector-kit.md`
+  carries the Python-binding section: the exports with no Python counterpart, the
+  asymmetries, and the kit's own divergence.
 
-**The IPC and diagnostics names are NOT re-exported from `nimbus_sdk`, and must not
-be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` boundary the TypeScript
-`exports` map publishes: it states that each is a separate contract. Python has no
-bundling reason to need a second or third entry point, so the boundary is
-documentation — and hoisting the names to the top level as a convenience would erase
-it.
+**The IPC, diagnostics, and connector-kit names are NOT re-exported from `nimbus_sdk`,
+and must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
+`./connector-kit` boundary the TypeScript `exports` map publishes. The justification is
+not uniformly "each is a separate contract" — `nimbus_sdk.connector_kit` is batteries,
+with no spec or conformance corpus of its own beyond `url-resolution` — so the actual
+claim, and the one that covers all four roots, is that **each is a separate surface**.
+The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
+`connector-kit` its own entry point alongside the contract-bearing `./ipc` and
+`./diagnostics`. Python has no bundling reason to need a second, third, or fourth entry
+point, so the boundary is documentation — and hoisting the names to the top level as a
+convenience would erase it.
 
 Both bindings execute the published conformance corpora: `negotiation` (all three
-kinds), `framing`, and `diagnostics`. Nothing is deferred, so a new corpus case runs in
-both languages the moment it is indexed.
+kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py` — the 25-case
+`url-resolution` corpus. Nothing is deferred, so a new corpus case runs in both
+languages the moment it is indexed.
 
-**The bindings differ in three *behavioral* ways.** Two predate this branch —
-sync-vs-async `performHandshake`/`perform_handshake`, and `isinstance`-vs-tagged-union
-narrowing. Diagnostics adds a third, verified by execution: given
+**The `ipc` and `diagnostics` contract surfaces differ in three *behavioral* ways.**
+Two predate this branch — sync-vs-async
+`performHandshake`/`perform_handshake`, and `isinstance`-vs-tagged-union narrowing.
+Diagnostics adds a third, verified by execution: given
 `extensionId: "\ud800"` (a lone UTF-16 surrogate), `encodeDiagnostic` returns
 `{ ok: true, line: ... }` — `JSON.stringify` and `TextEncoder` both pass an ill-formed
 code point through rather than rejecting it — while `encode_diagnostic` raises
@@ -88,6 +108,12 @@ is checked only for emptiness, no case in the conformance corpus pins a verdict 
 input, and neither binding may invent one until the manifest rule registry constrains
 the identifier's format enough to rule the question out structurally. `event.py`'s own
 docstring discloses the exact mechanism.
+
+This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
+and a corpus — and is not exhaustive across the package. `nimbus_sdk.connector_kit` is
+batteries, not a contract, and carries its own divergence (`json_result` refusing a
+non-finite number where `JSON.stringify` emits `null`); see the Python-binding section of
+[`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md) rather than this list.
 
 Diagnostics separately adds two *surface* asymmetries, not further behavioral ones, and
 they belong with the `connector-kit`-shaped gap Phase 3 of
@@ -202,7 +228,11 @@ python -m build                 # sdist + wheel into dist/
     `README.md`. Snippets in `docs/rfcs/`, `docs/spec/`, or `docs/superpowers/` are not
     compiled, so a plan or design doc can go stale without CI noticing.
 
-  All four read TypeScript only; there is no equivalent gate for the Python surface.
+  All four read TypeScript only; there is no equivalent gate for the Python surface —
+  and that gap is more load-bearing now that `nimbus_sdk.connector_kit` has roughly
+  doubled the Python surface with nothing guarding it the way `api-surface.md` guards
+  TypeScript's. Tracked as Follow-up 2 in
+  [`docs/superpowers/specs/2026-08-17-python-connector-kit-design.md`](./docs/superpowers/specs/2026-08-17-python-connector-kit-design.md#follow-ups).
 - **Python reads the spec from `src/nimbus_sdk/_data/spec`, not from `docs/spec`.**
   `spec_root()` prefers that bundled copy; it is gitignored and regenerated by the
   hatch build hook. So after editing anything under `docs/spec/`, run

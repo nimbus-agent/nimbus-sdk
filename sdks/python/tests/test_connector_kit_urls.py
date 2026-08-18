@@ -84,6 +84,39 @@ def test_a_space_is_not_forbidden_whitespace() -> None:
     assert resolve_url_with_base(BASE, absolute) == absolute
 
 
+def test_relative_input_extending_the_authority_via_userinfo_is_refused() -> None:
+    # Against a base with no trailing slash, concatenating "@evil.com/x" produces
+    # "https://api.example.com@evil.com/x", whose host is evil.com — the bearer token
+    # would go to the attacker. §4's origin check refuses it before any fetch happens.
+    with pytest.raises(UrlResolutionError) as excinfo:
+        resolve_url_with_base(BASE, "@evil.com/x")
+    assert str(excinfo.value) == (
+        "resolveUrlWithBase: refusing to fetch cross-origin URL "
+        "(got https://evil.com, expected https://api.example.com)"
+    )
+
+
+def test_relative_input_extending_authority_via_subdomain_suffix_is_refused() -> None:
+    with pytest.raises(UrlResolutionError) as excinfo:
+        resolve_url_with_base(BASE, ".evil.com/x")
+    assert str(excinfo.value) == (
+        "resolveUrlWithBase: refusing to fetch cross-origin URL "
+        "(got https://api.example.com.evil.com, expected https://api.example.com)"
+    )
+
+
+def test_scheme_like_relative_prefix_is_refused_once_concatenation_moves_host() -> None:
+    # §3 still classifies "httpdocs" as relative. But the base has no trailing slash, so
+    # concatenating "httpdocs/x" moves the host to "api.example.comhttpdocs" and the §4
+    # origin check refuses it — even though nothing about the input is absolute.
+    with pytest.raises(UrlResolutionError) as excinfo:
+        resolve_url_with_base(BASE, "httpdocs/x")
+    assert str(excinfo.value) == (
+        "resolveUrlWithBase: refusing to fetch cross-origin URL "
+        "(got https://api.example.comhttpdocs, expected https://api.example.com)"
+    )
+
+
 def test_undefined_host_is_refused_by_this_binding_and_that_is_not_pinned() -> None:
     # §9: a non-ASCII host is UNDEFINED in v1. This binding refuses it because urlsplit
     # applies no IDNA and the origin comparison would then be a byte comparison of two

@@ -229,3 +229,51 @@ afterward — normalising it would be a second, unrelated behavior change riding
 - **IDNA / punycode host normalisation**, and any other case
   `docs/spec/connector-kit/v1/url-resolution.md` §9 marks undefined. Deferred there, not
   decided here.
+
+## Addendum — the §4 authority-extension gap (2026-08-18)
+
+Adversarial review of this feature's completed branch, after every task above had landed,
+found that §4's original rule — concatenate the relative input onto the base, inspect
+nothing — was itself an SSRF hole, not merely a correct-but-differently-shaped rule. A real
+base carries no trailing slash (`https://api.example.com`, the shape every example in this
+RFC and the normative document uses), so a relative input beginning with `@` or `.` does not
+stay a path on the base's own origin the way §3's reasoning assumed. It **extends the
+authority**:
+
+| base | input | concatenated (previously returned `ok`) | host a fetch actually reaches |
+| --- | --- | --- | --- |
+| `https://api.example.com` | `@evil.com/x` | `https://api.example.com@evil.com/x` | `evil.com` |
+| `https://api.example.com` | `.evil.com/x` | `https://api.example.com.evil.com/x` | `api.example.com.evil.com` |
+| `https://api.example.com` | `httpdocs/x` | `https://api.example.comhttpdocs/x` | `api.example.comhttpdocs` |
+
+The first row hands the connector's bearer token to `evil.com` — precisely the threat §1
+names as this function's entire reason to exist. This was **pre-existing on `main`**: the
+`startsWith("http")` heuristic §3 replaces concatenated identically, so this addendum closes
+a shipped vulnerability rather than a regression this feature introduced. It survived every
+task above, including the RFC's own reasoning in §3, because that reasoning treated
+concatenation as safe *by construction* — "the input becomes an oddly-shaped path on the
+connector's own origin" — without checking that claim against a base lacking a trailing
+slash, which is the shape every base in this document's own examples already has.
+
+**Resolution.** The relative branch is no longer inspection-free. After concatenating,
+`docs/spec/connector-kit/v1/url-resolution.md` §4 now requires the concatenated result's
+origin to equal the base's origin whenever the base has one, reusing the same origin
+comparison — and the same §7 `cross-origin` message — that already governed the absolute
+branch. A base with no computable origin (`relative-base-not-parsed.json`'s
+`api.example.com`) is unaffected: it is not a credential-bearing endpoint, so the
+concatenation still passes through unchecked, exactly as before. One existing case,
+`relative-scheme-like-prefix.json` (`httpdocs/x`), flips from `ok` to `cross-origin` as a
+result — concatenation moves the host to `api.example.comhttpdocs`, which the new check
+correctly refuses even though §3 still classifies the input as relative. Both bindings
+implement the fix identically, reusing `originOf` / `_origin`, and both were verified to
+produce byte-identical rejection messages for `@evil.com/x` and `.evil.com/x`.
+
+This ships as `fix:`, the same semver class §4 of the RFC body above already used for the
+original correction, and for the same reason: no caller can have depended on a bearer token
+being sent to an attacker-chosen host, so nothing conformant is broken by refusing to send
+it there.
+
+This addendum follows the house convention RFC-0007 set for a corpus gap discovered after a
+document had already landed: record the finding, that it was found by adversarial review of
+the completed work rather than during original design, and the resolution, in place rather
+than pretending the original text was correct all along.

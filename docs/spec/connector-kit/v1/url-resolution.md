@@ -74,8 +74,9 @@ This replaces a prefix heuristic — checking whether the input starts with the 
 ## §4 Relative resolution
 
 A non-absolute input resolves to `base + input`, by **string concatenation** — nothing more.
-The base is not parsed, not validated, and not normalised on this path. An empty input
-resolves to the base unchanged, because concatenating the empty string changes nothing.
+The base is not parsed, not validated, and not normalised for the purpose of building this
+string. An empty input resolves to the base unchanged, because concatenating the empty string
+changes nothing.
 
 A binding MUST NOT resolve the input as an RFC 3986 relative reference against the base.
 Concretely, a binding MUST NOT implement this step with `urllib.parse.urljoin` in Python, or
@@ -101,12 +102,45 @@ to go. `urljoin` treats `//evil.com/x` as a *network-authority reference* — th
 construction that names a different host without naming a different scheme — and hands the
 credential-bearing fetch to `evil.com` instead.
 
-This is why §4 is the one branch where a wrong implementation exfiltrates the token silently.
-Every other input this document classifies as absolute passes through the origin check in §6
-before a fetch is ever made. A protocol-relative input never reaches that check at all — it is
-relative by §3, resolved entirely within §4 — so if §4 is implemented as relative-reference
-resolution instead of concatenation, nothing downstream catches the mistake. The chokepoint's
-entire guarantee depends on this one paragraph being concatenation and nothing else.
+**Concatenation alone is not enough. The resolved result's origin MUST equal the base's
+origin, whenever the base has one.** A real base carries no trailing slash — every example in
+this document, and every configured `apiBase` a connector author writes, looks like
+`https://api.example.com`, not `https://api.example.com/`. Against a base shaped that way, a
+relative input beginning with `@` or `.` does not stay on the base's own origin merely because
+it was concatenated rather than resolved as an RFC 3986 reference — it **extends the
+authority**:
+
+| base | input | concatenated | host a fetch actually reaches |
+| --- | --- | --- | --- |
+| `https://api.example.com` | `@evil.com/x` | `https://api.example.com@evil.com/x` | `evil.com` |
+| `https://api.example.com` | `.evil.com/x` | `https://api.example.com.evil.com/x` | `api.example.com.evil.com` |
+| `https://api.example.com` | `httpdocs/x` | `https://api.example.comhttpdocs/x` | `api.example.comhttpdocs` |
+
+The first row hands the connector's bearer token to `evil.com`, degrading `api.example.com`
+to discarded userinfo — exactly the threat §1 names, reached through the one branch §1 does
+not mention, because it was written assuming concatenation could not misdirect a fetch on its
+own.
+
+A binding MUST therefore, after concatenating, compute the base's origin using the same
+origin construction §6 defines. If the base is not a parseable absolute URL with a host — it
+has no origin — the concatenation is returned unchanged: a base that is not a URL is not a
+credential-bearing endpoint, and this document has nothing further to check. If the base does
+have an origin, the binding MUST compute the concatenated result's origin the same way, and
+if the two differ — including when the result has no computable origin at all — the
+resolution MUST be refused with §7's `cross-origin` reason, using the exact §7 message,
+naming the concatenated result's origin as `<target>` and the base's origin as `<base>`. This
+is the same check, and the same rejection, that governs the absolute branch in §6 and §7; §4
+does not invent a second rule, it closes the one branch that used to skip the existing one.
+
+This is why §4 was the one branch where a wrong implementation could exfiltrate the token
+silently, and why it no longer is. Every input this document classifies as absolute now
+passes through the origin check before a fetch is ever made — and so, now, does every
+relative input once it has been concatenated. A protocol-relative input such as `//evil.com/x`
+is unaffected by this addition: concatenated onto `https://api.example.com`, it produces
+`https://api.example.com//evil.com/x`, whose host is still `api.example.com`, so the origin
+check it now passes through agrees with the check it would already have had to pass had it
+been classified absolute. The chokepoint's guarantee no longer depends on a relative input
+being harmless by construction; it depends on the origin check, uniformly, on both branches.
 
 ## §5 Absolute resolution
 
@@ -221,10 +255,10 @@ client, not read this paragraph.
 
 This document does not define a verdict for a host that is not a sequence of ASCII letters,
 digits, `-`, and `.`, and is not a bracketed IPv6 literal — a non-ASCII or IDNA-encoded host,
-a host containing a space, or a host containing a backslash. A binding MAY reject such a host
-or MAY resolve and compare it using its own platform's URL parsing; no case in the conformance
-corpus pins a verdict for this input, and neither binding may invent one to make the other
-look wrong.
+a backslash anywhere in the authority component (not only in the host proper — see below), or
+a host containing a space. A binding MAY reject such a host or MAY resolve and compare it
+using its own platform's URL parsing; no case in the conformance corpus pins a verdict for
+this input, and neither binding may invent one to make the other look wrong.
 
 The line is drawn here, rather than requiring every binding to normalise these hosts
 identically, because the two operations this document does require — bracketing an IPv6
@@ -235,6 +269,31 @@ a real dependency, or both to carry a hand-rolled implementation neither can ver
 the other. This follows the precedent [`diagnostics.md`](../../diagnostics/v1/diagnostics.md)
 §8 sets for a lone surrogate in `extensionId`: disclosing that a case is undefined, and why, is
 more honest than a document inventing a verdict it has no way to hold two languages to.
+
+**This also covers host canonicalisation, which is entirely undefined in v1, even for hosts
+that are plain ASCII.** `new URL` canonicalises a host in ways `urlsplit` does not, so the two
+reference bindings disagree on inputs that are ASCII-only and contain no space or backslash —
+inputs the wording above, read narrowly, would not otherwise flag. Verified:
+
+| base | input | TypeScript | Python |
+| --- | --- | --- | --- |
+| `https://192.168.0.1` | `https://0300.0250.0.1/x` (octal IPv4) | accepts as same-origin | rejects as `cross-origin` |
+| `https://192.168.0.1` | `https://0xC0A80001/x` (hex IPv4) | accepts as same-origin | rejects as `cross-origin` |
+| `https://127.0.0.1` | `https://127.1/x` (short-form IPv4) | accepts as same-origin | rejects as `cross-origin` |
+| `https://[::1]` | `https://[0:0:0:0:0:0:0:1]/x` (expanded IPv6) | accepts as same-origin | rejects as `cross-origin` |
+| `https://api.example.com` | `https://api%2Eexample.com/x` (percent-encoded host octet) | accepts as same-origin | rejects as `malformed` |
+
+**IPv4 alternate notations** (octal, hexadecimal, and short-form addresses), **IPv6 alternate
+spellings** (an address written with leading zeros or without the zero-compression `::` a
+canonical form would use), and **percent-encoded host octets** are undefined in v1 for the
+same reason IDNA is: WHATWG's URL parser canonicalises all of them before comparing, and
+`urlsplit` canonicalises none of them, and reproducing WHATWG host canonicalisation
+dependency-free in two languages costs more than these inputs are worth. Neither binding is
+unsafe on its own — each stays self-consistent with whatever HTTP client actually performs its
+fetch, TypeScript's `fetch` and Python's transport alike resolve a host the same way this
+document's origin check does — they simply disagree with each other on where the line between
+same-origin and cross-origin falls for these specific spellings. No case in the conformance
+corpus pins a verdict for any of them.
 
 ---
 

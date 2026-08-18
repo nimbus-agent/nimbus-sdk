@@ -94,10 +94,35 @@ describe("resolveUrlWithBase", () => {
     }
   });
 
-  test("a bare path that merely starts with 'http' as text is relative, not absolute", () => {
-    // The inverted assertion. "httpdocs" is not a scheme — there is no colon — so §3 makes
-    // this relative. The old startsWith("http") heuristic threw on a legitimate path.
-    expect(resolveUrlWithBase(base, "httpdocs/x")).toBe("https://api.example.comhttpdocs/x");
+  test("a bare path that merely starts with 'http' as text is relative, not absolute — but concatenating it moves the host, so it is refused", () => {
+    // §3 still classifies "httpdocs" as relative — there is no colon, so no scheme. The old
+    // startsWith("http") heuristic threw on this legitimate-looking path; §3 no longer does.
+    // But the base carries no trailing slash, so concatenating "httpdocs/x" moves the host to
+    // "api.example.comhttpdocs" — the §4 origin check refuses it as cross-origin.
+    expect(() => resolveUrlWithBase(base, "httpdocs/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.comhttpdocs, expected https://api.example.com)",
+    );
+  });
+
+  test("a relative input beginning with '@' turns the base's host into discarded userinfo once concatenated, and is refused", () => {
+    // Against a base with no trailing slash, concatenating "@evil.com/x" produces
+    // "https://api.example.com@evil.com/x", whose host is evil.com — the bearer token would
+    // go to the attacker. §4's origin check catches it before the fetch ever happens.
+    expect(() => resolveUrlWithBase(base, "@evil.com/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://evil.com, expected https://api.example.com)",
+    );
+  });
+
+  test("a relative input beginning with '.' extends the base's host into an attacker subdomain suffix once concatenated, and is refused", () => {
+    expect(() => resolveUrlWithBase(base, ".evil.com/x")).toThrow(
+      "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.com.evil.com, expected https://api.example.com)",
+    );
+  });
+
+  test("a relative input that stays on the base's own origin once concatenated is still accepted", () => {
+    // The anti-vacuity companion to the two tests above: the new origin check does not
+    // reject every relative input, only the ones that move the host.
+    expect(resolveUrlWithBase(base, "/v1/x")).toBe("https://api.example.com/v1/x");
   });
 
   test("a scheme-shaped relative segment is absolute, and malformed for want of a host", () => {

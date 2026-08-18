@@ -233,7 +233,11 @@ The document is normative. Its header MUST contain the literal strings `**Status
 and `RFC 2119` — Task 3's guard asserts both, the same way `diagnostics-guard.test.ts`
 asserts them of `diagnostics.md`.
 
-Sections, in this order and with these numbers (the corpus's `section` values are these):
+Sections, in this order and with these numbers. **Each is a markdown heading spelled
+exactly `## §N Title`** — `## §3 Absoluteness`, `## §4 Relative resolution`, and so on.
+Not a bold bullet, not `###`. Task 3's guard asserts `text.includes("## " + section)` for
+every indexed case, so any other spelling fails the corpus guard on a document that is
+otherwise correct. The corpus's `section` values are these numbers:
 
 - **§1 Scope.** What `resolveUrlWithBase` / `resolve_url_with_base` is for: it is the single
   chokepoint that stops a caller-supplied pagination link (`@odata.nextLink` and friends)
@@ -1442,11 +1446,16 @@ _FORBIDDEN_WHITESPACE = frozenset("\t\n\r")
 #: §6. Every other scheme has no default, so its port is always significant.
 _DEFAULT_PORTS = {"http": 80, "https": 443}
 
-#: §9. Anything outside this is UNDEFINED in v1 — non-ASCII/IDNA hosts above all. This
+#: §9. Anything outside these is UNDEFINED in v1 — non-ASCII/IDNA hosts above all. This
 #: binding refuses them; TypeScript's URL punycodes and accepts. No corpus case pins
 #: either answer, and neither binding may invent one until the manifest rule registry
 #: constrains the identifier's format enough to rule the question out structurally.
-_ASCII_HOST = re.compile(r"^(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])$")
+#:
+#: Two patterns, not one, and tested on separate branches below: ``urlsplit().hostname``
+#: strips an IPv6 literal's brackets, so a single pattern trying to match the bracketed
+#: form never sees it and would refuse every IPv6 host as malformed.
+_ASCII_HOST = re.compile(r"^[A-Za-z0-9.-]+$")
+_IPV6_HOST = re.compile(r"^[0-9A-Fa-f:.]+$")
 
 _MALFORMED = "resolveUrlWithBase: refusing to fetch malformed absolute URL"
 _INVALID_BASE = "resolveUrlWithBase: base URL is not an absolute URL with a host"
@@ -1474,12 +1483,14 @@ def _origin(url: str) -> str | None:
     if not host:
         return None
     host = host.lower()
-    if not _ASCII_HOST.match(host):
-        return None
     if ":" in host:
+        if not _IPV6_HOST.match(host):
+            return None
         # urlsplit strips the brackets an IPv6 literal must carry in an origin; TypeScript's
         # URL.hostname keeps them. Re-adding them here is what makes the two comparable.
         host = f"[{host}]"
+    elif not _ASCII_HOST.match(host):
+        return None
     default = _DEFAULT_PORTS.get(scheme)
     if port is None or port == default:
         return f"{scheme}://{host}"

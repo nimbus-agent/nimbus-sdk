@@ -228,9 +228,10 @@ same contract.*
 > **Boxes 1–7 are done, and Python is now an official SDK.** A Python release can
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that
-> way. The binding executes both published conformance corpora, every case kind, with
-> nothing deferred, so **the suite is green for both languages in CI** — two clauses of
-> the exit criteria, met.
+> way. The binding executes all three published conformance corpora —
+> `negotiation`, `framing`, and `diagnostics` — every case kind, with nothing deferred,
+> so **the suite is green for both languages in CI** — two clauses of the exit criteria,
+> met.
 >
 > Promotion to **official** was a separate, governance step, and it is complete:
 > [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
@@ -264,11 +265,17 @@ maintained."*
 - [ ] The hottest batteries ported to the additional languages — *Pillar 3*
 - [ ] A **Python `connector-kit`** — *Pillar 3*. TypeScript publishes
   [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md)
-  (`createRegisterSimpleTool`, `mcpJsonResult`); `nimbus-dev-sdk` has no equivalent, so
-  the generated Python connector inlines what that kit would absorb — `_on_list_tools`,
-  `_on_call_tool` and a JSON result helper — in its `main.py`. The scaffold works around
-  the asymmetry deliberately (a scaffold is not where a published surface gets designed),
-  but every Python connector re-derives those lines until the surface exists.
+  (`createRegisterSimpleTool`, `mcpJsonResult`); `nimbus-dev-sdk` now carries part of the
+  equivalent, as `nimbus_sdk.connector_kit` — a fourth Python import root shipping the
+  pure core: `resolve_url_with_base` (the SSRF chokepoint, binding a new
+  [`url-resolution`](./spec/connector-kit/v1/url-resolution.md) corpus, 25 cases, both
+  bindings execute), `require_env`, the `json_result` / `error_result` MCP result
+  builders, and the `search_filter` port. Still missing: the transport, the tool router,
+  and the `rest.py` REST factories. Until those land, the generated Python connector
+  still inlines what the full kit would absorb — `_on_list_tools`, `_on_call_tool` and a
+  JSON result helper — in its `main.py`. The scaffold works around the asymmetry
+  deliberately (a scaffold is not where a published surface gets designed), but every
+  Python connector re-derives those lines until the router and REST factories exist.
 - [ ] **Go release model (tag-based, not a registry push)** — decide the module
   layout (root vs. `sdks/go/` and its tag prefix), cut releases as **semver git
   tags** + GitHub Releases via release-please's `go` component, and confirm the

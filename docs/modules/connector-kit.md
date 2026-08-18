@@ -180,10 +180,18 @@ Stated so they read as decisions, not gaps:
 
 - **`json_result` refuses a non-finite number.** `json.dumps(..., allow_nan=False)`
   raises `ValueError` on `NaN` / `Infinity` / `-Infinity`, where `JSON.stringify` silently
-  emits `null` for all three. This is the kit's only behavioral divergence: refusing is
-  the sole option that does not silently hand the other end a value it did not ask for.
-  A connector that can produce a non-finite number in tool output should treat it as a
-  bug in the tool, not paper over it with a decode-time `null`.
+  emits `null` for all three. Refusing is the sole option that does not silently hand
+  the other end a value it did not ask for. A connector that can produce a non-finite
+  number in tool output should treat it as a bug in the tool, not paper over it with a
+  decode-time `null`.
+- **`as_objectish` diverges on a numeric-string key.** Its docstring states the fuller
+  claim: normalising an array to `{}` is behaviourally identical to TypeScript's
+  `asObjectish` for every *non-numeric* key — which is every field name this kit's own
+  helpers ever read — but not for a numeric-string one. `asObjectish(["x", "y",
+  "z"])["0"]` is `"x"` in JavaScript, because a numeric-string key indexes the array
+  element; the Python equivalent, `{}.get("0")`, is always `None`. No extractor in
+  `search_filter.py` reads a numeric-string key, so this divergence is never reached in
+  practice, but it is a real one, not a hypothetical.
 - **Case folding does *not* diverge.** `search_filter.py` uses `str.lower()`, never
   `.casefold()`, specifically because `casefold()` maps `ß` to `ss` where JavaScript's
   `toLowerCase()` leaves it alone — a real divergence trap the module's docstring

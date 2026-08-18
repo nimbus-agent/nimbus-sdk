@@ -45,11 +45,19 @@ def as_record(value: object) -> dict[str, object] | None:
 def as_objectish(value: object) -> dict[str, object] | None:
     """The value as a mapping, or ``None``. Arrays are accepted as the empty mapping.
 
-    TypeScript's ``asObjectish`` returns the array itself, typed as a record, where
-    every string key read yields ``undefined``. Python cannot index a list by string,
-    so an array is normalised to ``{}`` — which produces the identical result for
-    every read this module performs, and keeps an array row *matching an empty query*
-    rather than being dropped, which returning ``None`` would have changed.
+    TypeScript's ``asObjectish`` returns the array itself, typed as a record. Python
+    cannot index a list by string, so an array is normalised to ``{}`` instead — which
+    keeps an array row *matching an empty query* rather than being dropped, which
+    returning ``None`` would have changed.
+
+    This is behaviourally identical to TypeScript for every **non-numeric** key, which
+    is every field name this kit's own helpers ever read (``"name"``, ``"tags"``, and
+    the like): reading a non-numeric string key off a JavaScript array is ``undefined``,
+    the same as reading any key off ``{}`` in Python. It is not identical for a
+    numeric-string key: ``asObjectish(["x", "y", "z"])["0"]`` is ``"x"`` in JavaScript,
+    because a numeric-string key indexes the array element, where the Python
+    equivalent, ``{}.get("0")``, is always ``None``. No field extractor in this module
+    reads a numeric-string key, so the exception is never reached in practice.
     """
     if isinstance(value, dict):
         return value

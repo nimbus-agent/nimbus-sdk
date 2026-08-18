@@ -325,6 +325,16 @@ accepting and a rejecting case, that every rejection reason is produced by at le
 case, and that no parse case expects `line-too-long` — §5.1 requires that reason be
 encode-only.
 
+`sdks/typescript/scripts/url-resolution-guard.test.ts` validates the url-resolution corpus
+against its schemas, holds the index and the cases directory to each other, and drives every
+case through `resolveUrlWithBase`. It asserts every published §7 rejection reason —
+`malformed`, `invalid-base`, `cross-origin` — is asserted by at least one case, that every
+pinnable section (§3 through §7) is cited by at least one case, and that both outcomes are
+exercised. It also pins §4 specifically against relative-reference resolution: a
+protocol-relative case (`input` starting with `//`) must resolve by string concatenation,
+staying on the base's own host, rather than by `urljoin` / `new URL(input, base)`, which would
+read it as a network-authority reference and hand the fetch to a different host.
+
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only
 ever expects one answer, is itself a failure.

@@ -248,7 +248,12 @@ python -m build                 # sdist + wheel into dist/
   three OSes plus both scaffold jobs the moment it reached CI (fixed in #95's follow-up).
   **To reproduce CI honestly, clone the branch somewhere outside the repository** —
   `git clone --branch <branch> . <tmpdir>` then `bun install --frozen-lockfile` — and run the
-  gates there. This is the same failure the `scaffold-*` jobs generate into `$RUNNER_TEMP` to
+  gates there. Build before testing, the same order `.github/workflows/ci.yml` uses: `bun run
+  build` from the repository root, then `bun run --cwd tools/create-connector build`. Skipping
+  this step fails `api-surface`, `smoke-calls`, and `pack-and-generate` on a missing `dist/`
+  for the wrong reason — those three gates execute the built package, not the source tree —
+  which teaches the reader to distrust the recipe rather than trust it. Only then run the
+  gates. This is the same failure the `scaffold-*` jobs generate into `$RUNNER_TEMP` to
   avoid, one level up: resolution reaching past a boundary and satisfying a dependency the
   real environment does not have.
 - **Two roots.** `sdks/typescript/scripts/paths.ts` distinguishes `packageRoot`

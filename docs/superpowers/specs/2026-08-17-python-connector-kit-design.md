@@ -134,6 +134,14 @@ The Python signature is therefore `require_env(name: str, env: Mapping[str, str]
 original here. That is recorded as a TypeScript bug in [Follow-ups](#follow-ups) rather
 than replicated for symmetry.
 
+`Mapping` comes from `collections.abc`, not `typing`. That is not a judgment call: ruff's
+`UP` ruleset is enabled in `pyproject.toml` and UP035 rejects the `typing` spelling, while
+`requires-python = ">=3.11"` puts the subscriptable `collections.abc` form well inside
+support. `os.environ` is an `os._Environ[str]`, a `MutableMapping[str, str]`, so it
+satisfies the annotation as a default — and annotating the parameter as the read-only
+`Mapping` is deliberate: `require_env` reads the environment and must not be handed a seam
+that invites writing to it.
+
 ### D6 — Sync transport with a `urllib` default, behind a Protocol seam
 
 `INCLUSION-POLICY.md` §2 requires substitutable effects — naming the network — to be
@@ -149,6 +157,29 @@ axis of divergence.
 An async tool handler wraps a fetch in `anyio.to_thread.run_sync`. That is not a new
 pattern for the template — `main.py`'s `_ReplayStdin.readline` already does exactly this.
 
+**`Transport` is synchronous only.** `send` returns an `HttpResponse`, never an awaitable,
+and there is no `AsyncTransport`. An author who wants a fully async client is not stuck,
+because the kit's transport-agnostic pieces are all pure and usable directly:
+
+```
+url = resolve_url_with_base(base, path)        # the SSRF chokepoint
+res = await my_httpx_client.get(url, ...)      # the author's own client
+out = json_result_if_ok("service", HttpResponse(ok=res.is_success, status=res.status_code,
+                                                text=res.text, json=res.json()))
+```
+
+The async path costs one adapter line and loses exactly one helper — `make_rest_tool`, the
+standard-body factory, which is the only piece that assumes a synchronous fetch. That
+limitation is stated here rather than discovered, and `make_rest_tool`'s docstring repeats
+it.
+
+Adding a second async protocol is what the "dual sync + async surfaces" option was, and it
+was rejected for the reason it is always rejected: two surfaces to keep in step forever, a
+doubled test matrix, and two entries in every doc. Revisiting it needs evidence — a real
+connector whose throughput is measurably hurt by the thread hop — not the observation that
+`mcp` is async, which is already true and already handled. Recorded in
+[Follow-ups](#follow-ups) with that trigger.
+
 ### D7 — `ToolRouter` owns dispatch; validation is a seam
 
 The kit ships no validator of its own. A hand-rolled JSON Schema subset validator would be
@@ -163,6 +194,15 @@ pydantic if they have taken that dependency).
 shape, and a consumer that is not the `mcp` package should get something usable. The
 template carries a small explicit adapter into the pydantic models; that adapter is the
 only place pydantic appears.
+
+Wire-shaped does not mean untyped. The kit declares `TypedDict`s for every shape it
+returns — `McpTextContent`, `McpToolResult` (`content`, and `isError` as
+`NotRequired[bool]`), and `McpToolDescriptor` (`name`, `description`, `inputSchema`) — so
+authors get completion and `mypy` checking without importing pydantic. `typing.TypedDict`
+and `typing.NotRequired` are both stdlib and both available at the package's
+`requires-python = ">=3.11"` floor, so this costs no dependency and no version guard. It
+also extends D4's decision — which already replaced `McpListResult` with a `TypedDict` —
+across the router's output rather than leaving it applied to only half the surface.
 
 ## Shipment 1 — the pure core
 
@@ -270,8 +310,25 @@ Frozen dataclasses:
 
 `UrllibTransport`'s second trap: `urlopen` **raises** `HTTPError` on 4xx/5xx where `fetch`
 resolves. The transport catches it and converts it to a normal `HttpResponse`, because a
-non-2xx must reach `json_result_if_ok` as data, not as an exception. `URLError` propagates,
-since `fetch` rejects on network failure too.
+non-2xx must reach `json_result_if_ok` as data, not as an exception.
+
+**What `send` may raise is part of the Protocol, not an implementation detail.** Anything
+that is not an HTTP response surfaces as `TransportError`, with `TransportTimeoutError` for
+the timeout case specifically. `UrllibTransport` maps into that: `socket.timeout` /
+`TimeoutError` (aliases since 3.10, and reachable both bare and wrapped by `URLError`) →
+`TransportTimeoutError`; other connection failures → `TransportError`, with the original
+attached via `raise ... from`. Without this a caller catches a different exception set per
+transport, which defeats the point of the seam. It mirrors TypeScript, where an aborted or
+failed `fetch` also rejects rather than returning a response.
+
+**The credential-redirect rule binds every `Transport`, not just `UrllibTransport`.** A
+custom transport built on another client inherits that client's redirect behavior, and
+clients differ: some strip `Authorization` when the host changes, some historically did
+not. The obligation therefore lives in the `Transport` Protocol docstring and in
+`url-resolution.md` as a MUST, so an author plugging in their own client is told rather
+than left to assume. Which specific clients strip by default is a security claim, so the
+plan verifies it against current versions before any doc names one — this design asserts
+nothing about them.
 
 ### Router
 
@@ -293,9 +350,18 @@ will eventually fill.
 
 ### Errors
 
-One base `ConnectorKitError(Exception)` with three subclasses — `UrlResolutionError`,
-`HttpStatusError`, `MissingEnvError` — whose `str()` is byte-identical to the corresponding
-TypeScript message, so error text stays comparable across bindings.
+One base `ConnectorKitError(Exception)` with four subclasses — `UrlResolutionError`,
+`HttpStatusError`, `MissingEnvError`, and `TransportError` (itself subclassed by
+`TransportTimeoutError`). The first three carry a `str()` byte-identical to the
+corresponding TypeScript message, so error text stays comparable across bindings.
+
+`TransportError` has no TypeScript counterpart to match, because TypeScript inherits its
+failure taxonomy from `fetch`. It exists so that swapping a transport does not change which
+exceptions a caller catches — see the Transport section above.
+
+`TransportTimeoutError` is named for the builtin it must not shadow: `TimeoutError` is a
+builtin `OSError` subclass in Python, so reusing that name inside the package would be a
+readability trap in exactly the code most likely to be read in a hurry.
 
 `HttpStatusError` additionally carries `.status`, `.service` and `.snippet` as attributes,
 which TypeScript's bare `Error` does not. This is a surface asymmetry in Python's favor,
@@ -327,9 +393,15 @@ missing kit.
   divergence trap above. Both bindings execute the URL-resolution corpus.
 - **Shipment 2** tests the router and `make_rest_fetcher` against a fake `Transport` —
   that is what the seam is for.
-- **`UrllibTransport` needs a real `http.server` on a localhost port in a thread.** The two
-  traps that matter — `HTTPError`-as-response and redirect header stripping — are invisible
-  to a fake transport, so a fake cannot be the only coverage.
+- **`UrllibTransport` needs a real `http.server` in a thread.** The two traps that matter —
+  `HTTPError`-as-response and redirect header stripping — are invisible to a fake transport,
+  so a fake cannot be the only coverage. The fixture binds **port 0** and reads the assigned
+  port back off the socket, never a fixed number: this suite runs on a cross-OS CI matrix
+  alongside other jobs, and a pinned port is a flake waiting for its first collision. The
+  redirect test additionally needs two distinct origins, which on one host means two
+  listeners on two OS-assigned ports — `127.0.0.1:a` redirecting to `127.0.0.1:b` is an
+  origin change by the port component alone, which is exactly what shipment 1's
+  default-port normalization makes well-defined.
 - **End-to-end** is the existing `scaffold-python` CI job, which already generates,
   installs, builds, tests and drives the generated project. That job passing against the
   rewritten template is the proof the gap closed.
@@ -362,6 +434,11 @@ Recorded, not done here:
    with nothing equivalent to `api-surface.md` guarding it.
 3. **No Python diagnostics emitter**, so the router's swallowed-exception detail has
    nowhere structured to go. Already-tracked asymmetry; this design adds a consumer for it.
+4. **`AsyncTransport`.** Deferred per D6, with an explicit trigger: a real connector whose
+   throughput is measurably hurt by the `to_thread` hop. Not "`mcp` is async."
+5. **A conformance harness for third-party transports** — a shared test a custom
+   `Transport` could run to prove it honors the credential-redirect rule. Worth having once
+   more than one transport exists; today it would have exactly one caller.
 
 ## Semver call on the TypeScript fix
 

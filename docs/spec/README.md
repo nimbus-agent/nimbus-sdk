@@ -210,9 +210,7 @@ above, with its own [`index.json`](./conformance/v1/url-resolution/index.json) a
 input, and either the exact string returned or the exact refusal — reason and message
 both — so two bindings are held to the same words and not merely to the same verdict: a
 binding that refuses for the right reason with different wording still fails the case,
-because the message is contract text. `url-resolution` is executed by the **TypeScript**
-binding only for now; the Python runner arrives in the same branch (a later task of this
-shipment), at which point this disclosure sentence is deleted.
+because the message is contract text.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
@@ -255,10 +253,14 @@ Eight guards run on every pull request as part of `bun run test` (see
 The guards hold the *documents* to each other and to the TypeScript reference. What
 holds the contract to being **language-neutral** is that a second binding executes the
 same fixtures: `sdks/python/` runs the `negotiation` corpus — all three case kinds —
-the `framing` corpus, and the `diagnostics` corpus, from the same `index.json` files the
-TypeScript guards read, with nothing deferred. A case added to any of the three therefore
-runs in both languages as soon as it is indexed, and a claim only one binding can satisfy
-fails somewhere.
+the `framing` corpus, the `diagnostics` corpus, and the `url-resolution` corpus, from the
+same `index.json` files the TypeScript guards read, with nothing deferred. A case added to
+any of the four therefore runs in both languages as soon as it is indexed, and a claim only
+one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
+stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
+`url-resolution` holds a narrower one — that `resolveUrlWithBase` and
+`resolve_url_with_base`, two separate implementations of the same SSRF chokepoint rather
+than two ends of a protocol, reach the same verdict and the same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. `predicates` and `sandbox` are executed by the **TypeScript** binding only — real

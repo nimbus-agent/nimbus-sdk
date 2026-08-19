@@ -40,8 +40,9 @@ Create `sdks/typescript/src/agents/brief-composites.test.ts`:
 
 ```ts
 import { describe, expect, test } from "bun:test";
-import type { WhyBrief, WhyChangeSubject } from "./brief-composites.js";
+import type { WhyBrief } from "./brief-composites.js";
 import { isWhyBrief } from "./brief-guards.js";
+import type { WhyChangeSubject } from "./brief-types.js";
 
 const base = { agentVersion: 1 as const, generatedAt: 1, latencyMs: 1, gaps: [] };
 
@@ -112,7 +113,7 @@ describe("WhyBrief.changeSubject", () => {
 
 Run: `bun test sdks/typescript/src/agents/brief-composites.test.ts`
 
-Expected: FAIL. Bun reports that `WhyChangeSubject` is not exported from `./brief-composites.js`. (If `dist/` is missing, `bun run build` first — but this single-file run does not need it; the whole-suite run in Task 2 does.)
+Expected: FAIL. Bun reports that `WhyChangeSubject` is not exported from `./brief-types.js`, and `changeSubject` does not exist on `WhyBrief`. (If `dist/` is missing, `bun run build` first — but this single-file run does not need it; the whole-suite run in Task 2 does.)
 
 - [ ] **Step 3: Add the leaf type**
 
@@ -180,11 +181,7 @@ export type WhyBrief = AgentBriefBase & {
 };
 ```
 
-Re-export it from the composites module so the test's import path resolves, matching how `brief-composites.ts` already re-exports nothing else — add it to the type export block at the top of the file instead if the module has one; otherwise add this line beneath the `WhyBrief` declaration:
-
-```ts
-export type { WhyChangeSubject } from "./brief-types.js";
-```
+**Do not add a re-export to this module.** `brief-composites.ts` has no type-export block and re-exports nothing; the test imports `WhyChangeSubject` from `./brief-types.js` directly, which is where it lives.
 
 - [ ] **Step 5: Export from the package barrel**
 
@@ -337,7 +334,7 @@ BODY
 
 **Spec coverage (§1.1):** the type shape, the optional field, minor-not-major, `WhySubject` untouched, TypeScript-only, and the "a consumer that never sends `prUrl` never receives one" argument — all present, the last as the doc comment on `changeSubject` and the module-page sentence.
 
-**No placeholders:** every step carries the literal text or command to run. The one conditional is Step 4 of Task 1 (whether `brief-composites.ts` has a type-export block), which names both branches.
+**No placeholders:** every step carries the literal text or command to run. An earlier draft left Step 4 conditional on whether `brief-composites.ts` has a type-export block; it does not, so the step now says plainly not to add one and the test imports from `brief-types.js`.
 
 **Type consistency:** `WhyChangeSubject`'s seven members are written identically in the test fixture (Task 1 Step 1), the declaration (Step 3) and the spec. `changeSubject` is spelled the same in all five places it appears.
 

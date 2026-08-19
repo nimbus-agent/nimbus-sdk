@@ -211,4 +211,8 @@ spurious failure.
 
 ## License
 
-MIT — see [LICENSE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/LICENSE).
+MIT — see [LICENSE](./LICENSE), a byte-identical copy of the repository's, kept
+inside the module directory because the zip `proxy.golang.org` serves contains only
+`sdks/go/**`. A module the proxy cannot find a license in is marked
+non-redistributable on `pkg.go.dev`, which suppresses the rendered docs this README
+is part of.

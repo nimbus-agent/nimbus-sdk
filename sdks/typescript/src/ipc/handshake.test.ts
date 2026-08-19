@@ -113,8 +113,9 @@ describe("performHandshake", () => {
   });
 
   test("refuses when the stream ends before any frame arrives", async () => {
-    // §7.3 makes an absent hello a refusal. There is no reason token for "silence",
-    // so it lands on no-common-version — we never learned a set to intersect with.
+    // §7's third refusal cause makes an absent hello a refusal. There is no reason token
+    // for "silence", so it lands on no-common-version — we never learned a set to
+    // intersect with.
     expect(await performHandshake(scriptedPeer([]))).toEqual({
       ok: false,
       reason: "no-common-version",

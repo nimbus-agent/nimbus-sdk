@@ -39,9 +39,10 @@ export const CONTRACT_VERSIONS: readonly string[] = ["1"];
  *
  * Aliasing them would make adding a major silently widen every manifest that predates the field:
  * a connector that never declared anything would begin claiming the new version it was written
- * before. That is not hypothetical bookkeeping — §7.2 obliges a connector's hello to equal its
- * own declaration, so a runtime that announced `CONTRACT_VERSIONS` for a manifest that declared
- * nothing would announce a `declaration-mismatch` the day this SDK learns a second major.
+ * before. That is not hypothetical bookkeeping — §7's second refusal cause obliges a connector's
+ * hello to equal its own declaration, so a runtime that announced `CONTRACT_VERSIONS` for a
+ * manifest that declared nothing would announce a `declaration-mismatch` the day this SDK learns
+ * a second major.
  *
  * Exported so `src/server.ts` announces this set rather than {@link CONTRACT_VERSIONS} when the
  * manifest is silent, and deliberately **not** re-exported from `src/index.ts` — the same

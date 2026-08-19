@@ -119,8 +119,9 @@ export async function performHandshake(
   }
 
   if (peerFrame === undefined) {
-    // §7.3: an absent hello is a refusal. There is no token for silence, and we never
-    // learned a set to intersect with, so this is the empty intersection.
+    // §7's third refusal cause: an absent hello is a refusal. There is no token for
+    // silence, and we never learned a set to intersect with, so this is the empty
+    // intersection.
     return { ok: false, reason: "no-common-version", pending };
   }
 

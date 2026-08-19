@@ -160,10 +160,11 @@ describe("NimbusExtensionServer.handshake", () => {
   }
 
   test("announces the set the manifest declares, not the set this SDK speaks", async () => {
-    // Asserted on the bytes, not on the result: §7.2 obliges a connector's hello to equal
-    // its own declaration, and the *result* of negotiating ["1","2"] against a peer that
-    // also offers both is "2" either way. Only the written frame can show which set went
-    // out, which is why the earlier version of this method shipped announcing the wrong one.
+    // Asserted on the bytes, not on the result: §7's second refusal cause obliges a
+    // connector's hello to equal its own declaration, and the *result* of negotiating
+    // ["1","2"] against a peer that also offers both is "2" either way. Only the written
+    // frame can show which set went out, which is why the earlier version of this method
+    // shipped announcing the wrong one.
     const io = recordingIo();
     const server = new NimbusExtensionServer({
       manifest: { ...manifest, contractVersions: ["1", "2"] },
@@ -179,7 +180,7 @@ describe("NimbusExtensionServer.handshake", () => {
     // which is the only moment the bug it guards can appear. §4 freezes what a silent
     // manifest declares at ["1"] for as long as v1-era manifests exist; announcing what this
     // SDK happens to speak instead would claim a version the manifest never promised, which
-    // §7.2 calls a declaration-mismatch.
+    // §7's second refusal cause calls a declaration-mismatch.
     const io = recordingIo();
     const server = new NimbusExtensionServer({ manifest });
     expect(manifest.contractVersions).toBeUndefined();

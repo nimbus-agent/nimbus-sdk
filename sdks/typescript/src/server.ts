@@ -59,12 +59,12 @@ export class NimbusExtensionServer<TClient = unknown> {
    * and the caller holds the result, which is the only thing that needs it.
    *
    * Announces the manifest's declared set, and {@link V1_ABSENCE_DEFAULT} — not
-   * {@link CONTRACT_VERSIONS} — when the manifest is silent. §7.2 obliges a connector's hello
-   * to equal its own declaration, and §4 fixes what a silent manifest declares at `["1"]`
-   * forever. Letting `performHandshake`'s own default apply instead would announce whatever
-   * this SDK happens to speak, so the day a second major ships every manifest predating the
-   * field would announce a set it never declared — a `declaration-mismatch` compiled into
-   * published surface rather than a bug anyone introduced.
+   * {@link CONTRACT_VERSIONS} — when the manifest is silent. §7's second refusal cause obliges
+   * a connector's hello to equal its own declaration, and §4 fixes what a silent manifest
+   * declares at `["1"]` forever. Letting `performHandshake`'s own default apply instead would
+   * announce whatever this SDK happens to speak, so the day a second major ships every manifest
+   * predating the field would announce a set it never declared — a `declaration-mismatch`
+   * compiled into published surface rather than a bug anyone introduced.
    *
    * `options.reader` is forwarded to {@link performHandshake} and exists for the same reason
    * it does there: a peer announces unprompted (§5), so its hello and its first request often
@@ -75,7 +75,7 @@ export class NimbusExtensionServer<TClient = unknown> {
    * the recovery `docs/modules/ipc.md` tells callers to use was structurally unreachable here.
    *
    * Only `reader` is accepted. `localVersions` is the manifest's to declare, and letting a
-   * caller pass it here would let the running hello contradict the manifest — the §7.2
+   * caller pass it here would let the running hello contradict the manifest — the §7
    * `declaration-mismatch` this method exists to make impossible.
    */
   handshake(io: HandshakeIo, options?: Pick<HandshakeOptions, "reader">): Promise<HandshakeResult> {

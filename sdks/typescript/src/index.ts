@@ -52,6 +52,7 @@ export type {
   ImpactFinding,
   JanitorPeerTouch,
   PreflightDownstream,
+  WhyChangeSubject,
   WhyFinding,
   WhyLane,
   WhySubject,

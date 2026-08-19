@@ -7,6 +7,7 @@ import type {
   ImpactFinding,
   JanitorPeerTouch,
   PreflightDownstream,
+  WhyChangeSubject,
   WhyFinding,
   WhySubject,
 } from "./brief-types.js";
@@ -123,6 +124,13 @@ export type WhyBrief = AgentBriefBase & {
   kind: "why";
   query: { ref: string; line: number | null };
   subject: WhySubject | null;
+  /**
+   * Set when the brief was asked about a pull request (`prUrl`) rather than a
+   * `ref`. Optional, so every brief written before this field existed still
+   * satisfies the type — that is what keeps this a minor release. On this arm
+   * `subject` is null and `query.ref` echoes the PR URL.
+   */
+  changeSubject?: WhyChangeSubject | null;
   findings: WhyFinding[];
 };
 

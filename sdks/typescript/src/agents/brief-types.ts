@@ -106,3 +106,26 @@ export type WhySubject = {
   lineNo: number | null;
   symbol: string | null;
 };
+
+/**
+ * The subject of a `why` brief asked about a whole change rather than a line.
+ *
+ * Present only when the caller supplied `prUrl`; `WhySubject` (a file, a line, a
+ * symbol) is untouched and remains what a `ref`-shaped call resolves to. The two
+ * are alternatives, not a union: `subject` is null on this arm, and a consumer
+ * that never sends `prUrl` never receives a brief carrying this field.
+ */
+export type WhyChangeSubject = {
+  /** Index item primary key — `"<service>:<repo>#<number>"`, e.g. `"github:acme/web#482"`. */
+  itemId: string;
+  /** `graph_entity.id` of the `pr` entity the lanes were answered from. */
+  entityId: string;
+  /** `"acme/web"` — the repo path as the connector indexed it. */
+  repo: string;
+  /** Null when the indexed item carried no number (a forge or connector that omits it). */
+  number: number | null;
+  url: string;
+  title: string;
+  /** Epoch ms, as the source reports it. Null when the item carried none. */
+  modifiedAt: number | null;
+};

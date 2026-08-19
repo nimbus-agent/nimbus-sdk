@@ -334,9 +334,15 @@ Stdlib `testing` only. No testify, no `x/tools` — `go.mod` carries zero `requi
 matching the repository's dep-free non-negotiable.
 
 That buys a CI property neither other language has: a module with no dependencies needs
-no module downloads, so the `go` job keeps harden-runner's egress **fully blocked** with
-no `proxy.golang.org` allowance. It requires `GOTOOLCHAIN=local`, or the toolchain
-directive will try to fetch a newer Go over the network and defeat it.
+no **module** downloads, so the `go` job needs no `proxy.golang.org` or `sum.golang.org`
+allowance at all — where the npm and PyPI jobs must open their registries. It requires
+`GOTOOLCHAIN=local`, or the `go` directive will try to fetch a newer toolchain over the
+network and defeat it.
+
+That is narrower than "no network." `actions/setup-go` still downloads a toolchain,
+because GitHub runners preinstall only one Go version and the matrix asks for two, so the
+job's `allowed-endpoints` must open Google's storage host. The claim worth making is about
+the *dependency* surface, not the job's total egress.
 
 Corpus tests are table-driven, read through `LoadCorpus`, and assert the D7 floors and
 structural properties.

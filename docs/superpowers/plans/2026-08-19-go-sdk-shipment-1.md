@@ -19,6 +19,7 @@
 - **Result names follow Python's exactly:** `NegotiationOk`, `NegotiationRefused`, `HelloOk`, `HelloRefused`. Not `Ok`/`Refused`.
 - **`CONTRACT_VERSIONS` is `["1"]`; `CONTRACT_HANDSHAKE_EXIT` is `20`; the version pattern is `^[1-9][0-9]*$`.**
 - **The absence default is a separate constant from `ContractVersions`,** module-private, even though both are `["1"]` today. Aliasing them would make adding a major retroactively widen every manifest predating the field.
+- **Every command below is Bash** (Git Bash), not PowerShell. This machine's primary shell is PowerShell, where `printf`, `test -z`, `wc`, and inline environment prefixes are all parse errors or missing commands. Run them through the Bash tool. The trap is the env-prefixed form — in PowerShell, `NIMBUS_SPEC_DRIFT=required go test ./...` is `$env:NIMBUS_SPEC_DRIFT='required'; go test ./...`, and getting this wrong produces an error that looks like a Go problem.
 - **Never run `git stash`.** This is a worktree; the stash stack is shared with other sessions. Use a WIP commit instead.
 - **Do not `cd` out of the worktree.** All paths below are relative to `C:\gitrep\nimbus-sdk\.claude\worktrees\go-sdk-design`.
 
@@ -281,7 +282,7 @@ func TestLoadCorpusRejectsAnUnknownName(t *testing.T) {
 }
 
 func TestLoadSchemaReadsAPublishedSchema(t *testing.T) {
-	schema, err := LoadSchema("manifest")
+	schema, err := LoadSchema("extension-manifest")
 	if err != nil {
 		t.Fatalf("LoadSchema: %v", err)
 	}
@@ -302,15 +303,9 @@ go test ./sdks/go/spec/
 
 Expected: FAIL — `undefined: LoadCorpus`.
 
-- [ ] **Step 3: Check the real schema filename before implementing**
+- [ ] **Step 3: Write the embed**
 
-```bash
-ls docs/spec/schemas/v1/
-```
-
-Use whatever the manifest schema is actually called to fix the path pattern in Step 4. If it is not `manifest.schema.json`, adjust both the implementation and the test's `LoadSchema("manifest")` argument to match.
-
-- [ ] **Step 4: Write the embed**
+The three published schemas are `extension-manifest.schema.json`, `nimbus-item.schema.json` and `hitl-request.schema.json`, so `LoadSchema` takes the filename stem — `"extension-manifest"`, not `"manifest"`.
 
 Create `sdks/go/spec/embed.go`:
 
@@ -332,7 +327,7 @@ var data embed.FS
 // Follow-up 5 in the design.
 ```
 
-- [ ] **Step 5: Write the loaders**
+- [ ] **Step 4: Write the loaders**
 
 Create `sdks/go/spec/spec.go`:
 
@@ -398,7 +393,7 @@ func LoadCorpus(name string) ([]map[string]any, error) {
 }
 ```
 
-- [ ] **Step 6: Run the tests and confirm they pass**
+- [ ] **Step 5: Run the tests and confirm they pass**
 
 ```bash
 go test ./sdks/go/spec/
@@ -406,7 +401,7 @@ go test ./sdks/go/spec/
 
 Expected: PASS, all three tests.
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add sdks/go/spec/embed.go sdks/go/spec/spec.go sdks/go/spec/spec_test.go
@@ -1292,133 +1287,126 @@ func TestTheCorpusIsSubstantial(t *testing.T) {
 	}
 }
 
-func TestEveryIndexedCaseExecutes(t *testing.T) {
+// runKind executes every case of one kind and FAILS when it executed none.
+//
+// This is the guard, not a convenience. Each runner filters on a string literal, and a
+// misspelled literal — "helo" — would otherwise run zero subtests and report PASS,
+// silently. A test asserting the corpus's own kinds cannot catch that: it reads the
+// data, not what the runners did. Counting here makes the vacuity unreachable rather
+// than merely observable from the side.
+func runKind(t *testing.T, kind string, run func(*testing.T, map[string]any)) {
+	t.Helper()
 	executed := 0
 	for _, c := range negotiationCases(t) {
-		if kind, _ := c["kind"].(string); implementedKinds[kind] {
-			executed++
+		if k, _ := c["kind"].(string); k != kind {
+			continue
 		}
+		executed++
+		c := c
+		t.Run(describe(c), func(t *testing.T) { run(t, c) })
 	}
-	if executed != len(negotiationCases(t)) {
-		t.Errorf("executed %d of %d cases", executed, len(negotiationCases(t)))
+	if executed == 0 {
+		t.Fatalf("executed no %q cases — either the corpus has none or this filter is misspelled", kind)
 	}
+	t.Logf("executed %d %q cases", executed, kind)
 }
 
 func TestNegotiateCases(t *testing.T) {
-	for _, c := range negotiationCases(t) {
-		if kind, _ := c["kind"].(string); kind != "negotiate" {
-			continue
-		}
-		c := c
-		t.Run(describe(c), func(t *testing.T) {
-			local, _ := c["local"].([]any)
-			remote, _ := c["remote"].([]any)
-			expect, _ := c["expect"].(map[string]any)
-			got := contract.Negotiate(local, remote)
+	runKind(t, "negotiate", func(t *testing.T, c map[string]any) {
+		local, _ := c["local"].([]any)
+		remote, _ := c["remote"].([]any)
+		expect, _ := c["expect"].(map[string]any)
+		got := contract.Negotiate(local, remote)
 
-			if ok, _ := expect["ok"].(bool); ok {
-				want, _ := expect["version"].(string)
-				actual, isOk := got.(contract.NegotiationOk)
-				if !isOk || actual.Version != want {
-					t.Errorf("got %#v, want NegotiationOk{%q}", got, want)
-				}
-				return
+		if ok, _ := expect["ok"].(bool); ok {
+			want, _ := expect["version"].(string)
+			actual, isOk := got.(contract.NegotiationOk)
+			if !isOk || actual.Version != want {
+				t.Errorf("got %#v, want NegotiationOk{%q}", got, want)
 			}
-			want, _ := expect["reason"].(string)
-			if got != (contract.NegotiationRefused{Reason: want}) {
-				t.Errorf("got %#v, want NegotiationRefused{%q}", got, want)
-			}
-			if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
-				t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
-			}
-		})
-	}
+			return
+		}
+		want, _ := expect["reason"].(string)
+		if got != (contract.NegotiationRefused{Reason: want}) {
+			t.Errorf("got %#v, want NegotiationRefused{%q}", got, want)
+		}
+		if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
+			t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
+		}
+	})
 }
 
 func TestHelloCases(t *testing.T) {
-	for _, c := range negotiationCases(t) {
-		if kind, _ := c["kind"].(string); kind != "hello" {
-			continue
-		}
-		c := c
-		t.Run(describe(c), func(t *testing.T) {
-			frame, _ := c["frame"].(string)
-			expect, _ := c["expect"].(map[string]any)
-			got := ipc.ParseHello(frame)
+	runKind(t, "hello", func(t *testing.T, c map[string]any) {
+		frame, _ := c["frame"].(string)
+		expect, _ := c["expect"].(map[string]any)
+		got := ipc.ParseHello(frame)
 
-			if ok, _ := expect["ok"].(bool); ok {
-				declared, _ := expect["contractVersions"].([]any)
-				actual, isOk := got.(ipc.HelloOk)
-				if !isOk {
-					t.Fatalf("got %#v, want HelloOk", got)
-				}
-				if len(actual.ContractVersions) != len(declared) {
-					t.Fatalf("got %#v, want %#v", actual.ContractVersions, declared)
-				}
-				// Order is significant HERE and nowhere else: the frame's declared
-				// order is what ParseHello reports. The §6 algorithm treats the same
-				// values as an unordered set.
-				for i, want := range declared {
-					if actual.ContractVersions[i] != want.(string) {
-						t.Errorf("version %d = %q, want %q", i, actual.ContractVersions[i], want)
-					}
-				}
-				return
+		if ok, _ := expect["ok"].(bool); ok {
+			declared, _ := expect["contractVersions"].([]any)
+			actual, isOk := got.(ipc.HelloOk)
+			if !isOk {
+				t.Fatalf("got %#v, want HelloOk", got)
 			}
-			want, _ := expect["reason"].(string)
-			if got != (ipc.HelloRefused{Reason: want}) {
-				t.Errorf("got %#v, want HelloRefused{%q}", got, want)
+			if len(actual.ContractVersions) != len(declared) {
+				t.Fatalf("got %#v, want %#v", actual.ContractVersions, declared)
+			}
+			// Order is significant HERE and nowhere else: the frame's declared order
+			// is what ParseHello reports. The §6 algorithm treats the same values as
+			// an unordered set.
+			for i, want := range declared {
+				if actual.ContractVersions[i] != want.(string) {
+					t.Errorf("version %d = %q, want %q", i, actual.ContractVersions[i], want)
+				}
+			}
+			return
+		}
+		want, _ := expect["reason"].(string)
+		if got != (ipc.HelloRefused{Reason: want}) {
+			t.Errorf("got %#v, want HelloRefused{%q}", got, want)
+		}
+		if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
+			t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
+		}
+	})
+}
+
+func TestDeclarationCases(t *testing.T) {
+	runKind(t, "declaration", func(t *testing.T, c map[string]any) {
+		// A case's `manifest` field is the RAW declared value of contractVersions — an
+		// array in the ordinary cases, deliberately 5 in one of them, and absent
+		// entirely in the case pinning the absence default. An absent field must stay
+		// absent, not become an explicit null, or that default is never exercised.
+		manifest := map[string]any{}
+		if raw, present := c["manifest"]; present {
+			manifest["contractVersions"] = raw
+		}
+		declaredHello := []string{}
+		if list, ok := c["hello"].([]any); ok {
+			for _, v := range list {
+				declaredHello = append(declaredHello, v.(string))
+			}
+		}
+
+		declared := contract.ManifestContractVersions(manifest)
+		matched := contract.DeclaredVersionsMatch(declared, declaredHello)
+		expect, _ := c["expect"].(map[string]any)
+		want, _ := expect["ok"].(bool)
+		if matched != want {
+			t.Errorf("matched = %v, want %v", matched, want)
+		}
+		if !want {
+			// This layer has exactly one refusal to express; if the corpus grows a
+			// different reason, fail rather than pass on a coincidentally-correct
+			// boolean.
+			if reason, _ := expect["reason"].(string); reason != "declaration-mismatch" {
+				t.Errorf("case reason = %q, want declaration-mismatch", reason)
 			}
 			if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
 				t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
 			}
-		})
-	}
-}
-
-func TestDeclarationCases(t *testing.T) {
-	for _, c := range negotiationCases(t) {
-		if kind, _ := c["kind"].(string); kind != "declaration" {
-			continue
 		}
-		c := c
-		t.Run(describe(c), func(t *testing.T) {
-			// A case's `manifest` field is the RAW declared value of contractVersions
-			// — an array in the ordinary cases, deliberately 5 in one of them, and
-			// absent entirely in the case pinning the absence default. An absent field
-			// must stay absent, not become an explicit null, or that default is never
-			// exercised.
-			manifest := map[string]any{}
-			if raw, present := c["manifest"]; present {
-				manifest["contractVersions"] = raw
-			}
-			declaredHello := []string{}
-			if list, ok := c["hello"].([]any); ok {
-				for _, v := range list {
-					declaredHello = append(declaredHello, v.(string))
-				}
-			}
-
-			declared := contract.ManifestContractVersions(manifest)
-			matched := contract.DeclaredVersionsMatch(declared, declaredHello)
-			expect, _ := c["expect"].(map[string]any)
-			want, _ := expect["ok"].(bool)
-			if matched != want {
-				t.Errorf("matched = %v, want %v", matched, want)
-			}
-			if !want {
-				// This layer has exactly one refusal to express; if the corpus grows a
-				// different reason, fail rather than pass on a coincidentally-correct
-				// boolean.
-				if reason, _ := expect["reason"].(string); reason != "declaration-mismatch" {
-					t.Errorf("case reason = %q, want declaration-mismatch", reason)
-				}
-				if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
-					t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
-				}
-			}
-		})
-	}
+	})
 }
 
 // shortCircuitOnEmpty is the wrong binding: it refuses on an empty set without
@@ -1544,9 +1532,11 @@ Insert after the `python` job in `.github/workflows/ci.yml`:
       run:
         working-directory: sdks/go
     env:
-      # A module with zero dependencies needs no module downloads, so egress can stay
-      # fully blocked. GOTOOLCHAIN=local is what keeps that true: without it the `go`
-      # directive can trigger a toolchain download over the network.
+      # A module with zero dependencies needs no MODULE downloads, so this job needs no
+      # proxy.golang.org or sum.golang.org allowance — a property neither other language
+      # has. It is not the same as needing no network: actions/setup-go still fetches a
+      # toolchain (see allowed-endpoints below). GOTOOLCHAIN=local suppresses the `go`
+      # command's own toolchain fetch, which is a different mechanism happening later.
       GOTOOLCHAIN: local
       # Absent docs/spec must fail the drift guard here, not skip it.
       NIMBUS_SPEC_DRIFT: required
@@ -1561,7 +1551,12 @@ Insert after the `python` job in `.github/workflows/ci.yml`:
             codeload.github.com:443
             objects.githubusercontent.com:443
             release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            dl.google.com:443
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # GitHub runners preinstall ONE Go version. The matrix asks for two, so setup-go
+      # downloads the other from Google's storage host — which is why the two endpoints
+      # above are allowed. Without them the Linux leg dies here, before a single test.
       - uses: actions/setup-go@<SHA> # pin to a release SHA, with the version in a trailing comment
         with:
           go-version: ${{ matrix.go }}
@@ -1656,7 +1651,27 @@ Configure the component without it, and let Task 10's workflow push the correctl
     }
 ```
 
-- [ ] **Step 5: Confirm the existing components' tags are unchanged**
+- [ ] **Step 5: Seed the release manifest**
+
+release-please reads `.release-please-manifest.json` to learn each component's current version. A component present in the config but **absent from the manifest never cuts a release** — and it fails as silence, not as an error, which is the hardest kind to diagnose later. The file currently holds three entries:
+
+```json
+{
+  "sdks/typescript": "1.18.0",
+  "sdks/python": "0.7.0",
+  "tools/create-connector": "0.2.0"
+}
+```
+
+Add a fourth, `"sdks/go": "0.0.0"`, matching the existing formatting exactly (two-space indent, trailing newline).
+
+```bash
+python -c "import json; d=json.load(open('.release-please-manifest.json')); print('sdks/go' in d)"
+```
+
+Expected: `True`.
+
+- [ ] **Step 6: Confirm the existing components' tags are unchanged**
 
 ```bash
 git tag --list 'typescript-v*' | tail -3
@@ -1665,10 +1680,10 @@ python -c "import json; print(json.dumps(json.load(open('release-please-config.j
 
 Expected: the existing three package entries are byte-identical to before this task except for the new `sdks/go` key, and no root-level key was added under branch 4b.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add release-please-config.json
+git add release-please-config.json .release-please-manifest.json
 git commit -m "ci: add the sdks/go release-please component"
 ```
 
@@ -1718,13 +1733,22 @@ jobs:
         with:
           go-version-file: sdks/go/go.mod
           cache: false
-      - name: Build the module zip the proxy will serve
+      - name: Build
         working-directory: sdks/go
-        run: go mod download && go build ./...
+        run: go build ./...
+      # The attestation subject is a git archive of the module directory at this tag —
+      # a real, reproducible artifact anyone can regenerate and diff. It is deliberately
+      # NOT the zip `go get` fetches: that zip is synthesized by proxy.golang.org, and
+      # reproducing it byte-for-byte needs golang.org/x/mod/zip, a dependency this
+      # module cannot take. sum.golang.org remains the load-bearing guarantee for a
+      # consumer; this attests what was tagged, not what was served.
+      - name: Archive the module directory
+        shell: bash
+        run: git archive --format=tar.gz --prefix=sdks/go/ -o sdks-go.tar.gz "${GITHUB_REF_NAME}" sdks/go
       - name: Attest build provenance
         uses: actions/attest-build-provenance@<SHA> # pin to a release SHA
         with:
-          subject-path: sdks/go/go.mod
+          subject-path: sdks-go.tar.gz
 
   verify:
     needs: attest
@@ -1753,8 +1777,11 @@ jobs:
             fi
             echo "proxy has not served ${version} yet (attempt ${attempt}); waiting"
             sleep 30
+            if [ "$attempt" = "10" ]; then
+              echo "proxy never served ${version} after 10 attempts"
+              exit 1
+            fi
           done
-          go get "github.com/nimbus-agent/nimbus-sdk/sdks/go@${version}"
           grep "nimbus-sdk/sdks/go ${version}" go.sum || {
             echo "no go.sum entry — the checksum database did not vouch for this version"
             exit 1
@@ -1828,7 +1855,12 @@ Add RFC-0012 to `docs/rfcs/README.md` and `docs/README.md`, matching the existin
 
 - [ ] **Step 8: Run every gate that could be affected**
 
+Build **before** testing, in the order `.github/workflows/ci.yml` uses. `api-surface`, `smoke-calls`, and `pack-and-generate` execute the *built* package, not the source tree, and in a fresh worktree there is no `dist/` — skipping this makes three unrelated gates fail for the wrong reason and teaches you to distrust the recipe.
+
 ```bash
+bun install
+bun run build
+bun run --cwd tools/create-connector build
 NIMBUS_SPEC_DRIFT=required go test ./sdks/go/...
 bun run test
 bun run scaffold:test
@@ -1854,4 +1886,5 @@ git commit -m "docs(go): add RFC-0012, the package README, and the surface notes
 - The `go` job is in `ci-complete`'s `needs`.
 - RFC-0012 records the Task 9 finding with evidence.
 - No workflow under `.github/workflows/` references a secret for the Go path.
+- **Deferred, deliberately:** Sonar does not analyze `sdks/go`. It does not analyze `sdks/python` either — `sonar-project.properties` has been TypeScript-only since before the Python binding landed. Adding Go alone would make the file assert that two of three languages are unanalyzed, which is worse than the current honest state. Whether Sonar covers every binding is one decision, for Python and Go together, with its own justification.
 - **Not done here:** the actual `sdks/go/v0.1.0` tag. Pushing it is irreversible — `proxy.golang.org` caches it permanently and re-tagging is visible forever as a checksum mismatch. Cutting it is a deliberate act after this branch merges and CI is green on `main`, not a step in this plan.

@@ -108,7 +108,8 @@ export type WhySubject = {
 };
 
 /**
- * The subject of a `why` brief asked about a whole change rather than a line.
+ * The subject of a `why` brief asked about a whole change (a pull request, or
+ * merge request) rather than a line.
  *
  * Present only when the caller supplied `prUrl`; `WhySubject` (a file, a line, a
  * symbol) is untouched and remains what a `ref`-shaped call resolves to. The two
@@ -116,7 +117,11 @@ export type WhySubject = {
  * that never sends `prUrl` never receives a brief carrying this field.
  */
 export type WhyChangeSubject = {
-  /** Index item primary key — `"<service>:<repo>#<number>"`, e.g. `"github:acme/web#482"`. */
+  /**
+   * Opaque index item primary key — `"<service>:<externalId>"`, where the external id is
+   * connector-defined (`"github:acme/web#482"`, `"gitlab:group/project!482"`). Do not parse
+   * it; ask the index.
+   */
   itemId: string;
   /** `graph_entity.id` of the `pr` entity the lanes were answered from. */
   entityId: string;

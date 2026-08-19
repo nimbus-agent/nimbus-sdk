@@ -166,7 +166,7 @@ export type WhyChangeSubject = {
 
 - [ ] **Step 4: Add the optional field to `WhyBrief`**
 
-In `sdks/typescript/src/agents/brief-composites.ts`, add `WhyChangeSubject` to the existing `./brief-types.js` import (alphabetical, so between `WhyFinding` and `WhySubject`):
+In `sdks/typescript/src/agents/brief-composites.ts`, add `WhyChangeSubject` to the existing `./brief-types.js` import (alphabetical, so immediately before `WhyFinding`):
 
 ```ts
 import type {
@@ -231,7 +231,7 @@ export type {
 
 Run: `bun test sdks/typescript/src/agents/brief-composites.test.ts`
 
-Expected: PASS, 4 tests.
+Expected: PASS, 5 tests.
 
 - [ ] **Step 7: Typecheck and lint**
 

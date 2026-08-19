@@ -1,6 +1,6 @@
 # Review & Suggestions: SDK `WhyChangeSubject` Type Plan
 
-This review document provides feedback, open questions, and improvements on the implementation plan defined in [2026-08-19-why-change-subject-type.md](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/why-pr-subject/docs/superpowers/plans/2026-08-19-why-change-subject-type.md).
+This review document provides feedback, open questions, and improvements on the implementation plan defined in [2026-08-19-why-change-subject-type.md](2026-08-19-why-change-subject-type.md).
 
 ---
 

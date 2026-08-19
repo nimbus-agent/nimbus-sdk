@@ -125,10 +125,22 @@ export type WhyBrief = AgentBriefBase & {
   query: { ref: string; line: number | null };
   subject: WhySubject | null;
   /**
-   * Set when the brief was asked about a pull request (`prUrl`) rather than a
-   * `ref`. Optional, so every brief written before this field existed still
-   * satisfies the type — that is what keeps this a minor release. On this arm
-   * `subject` is null and `query.ref` echoes the PR URL.
+   * The pull request (or merge request) this brief is about, when it was asked
+   * with `prUrl` rather than a `ref`.
+   *
+   * Three states, and they differ:
+   * - **absent** — a `ref`-shaped question. There was no change subject to resolve.
+   * - **`null`** — a `prUrl`-shaped question whose subject did not resolve: not
+   *   indexed, ambiguous, or resolved to an item that is not a pull request. This
+   *   mirrors `subject: null` for a `ref` that could not be resolved.
+   * - **a value** — a `prUrl`-shaped question that resolved.
+   *
+   * On the `prUrl` arm `subject` is always null: the two are alternatives, not a
+   * union, and no brief carries both. The type cannot enforce that invariant —
+   * the gateway upholds it.
+   *
+   * Optional, so every brief written before this field existed still satisfies the
+   * type. That is what keeps this a minor release.
    */
   changeSubject?: WhyChangeSubject | null;
   findings: WhyFinding[];

@@ -11,7 +11,7 @@ import (
 	"path"
 )
 
-// LoadSchema reads one published JSON Schema by name, e.g. "manifest".
+// LoadSchema reads one published JSON Schema by name, e.g. "extension-manifest".
 func LoadSchema(name string) (map[string]any, error) {
 	raw, err := data.ReadFile(path.Join("data", "schemas", "v1", name+".schema.json"))
 	if err != nil {

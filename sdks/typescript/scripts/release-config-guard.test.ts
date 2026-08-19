@@ -16,6 +16,7 @@ interface PackageConfig {
   component?: string;
   "package-name"?: string;
   "include-component-in-tag"?: boolean;
+  "tag-separator"?: string;
 }
 
 const config = JSON.parse(readFromRepo("release-please-config.json")) as {
@@ -29,17 +30,25 @@ const manifest = JSON.parse(readFromRepo(".release-please-manifest.json")) as Re
 >;
 
 /**
- * How to find the version inside each release-type's own manifest file.
+ * How to recognize a release-type: the file that proves its package directory is real, and
+ * — for the release-types that have one — how to read the version out of it.
  *
- * A package whose release-type has no reader here FAILS rather than being skipped. That is
+ * A package whose release-type is not declared here FAILS rather than being skipped. That is
  * deliberate: a `continue` for unhandled types would let `sdks/python` join the config in a
  * later PR with its version silently unchecked, and a guard that quietly covers less than it
- * appears to is worse than no guard. Adding a package means adding its reader.
+ * appears to is worse than no guard. Adding a package means adding its declaration here —
+ * and that includes a release-type with no in-repo version file at all, like Go: it must say
+ * so explicitly (`versionless: true`, with a `reason`), not be left out. An omitted entry and
+ * a deliberately-versionless one would otherwise look identical to this file's reader, and only
+ * one of them is a reviewed decision. `versionless` skips the version *comparison* below; the
+ * package-path-existence check still runs against `file` for every release-type, versionless
+ * or not.
  */
-const VERSION_READERS: Record<
-  string,
-  { file: string; read: (text: string) => string | undefined }
-> = {
+type ReleaseTypeSpec =
+  | { file: string; versionless?: false; read: (text: string) => string | undefined }
+  | { file: string; versionless: true; reason: string };
+
+const RELEASE_TYPES: Record<string, ReleaseTypeSpec> = {
   node: {
     file: "package.json",
     read: (text) => (JSON.parse(text) as { version?: string }).version,
@@ -60,6 +69,14 @@ const VERSION_READERS: Record<
       return /^version\s*=\s*["']([^"']+)["']/m.exec(project)?.[1];
     },
   },
+  go: {
+    file: "go.mod",
+    versionless: true,
+    reason:
+      "a Go module has no in-repo version file — the module proxy's version *is* the git tag, " +
+      "read back at runtime via runtime/debug.ReadBuildInfo — so there is nothing under " +
+      "sdks/go for this guard to cross-check against the manifest",
+  },
 };
 
 describe("the release-please configuration", () => {
@@ -74,30 +91,30 @@ describe("the release-please configuration", () => {
   test("every declared release-type has a version reader", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
       expect(
-        VERSION_READERS[pkg["release-type"]],
-        `no version reader for release-type "${pkg["release-type"]}" (${path}) — add one to ` +
-          "VERSION_READERS in the same change that adds the package",
+        RELEASE_TYPES[pkg["release-type"]],
+        `no declaration for release-type "${pkg["release-type"]}" (${path}) — add one to ` +
+          "RELEASE_TYPES (versioned or explicitly versionless) in the same change that adds " +
+          "the package",
       ).toBeDefined();
     }
   });
 
   test("every package path exists and holds the manifest its release-type implies", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
-      const reader = VERSION_READERS[pkg["release-type"]];
-      if (!reader) continue; // reported by the test above
-      expect(existsSync(joinRepo(path, reader.file)), `${path}/${reader.file} is missing`).toBe(
-        true,
-      );
+      const spec = RELEASE_TYPES[pkg["release-type"]];
+      if (!spec) continue; // reported by the test above
+      expect(existsSync(joinRepo(path, spec.file)), `${path}/${spec.file} is missing`).toBe(true);
     }
   });
 
   test("the manifest version matches each package's own manifest file", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
-      const reader = VERSION_READERS[pkg["release-type"]];
-      if (!reader) continue; // reported above
-      const onDisk = reader.read(readFromRepo(`${path}/${reader.file}`));
-      expect(onDisk, `${path}/${reader.file} declares no version`).toBeDefined();
-      expect(onDisk, `${path}/${reader.file} disagrees with the release manifest`).toBe(
+      const spec = RELEASE_TYPES[pkg["release-type"]];
+      if (!spec) continue; // reported above
+      if (spec.versionless) continue; // no version file to compare — see RELEASE_TYPES's reason
+      const onDisk = spec.read(readFromRepo(`${path}/${spec.file}`));
+      expect(onDisk, `${path}/${spec.file} declares no version`).toBeDefined();
+      expect(onDisk, `${path}/${spec.file} disagrees with the release manifest`).toBe(
         manifest[path] as string,
       );
     }
@@ -106,14 +123,32 @@ describe("the release-please configuration", () => {
   // The repo deliberately chose symmetric, component-prefixed tags for every language.
   test("no package opts out of the component tag prefix", () => {
     for (const [path, pkg] of Object.entries(config.packages)) {
-      // The tag prefix and the package path move in lockstep: sdks/typescript releases as
-      // typescript-v*, sdks/python as python-v*. Asserting the relationship rather than the
-      // literal "typescript" keeps this correct when a language is added, and — unlike a mere
-      // presence check — it fails when the component is reverted or mistyped, which is the
-      // regression this guard exists to catch.
-      expect(pkg.component, `${path} must declare a component matching its directory`).toBe(
-        path.split("/").pop(),
-      );
+      // The tag prefix and the package path move in lockstep, but the shape depends on
+      // tag-separator. The ordinary shape is component === basename(path): sdks/typescript
+      // releases as typescript-v*, sdks/python as python-v*. The one exception is a package
+      // whose tag-separator is "/" — Go's module proxy requires a subdirectory module's tag
+      // to carry its full directory as a slash-prefix (sdks/go/v0.1.0, not go/v0.1.0), so for
+      // that shape component must be the full path instead of the basename. The two are bound
+      // in both directions, not merely permitted as alternatives: component === path is legal
+      // only when tag-separator is "/" (otherwise "go" would silently ship tagged "go-v0.1.0",
+      // wrong for the proxy but not obviously wrong to read), and tag-separator === "/"
+      // requires component === path (otherwise a bare basename component would combine with
+      // "/" to tag "go/v0.1.0", still missing the "sdks/" prefix the proxy needs). Asserting
+      // the relationship rather than a literal string keeps this correct when a language is
+      // added, and — unlike a mere presence check — it fails when the component is reverted or
+      // mistyped, which is the regression this guard exists to catch.
+      const usesSlashSeparator = pkg["tag-separator"] === "/";
+      if (usesSlashSeparator) {
+        expect(
+          pkg.component,
+          `${path} sets tag-separator "/", so its component must be its full path (${path}), ` +
+            "not just the directory's basename",
+        ).toBe(path);
+      } else {
+        expect(pkg.component, `${path} must declare a component matching its directory`).toBe(
+          path.split("/").pop(),
+        );
+      }
       expect(pkg["include-component-in-tag"], `${path} must not opt out of prefixed tags`).not.toBe(
         false,
       );

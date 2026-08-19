@@ -267,6 +267,18 @@ fix, not a new divergence, and not a behavior change to any binding.
 
 ## Shipment 1 — the release model, on a thin surface
 
+**Why the hello frame is here and not in Shipment 2.** The `negotiation` corpus has three
+kinds, and 15 of its 37 cases are raw `hello` frames — `sdks/python/tests/test_negotiation_corpus.py:23`
+imports `parse_hello` from `nimbus_sdk.ipc` to run them. So "Shipment 1 executes the
+negotiation corpus" is only true with a hello parser in it. Deferring those cases instead
+would violate the repository's own "nothing is deferred" property, which the Python
+binding states explicitly by keeping `DEFERRED_KINDS` present and empty. The contract
+agrees: the frame's normative home is
+`docs/spec/negotiation/v1/contract-version.md`, the *negotiation* spec — not
+`wire/v1/framing.md` — so hello belongs to negotiation, and Python's placement of it under
+`nimbus_sdk.ipc` is a packaging choice this design keeps for parity without inheriting its
+shipment implications.
+
 Everything genuinely novel here is the release path, and it is the one part that cannot
 be undone: `proxy.golang.org` caches a module version immutably within minutes of first
 fetch, deleting a tag does not unpublish it, and re-tagging the same version with
@@ -279,8 +291,11 @@ Contents:
 - `go.mod` (zero `require` lines, `go` directive per D9) and the package skeleton of D2.
 - `spec` — `LoadSchema` and `LoadCorpus` only, over an unexported embed, plus
   `internal/gen` and the three-direction drift guard with its non-vacuous skip (D3).
-- `contract` — the version constants, `Negotiate`, and manifest version reading,
-  executing the `negotiation` corpus.
+- `contract` — the version constants, `Negotiate`, and manifest version reading.
+- `ipc` — **the hello frame only**: `EncodeHello`, `ParseHello`, `HelloOk`,
+  `HelloRefused`. The NDJSON reader and the handshake stay in Shipment 2.
+- The `negotiation` corpus, executing **all three of its kinds** — `negotiate` (16
+  cases), `hello` (15), `declaration` (6).
 - The `go` CI job (below).
 - release-please wiring, **after** R1 is resolved.
 - The release workflow: build provenance attestation and a post-publish verification job,
@@ -296,8 +311,8 @@ indexed on `pkg.go.dev`, and carries an attestation.
 
 ## Shipment 2 — the surface
 
-- `ipc` — hello, the NDJSON line reader, and the synchronous handshake, executing the
-  `framing` corpus.
+- `ipc` — the NDJSON line reader and the synchronous handshake, executing the `framing`
+  corpus. Hello landed in Shipment 1.
 - `diagnostics` — `Encode`, `Parse`, `MeetsLevel`, kinds and levels, executing the
   `diagnostics` corpus.
 - `connectorkit` — errors, URL resolution, env, MCP result types and builders, and the

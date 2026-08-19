@@ -137,7 +137,7 @@ binding of this module — its own import root, deliberately not re-exported fro
 since `1.15.0`. Shipment 1 ships the pure core, six modules: `errors.py` (the
 `ConnectorKitError` taxonomy), `urls.py` (`resolve_url_with_base`, binding
 [`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md) — the one corpus this
-kit runs, 25 cases, executed by both bindings), `env.py` (`require_env`), `types.py`
+kit runs, executed by both bindings), `env.py` (`require_env`), `types.py`
 (the `McpTextContent` / `McpToolResult` wire shapes), `results.py` (`json_result` and
 its `*_if_ok` variants, plus `error_result`), and `search_filter.py` (the port of
 `connector-kit/search-filter` above). The transport, the tool router, and `rest.py`'s

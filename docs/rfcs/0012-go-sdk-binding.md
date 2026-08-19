@@ -116,6 +116,35 @@ frame's normative home is `docs/spec/negotiation/v1/contract-version.md` — the
 Python's placement of it under `nimbus_sdk.ipc` is a packaging choice this binding keeps
 for parity without inheriting its shipment implications.
 
+**`contract.IsContractVersion` is exported, and only Go exports it.** TypeScript keeps
+`isContractVersion` module-private in `contract-version.ts`; Python keeps
+`_is_contract_version` underscore-private in `contract.py`. Both can, because in both
+the §3 predicate and the §5 hello parser sit behind one module boundary that the
+predicate never has to cross. D2 moves the hello parser into a *different package*, so
+`ipc/hello.go` can only reach the predicate through Go's one visibility control — the
+capital letter — and a capital letter is a public API commitment for as long as the
+module exists. This is not a style preference that got away; it is a static language
+converting a packaging decision into a permanent surface obligation, which is exactly
+the pressure the Problem statement above says a third binding exists to surface. The
+alternative — duplicating the check inside `ipc` — would make the two copies
+independently driftable, which is worse for a predicate the corpus pins.
+
+Two smaller asymmetries fall out of the same decision, and neither is a divergence in
+behaviour. Python's `CONTRACT_VERSION_PATTERN` has **no Go counterpart**: `contract`
+hand-rolls the check byte-wise rather than compiling a regexp at init, so there is no
+pattern object to publish, and `IsContractVersion` is the only way to ask the question.
+And Go **trims the `contract` qualifier out of a name wherever the package already
+supplies it**: Python's `CONTRACT_HANDSHAKE_EXIT` is Go's `HandshakeExit`, and
+`negotiate_contract_version` is `Negotiate`, because a Go identifier is always read
+through its package — `contract.NegotiateContractVersion` stutters where
+`nimbus_sdk.negotiate_contract_version` does not. The rule is *trim what the package
+already says*, not *drop the prefix*: `CONTRACT_VERSIONS` stays `ContractVersions`
+rather than becoming `Versions`, which would name nothing on its own, and
+`ManifestContractVersions` / `DeclaredVersionsMatch` carry over with nothing but Go's
+casing changed. Those two trims are the whole of it, and the rule needs stating because
+D4 says names follow Python's exactly — which is true of every name's *meaning*, and of
+every name's spelling except these.
+
 ### D3 — A committed `go:embed` copy of the spec, guarded against drift
 
 `go:embed` refuses paths outside the module directory and `go build` never runs a
@@ -178,6 +207,9 @@ Names follow Python's exactly, including where a package holds only one pair —
 isolation but is not the name Python, the corpus, or the spec uses, and it would make
 `contract` the only package where a reader moving between bindings has to translate;
 `ipc` carries two pairs in the finished surface and so could never have collapsed them.
+"Exactly" is scoped to these result types: D2 records the one place the rest of the
+surface trims a name the package qualifier already supplies (`HandshakeExit`,
+`Negotiate`), and no result type is affected by it.
 
 Two alternatives were weighed. **`(value, error)` with typed errors** is the more
 idiomatic Go and would read naturally to any Go author, but every non-ok verdict in this
@@ -492,6 +524,35 @@ Saying so is the point of recording it.
 - **It does not add `create-connector --lang go`.** A scaffolder is not where a published
   surface gets designed, and the Python precedent shows the scaffold follows the kit
   rather than leading it.
+
+## Follow-ups for Shipment 2
+
+**An explicit JSON `null` `contractVersions` is pinned by no corpus case.** Writing this
+binding surfaced the input `{"contractVersions": null}` — the field *present*, its value
+`null` — which sits between the two cases `negotiation`'s `declaration` kind does cover
+(the field absent, and the field a non-array scalar). Go's path through it is: the key is
+present, so the absence default does not apply; the `.([]any)` assertion fails, so the
+value comes back as `[]any{nil}`; `IsContractVersion(nil)` is false, so
+`DeclaredVersionsMatch` refuses and `Negotiate` answers `invalid-version`.
+
+All three bindings were run against it while writing this section, and all three agree:
+`declaredVersionsMatch`/`declared_versions_match`/`DeclaredVersionsMatch` return false,
+and negotiation refuses with `invalid-version`. So this is a **free corpus case** — one
+that pins behaviour every binding already has, at the cost of one case file and one
+index entry — rather than an [RFC-0007](./0007-corpus-gaps-from-the-python-binding.md)-
+shaped divergence. It is deliberately **not added here**: a corpus case is a change to
+the language-neutral contract, and this RFC changes nothing under `docs/spec/`. Shipment
+2 is where it lands, with the `framing` and `diagnostics` corpus work.
+
+One adjacent asymmetry was found in the same pass and is recorded rather than fixed.
+TypeScript's `manifestContractVersions` tests `declared === undefined`, so an object with
+the key *present* and set to JavaScript `undefined` takes the §4 absence default and
+returns `["1"]`; Python and Go test key presence, and have no value that reaches that
+state. `JSON.parse` can never produce it, so it is unreachable from a manifest read off
+disk and no corpus case could express it — it is only observable when a TypeScript caller
+hands the function a hand-built object literal. That makes it a documentation question
+for `docs/modules/`, not a corpus one, and not a divergence in what any binding does with
+the contract's own inputs.
 
 ## Alternatives rejected
 

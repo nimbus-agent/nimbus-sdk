@@ -115,6 +115,27 @@ no `docs/api-surface.md` equivalent yet:
   handshake are Shipment 2.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
+**Three asymmetries against the other bindings sit in that list, and a tag freezes every
+one of them.** Recorded here rather than discovered at the first `go get`:
+
+- **`contract.IsContractVersion` is public, and only in Go.** TypeScript's
+  `isContractVersion` is module-private and Python's `_is_contract_version` is
+  underscore-private; in both, the §3 predicate and the §5 hello parser share one module,
+  so the predicate never crosses a boundary. Go's hello parser lives in a *different
+  package* (RFC-0012 D2), and Go's only visibility control is the capital letter — so a
+  packaging decision became a permanent public commitment. Duplicating the check inside
+  `ipc` was the alternative, and two independently driftable copies of a corpus-pinned
+  predicate is worse.
+- **Python's `CONTRACT_VERSION_PATTERN` has no Go counterpart.** `contract` hand-rolls
+  the check byte-wise rather than compiling a regexp at init, so there is no pattern
+  object to publish; `IsContractVersion` is the only way to ask.
+- **Go trims the `contract` qualifier where the package already supplies it**, so D4's
+  "names follow Python's exactly" is true of every name's meaning and of every name's
+  spelling but two: `CONTRACT_HANDSHAKE_EXIT` → `HandshakeExit` and
+  `negotiate_contract_version` → `Negotiate`. It is trim-what-the-package-says, not
+  drop-the-prefix — `CONTRACT_VERSIONS` stays `ContractVersions`, since `Versions` names
+  nothing on its own.
+
 **`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 306 files.** `go:embed`
 refuses paths outside the module directory and `go build` never runs a generator, so Go
 cannot reach `docs/spec/` the way Python's hatch build hook does. Regenerate with

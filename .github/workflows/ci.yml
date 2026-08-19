@@ -211,6 +211,69 @@ jobs:
       - name: Test
         run: python -m pytest -q
 
+  go:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        go: ["1.26", "1.27"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: sdks/go
+    env:
+      # A module with zero dependencies needs no MODULE downloads, so this job needs no
+      # proxy.golang.org or sum.golang.org allowance — a property neither other language
+      # has. It is not the same as needing no network: actions/setup-go still fetches a
+      # toolchain (see allowed-endpoints below). GOTOOLCHAIN=local suppresses the `go`
+      # command's own toolchain fetch, which is a different mechanism happening later.
+      GOTOOLCHAIN: local
+      # Absent docs/spec must fail the drift guard here, not skip it.
+      NIMBUS_SPEC_DRIFT: required
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: ${{ runner.os == 'Linux' && 'block' || 'audit' }}
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            storage.googleapis.com:443
+            dl.google.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # GitHub runners preinstall ONE Go version. The matrix asks for two, so setup-go
+      # downloads the other from Google's storage host — which is why the two endpoints
+      # above are allowed. Without them the Linux leg dies here, before a single test.
+      - name: Setup Go ${{ matrix.go }}
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ matrix.go }}
+          cache: false
+
+      - name: Check formatting
+        shell: bash
+        # `gofmt -l` prints misformatted filenames and exits 0, so on its own it can
+        # never fail a build. `go vet` does not cover formatting either.
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test ./...
+
   # The scaffolder's output has to be a project someone can actually run, and nothing above
   # proves that: `build-test` only typechecks and unit-tests the generator. These two jobs
   # pack the SDK from *this* commit, generate a connector, install the packed artifact into
@@ -591,7 +654,7 @@ jobs:
   # dependency fails, the required check would never report, and PRs would hang
   # waiting for a status that never arrives.
   ci-complete:
-    needs: [build-test, node-smoke, python, commit-guard, scaffold-typescript, scaffold-python]
+    needs: [build-test, node-smoke, python, go, commit-guard, scaffold-typescript, scaffold-python]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -606,4 +669,4 @@ jobs:
 
       - name: Fail unless every CI job succeeded
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} commit-guard=${{ needs.commit-guard.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1
+        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} commit-guard=${{ needs.commit-guard.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1

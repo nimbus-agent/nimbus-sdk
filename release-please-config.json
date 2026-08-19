@@ -17,6 +17,13 @@
       "release-type": "node",
       "component": "create-connector",
       "package-name": "@nimbus-dev/create-connector"
+    },
+    "sdks/go": {
+      "release-type": "go",
+      "component": "sdks/go",
+      "package-name": "github.com/nimbus-agent/nimbus-sdk/sdks/go",
+      "tag-separator": "/",
+      "include-component-in-tag": true
     }
   }
 }

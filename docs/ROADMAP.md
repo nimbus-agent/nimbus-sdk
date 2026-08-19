@@ -266,7 +266,16 @@ author can scaffold and ship a Python connector from the docs alone.
 *Goal: go from "two languages work" to "the polyglot promise is real and
 maintained."*
 
-- [ ] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*
+- [~] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*. A Go
+  binding exists at [`sdks/go/`](../sdks/go/) — module
+  `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero dependencies — and executes the
+  `negotiation` corpus in full: all 37 cases across all three kinds, nothing deferred.
+  That is **not** the full suite: `framing`, `diagnostics`, and `url-resolution` land with
+  the packages that bind them. And it is not **official**, which is a governance act, not
+  a test result — [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four
+  criteria have to be recorded as met in an RFC that names an owner, and
+  [RFC-0012](./rfcs/0012-go-sdk-binding.md) deliberately does not claim them. RFC-0013
+  will, once the remaining corpora are green. Rust is untouched.
 - [ ] The hottest batteries ported to the additional languages — *Pillar 3*
 - [~] A **Python `connector-kit`** — *Pillar 3*. TypeScript publishes
   [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md)
@@ -281,13 +290,34 @@ maintained."*
   JSON result helper — in its `main.py`. The scaffold works around the asymmetry
   deliberately (a scaffold is not where a published surface gets designed), but every
   Python connector re-derives those lines until the router and REST factories exist.
-- [ ] **Go release model (tag-based, not a registry push)** — decide the module
+- [~] **Go release model (tag-based, not a registry push)** — decide the module
   layout (root vs. `sdks/go/` and its tag prefix), cut releases as **semver git
   tags** + GitHub Releases via release-please's `go` component, and confirm the
-  module resolves through `proxy.golang.org` with docs on `pkg.go.dev` — *Pillars 5, 7*
-- [ ] **Provenance for Go** — since there is no registry token, sign tags and attach
-  **Sigstore / SLSA build provenance** to the GitHub Release artifacts, giving Go the
-  same "verifiable, tokenless" property as the npm/PyPI SDKs — *Pillar 5*
+  module resolves through `proxy.golang.org` with docs on `pkg.go.dev` — *Pillars 5, 7*.
+  The layout is decided and the pipeline is wired: a nested module at `sdks/go/`, a fourth
+  release-please component producing `sdks/go/vX.Y.Z` tags (the `tag-separator` was
+  confirmed per-package before it was set, so the other three components' tags are
+  provably untouched), and `release-go.yml` firing on that tag pattern.
+  **No tag has been pushed**, so the last clause — the module actually resolving through
+  `proxy.golang.org` with docs on `pkg.go.dev` — has not been observed. That step is
+  irreversible (the proxy caches a version permanently and re-tagging shows forever as a
+  checksum mismatch), so it is a deliberate act after this work is green on `main`, not
+  part of landing it.
+- [~] **Provenance for Go** — since there is no registry token, attach **Sigstore / SLSA
+  build provenance** to the GitHub Release artifacts — *Pillar 5*.
+  `release-go.yml` attests a `git archive` of the module tree and then verifies, from a
+  scratch directory outside any checkout, that the module resolves through
+  `proxy.golang.org` **with a `go.sum` entry**. Also unexercised until a tag exists.
+  **This box's original wording was wrong and has been corrected**: it promised Go "the
+  same 'verifiable, tokenless' property as the npm/PyPI SDKs," but Go consumers never
+  fetch GitHub Release artifacts — `go get` resolves through the proxy — so an
+  attestation on a tarball nobody downloads is ceremony. The load-bearing guarantee for a
+  Go consumer is `sum.golang.org`, a transparency log every `go` client verifies
+  automatically: broader in reach than npm provenance, narrower in claim. Different in
+  kind, not weaker. And **no tag signing**: that needs a private key in repository
+  secrets, which would put a long-lived credential into the one language that needs no
+  publish credential at all. See [RFC-0012](./rfcs/0012-go-sdk-binding.md) and
+  [RELEASING.md](./RELEASING.md#go--module-proxy-implemented-not-yet-exercised).
 - [ ] A **reusable release workflow** (harden-runner → build/test → publish →
   post-publish verify) that each language's release job calls, so the hardened
   pipeline is defined once and every SDK inherits it — *Pillar 5*
@@ -302,9 +332,10 @@ maintained."*
 
 **Exit criteria:** at least three official SDKs pass the suite in a shared matrix;
 each publishes through its ecosystem's tokenless, provenance-carrying path (npm /
-PyPI OIDC push, Go signed tags + module proxy) from a shared reusable workflow; each
-SDK's stability tier is documented and enforced; the official-language process is
-written down.
+PyPI OIDC push; for Go, a semver tag the module proxy serves and `sum.golang.org`
+vouches for — *not* signed tags, per the correction above) from a shared reusable
+workflow; each SDK's stability tier is documented and enforced; the official-language
+process is written down.
 
 ### Phase 4 — Open the ecosystem
 

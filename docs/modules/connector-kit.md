@@ -178,12 +178,18 @@ Stated so they read as decisions, not gaps:
 
 ### Divergences
 
-- **`json_result` refuses a non-finite number.** `json.dumps(..., allow_nan=False)`
-  raises `ValueError` on `NaN` / `Infinity` / `-Infinity`, where `JSON.stringify` silently
-  emits `null` for all three. Refusing is the sole option that does not silently hand
-  the other end a value it did not ask for. A connector that can produce a non-finite
-  number in tool output should treat it as a bug in the tool, not paper over it with a
-  decode-time `null`.
+- **Non-finite numbers: TypeScript is the outlier, not Python.** `json.dumps(...,
+  allow_nan=False)` raises `ValueError` on `NaN` / `Infinity` / `-Infinity`, where
+  `JSON.stringify` silently emits `null` for all three. This was recorded here as
+  *Python's* divergence, which quietly treated TypeScript as the norm — and the third
+  binding shows that reading was wrong. Go's `encoding/json` also errors on a non-finite
+  float (`json: unsupported value: NaN`), so **two of three bindings refuse and one
+  substitutes**, and it is `JSON.stringify` that is the odd one out. Refusing is also the
+  only behaviour that does not silently hand the other end a value it did not ask for: a
+  connector that can produce a non-finite number in tool output should treat it as a bug
+  in the tool, not paper over it with a decode-time `null`. Nothing about either
+  binding's behaviour changes here; only which of them the sentence was framing as
+  standard.
 - **`as_objectish` diverges on a numeric-string key.** Its docstring states the fuller
   claim: normalising an array to `{}` is behaviourally identical to TypeScript's
   `asObjectish` for every *non-numeric* key — which is every field name this kit's own

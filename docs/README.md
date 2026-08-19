@@ -10,10 +10,20 @@ below is a *binding* of that contract and is held to the same conformance suite.
 |---|---|---|---|
 | [TypeScript](../sdks/typescript/) | [`@nimbus-dev/sdk`](https://www.npmjs.com/package/@nimbus-dev/sdk) | Node **≥ 22**, ESM | Reference implementation |
 | [Python](../sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Python **≥ 3.11** | Official |
+| [Go](../sdks/go/) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | Go **≥ 1.26** | Unreleased — no tag pushed |
 
-Both SDKs publish with the strongest provenance their ecosystem supports: npm with
-`--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations, both
-via GitHub OIDC with no long-lived token. See [Releasing](./RELEASING.md).
+TypeScript and Python publish with the strongest provenance their ecosystem supports: npm
+with `--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations,
+both via GitHub OIDC with no long-lived token. Go has no registry and no publish
+credential at all — a tag *is* the release, and what protects a consumer there is
+`sum.golang.org`, the checksum transparency log every `go` client verifies automatically.
+See [Releasing](./RELEASING.md).
+
+The Go binding is new and narrower than the other two: it executes the `negotiation`
+corpus in full and nothing else yet, and it is **not** official —
+[RFC-0012](./rfcs/0012-go-sdk-binding.md) records its layout, tag format, and release
+model without claiming [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s
+four criteria.
 
 ## Scaffold a connector
 
@@ -44,11 +54,15 @@ REST API. Converging them is the stated direction, gated on
 
 ### Supported versions
 
-The floors above are what the packages declare — `engines.node` and `requires-python`.
-CI proves them on every pull request, across **Linux, macOS and Windows**:
+The floors above are what the packages declare — `engines.node`, `requires-python`, and
+`go.mod`'s `go` directive. CI proves them on every pull request, across **Linux, macOS
+and Windows**:
 
 - **Node 22 and 24** — an ESM smoke test that imports the published entry points.
 - **Python 3.11, 3.12, 3.13 and 3.14.**
+- **Go 1.26 and 1.27** — the two most recent stable minors, which is Go's own support
+  policy. The `go` directive names the *older* of the two on purpose; see
+  [`sdks/go/README.md`](../sdks/go/README.md#supported-go-versions).
 
 The TypeScript package is **ESM-only** (`"type": "module"`); there is no CommonJS build.
 It ships its own `.d.ts` and declares no minimum TypeScript language version — if you need

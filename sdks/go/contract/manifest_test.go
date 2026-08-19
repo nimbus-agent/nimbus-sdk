@@ -27,10 +27,10 @@ func TestManifestContractVersionsTreatsANonObjectAsEmpty(t *testing.T) {
 
 func TestDeclaredVersionsMatchIsSetEqualityNotContainment(t *testing.T) {
 	if DeclaredVersionsMatch([]any{"1", "2"}, []string{"1"}) {
-		t.Error("announcing fewer than declared matched; §7.2 requires the same members")
+		t.Error("announcing fewer than declared matched; §7's second refusal cause requires the same members")
 	}
 	if DeclaredVersionsMatch([]any{"1"}, []string{"1", "2"}) {
-		t.Error("announcing more than declared matched; §7.2 requires the same members")
+		t.Error("announcing more than declared matched; §7's second refusal cause requires the same members")
 	}
 	if !DeclaredVersionsMatch([]any{"2", "1"}, []string{"1", "2"}) {
 		t.Error("order made a difference; a declared set is unordered")

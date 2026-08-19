@@ -9,7 +9,7 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ## `.`
 
-145 exports.
+146 exports.
 
 ### `AGENT_KIND`
 
@@ -995,7 +995,30 @@ export type WhyBrief = AgentBriefBase & {
         line: number | null;
     };
     subject: WhySubject | null;
+
+    changeSubject?: WhyChangeSubject | null;
     findings: WhyFinding[];
+};
+```
+
+### `WhyChangeSubject` *(type-only)*
+
+From `./agents/brief-types.js`.
+
+```ts
+export type WhyChangeSubject = {
+
+    itemId: string;
+
+    entityId: string;
+
+    repo: string;
+
+    number: number | null;
+    url: string;
+    title: string;
+
+    modifiedAt: number | null;
 };
 ```
 

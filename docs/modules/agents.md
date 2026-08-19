@@ -98,7 +98,10 @@ correct. The five claimed modules divide up as follows.
 - **`agents/brief-types`** — the leaf shapes the gateway's analysis produces:
   `AgentBriefBase`, `Evidence`, `GapNote`/`GapCategory`, `ExpertFinding`, `ImpactFinding`,
   `CatchupItem`/`CatchupSection`, `ConflictType`, `JanitorPeerTouch`,
-  `PreflightDownstream`, and `WhyFinding`/`WhyLane`/`WhySubject`.
+  `PreflightDownstream`, and `WhyFinding`/`WhyLane`/`WhySubject`/`WhyChangeSubject`.
+  `WhySubject` and `WhyChangeSubject` are alternatives, not variants: a `why` brief
+  asked about a `ref` resolves the first, one asked about a `prUrl` carries the
+  second with `subject` left null.
 - **`agents/brief-composites`** — the nine briefs themselves, the `AgentBrief` union, and
   the `BriefFor<A>` lookup that maps an `AgentName` to its brief type. It also holds the
   finding shapes that only appear inside a composite — `ConflictFinding`, `GhostFinding`,

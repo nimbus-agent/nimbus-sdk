@@ -1,23 +1,69 @@
-# Nimbus SDK documentation
+# Nimbus SDK
 
-The MIT-licensed, dependency-free authoring contract for Nimbus connectors and apps.
-Start with [`server.md`](./modules/server.md) and [`types.md`](./modules/types.md) — the
-contract itself — then reach for a battery as you need it.
+The MIT-licensed, dependency-free authoring contract for
+[Nimbus](https://github.com/nimbus-agent/Nimbus) connectors and extensions.
 
-## Quickstarts
+The contract is defined once, language-neutrally, in [`spec/`](./spec/). Each SDK
+below is a *binding* of that contract and is held to the same conformance suite.
 
-Generate a connector that handshakes and then serves MCP, and understand what you got:
+| SDK | Package | Requires | Status |
+|---|---|---|---|
+| [TypeScript](../sdks/typescript/) | [`@nimbus-dev/sdk`](https://www.npmjs.com/package/@nimbus-dev/sdk) | Node **≥ 22**, ESM | Reference implementation |
+| [Python](../sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Python **≥ 3.11** | Official |
 
-- [TypeScript](./quickstart-typescript.md)
-- [Python](./quickstart-python.md)
+Both SDKs publish with the strongest provenance their ecosystem supports: npm with
+`--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations, both
+via GitHub OIDC with no long-lived token. See [Releasing](./RELEASING.md).
 
-Both scaffold from [`tools/create-connector/`](../tools/create-connector/), whose output
-CI generates, installs, builds, tests and drives as a process on every run.
+## Scaffold a connector
+
+A third package,
+[`@nimbus-dev/create-connector`](https://www.npmjs.com/package/@nimbus-dev/create-connector),
+generates a connector that handshakes and then serves MCP, in either language:
+
+```bash
+npm create @nimbus-dev/connector@latest my-connector                  # TypeScript
+npx @nimbus-dev/create-connector@latest my-connector --lang python    # Python
+```
+
+The Python line is `npx`, not `npm create`, on purpose: `npm create` parses npm's own
+options first, so a `--lang` passed without a `--` separator is silently swallowed and you
+get a TypeScript project with no error. Walk through either output — and understand what
+you got — with the [TypeScript](./quickstart-typescript.md) or
+[Python](./quickstart-python.md) quickstart. CI generates, installs, builds, tests and
+drives that output as a process on every run.
+
+The org ships a **second** scaffolder,
+[`create-nimbus-connector`](https://github.com/nimbus-agent/create-nimbus-connector), and the
+two do different jobs: this one templates a greenfield project you then write by hand, and is
+the only one that emits Python; that one turns a small JSON spec into a connector in the shape
+the first-party Nimbus connectors already share, and is the one to reach for when wrapping a
+REST API. Converging them is the stated direction, gated on
+[four preconditions](https://github.com/nimbus-agent/create-nimbus-connector/blob/main/docs/CONSOLIDATION.md)
+— neither is deprecated.
+
+### Supported versions
+
+The floors above are what the packages declare — `engines.node` and `requires-python`.
+CI proves them on every pull request, across **Linux, macOS and Windows**:
+
+- **Node 22 and 24** — an ESM smoke test that imports the published entry points.
+- **Python 3.11, 3.12, 3.13 and 3.14.**
+
+The TypeScript package is **ESM-only** (`"type": "module"`); there is no CommonJS build.
+It ships its own `.d.ts` and declares no minimum TypeScript language version — if you need
+one guaranteed, open an issue rather than inferring it from the current build.
+
+Dropping a runtime version is a breaking change and follows the
+[deprecation policy](./DEPRECATION-POLICY.md), which records why the Node 20 → 22 move
+shipped as a minor rather than a major.
 
 ## Modules
 
-Every public export of every `exports` entry point is documented on one of these pages.
-A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops being true.
+Start with [`server.md`](./modules/server.md) and [`types.md`](./modules/types.md) — the
+contract itself — then reach for a battery as you need it. Every public export of every
+`exports` entry point is documented on one of these pages. A guard
+(`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops being true.
 
 | Module | What it is |
 |--------|------------|
@@ -44,7 +90,7 @@ A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops
 
 - [`tools/create-connector/templates/`](../tools/create-connector/templates/) — the
   smallest connector that handshakes and serves, in both languages. Generate it with the
-  [quickstarts](#quickstarts) rather than copying it by hand.
+  [quickstarts](#scaffold-a-connector) rather than copying it by hand.
 - [`sdks/typescript/examples/calendar-connector/`](../sdks/typescript/examples/calendar-connector/) —
   HITL gating, the audit logger, and the `icalendar` battery building the VEVENT an
   approver is shown.
@@ -55,6 +101,9 @@ A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops
 - [Inclusion policy](./INCLUSION-POLICY.md) — the bar a new battery must clear
 - [Deprecation policy](./DEPRECATION-POLICY.md) — how an export is retired
 - [Governance](./GOVERNANCE.md) · [Releasing](./RELEASING.md) · [Security](./SECURITY.md)
+- [Contributing](../CONTRIBUTING.md) — and
+  [Discussions](https://github.com/nimbus-agent/Nimbus/discussions), where questions are
+  asked, on the Nimbus board
 - [API surface](./api-surface.md) — the generated snapshot of every public export
 - [Contract spec](./spec/) — versioned JSON Schemas, the
   [manifest rule registry](./spec/rules/v1/), the NDJSON
@@ -62,3 +111,7 @@ A guard (`sdks/typescript/scripts/docs-coverage.test.ts`) fails CI if that stops
   binding validates against
 - [RFCs](./rfcs/) — contract changes, with the compatibility impact and rationale that
   produced them
+
+## License
+
+MIT — see [LICENSE](../LICENSE).

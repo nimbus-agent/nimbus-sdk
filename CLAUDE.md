@@ -276,6 +276,23 @@ python -m build                 # sdist + wheel into dist/
 
 ## Releasing
 
-Record user-facing changes in `sdks/typescript/CHANGELOG.md`. Releases are automated by
-release-please: merged Conventional Commits open a release PR; merging it tags the
-release and publishes to npm with `--provenance` via GitHub OIDC (no npm token).
+**Three release-please components release independently**, one per package, and
+`separate-pull-requests` is on — so merged Conventional Commits open a release PR *per
+component*, and merging one tags and publishes only that component:
+
+| Component | Package | Registry | Changelog |
+|---|---|---|---|
+| `typescript` | `@nimbus-dev/sdk` | npm | `sdks/typescript/CHANGELOG.md` |
+| `python` | `nimbus-dev-sdk` | PyPI | `sdks/python/CHANGELOG.md` |
+| `create-connector` | `@nimbus-dev/create-connector` | npm | `tools/create-connector/CHANGELOG.md` |
+
+Record a user-facing change in the changelog of the package you touched — not
+TypeScript's by default.
+
+**No release path uses a long-lived token.** Both npm jobs publish with `--provenance`;
+the PyPI job publishes via Trusted Publishers with
+[PEP 740](https://peps.python.org/pep-0740/) attestations. All three authenticate over
+GitHub OIDC, and no publish job goes green until a post-publish check has re-installed the
+artifact *from the registry* and verified its provenance — in-job steps for the two npm
+packages, a separate `verify-python-publish` job for PyPI. See
+[`docs/RELEASING.md`](./docs/RELEASING.md).

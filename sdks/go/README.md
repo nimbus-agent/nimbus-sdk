@@ -97,10 +97,7 @@ import (
 )
 
 func main() {
-	line, err := ipc.EncodeHello([]string{"1"})
-	if err != nil {
-		panic(err)
-	}
+	line := ipc.EncodeHello([]string{"1"})
 	fmt.Println(line) // {"nimbus":"hello","contractVersions":["1"]}
 
 	switch frame := ipc.ParseHello(line).(type) {

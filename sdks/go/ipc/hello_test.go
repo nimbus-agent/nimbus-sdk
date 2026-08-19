@@ -3,10 +3,7 @@ package ipc
 import "testing"
 
 func TestEncodeHelloProducesTheCanonicalFrame(t *testing.T) {
-	got, err := EncodeHello([]string{"1"})
-	if err != nil {
-		t.Fatalf("EncodeHello: %v", err)
-	}
+	got := EncodeHello([]string{"1"})
 	want := `{"nimbus":"hello","contractVersions":["1"]}`
 	if got != want {
 		t.Errorf("got %s, want %s", got, want)

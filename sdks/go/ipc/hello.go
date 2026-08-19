@@ -48,18 +48,25 @@ type helloFrame struct {
 // SetEscapeHTML(false) is explicit: json.Marshal escapes <, > and & by default, which
 // no contract version can contain, but leaving it on would make the encoder's output
 // depend on a rule the spec does not have.
-func EncodeHello(versions []string) (string, error) {
+//
+// No error is returned, which matches TypeScript's `encodeHello` and Python's
+// `encode_hello`. json.Encoder fails on an unsupported type — a channel, a func, a
+// cycle, a non-finite float — or on a failing io.Writer, and helloFrame is a string
+// plus a []string written into a bytes.Buffer, so neither is reachable for any input
+// this signature admits. An error return no caller can ever observe would only teach
+// every call site a branch that never executes, and a signature is unremovable once a
+// tag exists.
+func EncodeHello(versions []string) string {
 	if versions == nil {
 		versions = []string{}
 	}
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(helloFrame{Nimbus: HelloMessage, ContractVersions: versions}); err != nil {
-		return "", err
-	}
+	// Discarded deliberately, per the paragraph above: unreachable for this frame's shape.
+	_ = enc.Encode(helloFrame{Nimbus: HelloMessage, ContractVersions: versions})
 	// Encode appends a newline; the framing layer owns that byte, not this function.
-	return string(bytes.TrimRight(buf.Bytes(), "\n")), nil
+	return string(bytes.TrimRight(buf.Bytes(), "\n"))
 }
 
 // ParseHello reads one decoded frame as a hello.

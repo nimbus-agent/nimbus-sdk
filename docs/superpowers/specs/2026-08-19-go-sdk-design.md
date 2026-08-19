@@ -4,6 +4,8 @@
 **Roadmap:** Phase 3 — "Official **Go** SDK", "Go release model (tag-based, not a
 registry push)", "Provenance for Go" (Pillars 2, 5, 7)
 **Status:** approved design; implementation split into two shipments
+**Review:** [2026-08-19-go-sdk-design-review.md](./2026-08-19-go-sdk-design-review.md) —
+eight findings, seven applied here, one deferred as Follow-up 5
 
 ## Problem
 
@@ -89,14 +91,35 @@ directions: content differs, file added upstream, file deleted upstream. Any of 
 fails the PR. `.gitattributes` pins the repository to `eol=lf`, so the byte comparison is
 sound on `windows-2025`.
 
-This is strictly better than the Python arrangement it mirrors. Python's `_data/spec` is
-gitignored and regenerated on install, which produces a documented local-only trap: a
-stale copy makes the suite pass while executing none of your changes. Here a stale copy
-is a red CI job, and there is no state a contributor can hold locally that hides it.
+**The guard must survive being published.** Go module zips include `_test.go` files, so a
+consumer running `go test ./...` against the downloaded module executes this test outside
+any checkout, where `../../../docs/spec` does not exist — and a failure there reads as
+"the SDK is broken." The guard therefore skips when the upstream path is absent. A bare
+skip is worse than the bug it avoids, though: a path typo or a directory move would make
+it skip silently in CI and let drift ship. So the skip is gated on an environment variable
+CI sets, under which absence is a failure rather than a skip. That is the same
+prove-the-guard-is-not-vacuous discipline the corpus tests already apply to themselves.
+
+This eliminates the trap the Python arrangement carries: `_data/spec` is gitignored and
+regenerated on install, so a stale copy makes the suite pass while executing none of your
+changes. Here a stale copy is a red CI job, and no local state hides it.
+
+It is not strictly better, and the losing side is worth naming. Python's copy is
+gitignored, so a spec change produces one diff; the Go copy makes every spec change touch
+two trees and roughly doubles the reviewer's diff across ~809 KB of duplicated bytes.
+That cost is accepted, not absent.
 
 The rejected alternative — tests reading `../../docs/spec` directly, with no embed and no
 public loader — is cheaper and has no duplication, but ships no `LoadSchema`/`LoadCorpus`
 at all, putting Go below Python on a surface for no reason other than convenience.
+
+**The embedded FS stays unexported.** Shipment 1 publishes `LoadSchema` and `LoadCorpus`
+only. Exporting an `fs.FS` would make the on-disk layout of `docs/spec` part of Go's
+public API — moving `conformance/v1/framing/` would become a Go breaking change while
+staying invisible to TypeScript and Python, which reach the data only through named
+accessors. Neither the harness nor any known consumer needs traversal. Adding the export
+later is a minor bump; removing it is a major one, so the reversible order is to wait for
+a use case. See Follow-up 5.
 
 ### D4 — Sealed interfaces for the five result pairs
 
@@ -108,17 +131,21 @@ marker method, with one struct per outcome, narrowed by type switch:
 ```go
 type NegotiationResult interface{ isNegotiationResult() }
 
-type Ok struct{ Version string }
-type Refused struct {
+type NegotiationOk struct{ Version string }
+type NegotiationRefused struct {
 	Reason    string
 	Supported []string
 }
 
-func (Ok) isNegotiationResult()      {}
-func (Refused) isNegotiationResult() {}
+func (NegotiationOk) isNegotiationResult()      {}
+func (NegotiationRefused) isNegotiationResult() {}
 ```
 
-Names follow Python's exactly.
+Names follow Python's exactly, including where a package holds only one pair.
+`contract.NegotiationOk` rather than `contract.Ok`: the shorter form reads well in
+isolation but is not the name Python, the corpus, or the spec uses, and it would make
+`contract` the only package where a reader moving between bindings has to translate —
+`ipc` carries two pairs and so could never have collapsed them.
 
 Two alternatives were weighed. **`(value, error)` with typed errors** is the more
 idiomatic Go and would read naturally to any Go author, but every non-ok verdict in this
@@ -153,16 +180,27 @@ drift from the tag.
 Documented caveat: it returns empty under `go test` and `go run`, so it is not the exact
 analogue of Python's `__version__`.
 
-### D7 — Go does not duplicate the corpus size pins
+### D7 — Go carries anti-vacuity floors, not duplicated exact counts
 
 `sdks/python/tests/test_spec.py:39,45` pins exact case counts (`== 37` negotiation,
 `== 25` framing). Go will not add a third and fourth copy. Both languages read the *same*
-`index.json`, so a duplicated pin detects nothing Python already misses, while turning
-every new corpus case from a two-file edit (case file plus index) into a four-file one.
+`index.json`, so a duplicated exact pin detects nothing Python already misses, while
+turning every new corpus case from a two-file edit (case file plus index) into a
+four-file one.
 
-Go asserts the structural anti-vacuity properties instead: every case file on disk is
-listed in the index, every indexed case actually executes, and no corpus resolves to zero
-cases.
+That argument reaches exactly as far as the *exact* counts, and no further. The house
+convention for the other two corpora is a **floor** — `len(CASES) > 20` in
+`sdks/python/tests/test_diagnostics_corpus.py:129`, `>= 25` in
+`test_url_resolution_corpus.py:32` — set below the current count so ordinary additions
+don't churn it, and far enough above zero to fail loudly on a truncated corpus. The
+comment above the first of those rejects the weaker form in as many words: "`> 0` passes
+the moment a single case exists, which is not the same claim as 'the corpus is
+substantial'."
+
+So Go carries a floor per corpus, matching that convention, plus the structural
+assertions — every case file on disk is listed in the index, and every indexed case
+actually executes. The structural checks are additive; they are not a substitute for the
+floor.
 
 ### D8 — Go's provenance is different in kind, not equal
 
@@ -177,19 +215,40 @@ that every `go` client verifies automatically with no opt-in — broader in reac
 provenance, which most installs never check, and narrower in claim, since it attests that
 the bytes are unchanged rather than where they were built.
 
-So the release job signs the tag and attaches `actions/attest-build-provenance` to the
-GitHub Release, and `RELEASING.md` states plainly that the load-bearing guarantee for a
-Go consumer is the checksum database. This is a **correction to the roadmap's wording**,
-not a reduction in scope.
+So the release job attaches `actions/attest-build-provenance` to the GitHub Release, and
+`RELEASING.md` states plainly that the load-bearing guarantee for a Go consumer is the
+checksum database. This is a **correction to the roadmap's wording**, not a reduction in
+scope.
+
+**No GPG tag signing.** Conventional git tag signing needs a private key in repository
+secrets, and `CLAUDE.md` states that no release path uses a long-lived token — a property
+the npm and PyPI paths both achieve through OIDC. Adding a stored signing key to the one
+language that needs no publish credential at all would invert the property Go should
+demonstrate most cleanly. If tag signing is wanted later it must be keyless
+(`gitsign`, OIDC, no stored key); otherwise the attestation and `sum.golang.org` carry the
+guarantee on their own, which D8 already argues is where it actually lives.
+
+### D9 — The `go` directive names the oldest supported minor
+
+CI runs the two most recent stable Go minors with `GOTOOLCHAIN=local`, which is what keeps
+harden-runner's egress fully blocked (see Testing). Those two facts interact: if `go.mod`'s
+`go` directive names the *newer* minor, the older runner cannot satisfy it, and
+`GOTOOLCHAIN=local` turns what would otherwise be a silent toolchain download into a hard
+failure — on a leg that is supposed to be supported.
+
+So the directive names the **oldest** supported minor. Raising it drops a supported Go
+version and is a deliberate, changelog-worthy act, the same weight as raising
+`requires-python`.
 
 ## Surface asymmetries and divergences
 
 Recorded here and mirrored into `CLAUDE.md` when the code lands.
 
-**`spec_root()` gets no Go counterpart.** Python's returns a filesystem path; an embedded
-copy has no path. Go's analogue is `spec.FS() fs.FS`. Go gains what Python cannot offer —
-the data is in the binary, so a consumer needs no checkout — and loses what Python has:
-you cannot hand the path to a subprocess. Surface, not behavior.
+**`spec_root()` gets no Go counterpart at all.** Python's returns a filesystem path; an
+embedded copy has no path, and D3 keeps the embedded FS unexported, so Go offers neither
+the path nor a traversal handle — only `LoadSchema` and `LoadCorpus`. Go gains what Python
+cannot offer, since the data is in the binary and a consumer needs no checkout, and loses
+what Python has: you cannot hand the path to a subprocess. Surface, not behavior.
 
 **The handshake is synchronous, over `io.Reader`/`io.Writer`.** This extends the existing
 sync-vs-async divergence from "TypeScript async, Python sync" to two-against-one, which
@@ -217,17 +276,17 @@ radius is one package.
 
 Contents:
 
-- `go.mod` (zero `require` lines) and the package skeleton of D2.
-- `spec` — `LoadSchema`, `LoadCorpus`, `FS()`, the embed, `internal/gen`, and the
-  three-direction drift guard (D3).
+- `go.mod` (zero `require` lines, `go` directive per D9) and the package skeleton of D2.
+- `spec` — `LoadSchema` and `LoadCorpus` only, over an unexported embed, plus
+  `internal/gen` and the three-direction drift guard with its non-vacuous skip (D3).
 - `contract` — the version constants, `Negotiate`, and manifest version reading,
   executing the `negotiation` corpus.
 - The `go` CI job (below).
 - release-please wiring, **after** R1 is resolved.
-- The release workflow: signed tag, build provenance attestation, and a post-publish
-  verification job.
+- The release workflow: build provenance attestation and a post-publish verification job,
+  with no stored signing key (D8).
 - RFC-0012 — module layout, tag format, result idiom, the embed approach, and the Go
-  version support policy. Filed *before* the first tag, because D1, D2, and D4 are
+  version support policy of D9. Filed *before* the first tag, because D1, D2, and D4 are
   expensive to reverse once a version is cached.
 - `sdks/go/README.md`, `sdks/go/CHANGELOG.md`, and the `CLAUDE.md` / `ROADMAP.md` /
   `RELEASING.md` updates.
@@ -264,8 +323,8 @@ no module downloads, so the `go` job keeps harden-runner's egress **fully blocke
 no `proxy.golang.org` allowance. It requires `GOTOOLCHAIN=local`, or the toolchain
 directive will try to fetch a newer Go over the network and defeat it.
 
-Corpus tests are table-driven, read through `spec.FS()`, and assert the D7 structural
-properties.
+Corpus tests are table-driven, read through `LoadCorpus`, and assert the D7 floors and
+structural properties.
 
 **The surface gate Python lacks.** `docs/api-surface.md` guards TypeScript; Python has no
 equivalent, tracked as Follow-up 2 in
@@ -280,11 +339,18 @@ template to copy.
 A `go` job mirroring `python`'s shape: `[ubuntu-24.04, macos-15, windows-2025]` × the two
 most recent stable Go minors, which is Go's own support policy. The exact minors are
 pinned when the job is written, and the policy — not the numbers — is what RFC-0012
-records.
+records. The `go` directive in `go.mod` names the older of the two (D9).
 
-Steps: `gofmt -l`, `go vet ./...`, `go build ./...`, `go test ./...`. No `staticcheck`:
-installing it needs network, which would forfeit the fully-blocked egress. If it is wanted
-later it belongs in a separate Linux-only job with audit egress.
+Steps: the format check, `go vet ./...`, `go build ./...`, `go test ./...`, and the drift
+guard's CI env var (D3) set so an absent `docs/spec` fails rather than skips.
+
+The format check is `test -z "$(gofmt -l .)"`, **not** `gofmt -l` alone: `gofmt -l` prints
+misformatted filenames and exits `0`, so on its own it is decoration that can never fail a
+build, and `go vet` does not cover formatting. That step needs `shell: bash` pinned — the
+Windows runner defaults to PowerShell, where the syntax is a parse error.
+
+No `staticcheck`: installing it needs network, which would forfeit the fully-blocked
+egress. If it is wanted later it belongs in a separate Linux-only job with audit egress.
 
 `ci-complete`'s `needs` list gains `go`.
 
@@ -330,3 +396,6 @@ Note that none of the four TypeScript CI gates apply to Go: `api-surface`,
 3. **`create-connector --lang go`**, once the Go surface is stable.
 4. **A cross-language conformance matrix** — Phase 3 names it; with three bindings the
    per-language corpus jobs are worth consolidating.
+5. **Whether Go should ever export raw spec traversal**, and under what layout-stability
+   promise. D3 keeps the embedded FS unexported for want of a use case; the question is
+   deferred, not settled, and wants a real consumer before it is answered.

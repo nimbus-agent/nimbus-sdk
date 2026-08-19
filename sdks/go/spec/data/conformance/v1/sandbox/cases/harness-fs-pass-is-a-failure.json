@@ -1,0 +1,19 @@
+{
+  "kind": "harness",
+  "description": "fs-denied exiting 0 is a failure, not a pass",
+  "platform": "linux",
+  "permissions": {},
+  "probeResults": {
+    "fs-denied": 0
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "throw",
+    "failingProbe": "fs-denied"
+  }
+}

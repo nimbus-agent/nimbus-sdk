@@ -1,0 +1,10 @@
+{
+  "description": "a frame of exactly 1048576 octets is conformant — the limit is inclusive",
+  "chunks": [
+    { "concat": [{ "repeat": { "byte": 97, "count": 1048576 } }, { "utf8": "\n" }] }
+  ],
+  "expect": {
+    "push": [[{ "repeat": { "byte": 97, "count": 1048576 } }]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

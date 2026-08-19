@@ -1,0 +1,18 @@
+{
+  "kind": "harness",
+  "description": "no hosts on Windows runs only fs-denied",
+  "platform": "win32",
+  "permissions": {},
+  "probeResults": {
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

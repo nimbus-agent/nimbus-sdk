@@ -1,0 +1,7 @@
+{
+  "description": "The largest common major wins, not the first match in either set's order.",
+  "kind": "negotiate",
+  "local": ["1", "3", "2"],
+  "remote": ["2", "3"],
+  "expect": { "ok": true, "version": "3" }
+}

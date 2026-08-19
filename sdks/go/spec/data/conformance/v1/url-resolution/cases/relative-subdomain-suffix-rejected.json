@@ -1,0 +1,10 @@
+{
+  "description": "A relative input starting with '.' extends the base's host into an attacker-controlled subdomain suffix once concatenated. §4's origin check refuses it.",
+  "base": "https://api.example.com",
+  "input": ".evil.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.com.evil.com, expected https://api.example.com)"
+  }
+}

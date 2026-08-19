@@ -1,0 +1,19 @@
+{
+  "kind": "harness",
+  "description": "fs-denied not returning fsDenied throws",
+  "platform": "linux",
+  "permissions": {},
+  "probeResults": {
+    "fs-denied": 2
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "throw",
+    "failingProbe": "fs-denied"
+  }
+}

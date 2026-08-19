@@ -1,0 +1,17 @@
+{
+  "description": "2^53-1, the maximum safe integer, is accepted — the bound is inclusive.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "n": 9007199254740991
+    }
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"fields\":{\"n\":9007199254740991}}"
+  }
+}

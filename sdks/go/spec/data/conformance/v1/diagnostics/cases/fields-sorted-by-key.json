@@ -1,0 +1,19 @@
+{
+  "description": "fields keys are re-sorted ascending by code point in the output, regardless of insertion order.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "zulu": 1,
+      "alpha": 2,
+      "mike": 3
+    }
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\",\"fields\":{\"alpha\":2,\"mike\":3,\"zulu\":1}}"
+  }
+}

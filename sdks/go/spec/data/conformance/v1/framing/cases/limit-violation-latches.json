@@ -1,0 +1,17 @@
+{
+  "description": "a violation is terminal: the frame parsed ahead of the oversized one is not delivered, and a later push fails rather than resuming",
+  "chunks": [
+    {
+      "concat": [
+        { "utf8": "good\n" },
+        { "repeat": { "byte": 97, "count": 1048577 } },
+        { "utf8": "\n" }
+      ]
+    },
+    { "utf8": "after\n" }
+  ],
+  "expect": {
+    "push": [{ "error": "frame-too-long" }, { "error": "frame-too-long" }],
+    "flush": { "error": "frame-too-long" }
+  }
+}

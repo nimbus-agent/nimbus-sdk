@@ -1,0 +1,4 @@
+{
+  "runtime": "deno",
+  "permissions": "read"
+}

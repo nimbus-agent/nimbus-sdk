@@ -1,0 +1,19 @@
+{
+  "description": "An error object carrying a message member is refused — no free-text member is permitted on error.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "error": {
+      "code": "x",
+      "message": "boom"
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-error",
+    "path": "/error/message"
+  }
+}

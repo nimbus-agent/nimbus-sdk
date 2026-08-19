@@ -1,0 +1,10 @@
+{
+  "description": "debug does not meet an info threshold.",
+  "kind": "level",
+  "level": "debug",
+  "threshold": "info",
+  "expect": {
+    "ok": true,
+    "meets": false
+  }
+}

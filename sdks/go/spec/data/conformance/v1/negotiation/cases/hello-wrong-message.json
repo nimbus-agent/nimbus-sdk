@@ -1,0 +1,6 @@
+{
+  "description": "A well-formed envelope for a different message. The discriminator, not the shape, is what makes a frame a hello.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"goodbye\",\"contractVersions\":[\"1\"]}",
+  "expect": { "ok": false, "reason": "wrong-message", "exit": 20 }
+}

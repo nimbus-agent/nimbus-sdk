@@ -1,0 +1,15 @@
+{
+  "description": "error's members are emitted code-then-retriable regardless of the order they were supplied in.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "error",
+    "extensionId": "acme-gcal",
+    "event": "auth.refresh",
+    "error": { "retriable": true, "code": "token.expired" }
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"error\",\"extensionId\":\"acme-gcal\",\"event\":\"auth.refresh\",\"error\":{\"code\":\"token.expired\",\"retriable\":true}}"
+  }
+}

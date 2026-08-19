@@ -1,0 +1,8 @@
+{
+  "description": "a four-octet sequence split before its last octet decodes intact",
+  "chunks": [{ "base64": "8J+Y" }, { "base64": "gAo=" }],
+  "expect": {
+    "push": [[], ["😀"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

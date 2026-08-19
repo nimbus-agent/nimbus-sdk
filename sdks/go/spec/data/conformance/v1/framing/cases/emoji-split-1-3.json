@@ -1,0 +1,8 @@
+{
+  "description": "a four-octet sequence split after its first octet decodes intact",
+  "chunks": [{ "base64": "8A==" }, { "base64": "n5iACg==" }],
+  "expect": {
+    "push": [[], ["😀"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "./probe-protocol.schema.json",
+  "invocation": {
+    "probeFlag": "--probe=",
+    "argFlag": "--arg=",
+    "repeated": "first",
+    "notes": "Both are single arguments carrying their value after the '='. The harness always passes --arg, using the empty string for probes that take none, so a probe MUST tolerate an empty value rather than treating it as absent."
+  },
+  "exitCodes": [
+    {
+      "name": "pass",
+      "code": 0,
+      "meaning": "The capability the manifest declared was reachable."
+    },
+    {
+      "name": "unexpected",
+      "code": 2,
+      "meaning": "Anything the protocol does not otherwise name, including an unknown probe name, a missing --probe, an operation that unexpectedly succeeded, and any error whose code is outside the relevant set. The harness treats this as a failed contract test."
+    },
+    {
+      "name": "fsDenied",
+      "code": 10,
+      "meaning": "A filesystem read failed the way a sandboxed read is supposed to fail."
+    },
+    {
+      "name": "networkBlocked",
+      "code": 11,
+      "meaning": "A network connection failed the way a blocked connection is supposed to fail."
+    }
+  ],
+  "probes": [
+    {
+      "name": "network-listed",
+      "arg": "host",
+      "success": "pass",
+      "description": "Issue a HEAD request to https://<arg>/ and report pass when the HTTP status is in 200..499. A reachability probe, not an authorization one: 401 and 404 both prove the host was reached, so only 5xx and transport failures count against it.",
+      "skippedWhen": [
+        "the manifest declares no network hosts"
+      ]
+    },
+    {
+      "name": "network-unlisted",
+      "arg": "",
+      "success": "networkBlocked",
+      "description": "Attempt a connection to 192.0.2.1 (RFC 5737 TEST-NET-1, unroutable by definition) and report networkBlocked when it fails with one of the networkBlocked error codes.",
+      "skippedWhen": [
+        "the platform is win32, where AppContainer filters network at a layer that makes the probe's failure indistinguishable from the unsandboxed case",
+        "the manifest declares no network hosts, because the sandbox then denies network entirely and this probe's expectation collapses into one the previous probe never established"
+      ]
+    },
+    {
+      "name": "fs-denied",
+      "arg": "",
+      "success": "fsDenied",
+      "description": "Read a path the platform protects ('/etc/passwd' on POSIX, 'C:\\Windows\\System32\\config\\SAM' on Windows) and report fsDenied when the read fails with one of the fsDenied error codes. Never skipped."
+    }
+  ],
+  "errorCodes": {
+    "networkBlocked": [
+      "ECONNREFUSED",
+      "EPERM",
+      "EHOSTUNREACH",
+      "ENETUNREACH"
+    ],
+    "fsDenied": [
+      "EACCES",
+      "EPERM",
+      "EBUSY"
+    ],
+    "notes": "EPERM is a member of BOTH sets; a binding deriving one from the other's shape gets it wrong. ETIMEDOUT is deliberately absent from networkBlocked: a timeout is what an unsandboxed connection to an unroutable address does, so accepting it would let the probe pass with no sandbox at all. EBUSY is in fsDenied for Windows, where a protected file the system already holds open reports busy rather than denied. An error carrying no code is 'unexpected' in both cases."
+  }
+}

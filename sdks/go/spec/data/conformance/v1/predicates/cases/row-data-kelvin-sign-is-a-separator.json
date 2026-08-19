@@ -1,0 +1,15 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "U+212A KELVIN SIGN is left unfolded, so it separates rather than joining row to a trailing k",
+  "tools": [
+    {
+      "name": "svc_row\u212A"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "svc_row\u212A",
+      "segment": "row"
+    }
+  ]
+}

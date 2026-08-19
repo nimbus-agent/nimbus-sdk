@@ -1,0 +1,6 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "an array is rejected",
+  "input": [],
+  "expect": false
+}

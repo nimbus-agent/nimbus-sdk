@@ -1,0 +1,16 @@
+{
+  "description": "message is not a member §3 names, and is refused as unknown-member rather than travelling through — the opposite of negotiation/cases/hello-unknown-member.json, where an unknown hello member is ignored. The envelope is closed where the hello is open.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "message": "row 7 failed"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "unknown-member",
+    "path": "/message"
+  }
+}

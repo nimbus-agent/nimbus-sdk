@@ -1,0 +1,10 @@
+{
+  "description": "An absolute URL with no host is malformed.",
+  "base": "https://api.example.com",
+  "input": "http://",
+  "expect": {
+    "ok": false,
+    "reason": "malformed",
+    "message": "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+  }
+}

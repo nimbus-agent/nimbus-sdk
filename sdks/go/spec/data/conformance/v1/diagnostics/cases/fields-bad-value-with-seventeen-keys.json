@@ -1,0 +1,30 @@
+{
+  "description": "Seventeen field keys, all individually well-formed, where one key's VALUE is invalid. Reports invalid-field-value, not too-many-fields — §5's value-pattern row (11) precedes the count row (12), exactly as the key-pattern row (10) does. Companion to fields-bad-key-with-seventeen-keys.json, one row down: that case pins row 10 before row 12, this one pins row 11 before row 12. A binding that checks the count before checking values would answer too-many-fields here and still pass every other case, fields-seventeen-rejected included, since that case's seventeen values are all individually valid.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "k0": 0,
+      "k1": 1,
+      "k2": 2,
+      "k3": 3,
+      "k4": 4,
+      "k5": 5,
+      "k6": 6,
+      "k7": 7,
+      "k8": 8,
+      "k9": 9,
+      "k10": 10,
+      "k11": 11,
+      "k12": 12,
+      "k13": 13,
+      "k14": 14,
+      "k15": 15,
+      "k16": "bad"
+    }
+  },
+  "expect": { "ok": false, "reason": "invalid-field-value", "path": "/fields/k16" }
+}

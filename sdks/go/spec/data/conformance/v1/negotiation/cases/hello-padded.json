@@ -1,0 +1,6 @@
+{
+  "description": "Insignificant whitespace. The frame is JSON, not a byte pattern — a binding comparing bytes against the canonical form fails here.",
+  "kind": "hello",
+  "frame": "{\"nimbus\": \"hello\", \"contractVersions\": [\"1\"]}",
+  "expect": { "ok": true, "contractVersions": ["1"] }
+}

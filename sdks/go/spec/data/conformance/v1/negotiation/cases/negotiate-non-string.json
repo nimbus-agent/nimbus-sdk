@@ -1,0 +1,7 @@
+{
+  "description": "A number where the algorithm requires a string. The pattern never runs against a non-string member, so a binding that coerces before matching would wrongly accept this.",
+  "kind": "negotiate",
+  "local": [1],
+  "remote": ["1"],
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

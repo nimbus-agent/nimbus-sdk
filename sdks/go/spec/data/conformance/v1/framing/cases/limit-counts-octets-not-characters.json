@@ -1,0 +1,8 @@
+{
+  "description": "524289 two-octet characters are 1048578 octets and are rejected, though a reader counting characters would accept them",
+  "chunks": [{ "repeat": { "utf8": "é", "count": 524289 } }],
+  "expect": {
+    "push": [{ "error": "frame-too-long" }],
+    "flush": { "error": "frame-too-long" }
+  }
+}

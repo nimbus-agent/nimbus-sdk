@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "an absent code does NOT map to networkBlocked",
+  "classifier": "network",
+  "code": null,
+  "expectExit": 2
+}

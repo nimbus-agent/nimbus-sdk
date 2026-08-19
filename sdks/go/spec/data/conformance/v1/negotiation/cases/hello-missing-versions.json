@@ -1,0 +1,6 @@
+{
+  "description": "The discriminator is present but contractVersions never arrives. Distinct from empty-versions: the key itself is absent, not present with nothing in it.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\"}",
+  "expect": { "ok": false, "reason": "missing-versions", "exit": 20 }
+}

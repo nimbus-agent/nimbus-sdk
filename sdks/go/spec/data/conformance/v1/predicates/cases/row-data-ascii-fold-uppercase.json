@@ -1,0 +1,15 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "an all-uppercase name is folded before splitting",
+  "tools": [
+    {
+      "name": "BIGQUERY_GET_ROWS"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "BIGQUERY_GET_ROWS",
+      "segment": "rows"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "description": "The candidate event is an array — valid JSON, array-shaped, not an object.",
+  "kind": "encode",
+  "event": [],
+  "expect": {
+    "ok": false,
+    "reason": "not-object",
+    "path": ""
+  }
+}

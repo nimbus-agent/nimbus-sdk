@@ -1,0 +1,18 @@
+{
+  "description": "A null fields value is refused — absence must be expressed by omitting the key, not by null.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "n": null
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-value",
+    "path": "/fields/n"
+  }
+}

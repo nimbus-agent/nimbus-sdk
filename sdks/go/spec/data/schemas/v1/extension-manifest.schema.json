@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/schemas/v1/extension-manifest.schema.json",
+  "title": "ExtensionManifest",
+  "description": "The manifest a Nimbus connector or extension ships. Contract version v1.",
+  "type": "object",
+  "required": [
+    "id",
+    "displayName",
+    "version",
+    "description",
+    "author",
+    "entrypoint",
+    "runtime",
+    "permissions",
+    "hitlRequired",
+    "minNimbusVersion"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional pointer to this schema, for editor completion."
+    },
+    "id": { "type": "string", "pattern": "[^\\s\\u0085]", "description": "Stable connector identifier." },
+    "displayName": { "type": "string", "pattern": "[^\\s\\u0085]" },
+    "version": {
+      "type": "string",
+      "pattern": "[^\\s\\u0085]",
+      "description": "Connector version. Deliberately unconstrained beyond non-empty: runContractTests applies no semver check here."
+    },
+    "description": { "type": "string", "pattern": "[^\\s\\u0085]" },
+    "author": { "type": "string", "pattern": "[^\\s\\u0085]" },
+    "homepage": { "type": "string" },
+    "icon": { "type": "string" },
+    "entrypoint": { "type": "string", "pattern": "[^\\s\\u0085]" },
+    "runtime": { "enum": ["bun", "node", "python"] },
+    "permissions": {
+      "type": "array",
+      "items": { "enum": ["read", "write", "delete"] }
+    },
+    "hitlRequired": {
+      "type": "array",
+      "items": { "enum": ["write", "delete"] },
+      "description": "Operations that require human approval before the gateway will run them."
+    },
+    "oauth": {
+      "type": "object",
+      "required": ["provider", "scopes", "authUrl", "tokenUrl", "pkce"],
+      "properties": {
+        "provider": { "type": "string" },
+        "scopes": { "type": "array", "items": { "type": "string" } },
+        "authUrl": { "type": "string" },
+        "tokenUrl": { "type": "string" },
+        "pkce": { "type": "boolean" }
+      }
+    },
+    "syncInterval": { "type": "number" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "minNimbusVersion": {
+      "type": "string",
+      "pattern": "^[\\s\\u0085]*[0-9]+\\.[0-9]+\\.[0-9]+",
+      "description": "Minimum gateway version. Unanchored at the end, so a prerelease suffix is accepted, and tolerant of leading blank characters. Both classes are spelled out to match docs/spec/rules/v1: [\\s\\u0085] is exactly the blank set (Unicode White_Space plus U+FEFF), since JavaScript's \\s omits U+0085 and adds U+FEFF; and [0-9] rather than \\d, which is ASCII in JavaScript but Unicode-aware in Python and Rust."
+    },
+    "contractVersions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+      "description": "The contract majors this connector speaks. Optional in v1; absence means [\"1\"]. A major names a published spec path segment, so \"1\" is docs/spec/*/v1/ — unrelated to minNimbusVersion, which is a floor on the gateway product. Spelled [0-9] rather than \\d, which is ASCII in JavaScript but Unicode-aware in Python and Rust."
+    }
+  }
+}

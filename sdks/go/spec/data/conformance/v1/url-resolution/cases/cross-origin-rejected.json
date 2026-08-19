@@ -1,0 +1,10 @@
+{
+  "description": "A cross-origin absolute URL is refused, naming both origins.",
+  "base": "https://api.example.com",
+  "input": "https://evil.example.com/steal",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://evil.example.com, expected https://api.example.com)"
+  }
+}

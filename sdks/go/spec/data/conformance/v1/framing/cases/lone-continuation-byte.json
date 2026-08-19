@@ -1,0 +1,8 @@
+{
+  "description": "a continuation octet with no lead octet becomes U+FFFD",
+  "chunks": [{ "base64": "qQo=" }],
+  "expect": {
+    "push": [["�"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "An empty object, with no nimbus at all, is refused as wrong-message.",
+  "kind": "parse",
+  "line": "{}",
+  "expect": {
+    "ok": false,
+    "reason": "wrong-message",
+    "path": "/nimbus"
+  }
+}

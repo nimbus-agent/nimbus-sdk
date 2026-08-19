@@ -1,0 +1,15 @@
+{
+  "description": "An event name whose first segment starts with a digit is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "1sync"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-event",
+    "path": "/event"
+  }
+}

@@ -1,0 +1,306 @@
+{
+  "fixtures": [
+    {
+      "file": "manifest/valid-minimal.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "Every required field present and well-formed."
+    },
+    {
+      "file": "manifest/valid-runtime-python.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "A Python connector can declare its runtime honestly. runtime: \"python\" was invalid before RFC-0009 widened manifest.runtime.enum; it is now accepted by both the schema and runContractTests."
+    },
+    {
+      "file": "manifest/valid-prerelease-min-version.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "minNimbusVersion is unanchored at the end, so a prerelease suffix is accepted."
+    },
+    {
+      "file": "manifest/valid-leading-space-min-version.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "Blank characters are removed from both ends of minNimbusVersion before matching."
+    },
+    {
+      "file": "manifest/valid-unknown-extra-key.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "Neither the schema nor the rules set additionalProperties: false, so an undeclared extra key must still validate on both sides. Pins the manifest schema's openness."
+    },
+    {
+      "file": "manifest/valid-zero-width-space-id.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "U+200B ZERO WIDTH SPACE is not Unicode White_Space, so an id consisting of one is not blank. Invisible, but a character. Pins the lower edge of the blank set."
+    },
+    {
+      "file": "manifest/invalid-missing-id.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.id.required", "path": "/id" }],
+      "reason": "id is required."
+    },
+    {
+      "file": "manifest/invalid-whitespace-id.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.id.required", "path": "/id" }],
+      "reason": "id must contain a character outside the blank set."
+    },
+    {
+      "file": "manifest/invalid-nel-only-id.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.id.required", "path": "/id" }],
+      "reason": "U+0085 NEL is Unicode White_Space, so an id of one is blank — though JavaScript's trim uniquely leaves it in place. Pins the upper edge of the blank set, and the reason the schema pattern cannot be a bare \\S."
+    },
+    {
+      "file": "manifest/invalid-missing-display-name.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.displayName.required", "path": "/displayName" }],
+      "reason": "displayName is required."
+    },
+    {
+      "file": "manifest/invalid-missing-version.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.version.required", "path": "/version" }],
+      "reason": "version is required."
+    },
+    {
+      "file": "manifest/invalid-missing-description.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.description.required", "path": "/description" }],
+      "reason": "description is required."
+    },
+    {
+      "file": "manifest/invalid-missing-author.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.author.required", "path": "/author" }],
+      "reason": "author is required."
+    },
+    {
+      "file": "manifest/invalid-missing-entrypoint.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.entrypoint.required", "path": "/entrypoint" }],
+      "reason": "entrypoint is required."
+    },
+    {
+      "file": "manifest/invalid-runtime.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.runtime.enum", "path": "/runtime" }],
+      "reason": "runtime must be bun or node."
+    },
+    {
+      "file": "manifest/invalid-permission.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.permissions.entry", "path": "/permissions/1" }],
+      "reason": "admin is not a permission, and the violation is attributed to its index rather than to the array."
+    },
+    {
+      "file": "manifest/invalid-two-permissions.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [
+        { "rule": "manifest.permissions.entry", "path": "/permissions/1" },
+        { "rule": "manifest.permissions.entry", "path": "/permissions/2" }
+      ],
+      "reason": "A parameterized rule reports one violation per offending entry. Two indistinguishable copies would pass a rule-id-only assertion; distinct pointers do not."
+    },
+    {
+      "file": "manifest/invalid-permissions-not-array.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.permissions.type", "path": "/permissions" }],
+      "reason": "permissions must be an array. Pins supersession: the per-entry rule must not also fire, because there are no entries."
+    },
+    {
+      "file": "manifest/invalid-hitl-required.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.hitlRequired.entry", "path": "/hitlRequired/0" }],
+      "reason": "read is not a valid hitlRequired entry; rejected by both the enum and the rules."
+    },
+    {
+      "file": "manifest/invalid-hitl-required-not-array.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.hitlRequired.type", "path": "/hitlRequired" }],
+      "reason": "hitlRequired must be an array. Supersession again: the per-entry rule must stay silent."
+    },
+    {
+      "file": "manifest/invalid-missing-min-version.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.minNimbusVersion.required", "path": "/minNimbusVersion" }],
+      "reason": "minNimbusVersion is required. The semver rule must not also fire — an absent value has no pattern to match."
+    },
+    {
+      "file": "manifest/invalid-short-min-version.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.minNimbusVersion.semver", "path": "/minNimbusVersion" }],
+      "reason": "minNimbusVersion missing its patch component. Pins that the pattern constrains the value, not just tolerates whitespace and prerelease suffixes."
+    },
+    {
+      "file": "manifest/invalid-non-ascii-min-version.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.minNimbusVersion.semver", "path": "/minNimbusVersion" }],
+      "reason": "Arabic-Indic digits are not ASCII digits. A binding whose regex engine makes \\d Unicode-aware — Python's and Rust's do — accepts this and passes every other fixture in the corpus."
+    },
+    {
+      "file": "manifest/invalid-many-violations.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [
+        { "rule": "manifest.author.required", "path": "/author" },
+        { "rule": "manifest.description.required", "path": "/description" },
+        { "rule": "manifest.displayName.required", "path": "/displayName" },
+        { "rule": "manifest.entrypoint.required", "path": "/entrypoint" },
+        { "rule": "manifest.hitlRequired.type", "path": "/hitlRequired" },
+        { "rule": "manifest.id.required", "path": "/id" },
+        { "rule": "manifest.minNimbusVersion.required", "path": "/minNimbusVersion" },
+        { "rule": "manifest.permissions.type", "path": "/permissions" },
+        { "rule": "manifest.runtime.enum", "path": "/runtime" },
+        { "rule": "manifest.version.required", "path": "/version" }
+      ],
+      "reason": "Violations accumulate rather than short-circuiting at the first failure. Ten rules fire at once; a binding that returns after the first passes every other fixture here."
+    },
+    {
+      "file": "manifest/valid-contract-versions.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "equivalence",
+      "violations": [],
+      "reason": "A well-formed declaration of two majors. Order is not significant, and neither member is the default."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-not-array.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.type", "path": "/contractVersions" }],
+      "reason": "A bare string, not an array. The member rules must not also fire — a non-array has no members to check."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-empty.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.nonempty", "path": "/contractVersions" }],
+      "reason": "An empty array is not the same as an absent field: absence means [\"1\"], an empty set means nothing."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-entry.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.entry", "path": "/contractVersions/1" }],
+      "reason": "A leading zero is not a canonical major. Pins that the violation names the offending index, not the field."
+    },
+    {
+      "file": "manifest/invalid-contract-versions-duplicate.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "equivalence",
+      "violations": [{ "rule": "manifest.contractVersions.entry", "path": "/contractVersions/1" }],
+      "reason": "A repeated member, reported at its second occurrence. A binding that dedupes on read rather than rejecting would pass every other fixture."
+    },
+    {
+      "file": "manifest/schema-only-bad-sync-interval.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "syncInterval must be a number. No rule inspects it, so only the schema rejects this."
+    },
+    {
+      "file": "manifest/valid-maximal.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "schema-only",
+      "reason": "Every optional field populated, including a fully and correctly typed oauth object. Pins the types of oauth's five properties, syncInterval, tags, homepage, and icon, none of which the rules inspect."
+    },
+    {
+      "file": "item/valid-minimal.json",
+      "shape": "NimbusItem",
+      "expect": "valid",
+      "class": "schema-only",
+      "reason": "Every required field present. No runtime validator exists for items."
+    },
+    {
+      "file": "item/valid-unknown-item-type.json",
+      "shape": "NimbusItem",
+      "expect": "valid",
+      "class": "schema-only",
+      "reason": "itemType is an open vocabulary; an unknown type must validate."
+    },
+    {
+      "file": "item/invalid-missing-name.json",
+      "shape": "NimbusItem",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "name is required."
+    },
+    {
+      "file": "item/invalid-size-bytes-type.json",
+      "shape": "NimbusItem",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "sizeBytes must be a number. TypeScript would catch this at compile time; nothing catches it at runtime."
+    },
+    {
+      "file": "item/valid-unknown-extra-key.json",
+      "shape": "NimbusItem",
+      "expect": "valid",
+      "class": "schema-only",
+      "reason": "The item schema is open; an undeclared extra key must still validate. No runtime validator exists for items, so this is schema-only, not equivalence."
+    },
+    {
+      "file": "item/valid-maximal.json",
+      "shape": "NimbusItem",
+      "expect": "valid",
+      "class": "schema-only",
+      "reason": "Every optional field populated (mimeType, sizeBytes, createdAt, modifiedAt, url, parentId, rawMeta). No runtime validator exists for items."
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "description": "one chunk may carry many frames, all delivered in order from a single push",
+  "chunks": [{ "utf8": "a\nb\nc\n" }],
+  "expect": {
+    "push": [["a", "b", "c"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

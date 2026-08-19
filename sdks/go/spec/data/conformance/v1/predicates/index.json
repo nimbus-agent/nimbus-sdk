@@ -1,0 +1,170 @@
+{
+  "spec": "../../../predicates/v1/README.md",
+  "cases": [
+    {
+      "file": "cases/hitl-minimal-accepted.json",
+      "section": "2",
+      "reason": "the two required members, and nothing else"
+    },
+    {
+      "file": "cases/hitl-diff-present-accepted.json",
+      "section": "2",
+      "reason": "diff is optional, and a string when present"
+    },
+    {
+      "file": "cases/hitl-diff-null-rejected.json",
+      "section": "2",
+      "reason": "absent and null are not interchangeable \u2014 the divergence a Python binding hits first"
+    },
+    {
+      "file": "cases/hitl-diff-non-string-rejected.json",
+      "section": "2",
+      "reason": "diff is a string or absent, never another type"
+    },
+    {
+      "file": "cases/hitl-whitespace-summary-accepted.json",
+      "section": "2",
+      "reason": "the rule is length, not blankness \u2014 the manifest registry's blankness rule does NOT apply here"
+    },
+    {
+      "file": "cases/hitl-whitespace-action-id-accepted.json",
+      "section": "2",
+      "reason": "length, not blankness, on actionId too"
+    },
+    {
+      "file": "cases/hitl-empty-action-id-rejected.json",
+      "section": "2",
+      "reason": "the empty string is the one string value that fails"
+    },
+    {
+      "file": "cases/hitl-empty-summary-rejected.json",
+      "section": "2",
+      "reason": "the empty string fails on summary as well"
+    },
+    {
+      "file": "cases/hitl-missing-summary-rejected.json",
+      "section": "2",
+      "reason": "both members are required"
+    },
+    {
+      "file": "cases/hitl-missing-action-id-rejected.json",
+      "section": "2",
+      "reason": "both members are required"
+    },
+    {
+      "file": "cases/hitl-action-id-non-string-rejected.json",
+      "section": "2",
+      "reason": "a present member of the wrong type fails"
+    },
+    {
+      "file": "cases/hitl-unknown-member-accepted.json",
+      "section": "2",
+      "reason": "the shape is open \u2014 unknown members are ignored, not rejected"
+    },
+    {
+      "file": "cases/hitl-empty-object-rejected.json",
+      "section": "2",
+      "reason": "an object missing everything still answers, rather than failing"
+    },
+    {
+      "file": "cases/hitl-null-rejected.json",
+      "section": "2",
+      "reason": "the predicate is total: a non-object answers false rather than throwing"
+    },
+    {
+      "file": "cases/hitl-array-rejected.json",
+      "section": "2",
+      "reason": "an array is not an object for this predicate, in any language"
+    },
+    {
+      "file": "cases/hitl-string-rejected.json",
+      "section": "2",
+      "reason": "a scalar is rejected rather than coerced"
+    },
+    {
+      "file": "cases/hitl-number-rejected.json",
+      "section": "2",
+      "reason": "a falsy scalar is rejected on the same terms as any other"
+    },
+    {
+      "file": "cases/row-data-metadata-surface-clean.json",
+      "section": "3",
+      "reason": "a schema/metadata-only surface produces nothing"
+    },
+    {
+      "file": "cases/row-data-empty-surface-clean.json",
+      "section": "3",
+      "reason": "an empty tool list is clean, not an error"
+    },
+    {
+      "file": "cases/row-data-segment-not-substring.json",
+      "section": "3",
+      "reason": "the single most important property: whole-run match, never substring"
+    },
+    {
+      "file": "cases/row-data-offender-attributed-to-segment.json",
+      "section": "3",
+      "reason": "a violation names the tool and the segment that matched"
+    },
+    {
+      "file": "cases/row-data-input-order-preserved.json",
+      "section": "3",
+      "reason": "violations come out in input order, not sorted"
+    },
+    {
+      "file": "cases/row-data-first-match-in-name-order.json",
+      "section": "3",
+      "reason": "the reported segment is the first in NAME order, not in set order"
+    },
+    {
+      "file": "cases/row-data-one-violation-per-tool.json",
+      "section": "3",
+      "reason": "at most one violation per candidate, however many segments match"
+    },
+    {
+      "file": "cases/row-data-ascii-fold-uppercase.json",
+      "section": "3",
+      "reason": "A-Z folds to a-z"
+    },
+    {
+      "file": "cases/row-data-kelvin-sign-is-a-separator.json",
+      "section": "3",
+      "reason": "U+212A must NOT fold to k \u2014 the one behaviorally reachable difference from Unicode lowering"
+    },
+    {
+      "file": "cases/row-data-dotted-capital-i-is-a-separator.json",
+      "section": "3",
+      "reason": "U+0130 must NOT fold to i \u2014 this is where Go's simple case mapping diverges"
+    },
+    {
+      "file": "cases/row-data-non-ascii-name-clean.json",
+      "section": "3",
+      "reason": "a name outside ASCII is legal, and folds to nothing"
+    },
+    {
+      "file": "cases/row-data-digits-are-segment-characters.json",
+      "section": "3",
+      "reason": "0-9 are part of the segment alphabet, so a version token does not break a match"
+    },
+    {
+      "file": "cases/row-data-non-string-name-skipped.json",
+      "section": "3",
+      "reason": "a candidate whose name is not a string is skipped \u2014 not flagged, and not an error"
+    },
+    {
+      "file": "cases/row-data-blank-names-skipped.json",
+      "section": "3",
+      "reason": "blank names yield no segments, so no trimming rule is needed or defined"
+    },
+    {
+      "file": "cases/row-data-description-never-inspected.json",
+      "section": "3",
+      "reason": "only the name is scanned, so a description may say the word without being flagged"
+    },
+    {
+      "file": "cases/row-data-every-published-segment.json",
+      "section": "4",
+      "reason": "every published segment is matched by a case \u2014 a segment with no fixture is a segment no binding is held to"
+    }
+  ]
+}

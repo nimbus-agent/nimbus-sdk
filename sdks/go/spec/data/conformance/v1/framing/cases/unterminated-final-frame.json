@@ -1,0 +1,8 @@
+{
+  "description": "a frame left unterminated when the stream ends is delivered and flagged truncated",
+  "chunks": [{ "utf8": "whole\n" }, { "utf8": "partial" }],
+  "expect": {
+    "push": [["whole"], []],
+    "flush": { "frames": ["partial"], "truncated": true }
+  }
+}

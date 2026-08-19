@@ -1,0 +1,116 @@
+{
+  "$schema": "./manifest-rules.schema.json",
+  "blank": {
+    "description": "The characters ignored when deciding whether a string field is blank, and the characters removed before matching a pattern. Written out rather than delegated to a language's trim function: no two agree. JavaScript's removes U+FEFF and not U+0085; Python's does the reverse.",
+    "unicodeProperty": "White_Space",
+    "additional": ["U+FEFF"],
+    "notes": "U+200B ZERO WIDTH SPACE is deliberately outside this set — it is invisible, but it is a character, and treating it as blank would be a new rule rather than a written-down one."
+  },
+  "rules": [
+    {
+      "id": "manifest.id.required",
+      "field": "id",
+      "requires": "a string that is not blank",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.displayName.required",
+      "field": "displayName",
+      "requires": "a string that is not blank",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.version.required",
+      "field": "version",
+      "requires": "a string that is not blank",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.description.required",
+      "field": "description",
+      "requires": "a string that is not blank",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.author.required",
+      "field": "author",
+      "requires": "a string that is not blank",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.entrypoint.required",
+      "field": "entrypoint",
+      "requires": "a string that is not blank",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.runtime.enum",
+      "field": "runtime",
+      "requires": "exactly \"bun\", \"node\", or \"python\"",
+      "enum": ["bun", "node", "python"],
+      "parameterized": false
+    },
+    {
+      "id": "manifest.permissions.type",
+      "field": "permissions",
+      "requires": "an array",
+      "parameterized": false,
+      "supersedes": ["manifest.permissions.entry"]
+    },
+    {
+      "id": "manifest.permissions.entry",
+      "field": "permissions",
+      "requires": "every entry to be one of the listed values",
+      "enum": ["read", "write", "delete"],
+      "parameterized": true
+    },
+    {
+      "id": "manifest.hitlRequired.type",
+      "field": "hitlRequired",
+      "requires": "an array",
+      "parameterized": false,
+      "supersedes": ["manifest.hitlRequired.entry"]
+    },
+    {
+      "id": "manifest.hitlRequired.entry",
+      "field": "hitlRequired",
+      "requires": "every entry to be one of the listed values",
+      "enum": ["write", "delete"],
+      "parameterized": true
+    },
+    {
+      "id": "manifest.minNimbusVersion.required",
+      "field": "minNimbusVersion",
+      "requires": "a string that is not blank",
+      "parameterized": false,
+      "supersedes": ["manifest.minNimbusVersion.semver"]
+    },
+    {
+      "id": "manifest.minNimbusVersion.semver",
+      "field": "minNimbusVersion",
+      "requires": "a value beginning with semver x.y.z, after blank characters are removed from both ends",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.contractVersions.type",
+      "field": "contractVersions",
+      "requires": "an array, when the field is present. The field is optional in v1 and its absence means [\"1\"], so an absent value violates nothing.",
+      "parameterized": false,
+      "supersedes": ["manifest.contractVersions.nonempty", "manifest.contractVersions.entry"]
+    },
+    {
+      "id": "manifest.contractVersions.nonempty",
+      "field": "contractVersions",
+      "requires": "at least one member, when the field is present. Declaring an empty set is not the same as declaring nothing: absence has a default, an empty array has no meaning.",
+      "parameterized": false
+    },
+    {
+      "id": "manifest.contractVersions.entry",
+      "field": "contractVersions",
+      "requires": "every member a distinct decimal major matching the pattern — ASCII digits, no leading zeros. A repeated member is a violation at the index of its second occurrence.",
+      "parameterized": true,
+      "pattern": "^[1-9][0-9]*$"
+    }
+  ]
+}

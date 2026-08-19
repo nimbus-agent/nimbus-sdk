@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "ETIMEDOUT does NOT map to networkBlocked",
+  "classifier": "network",
+  "code": "ETIMEDOUT",
+  "expectExit": 2
+}

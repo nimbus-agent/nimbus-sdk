@@ -1,0 +1,8 @@
+{
+  "description": "buffering holds across any number of chunks, not just one",
+  "chunks": [{ "utf8": "{" }, { "utf8": "\"a\":1" }, { "utf8": "}\n" }],
+  "expect": {
+    "push": [[], [], ["{\"a\":1}"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

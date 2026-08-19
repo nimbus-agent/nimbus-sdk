@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "ENOENT does NOT map to fsDenied",
+  "classifier": "filesystem",
+  "code": "ENOENT",
+  "expectExit": 2
+}

@@ -1,0 +1,6 @@
+{
+  "description": "A leading zero in the announced set. Distinct from the negotiate-kind case of the same shape: this exercises the frame parser's validation, not the algorithm's.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":[\"01\"]}",
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

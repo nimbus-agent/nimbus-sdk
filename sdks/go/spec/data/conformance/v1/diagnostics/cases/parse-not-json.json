@@ -1,0 +1,10 @@
+{
+  "description": "A line that is not syntactically JSON is refused as not-json, before any member is inspected.",
+  "kind": "parse",
+  "line": "not json",
+  "expect": {
+    "ok": false,
+    "reason": "not-json",
+    "path": ""
+  }
+}

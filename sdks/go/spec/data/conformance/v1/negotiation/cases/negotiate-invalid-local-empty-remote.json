@@ -1,0 +1,7 @@
+{
+  "description": "The mirror of negotiate-empty-local-invalid-remote: the malformed member returns to the local set and the remote set is the empty one, so a binding short-circuiting on an empty remote only is still refused.",
+  "kind": "negotiate",
+  "local": ["01"],
+  "remote": [],
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

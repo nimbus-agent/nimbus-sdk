@@ -1,0 +1,6 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "a string is rejected",
+  "input": "deploy-1",
+  "expect": false
+}

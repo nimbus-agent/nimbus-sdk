@@ -1,0 +1,9 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "a summary of a single space is accepted",
+  "input": {
+    "actionId": "deploy-1",
+    "summary": " "
+  },
+  "expect": true
+}

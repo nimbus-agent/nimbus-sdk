@@ -1,0 +1,13 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "the bigquery service prefix is one token and must not split into a spurious query",
+  "tools": [
+    {
+      "name": "bigquery_get"
+    },
+    {
+      "name": "bigquery_list"
+    }
+  ],
+  "violations": []
+}

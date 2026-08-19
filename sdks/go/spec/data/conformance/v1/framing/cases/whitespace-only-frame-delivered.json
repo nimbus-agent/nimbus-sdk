@@ -1,0 +1,8 @@
+{
+  "description": "empty means zero-length, not blank — a frame of spaces is content and is delivered",
+  "chunks": [{ "utf8": "   \n" }],
+  "expect": {
+    "push": [["   "]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

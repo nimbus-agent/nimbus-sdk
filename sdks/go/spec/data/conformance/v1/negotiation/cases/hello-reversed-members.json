@@ -1,0 +1,6 @@
+{
+  "description": "Member order is insignificant in JSON. A parser that assumes nimbus arrives before contractVersions fails here.",
+  "kind": "hello",
+  "frame": "{\"contractVersions\":[\"1\"],\"nimbus\":\"hello\"}",
+  "expect": { "ok": true, "contractVersions": ["1"] }
+}

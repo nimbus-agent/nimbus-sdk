@@ -6,6 +6,7 @@ import "embed"
 // file whose name begins with "." or "_". Nothing in docs/spec matches that today, but
 // a future _index.json would vanish from the embed with no error at any stage.
 //
+//go:generate go run ../internal/gen
 //go:embed all:data
 var data embed.FS
 

@@ -210,7 +210,7 @@ Changing an exported type is a semver-relevant change.
 
 ## Contributing
 
-See [CONTRIBUTING.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/CONTRIBUTING.md).
 In short: Bun v1.2+, TypeScript strict,
 Biome, **no `any`**, and **no runtime dependencies** — the published surface stays
 dependency-free.

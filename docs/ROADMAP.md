@@ -94,9 +94,13 @@ How the SDK plugs into the rest of Nimbus and welcomes outside contributors:
 consumed by the first-party connectors in the
 [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo (local co-dev via
 `platform:link`), a published stability / support matrix per export tier and
-language, a contributor guide for adding connectors and apps, and eventually a
-third-party connector / app registry (design detail defers to the ecosystem
-roadmap).
+language, and eventually a third-party connector / app registry (design detail
+defers to the ecosystem roadmap). Authoring guidance is *not* this pillar's: the
+per-language path is the [quickstarts](./quickstart-typescript.md), spec-driven
+generation is
+[`create-nimbus-connector`](https://github.com/nimbus-agent/create-nimbus-connector)'s,
+and contributing to this repository is
+[`CONTRIBUTING.md`](./CONTRIBUTING.md)'s.
 
 ### 7. Versioning & compatibility
 
@@ -227,8 +231,9 @@ same contract.*
 
 > **Boxes 1–7 are done, and Python is now an official SDK.** A Python release can
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
-> no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 shipped that
-> way. The binding executes all three published conformance corpora —
+> no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 was the first
+> to ship that way, and every release since has followed it. The binding executes all
+> three published conformance corpora —
 > `negotiation`, `framing`, and `diagnostics` — every case kind, with nothing deferred,
 > so **the suite is green for both languages in CI** — two clauses of the exit criteria,
 > met.
@@ -263,7 +268,7 @@ maintained."*
 
 - [ ] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*
 - [ ] The hottest batteries ported to the additional languages — *Pillar 3*
-- [ ] A **Python `connector-kit`** — *Pillar 3*. TypeScript publishes
+- [~] A **Python `connector-kit`** — *Pillar 3*. TypeScript publishes
   [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md)
   (`createRegisterSimpleTool`, `mcpJsonResult`); `nimbus-dev-sdk` now carries part of the
   equivalent, as `nimbus_sdk.connector_kit` — a fourth Python import root shipping the
@@ -290,7 +295,10 @@ maintained."*
   SDK — *Pillar 5*
 - [ ] **Tiered stability** markers separating battle-tested helpers from the frozen
   core — *Pillars 3, 7*
-- [ ] The written process for **how a language becomes "official"** — *Pillar 9*
+- [x] The written process for **how a language becomes "official"** — *Pillar 9*.
+  Published as [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official),
+  and Phase 2 already ran a language through it, in
+  [RFC-0008](./rfcs/0008-python-sdk-official.md).
 
 **Exit criteria:** at least three official SDKs pass the suite in a shared matrix;
 each publishes through its ecosystem's tokenless, provenance-carrying path (npm /
@@ -303,7 +311,6 @@ written down.
 *Goal: make third parties first-class — anyone can build, publish, and trust a
 Nimbus connector or app.*
 
-- [ ] A **contributor guide** for connectors and apps — *Pillars 6, 9*
 - [ ] A published **stability / support matrix** per export tier and language — *Pillars 6, 7*
 - [ ] The **third-party connector / app registry** design, including the trust and
   signature-verification model — *Pillar 6 (see [SECURITY.md](./SECURITY.md))*

@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.18.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.17.0...typescript-v1.18.0) (2026-08-19)
+
+
+### Features
+
+* **agents:** a why brief can name the pull request it is about ([#132](https://github.com/nimbus-agent/nimbus-sdk/issues/132)) ([7b63b90](https://github.com/nimbus-agent/nimbus-sdk/commit/7b63b9072ed56be45a31f4b7c7849128d6a08054))
+
 ## [1.17.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.16.0...typescript-v1.17.0) (2026-08-18)
 
 

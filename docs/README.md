@@ -101,7 +101,7 @@ contract itself — then reach for a battery as you need it. Every public export
 - [Inclusion policy](./INCLUSION-POLICY.md) — the bar a new battery must clear
 - [Deprecation policy](./DEPRECATION-POLICY.md) — how an export is retired
 - [Governance](./GOVERNANCE.md) · [Releasing](./RELEASING.md) · [Security](./SECURITY.md)
-- [Contributing](../CONTRIBUTING.md) — and
+- [Contributing](./CONTRIBUTING.md) — and
   [Discussions](https://github.com/nimbus-agent/Nimbus/discussions), where questions are
   asked, on the Nimbus board
 - [API surface](./api-surface.md) — the generated snapshot of every public export

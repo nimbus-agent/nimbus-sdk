@@ -537,7 +537,7 @@ jobs:
   # release-please reads the commits that land on `main`, and this repo merges by squash
   # only — so for a PR that collects a stack, the PR title is the only subject the parser
   # will ever see. This job asserts that subject is a Conventional Commit and that it does
-  # not declare less than the commits it carries. See CONTRIBUTING.md, "Stacking a
+  # not declare less than the commits it carries. See docs/CONTRIBUTING.md, "Stacking a
   # multi-part change".
   #
   # Deliberately not guarded by `if: github.event_name == 'pull_request'`: `ci-complete`

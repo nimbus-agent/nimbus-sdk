@@ -100,7 +100,7 @@ per-language path is the [quickstarts](./quickstart-typescript.md), spec-driven
 generation is
 [`create-nimbus-connector`](https://github.com/nimbus-agent/create-nimbus-connector)'s,
 and contributing to this repository is
-[`CONTRIBUTING.md`](../CONTRIBUTING.md)'s.
+[`CONTRIBUTING.md`](./CONTRIBUTING.md)'s.
 
 ### 7. Versioning & compatibility
 

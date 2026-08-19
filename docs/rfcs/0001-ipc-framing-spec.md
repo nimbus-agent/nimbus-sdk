@@ -296,7 +296,7 @@ monorepo, so that check happens there, not here.
 and MCP is JSON-RPC 2.0 over newline-delimited JSON on stdio; a binary wire would make a
 Nimbus connector undrivable by any other MCP host and would cost Phase 2 the per-language
 MCP SDKs that make a Python binding cheap. It also needs a runtime dependency in
-TypeScript, which [CONTRIBUTING.md](../../CONTRIBUTING.md) forbids, and a `protoc`
+TypeScript, which [CONTRIBUTING.md](../CONTRIBUTING.md) forbids, and a `protoc`
 toolchain in every binding's build — the opposite of the draft-07 choice made deliberately
 for the widest validator support. It would add a second normative shape alongside the JSON
 Schemas, doubling the drift surface `schema-guard.test.ts` exists to catch. And a binary

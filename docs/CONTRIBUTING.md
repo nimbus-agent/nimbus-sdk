@@ -8,7 +8,7 @@ Questions — including "would you accept a PR that does X?" — go to
 [Nimbus Discussions](https://github.com/nimbus-agent/Nimbus/discussions), the one board the
 ecosystem shares; this repo has none of its own. Bugs and concrete changes to the SDK belong
 in this repo's issues, where they can be fixed. A proposal that would widen the contract is
-neither: it goes through the [RFC process](./docs/GOVERNANCE.md#the-rfc-process), where the
+neither: it goes through the [RFC process](./GOVERNANCE.md#the-rfc-process), where the
 default answer is *no* and the burden is on the proposal.
 
 ## Prerequisites
@@ -59,7 +59,7 @@ matches what the diff shows — a removed or narrowed export is breaking.
 
 A new `**Deprecated:**` line for an existing export is a third kind of diff, with its
 own rule: it must ship as `feat:`, per the
-[deprecation policy](./docs/DEPRECATION-POLICY.md#ship-the-marker-as-feat) — the
+[deprecation policy](./DEPRECATION-POLICY.md#ship-the-marker-as-feat) — the
 policy's window is defined in terms of a released minor, and only a `feat:` commit
 makes release-please cut one.
 
@@ -72,11 +72,11 @@ that this file will not show; review those by hand.
 
 A new export must be documented before it can ship. `sdks/typescript/scripts/docs-coverage.test.ts`
 resolves every export to its source module and fails the pull request unless some page in
-[`docs/modules/`](./docs/modules/) claims that module in its `<!-- covers: ... -->`
+[`docs/modules/`](./modules/) claims that module in its `<!-- covers: ... -->`
 comment. If your export lives in a module that already has a page, the guard is already
 satisfied — but write the prose anyway, since that is the point of the page.
 
-Code examples in `docs/modules/` and [`sdks/typescript/README.md`](./sdks/typescript/README.md)
+Code examples in `docs/modules/` and [`sdks/typescript/README.md`](../sdks/typescript/README.md)
 are typechecked against the built `dist/` by
 `sdks/typescript/scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
 standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, one of its
@@ -86,8 +86,8 @@ entry point added there is importable in a snippet the moment it exists. Use ` `
 for anything that is not meant to compile.
 
 Whether the export is additive or breaking is governed by the
-[deprecation policy](./docs/DEPRECATION-POLICY.md); whether a new *battery* belongs here
-at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
+[deprecation policy](./DEPRECATION-POLICY.md); whether a new *battery* belongs here
+at all is governed by the [inclusion policy](./INCLUSION-POLICY.md).
 
 ## Architecture notes
 
@@ -96,10 +96,10 @@ at all is governed by the [inclusion policy](./docs/INCLUSION-POLICY.md).
   third-party MCP connectors / extensions compile against. Do not add a runtime
   dependency; if you need a helper, inline it.
 - **Adding a battery?** It must satisfy the
-  [inclusion policy](./docs/INCLUSION-POLICY.md) — dep-free, pure, genuinely reused,
+  [inclusion policy](./INCLUSION-POLICY.md) — dep-free, pure, genuinely reused,
   contract-shaped. The default answer is no.
 - **Removing or renaming an export?** It must pass through the
-  [deprecation policy](./docs/DEPRECATION-POLICY.md) — marked in a released minor, at
+  [deprecation policy](./DEPRECATION-POLICY.md) — marked in a released minor, at
   least one minor shipped carrying the marker, removed only in a major.
 - **No `any`; TypeScript strict.** Use `unknown` for data crossing a boundary and
   narrow with a type guard. Biome enforces the rules in `biome.json`, including

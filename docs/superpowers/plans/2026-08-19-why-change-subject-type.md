@@ -124,7 +124,6 @@ describe("WhyBrief.changeSubject", () => {
     const brief: WhyBrief = { ...fromPr, changeSubject: sparse };
     expect(brief.changeSubject?.number).toBeNull();
     expect(brief.changeSubject?.modifiedAt).toBeNull();
-    expect("number" in sparse).toBe(true);
     expect(isWhyBrief(brief)).toBe(true);
   });
 });

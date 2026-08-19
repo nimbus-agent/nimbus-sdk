@@ -23,7 +23,9 @@ func TestLoadCorpusReturnsCasesInIndexOrder(t *testing.T) {
 		}
 	}
 
-	// Verify order by comparing against the index.json directly
+	// Read index.json here rather than reusing anything LoadCorpus computed. Index order
+	// is the property under test, so deriving the expectation from the loader would make
+	// the assertion agree with itself no matter what order the loader chose.
 	indexRaw, err := data.ReadFile(path.Join("data", "conformance", "v1", "negotiation", "index.json"))
 	if err != nil {
 		t.Fatalf("failed to read index: %v", err)
@@ -37,12 +39,15 @@ func TestLoadCorpusReturnsCasesInIndexOrder(t *testing.T) {
 		t.Fatalf("failed to parse index: %v", err)
 	}
 
-	// Assert the number of cases matches the index
+	// The count comes first because the endpoint checks below cannot detect a loader that
+	// dropped a case from the middle: first and last would still line up.
 	if len(cases) != len(index.Cases) {
 		t.Errorf("loaded %d cases but index lists %d", len(cases), len(index.Cases))
 	}
 
-	// Verify order by checking first and last case descriptions
+	// Endpoints only: with the count already pinned, a reversal or a rotation moves at
+	// least one of them, and `description` identifies a case where the file path would
+	// only restate the index this test is checking against.
 	if len(cases) > 0 && len(index.Cases) > 0 {
 		firstCaseRaw, err := data.ReadFile(path.Join("data", "conformance", "v1", "negotiation", index.Cases[0].File))
 		if err != nil {

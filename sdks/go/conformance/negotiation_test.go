@@ -65,7 +65,6 @@ func runKind(t *testing.T, kind string, run func(*testing.T, map[string]any)) {
 			continue
 		}
 		executed++
-		c := c
 		t.Run(describe(c), func(t *testing.T) { run(t, c) })
 	}
 	if executed == 0 {

@@ -74,8 +74,9 @@ const RELEASE_TYPES: Record<string, ReleaseTypeSpec> = {
     versionless: true,
     reason:
       "a Go module has no in-repo version file — the module proxy's version *is* the git tag, " +
-      "read back at runtime via runtime/debug.ReadBuildInfo — so there is nothing under " +
-      "sdks/go for this guard to cross-check against the manifest",
+      "and Shipment 2 will read it back at runtime via runtime/debug.ReadBuildInfo (nothing " +
+      "calls it today) — so there is nothing under sdks/go for this guard to cross-check " +
+      "against the manifest",
   },
 };
 

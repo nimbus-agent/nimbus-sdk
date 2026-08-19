@@ -123,8 +123,29 @@ ignored.
 ## Reading the contract data
 
 ```go
-schema, err := spec.LoadSchema("nimbus-item")             // docs/spec/schemas/v1/
-cases, err := spec.LoadCorpus("negotiation")              // 37 cases, in index order
+package main
+
+import (
+	"fmt"
+
+	"github.com/nimbus-agent/nimbus-sdk/sdks/go/spec"
+)
+
+func main() {
+	// Named without the ".schema.json" suffix — the loader appends it.
+	schema, err := spec.LoadSchema("nimbus-item") // docs/spec/schemas/v1/
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(schema["$id"])
+
+	// Every case the corpus's index lists, in index order.
+	cases, err := spec.LoadCorpus("negotiation")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(len(cases), "negotiation cases") // 37 negotiation cases
+}
 ```
 
 **Python's `spec_root()` has no counterpart here, and will not get one.** It returns a

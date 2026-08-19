@@ -102,12 +102,17 @@ Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require`
 The module root holds only `go.mod`: a package there would have an import path ending in
 `/go` while carrying some other package name, forcing a named import at every call site.
 
+The whole exported surface is seventeen identifiers, listed here in full because Go has
+no `docs/api-surface.md` equivalent yet:
+
 - `contract` (`sdks/go/contract/`) — `ContractVersions`, `HandshakeExit`,
-  `IsContractVersion`, `Negotiate`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
+  `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`,
+  `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
 - `spec` (`sdks/go/spec/`) — `LoadSchema` and `LoadCorpus` only. This is Python's single
   `nimbus_sdk` root split into two Go packages; a benign surface asymmetry.
-- `ipc` (`sdks/go/ipc/`) — **the hello frame only**: `EncodeHello`, `ParseHello`,
-  `HelloOk`, `HelloRefused`. The NDJSON reader and the handshake are Shipment 2.
+- `ipc` (`sdks/go/ipc/`) — **the hello frame only**: `HelloMessage`, `EncodeHello`,
+  `ParseHello`, `HelloResult`, `HelloOk`, `HelloRefused`. The NDJSON reader and the
+  handshake are Shipment 2.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
 **`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 306 files.** `go:embed`
@@ -188,9 +193,9 @@ docstring discloses the exact mechanism.
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
 and a corpus — and is not exhaustive across the package. `nimbus_sdk.connector_kit` is
 batteries, not a contract, and carries its own divergence on non-finite numbers —
-`json_result` refuses them, and Go's `encoding/json` refuses them too, which makes
-**`JSON.stringify` emitting `null` the outlier**, two bindings to one; see the
-Python-binding section of
+`json_result` refuses them, and Go's `encoding/json` will refuse them too when the Go kit
+lands (it ships no counterpart yet), which makes **`JSON.stringify` emitting `null` the
+outlier**, two bindings to one; see the Python-binding section of
 [`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md) rather than this list.
 
 Diagnostics separately adds two *surface* asymmetries, not further behavioral ones, and

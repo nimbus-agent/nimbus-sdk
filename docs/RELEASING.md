@@ -1,6 +1,7 @@
 # nimbus-sdk — Releasing
 
-How each official SDK is published. TypeScript and Python both ship today. The Go
+How each SDK is published. TypeScript and Python are official and both ship today. Go is
+on the official track but is not there yet — RFC-0013 is where that is claimed — and its
 pipeline is **written and wired but has never run**: no `sdks/go/v0.1.0` tag has been
 pushed, so nothing below about `proxy.golang.org` has been observed rather than designed.
 

@@ -29,9 +29,9 @@ func ManifestContractVersions(manifest any) []any {
 // DeclaredVersionsMatch reports whether a connector's running hello announces exactly
 // what its manifest declared.
 //
-// Set equality, not containment: the same members, no more and no fewer. The rule is
-// §7's second refusal cause — §7 is one heading over a three-item list, and there is no
-// subsection to cite, so "§7.2" (which earlier drafts used) names nothing.
+// Set equality, not containment, per §7's second refusal cause: the same members, no
+// more and no fewer. (§7 is one heading over a numbered three-item list, so the item is
+// citable but there is no §7.2 subsection to cite, which is what earlier drafts wrote.)
 // Announcing fewer is as much a mismatch as announcing more — a connector that
 // declared two majors and announces one is not the connector its manifest described.
 // Order is irrelevant, and duplicates in helloVersions are collapsed rather than

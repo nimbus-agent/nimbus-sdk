@@ -183,8 +183,11 @@ Stated so they read as decisions, not gaps:
   `JSON.stringify` silently emits `null` for all three. This was recorded here as
   *Python's* divergence, which quietly treated TypeScript as the norm — and the third
   binding shows that reading was wrong. Go's `encoding/json` also errors on a non-finite
-  float (`json: unsupported value: NaN`), so **two of three bindings refuse and one
-  substitutes**, and it is `JSON.stringify` that is the odd one out. Refusing is also the
+  float (`json: unsupported value: NaN`), and will do so through the Go kit's result
+  builders when they land in its Shipment 2 — Go ships no `json_result` counterpart today,
+  so this is a property of the stdlib the binding will use, not yet of shipped code. On
+  that basis **two of the three bindings refuse and one substitutes**, and it is
+  `JSON.stringify` that is the odd one out. Refusing is also the
   only behaviour that does not silently hand the other end a value it did not ask for: a
   connector that can produce a non-finite number in tool output should treat it as a bug
   in the tool, not paper over it with a decode-time `null`. Nothing about either

@@ -10,8 +10,10 @@
 - **Affects:** `sdks/go/` (a new module, `github.com/nimbus-agent/nimbus-sdk/sdks/go`),
   `release-please-config.json` and `.release-please-manifest.json` (a fourth component),
   `.github/workflows/ci.yml` (a `go` job, and `ci-complete`'s `needs`),
-  `.github/workflows/release-go.yml` (new). No change to `docs/spec/`, to any published
-  schema, or to any conformance corpus
+  `.github/workflows/release-go.yml` (new), and
+  `sdks/typescript/scripts/release-config-guard.test.ts` (extended for a versionless
+  release-type and a slash-separated tag component). No change to `docs/spec/`, to any
+  published schema, or to any conformance corpus
 - **Roadmap:** [Phase 3](../ROADMAP.md#phase-3--scale-languages--batteries) — the "Go
   release model (tag-based, not a registry push)" box, and the "Provenance for Go" box.
   **Not** the "Official **Go** SDK" box: officiality is
@@ -90,11 +92,15 @@ are not part of the surface:
 
 | Package | What it is |
 |---|---|
-| `spec` | `LoadSchema`, `LoadCorpus` over the embedded contract data |
-| `contract` | `ContractVersions`, `HandshakeExit`, `IsContractVersion`, `Negotiate`, `ManifestContractVersions`, `DeclaredVersionsMatch` |
-| `ipc` | The hello frame: `EncodeHello`, `ParseHello`, `HelloOk`, `HelloRefused` |
+| `spec` | `LoadSchema`, `LoadCorpus` |
+| `contract` | `ContractVersions`, `HandshakeExit`, `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`, `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch` |
+| `ipc` | The hello frame: `HelloMessage`, `EncodeHello`, `ParseHello`, `HelloResult`, `HelloOk`, `HelloRefused` |
 | `internal/gen` | Regenerates the embedded copy. Unimportable by anything outside the module |
 | `conformance` | Test-only; holds no non-test file |
+
+Seventeen exported identifiers, and that table is the **complete** list — written out
+rather than sampled, because Shipment 2's `docs/api-surface-go.md` does not exist yet and
+nothing else in the repository records what Go publishes.
 
 This splits Python's single `nimbus_sdk` root into two Go packages, `contract` and
 `spec`. That is a surface asymmetry, and a benign one. Shipment 2 adds `diagnostics` and
@@ -301,12 +307,12 @@ That action's committed `package-lock.json` at that commit pins
 `package.json` is not what runs, the lockfile is. Every artifact below was read at
 `v17.6.0`.
 
-### Five converging artifacts, at one pinned version
+### Four converging artifacts, at one pinned version
 
-They are **not five independent sources.** The schema, the docs, the test fixtures, and
+They are **not four independent sources.** The schema, the docs, the test fixtures, and
 the source all inherit their validity from one version-identification step: if the
-lockfile reading were wrong, all five would be describing the wrong library. They are
-five *converging* artifacts confirmed at one pinned version, which is a weaker claim
+lockfile reading were wrong, all four would be describing the wrong library. They are
+four *converging* artifacts confirmed at one pinned version, which is a weaker claim
 than independence and the accurate one.
 
 1. **`schemas/config.json`** — `tag-separator` and `include-component-in-tag` are both
@@ -326,9 +332,14 @@ than independence and the accurate one.
    per-package value wins; the root is a fallback. With no root key set at all, the three
    existing components see `undefined` on both sides and fall through to the built-in
    default `-`, which is exactly their behaviour before this change.
-5. **The tree state itself** — `git tag --list 'typescript-v*'` still lists
-   `typescript-v1.16.0`, `-v1.17.0`, `-v1.18.0` after the configuration change, because
-   nothing at the root moved.
+
+A fifth observation is worth stating and worth *not* counting: `git tag --list
+'typescript-v*'` still lists `typescript-v1.16.0`, `-v1.17.0`, `-v1.18.0` after the
+configuration change. That establishes only that the tags predating the change are intact,
+which they could not fail to be — tags are immutable and release-please has not run since.
+It says nothing about release-please and would read identically whether the four artifacts
+above were right or wrong. Whether the **next** run still re-recognises those tags as their
+components' latest releases is what artifacts 1–4 answer.
 
 **Conclusion: `tag-separator` and `include-component-in-tag` are per-package options.**
 They were set only inside `packages["sdks/go"]`, with no root-level key, and the other
@@ -401,33 +412,57 @@ promotion RFC can be written.
 | Change | Semver | Who is affected |
 |---|---|---|
 | A new Go module at `sdks/go/` | none for existing packages | Nobody today: no version is published, so nothing can depend on it |
-| A fourth release-please component | none | Verified not to affect the tag shape of the other three — see the five artifacts above |
+| A fourth release-please component | none | Verified not to affect the tag shape of the other three — see the four artifacts above |
 | A `go` job added to `ci.yml` and to `ci-complete`'s `needs` | none | Contributors: a Go change now blocks the merge queue on six legs |
 | `docs/spec` duplicated into `sdks/go/spec/data/` | none | Reviewers: every future `docs/spec` change now touches two trees, and the drift guard fails the pull request if it touches only one |
 
-### One existing guard this breaks, deliberately, and has not yet been reconciled
+### One existing guard this changes, and how it was reconciled
 
-`sdks/typescript/scripts/release-config-guard.test.ts` asserts two things about every
-release-please package that D1 and D6 make false for `sdks/go`, and **it fails today**:
+`sdks/typescript/scripts/release-config-guard.test.ts` asserted two things about every
+release-please package that D1 and D6 make false for `sdks/go`, and it went red the moment
+the fourth component landed. It was extended in the same branch to accommodate Go
+deliberately rather than incidentally; both changes are on the record here because both
+encode a *reason*, not just a passing assertion.
 
-- *"every declared release-type has a version reader."* Its `VERSION_READERS` map holds a
-  file and a parser per release type — `package.json` for `node`, `pyproject.toml` for
-  `python` — and a type with no entry fails rather than being skipped, on the stated
-  reasoning that a guard which quietly covers less than it appears to is worse than no
-  guard. **Go has no version file to read.** That is D6, not an omission: the tag is the
-  version, and adding a `const Version` for the guard's benefit would create exactly the
-  drift D6 exists to prevent.
-- *"no package opts out of the component tag prefix"*, which it enforces as
-  `component === basename(path)` — `sdks/typescript` → `typescript`. The `sdks/go`
-  component is the **full** `sdks/go`, because the module proxy requires the tag prefix to
-  be the module's subdirectory path. The guard's comment says the repository "deliberately
-  chose symmetric, component-prefixed tags for every language"; that symmetry is not
-  available to Go, and the guard has not been told.
+- **A release-type with no in-repo version file.** The map — now `RELEASE_TYPES`, formerly
+  `VERSION_READERS` — pairs each release type with the file that proves its package
+  directory is real and, where one exists, a parser for the version inside it
+  (`package.json` for `node`, `pyproject.toml` for `python`). A type absent from the map
+  still fails rather than being skipped, on the original reasoning that a guard which
+  quietly covers less than it appears to is worse than no guard. **Go has no version file
+  to read**, which is D6 and not an omission: the tag is the version, and adding a
+  `const Version` for the guard's benefit would create exactly the drift D6 exists to
+  prevent. So `go` declares `{ file: "go.mod", versionless: true, reason: … }`. The flag
+  skips the version *comparison* only — the package-path existence check still runs against
+  `go.mod` — and the mandatory `reason` string is what keeps a deliberately versionless
+  entry distinguishable from a forgotten one, which to a reader of that file would
+  otherwise look identical.
+- **A component that is a full path, not a basename.** The tag-prefix test previously
+  enforced `component === basename(path)` — `sdks/typescript` → `typescript`. `sdks/go`'s
+  component is the **full** `sdks/go`, because the module proxy requires a subdirectory
+  module's tag to carry its whole directory as a slash-prefix. The guard now binds that to
+  the separator **in both directions**: `tag-separator: "/"` requires `component === path`,
+  and any package without it keeps the basename rule. Both halves are load-bearing. Without
+  the first, a basename component left paired with `/` would ship `go/v0.1.0`, still
+  missing the `sdks/` prefix; without the second, a `sdks/go` component left on the default
+  `-` would ship `sdks/go-v0.1.0`. Each is wrong for the proxy and neither is obviously
+  wrong to read.
 
-Both are the guard correctly noticing an assumption that changed. Reconciling them is a
-decision about the guard's invariant — whether "no version file" is a first-class case or
-an exemption list — and not something to settle by loosening the assertion until it
-passes.
+**The extension is strictly additive for `node` and `python`.** The non-slash branch is
+byte-for-byte the assertion those two already passed, so nothing about them was relaxed to
+make room for Go — and they gained a check they did not have before: a stray
+`tag-separator: "/"` on the Python entry would now fail, where previously the key was not
+read at all.
+
+**One residual gap, seen and left.** Deleting `tag-separator` from the `sdks/go` entry
+*and* reverting its component to `go` in the same edit produces an entry that is
+self-consistent under the relationship rule — basename component, default separator — while
+still being wrong for the module proxy, which needs the `sdks/` prefix. Closing it would
+mean binding `release-type: "go"` itself to requiring `tag-separator: "/"`, a third rule
+tying the language to a tag shape. That was judged not worth the coupling for a
+two-simultaneous-mistakes scenario, and the fact that the release workflow's verify job
+would fail loudly on the resulting tag is the backstop. Recorded so a later reader knows it
+was considered rather than missed.
 
 **None of the four TypeScript CI gates apply to Go.** `api-surface`, `docs-coverage`,
 `smoke-calls`, and `docs-snippets` all read the TypeScript surface only. Go's own

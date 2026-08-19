@@ -304,19 +304,29 @@ maintained."*
   checksum mismatch), so it is a deliberate act after this work is green on `main`, not
   part of landing it.
 - [~] **Provenance for Go** — since there is no registry token, attach **Sigstore / SLSA
-  build provenance** to the GitHub Release artifacts — *Pillar 5*.
-  `release-go.yml` attests a `git archive` of the module tree and then verifies, from a
-  scratch directory outside any checkout, that the module resolves through
-  `proxy.golang.org` **with a `go.sum` entry**. Also unexercised until a tag exists.
-  **This box's original wording was wrong and has been corrected**: it promised Go "the
-  same 'verifiable, tokenless' property as the npm/PyPI SDKs," but Go consumers never
-  fetch GitHub Release artifacts — `go get` resolves through the proxy — so an
-  attestation on a tarball nobody downloads is ceremony. The load-bearing guarantee for a
-  Go consumer is `sum.golang.org`, a transparency log every `go` client verifies
-  automatically: broader in reach than npm provenance, narrower in claim. Different in
-  kind, not weaker. And **no tag signing**: that needs a private key in repository
-  secrets, which would put a long-lived credential into the one language that needs no
-  publish credential at all. See [RFC-0012](./rfcs/0012-go-sdk-binding.md) and
+  build provenance** to what the release tags — *Pillar 5*. `release-go.yml` attests a
+  `git archive` of the module tree at the tag, then verifies from a scratch directory
+  outside any checkout that the module resolves through `proxy.golang.org` **with a
+  `go.sum` entry**. Unexercised until a tag exists.
+
+  **This box's original wording was wrong in two ways, and both are corrected here.** It
+  asked for provenance "attached to the GitHub Release artifacts," giving Go "the same
+  'verifiable, tokenless' property as the npm/PyPI SDKs."
+
+  - *Nothing is attached to a Release.* The archive is an attestation **subject**; the
+    signed statement lives in this repository's attestation store and is checked with
+    `gh attestation verify`, not downloaded from a Release page. Uploading it would only
+    invite the belief that a Go consumer fetches it, which none does.
+  - *It is not the same property.* `go get` resolves through the module proxy, so an
+    attestation on an artifact nobody fetches is ceremony. The load-bearing guarantee for
+    a Go consumer is **`sum.golang.org`**, a transparency log every `go` client verifies
+    automatically — broader in reach than npm provenance, which most installs never check,
+    and narrower in claim, since it attests that the bytes are unchanged rather than where
+    they were built. Different in kind, not weaker.
+
+  And **no tag signing**: that needs a private key in repository secrets, which would put
+  a long-lived credential into the one language that needs no publish credential at all.
+  See [RFC-0012](./rfcs/0012-go-sdk-binding.md) and
   [RELEASING.md](./RELEASING.md#go--module-proxy-implemented-not-yet-exercised).
 - [ ] A **reusable release workflow** (harden-runner → build/test → publish →
   post-publish verify) that each language's release job calls, so the hardened

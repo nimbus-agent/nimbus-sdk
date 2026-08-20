@@ -229,7 +229,11 @@ jobs:
       # toolchain (see allowed-endpoints below). GOTOOLCHAIN=local suppresses the `go`
       # command's own toolchain fetch, which is a different mechanism happening later.
       GOTOOLCHAIN: local
-      # Absent docs/spec must fail the drift guard here, not skip it.
+      # Two guards skip when the file they compare against is missing, because a
+      # consumer running `go test ./...` on the downloaded module has no checkout:
+      # spec/drift_test.go without docs/spec, and internal/apisurface/cmd's golden
+      # test without docs/api-surface-go.md. Here both files exist, so an absent
+      # one is a path typo — this turns each skip into a failure.
       NIMBUS_SPEC_DRIFT: required
     steps:
       - name: Harden Runner

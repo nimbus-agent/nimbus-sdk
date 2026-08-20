@@ -94,8 +94,12 @@ func TestRenderProducesEveryPackage(t *testing.T) {
 			t.Errorf("package %q is missing from the rendered surface", pkg)
 		}
 	}
-	if n := strings.Count(got, "\n- `"); n < 15 {
-		t.Errorf("rendered only %d declarations; the module exports 17", n)
+	// A deliberately slack floor: it catches a walker that has stopped walking,
+	// not a surface that shrank by one. The current total is whatever
+	// docs/api-surface-go.md says, and the golden test above is what pins it.
+	const floor = 15
+	if n := strings.Count(got, "\n- `"); n < floor {
+		t.Errorf("rendered only %d declarations, below the anti-vacuity floor of %d", n, floor)
 	}
 }
 
@@ -148,10 +152,12 @@ func TestPackagesCoversEveryPublishedPackage(t *testing.T) {
 				return filepath.SkipDir
 			}
 		}
-		// rel == "." is the sdks/go directory itself, which holds no package.
-		if rel == "." {
-			return nil
-		}
+		// The module root is deliberately not exempted. It holds only go.mod
+		// today, so the non-test-.go check below skips it anyway — but a package
+		// created directly at sdks/go would then be caught rather than waved
+		// through, since known["."] is false. Pinning that the same way
+		// TestConformanceHasNoNonTestGoFiles pins conformance's exemption,
+		// rather than assuming the root will stay empty.
 
 		entries, readErr := os.ReadDir(p)
 		if readErr != nil {

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.3.0...sdks/go/v0.4.0) (2026-08-20)
+
+
+### Features
+
+* **go:** bind the diagnostics contract and execute its corpus (Shipment 2b) ([#146](https://github.com/nimbus-agent/nimbus-sdk/issues/146)) ([3fb2fca](https://github.com/nimbus-agent/nimbus-sdk/commit/3fb2fca67c29fa15162c9a57de15ff21b447f0c1))
+
 ## [0.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.2.0...sdks/go/v0.3.0) (2026-08-20)
 
 

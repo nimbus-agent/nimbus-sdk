@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/ipc"
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/spec"
@@ -58,12 +59,34 @@ func octets(t *testing.T, node map[string]any) []byte {
 }
 
 // frameText is an expected frame: a literal string, or a repeat descriptor decoded.
+//
+// Decoded, not reinterpreted: a Go string conversion carries octets through unchanged,
+// where TypeScript's expandFrame runs the same descriptor through TextDecoder and
+// Python's _frame_text through bytes.decode("utf-8"). Every repeat descriptor in the
+// corpus today repeats an ASCII octet, for which the two agree, so this changes nothing
+// now — but a case repeating a non-ASCII octet would compare raw octets against the
+// reader's decoded text and fail Go alone, for a reason having nothing to do with the
+// reader. A repeat unit that is not well-formed UTF-8 would additionally hit the
+// replacement-count divergence documented in sdks/go/ipc/utf8stream.go, and needs that
+// settled before such a case can be indexed.
 func frameText(t *testing.T, node any) string {
 	t.Helper()
 	if s, ok := node.(string); ok {
 		return s
 	}
-	return string(octets(t, node.(map[string]any)))
+	return decodeUTF8(octets(t, node.(map[string]any)))
+}
+
+// decodeUTF8 turns octets into text the way the reader does: one U+FFFD per octet that
+// no valid sequence can start or continue. Identity on well-formed input.
+func decodeUTF8(b []byte) string {
+	var out strings.Builder
+	for len(b) > 0 {
+		r, size := utf8.DecodeRune(b)
+		out.WriteRune(r)
+		b = b[size:]
+	}
+	return out.String()
 }
 
 // expectsError reports whether an expectation node is {"error": …}.
@@ -90,8 +113,22 @@ func TestFramingCorpus(t *testing.T) {
 		c := c
 		t.Run(describe(c), func(t *testing.T) {
 			executed++
-			chunks, _ := c["chunks"].([]any)
-			expect, _ := c["expect"].(map[string]any)
+			// Checked rather than comma-ok'd away: a case with a mistyped "chunks" or
+			// "expect" key would otherwise run vacuously — both assertions yield nil,
+			// len(nil) == len(nil) passes the malformed check below, and the push loop
+			// iterates zero times while the subtest reports PASS. TypeScript's runner
+			// is protected from that by validating each case against case.schema.json;
+			// Go has no equivalent, so the runner names the two keys it cannot work
+			// without. An empty "chunks": [] is a real case (empty-stream.json) and
+			// unmarshals to a non-nil []any, so it still passes.
+			chunks, ok := c["chunks"].([]any)
+			if !ok {
+				t.Fatalf("case is malformed: no \"chunks\" array (got %#v)", c["chunks"])
+			}
+			expect, ok := c["expect"].(map[string]any)
+			if !ok {
+				t.Fatalf("case is malformed: no \"expect\" object (got %#v)", c["expect"])
+			}
 			pushExpect, _ := expect["push"].([]any)
 			if len(pushExpect) != len(chunks) {
 				t.Fatalf("case is malformed: %d chunks but %d push expectations",
@@ -105,6 +142,20 @@ func TestFramingCorpus(t *testing.T) {
 				if expectsError(pushExpect[i]) {
 					if !errors.Is(err, ipc.ErrFrameTooLong) {
 						t.Fatalf("push %d: err = %v, want ErrFrameTooLong", i, err)
+					}
+					// framing.md §7: "A reader MUST NOT emit frames it parsed before
+					// detecting the violation." In TypeScript and Python a thrown
+					// exception makes partial delivery structurally impossible; in Go
+					// an error travels beside a slice, so the MUST needs asserting or
+					// nothing in the suite covers it. limit-violation-latches.json is
+					// the case that bites: its first chunk is "good\n" ahead of the
+					// oversized frame, so a reader returning `out, r.latch()` instead
+					// of `nil, r.latch()` would hand "good" to the consumer here and
+					// still satisfy every other assertion in the corpus.
+					if len(got) != 0 {
+						t.Fatalf("push %d violates framing.md §7: reader delivered %d frame(s) %q "+
+							"alongside ErrFrameTooLong; frames parsed before a limit violation "+
+							"must not be emitted", i, len(got), got)
 					}
 					failed = true
 					// Do not stop here: a latched reader is expected to keep
@@ -146,6 +197,13 @@ func TestFramingCorpus(t *testing.T) {
 			if expectsError(flushExpect) {
 				if !errors.Is(err, ipc.ErrFrameTooLong) {
 					t.Fatalf("flush: err = %v, want ErrFrameTooLong", err)
+				}
+				// §7 again, on the other exit: a latched Flush must return no frame
+				// beside its error, for the same reason and with the same blind spot.
+				if len(res.Frames) != 0 {
+					t.Fatalf("flush violates framing.md §7: reader delivered %d frame(s) %q "+
+						"alongside ErrFrameTooLong; frames parsed before a limit violation "+
+						"must not be emitted", len(res.Frames), res.Frames)
 				}
 				return
 			}

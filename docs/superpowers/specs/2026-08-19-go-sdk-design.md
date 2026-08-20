@@ -410,8 +410,11 @@ Note that none of the four TypeScript CI gates apply to Go: `api-surface`,
 
 ## Follow-ups
 
-1. **Python's missing surface gate.** `docs/api-surface-go.md` gives it a template;
-   adopting it for Python remains Follow-up 2 of the Python connector-kit design.
+1. **Python's missing surface gate.** The Go gate now exists —
+   `sdks/go/internal/apisurface/cmd/golden_test.go` compares the walker's live output
+   against the committed `docs/api-surface-go.md` snapshot — and gives Python a template.
+   Adopting an equivalent for Python remains open, tracked as Follow-up 2 of the Python
+   connector-kit design.
 2. **The connector-kit transport, router, and REST factories** in both Python and Go,
    once Python's Shipment 2 defines them.
 3. **`create-connector --lang go`**, once the Go surface is stable.

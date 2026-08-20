@@ -110,6 +110,21 @@ A change to a type that is used in a public signature but not itself exported fr
 barrel (e.g. an options type named in a constructor parameter) is a breaking change
 that this file will not show; review those by hand.
 
+### Changing the Go public API surface
+
+`docs/api-surface-go.md` is the Go equivalent: a generated snapshot of every exported
+declaration across `contract`, `ipc`, and `spec`. If you add, remove, rename, or change
+the signature of an exported Go declaration, regenerate it in the same commit:
+
+```bash
+go -C sdks/go run ./internal/apisurface/cmd
+```
+
+`sdks/go/internal/apisurface/cmd/golden_test.go` renders the surface itself and compares
+it against the committed file, failing the pull request when they differ — so an export
+that shipped without a regenerated snapshot fails CI, the same guarantee
+`bun run api:surface` gives TypeScript above.
+
 ## Adding a public export
 
 A new export must be documented before it can ship. `sdks/typescript/scripts/docs-coverage.test.ts`

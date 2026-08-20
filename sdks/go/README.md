@@ -9,9 +9,11 @@ go get github.com/nimbus-agent/nimbus-sdk/sdks/go
 
 The import path ends in `/go` because the module lives in a subdirectory of the
 contract's own repository, which is what keeps the spec and the conformance corpora
-in-tree: a new corpus case runs in every binding the moment it is indexed. Release tags
-are correspondingly prefixed — `sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of
-a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
+in-tree: a new corpus case runs the moment it is indexed, in every binding that already
+executes that corpus. For Go today that is `negotiation` and `framing` and no others, so
+a new `diagnostics` or `url-resolution` case reaches nothing here until Shipment 2 binds
+those surfaces — see [Status](#status). Release tags are correspondingly prefixed —
+`sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
 
 > **Not yet released.** No `sdks/go/v0.1.0` tag has been pushed, so the `go get` above
 > does not resolve yet. The module builds from a checkout today.
@@ -33,7 +35,7 @@ is the reference implementation; every binding is held to the same conformance c
 |---|---|
 | `.../sdks/go/contract` | The contract majors, the negotiation algorithm, and the manifest-versus-hello declaration check |
 | `.../sdks/go/spec` | `LoadSchema` and `LoadCorpus` over the embedded contract data |
-| `.../sdks/go/ipc` | The hello frame — `EncodeHello`, `ParseHello` |
+| `.../sdks/go/ipc` | The hello frame (`EncodeHello`, `ParseHello`) and the NDJSON line reader (`LineReader`) |
 
 ## Negotiating a contract version
 
@@ -117,6 +119,70 @@ Whitespace and member order are insignificant — this parses JSON, and a reader
 compares bytes against the canonical form is non-conformant. Unknown members are
 ignored.
 
+## Reading NDJSON lines
+
+`LineReader` buffers UTF-8 octets arriving in arbitrary-sized chunks and returns
+complete, non-empty lines — a chunk boundary is not a line boundary, and this type
+exists so a caller never has to assume otherwise. The zero value is ready to use.
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/nimbus-agent/nimbus-sdk/sdks/go/ipc"
+)
+
+func main() {
+	var reader ipc.LineReader
+
+	// A four-octet rune (U+1F600, F0 9F 98 80) split across two chunks decodes
+	// intact — the reader holds the incomplete prefix rather than emitting a
+	// replacement character for it.
+	frames, err := reader.Push([]byte("{\"a\":1}\n{\"b\":\"\xf0\x9f"))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(frames) // [{"a":1}]
+
+	frames, err = reader.Push([]byte("\x98\x80\"}\n"))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(frames) // [{"b":"😀"}]
+
+	// Flush drains whatever is still buffered at end-of-stream and reports whether
+	// it was cut off mid-line.
+	result, err := reader.Flush()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(result) // {[] false}
+}
+```
+
+`Push` returns every complete frame the chunk finished, in order. `Flush` is
+end-of-stream's job: it reports the one trailing frame that was still buffered, if any,
+and `FlushResult.Truncated`, which is true when no newline ever terminated it — so a
+peer killed mid-write surfaces as a fact rather than as a JSON parse error pointing at
+the wrong cause.
+
+**Exceeding `IPCMaxLineBytes` (1 MiB, inclusive) is terminal, not advisory.** `Push` and
+`Flush` return `ErrFrameTooLong` — match it with `errors.Is` — once a line, or the
+unterminated buffer, crosses the limit, and the reader latches: every later call returns
+the same error and the buffer is discarded, so a peer cannot resynchronise a latched
+reader by following an oversized line with a newline.
+
+Malformed UTF-8 decodes to U+FFFD rather than erroring — the stream is untrusted input,
+and refusing to decode it would terminate a connection the protocol says should carry
+on.
+
+**Missing from this package: the handshake.** `ipc` carries the hello frame and this
+line reader, but nothing here performs the read-hello / write-hello / negotiate exchange
+that Python's `perform_handshake` and TypeScript's `performHandshake` carry out end to
+end. See [Status](#status) below.
+
 ## Reading the contract data
 
 ```go
@@ -158,23 +224,21 @@ staying invisible to the other two bindings.
 
 Early, and narrower than the other two bindings. This shipment carries the
 contract-version constants, the negotiation algorithm, the manifest declaration check,
-the hello frame, and the spec loaders. It executes the full `negotiation` conformance
-corpus — all 37 cases across all three of its kinds, `negotiate`, `hello`, and
-`declaration`, with nothing deferred.
+the hello frame, the spec loaders, and the NDJSON line reader. It executes two of the
+four published conformance corpora in full, nothing deferred in either: `negotiation`
+— all 37 cases across all three of its kinds, `negotiate`, `hello`, and `declaration` —
+and `framing` — all 25 cases.
 
 **Not here yet**, all of it Shipment 2:
 
-- **The NDJSON line reader and the handshake.** `ipc` carries the hello frame only, so
-  you can encode and parse one but there is nothing here that performs the exchange.
-  When it lands it will be **synchronous**, over `io.Reader` / `io.Writer` — matching
-  Python rather than TypeScript's `async`.
+- **The handshake.** `ipc` carries the hello frame and the line reader, so you can
+  encode and parse a hello and read NDJSON off a stream, but nothing here performs the
+  exchange end to end. When it lands it will be **synchronous**, over `io.Reader` /
+  `io.Writer` — matching Python rather than TypeScript's `async`.
 - **Diagnostics.** No `Encode` / `Parse` / `MeetsLevel`, and no `diagnostics` corpus run.
 - **The connector kit.** No URL resolution, no environment seam, no MCP result builders,
-  no search filter.
+  no search filter, and no `url-resolution` corpus run.
 - **A version accessor.** There is no `Version` constant; the tag is the version.
-- **A generated API-surface snapshot.** TypeScript's `docs/api-surface.md` guards its
-  exports; Go's equivalent does not exist yet, so the exported surface here is unguarded
-  — the same gap Python carries.
 
 Track it in the
 [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).

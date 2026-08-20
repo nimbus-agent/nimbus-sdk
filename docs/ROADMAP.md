@@ -268,10 +268,14 @@ maintained."*
 
 - [~] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*. A Go
   binding exists at [`sdks/go/`](../sdks/go/) — module
-  `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero dependencies — and executes the
-  `negotiation` corpus in full: all 37 cases across all three kinds, nothing deferred.
-  That is **not** the full suite: `framing`, `diagnostics`, and `url-resolution` land with
-  the packages that bind them. And it is not **official**, which is a governance act, not
+  `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero dependencies — and now executes two
+  of the four published corpora in full, nothing deferred in either: `negotiation` (all
+  37 cases across all three kinds) and, since this work, `framing` (all 25 cases), run
+  against a new `LineReader`. That is **not** the full suite: `diagnostics` and
+  `url-resolution` still land with the packages that bind them. Nor does a `LineReader`
+  mean the handshake is bound — `ipc` carries the hello frame and the line reader, not
+  the read-hello/write-hello/negotiate exchange between them, which is a separate,
+  not-yet-started plan. And it is not **official**, which is a governance act, not
   a test result — [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four
   criteria have to be recorded as met in an RFC that names an owner, and
   [RFC-0012](./rfcs/0012-go-sdk-binding.md) deliberately does not claim them. RFC-0013

@@ -31,14 +31,20 @@ not even another package inside this module.
 
 ## `ipc`
 
-6 exports.
+12 exports.
 
 - `const HelloMessage = "hello"`
+- `const IPCMaxLineBytes = 1024 * 1024`
+- `func (r *LineReader) Flush() (FlushResult, error)`
+- `func (r *LineReader) Push(chunk []byte) ([]string, error)`
 - `func EncodeHello(versions []string) string`
 - `func ParseHello(frame string) HelloResult`
+- `type FlushResult struct { Frames []string; Truncated bool }`
 - `type HelloOk struct { ContractVersions []string }`
 - `type HelloRefused struct { Reason string }`
 - `type HelloResult interface {}`
+- `type LineReader struct {}`
+- `var ErrFrameTooLong = errors.New("Message exceeds 1MB line limit")`
 
 ## `spec`
 

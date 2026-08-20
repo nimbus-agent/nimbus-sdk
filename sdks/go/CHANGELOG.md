@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.1.0...sdks/go/v0.2.0) (2026-08-20)
+
+
+### Features
+
+* **go:** bind the NDJSON line reader and execute the framing corpus ([#141](https://github.com/nimbus-agent/nimbus-sdk/issues/141)) ([f4a6579](https://github.com/nimbus-agent/nimbus-sdk/commit/f4a65797e8fcc70a6947882a886d4aef25fa33fc))
+
 ## 0.1.0 (2026-08-20)
 
 

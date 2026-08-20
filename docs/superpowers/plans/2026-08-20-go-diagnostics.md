@@ -1016,8 +1016,14 @@ func TestEncodeNormalisesNegativeZero(t *testing.T) {
 	event["fields"] = map[string]any{"n": math.Copysign(0, -1)}
 
 	ok := Encode(event).(EncodeOk)
-	if !strings.Contains(ok.Line, `"n":0`) || strings.Contains(ok.Line, `-0`) {
+	// Assert on the fields fragment, NOT on the whole line: a bare Contains(line, "-0")
+	// matches the timestamp — "2026-08-01" holds "6-0" — and fails a correct encoder.
+	// Measured: an earlier draft of this test did exactly that.
+	if !strings.Contains(ok.Line, `"fields":{"n":0}`) {
 		t.Errorf("Line = %s, want the bare digit 0", ok.Line)
+	}
+	if strings.Contains(ok.Line, `"n":-0`) {
+		t.Errorf("Line = %s, want no signed zero", ok.Line)
 	}
 }
 

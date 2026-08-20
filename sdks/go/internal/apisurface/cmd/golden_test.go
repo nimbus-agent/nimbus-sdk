@@ -22,28 +22,15 @@ const requireEnv = "NIMBUS_SPEC_DRIFT"
 // "ipc", "spec") as a directory relative to the current working directory —
 // but `go test` always runs a package's tests with the working directory set
 // to that package's own source directory, here
-// sdks/go/internal/apisurface/cmd, three levels below the module root. Calling
-// Render() without first changing directory therefore cannot find "contract"
-// (verified: it fails with "reading contract: ... cannot find the file
-// specified"). t.Cleanup restores the original directory so later tests in
-// this package — which resolve their own paths relative to it — are
-// unaffected; Go runs a package's tests sequentially unless they opt into
-// t.Parallel(), which none here do, so the chdir is never visible outside one
-// test's body.
+// sdks/go/internal/apisurface/cmd, three levels below the module root, so
+// calling Render() without first changing directory cannot find "contract".
+// t.Chdir (Go 1.24+; go.mod declares go 1.26) changes directory and restores
+// it via Cleanup automatically, and refuses to run in a parallel test or one
+// with parallel ancestors — the property this helper needs, enforced by the
+// stdlib rather than argued in a comment.
 func renderFromModuleRoot(t *testing.T) (string, error) {
 	t.Helper()
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
-	}
-	if err := os.Chdir("../../.."); err != nil { // sdks/go, three levels up.
-		t.Fatalf("Chdir to module root: %v", err)
-	}
-	t.Cleanup(func() {
-		if err := os.Chdir(wd); err != nil {
-			t.Fatalf("restoring working directory: %v", err)
-		}
-	})
+	t.Chdir("../../..") // sdks/go, three levels up.
 	return Render()
 }
 
@@ -123,11 +110,13 @@ var packagesGuardExceptions = map[string]string{}
 // falling out of date: a new package added under sdks/go without an entry in
 // packages would otherwise pass every other test in this file forever, with no
 // signal. It walks sdks/go for directories holding at least one non-test .go
-// file, skips internal/ (never published), and requires every survivor to be
-// named either in packages or in packagesGuardExceptions. The walk is
-// recursive, not limited to sdks/go's immediate children — every existing
-// entry in packages happens to be one level deep, but a directory boundary is
-// a package boundary in Go, so a package introduced at any depth outside
+// file, skips any directory with an "internal" path segment at any depth
+// (never published — Go itself restricts imports across an internal
+// boundary, wherever it appears), and requires every survivor to be named
+// either in packages or in packagesGuardExceptions. The walk is recursive,
+// not limited to sdks/go's immediate children — every existing entry in
+// packages happens to be one level deep, but a directory boundary is a
+// package boundary in Go, so a package introduced at any depth outside
 // internal/ must be caught the same way.
 func TestPackagesCoversEveryPublishedPackage(t *testing.T) {
 	root := "../../.." // sdks/go, three levels up from sdks/go/internal/apisurface/cmd.
@@ -154,8 +143,10 @@ func TestPackagesCoversEveryPublishedPackage(t *testing.T) {
 		}
 		rel = filepath.ToSlash(rel)
 
-		if rel == "internal" || strings.HasPrefix(rel, "internal/") {
-			return filepath.SkipDir
+		for _, segment := range strings.Split(rel, "/") {
+			if segment == "internal" {
+				return filepath.SkipDir
+			}
 		}
 		// rel == "." is the sdks/go directory itself, which holds no package.
 		if rel == "." {

@@ -94,7 +94,7 @@ func declarations(fset *token.FileSet, file *ast.File) []string {
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
-			if !d.Name.IsExported() {
+			if !d.Name.IsExported() || !receiverIsExported(d.Recv) {
 				continue
 			}
 			out = append(out, funcSignature(fset, d))
@@ -279,6 +279,22 @@ func exportedFields(fset *token.FileSet, fields *ast.FieldList, kind memberKind)
 	}
 	sort.Strings(parts)
 	return " " + strings.Join(parts, "; ") + " "
+}
+
+// receiverIsExported reports whether a method's receiver type is exported, and true for
+// a plain function, which has no receiver.
+//
+// An exported method name on an UNEXPORTED type is not part of the published surface: a
+// consumer cannot name the type, so the only way to reach the method is through an
+// interface the package also exports, and that interface already appears here. Listing
+// it anyway claims a type is public that is not — diagnostics' *emitter is the first such
+// type in this module, and without this filter its five methods inflate that package's
+// count from 18 to 23.
+func receiverIsExported(recv *ast.FieldList) bool {
+	if recv == nil || len(recv.List) == 0 {
+		return true
+	}
+	return embeddedIsExported(recv.List[0].Type)
 }
 
 // embeddedIsExported reports whether an anonymous field's implicit name — the

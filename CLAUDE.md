@@ -112,6 +112,14 @@ surface is shaped this way, which the generated file, by design, does not:
   `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
 - `spec` (`sdks/go/spec/`) — `LoadSchema` and `LoadCorpus` only. This is Python's single
   `nimbus_sdk` root split into two Go packages; a benign surface asymmetry.
+- `diagnostics` (`sdks/go/diagnostics/`) — the diagnostics contract v0: `Encode`, `Parse`,
+  `MeetsLevel`, `DiagnosticKinds`, `DiagnosticLevels`, the sealed `EncodeResult` /
+  `ParseResult` with their four cases, and — unlike Python — an emitter: `NewEmitter`,
+  `Emitter`, `Emit`, `EmitDetail`, `EmitError`, `EmitResult`, `EmitSinkFailed`. It is
+  **synchronous**, where TypeScript's returns a `Promise`. `Encode` takes `any` rather
+  than a typed struct, because §5 requires an unknown member to be reported with a JSON
+  Pointer to it and no struct can carry one. Python's `format_timestamp` has no
+  counterpart: `time.Format` is built in.
 - `ipc` (`sdks/go/ipc/`) — the hello frame (`HelloMessage`, `EncodeHello`, `ParseHello`,
   `HelloResult`, `HelloOk`, `HelloRefused`), the NDJSON line reader (`LineReader` with
   `Push` / `Flush`, `IPCMaxLineBytes`, `ErrFrameTooLong`, `FlushResult`), and, since this
@@ -162,14 +170,24 @@ on-disk layout of `docs/spec` part of Go's public API, so moving `conformance/v1
 would become a Go breaking change while staying invisible to the other two bindings.
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
-Go now executes two of the four published conformance corpora, nothing deferred in
-either: `negotiation` — all 37 cases across all three kinds (`negotiate` 16, `hello` 15,
-`declaration` 6) — and, since this branch, `framing` — all 25 cases, run against
-`LineReader` by `sdks/go/conformance/framing_test.go`. `diagnostics` and
-`url-resolution` still land with the packages that bind them; Go has neither a
-diagnostics package nor a connector kit yet. Go carries a **floor** per corpus rather
-than Python's exact case counts (`negotiation`'s `TestTheCorpusIsSubstantial` fails
-under 30 total cases, `framing`'s inline check fails under 20), plus a structural
+Go now executes **three** of the four published conformance corpora, nothing deferred in
+any: `negotiation` — all 37 cases across all three kinds (`negotiate` 16, `hello` 15,
+`declaration` 6) — `framing` — all 25 cases, run against `LineReader` — and, since this
+branch, `diagnostics` — all 75, across `encode` (64), `parse` (6) and `level` (5). Only
+`url-resolution` is outstanding, and it lands with the connector kit, which Go does not
+have yet — so 2c is the last thing between this binding and GOVERNANCE criterion 1.
+
+**`spec.LoadCorpus` decodes with `UseNumber`, and had to.** The `diagnostics` corpus
+spells a non-finite `fields` value as the literal `1e400`, which overflows `float64`, and
+`json.Unmarshal` returns an *error* for it where Python's `json.loads` yields `inf` and
+`JSON.parse` yields `Infinity` — so before this branch the loader could not read that
+corpus at all. Every corpus number is therefore a `json.Number`, and a `.(float64)`
+assertion on corpus data is now always wrong. The exact literal is also what makes the
+±(2⁵³−1) bound exact rather than post-rounding.
+
+Go carries a **floor** per corpus rather than Python's exact case counts (`negotiation`'s
+`TestTheCorpusIsSubstantial` fails under 30 total cases, `framing`'s inline check fails
+under 20, `diagnostics`' under 60), plus a structural
 guard against silent vacuity in each runner — `runKind` fails when a *kind* filter
 matches zero cases, `TestFramingCorpus` fails when its subtest count diverges from
 `len(cases)`, different mechanisms catching the same class of mistake. Both languages
@@ -237,6 +255,19 @@ docstring discloses the exact mechanism.
   defined §7 outcome — is never an error, and a transport failure is never a refusal. The
   streams are stdlib interfaces rather than the two-method object the other bindings
   inject, because Go has one worth binding to and they do not.
+- **Go is a third answer to §8's undefined behaviour, and the nastiest of the three.**
+  Given an ill-formed `extensionId`, `encoding/json` **substitutes U+FFFD for each
+  ill-formed byte and returns no error** — measured on Go 1.27: a lone surrogate as WTF-8
+  (`ED A0 80`) becomes **three** U+FFFD, `F0 9F` becomes two, and a bare `FF` becomes one.
+  So `Encode` returns `ok` with the identifier **silently mutated**, where TypeScript
+  passes the ill-formed code point through intact and Python raises `UnicodeEncodeError`.
+  Decoding is not symmetric either: `json.Unmarshal` of the escape `"\ud800"` yields a
+  *single* U+FFFD, so a round trip through Go changes both the bytes and their count.
+  This is inherited, not chosen — §5's rejection tokens are closed, so there is no
+  `invalid-utf8` to return, and §8 forbids a binding inventing a verdict until the
+  manifest rule registry constrains the identifier's format. Same root cause as the
+  bullet below: Go's standard library counts bytes where the web platform counts
+  sequences.
 - **The U+FFFD count for an invalidated multi-octet prefix is a new divergence, and it
   is Go alone.** Whenever a well-formed *prefix* of a multi-octet UTF-8 sequence is
   invalidated, `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover

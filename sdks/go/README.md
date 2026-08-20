@@ -229,6 +229,43 @@ result, err := ipc.PerformHandshake(conn, conn, ipc.HandshakeConfig{Reader: read
 // ... then keep reading through `reader`, not a fresh one.
 ```
 
+## Emitting a diagnostic
+
+```go
+emit := diagnostics.NewEmitter("acme-gcal", func(line string) error {
+	_, err := fmt.Fprintln(os.Stderr, line)
+	return err
+})
+
+switch outcome := emit.Info("sync.page", diagnostics.EmitDetail{
+	Ts:     time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+	Fields: map[string]any{"items": 42, "partial": true},
+}).(type) {
+case diagnostics.EncodeOk:
+	// Written.
+case diagnostics.EncodeRejected:
+	// Refused BEFORE anything reached the sink — outcome.Reason says why, and
+	// outcome.Path is a JSON Pointer to the member at fault.
+case diagnostics.EmitSinkFailed:
+	// The line was valid; the sink refused it. outcome.Line is that line.
+default:
+	panic(fmt.Sprintf("unreachable emit result %T", outcome))
+}
+```
+
+The emitter **reads no clock**: `Ts` is yours to supply, which is what lets two bindings
+encode the same event identically. Diagnostic lines travel on standard error — never on
+the frame stream.
+
+The envelope is **closed**: a member the contract does not name is rejected as
+`unknown-member` rather than travelling, which is the whole redaction guarantee. So
+`fields` takes booleans and integers only, and `error` takes a `code` and an optional
+`retriable` — there is deliberately no `message` and no `stack`.
+
+`diagnostics.Encode` and `diagnostics.Parse` are there for a caller who wants the envelope
+without the emitter. `Encode` takes `any` rather than a typed struct so that an unknown
+member can be reported with a pointer to it; pass a `map[string]any`.
+
 ## Reading the contract data
 
 ```go
@@ -268,18 +305,18 @@ staying invisible to the other two bindings.
 
 ## Status
 
-Early, and narrower than the other two bindings. This shipment carries the
+Narrower than the other two bindings, but no longer early. It carries the
 contract-version constants, the negotiation algorithm, the manifest declaration check,
-the hello frame, the spec loaders, and the NDJSON line reader. It executes two of the
-four published conformance corpora in full, nothing deferred in either: `negotiation`
-— all 37 cases across all three of its kinds, `negotiate`, `hello`, and `declaration` —
-and `framing` — all 25 cases.
+the hello frame, the spec loaders, the NDJSON line reader, the handshake, and the
+diagnostics envelope with its emitter. It executes **three** of the four published
+conformance corpora in full, nothing deferred in any: `negotiation` — all 37 cases across
+all three of its kinds, `negotiate`, `hello`, and `declaration` — `framing` — all 25
+cases — and `diagnostics` — all 75, across `encode`, `parse`, and `level`.
 
-**Not here yet**, all of it Shipment 2:
+**Not here yet:**
 
-- **Diagnostics.** No `Encode` / `Parse` / `MeetsLevel`, and no `diagnostics` corpus run.
 - **The connector kit.** No URL resolution, no environment seam, no MCP result builders,
-  no search filter, and no `url-resolution` corpus run.
+  no search filter, and no `url-resolution` corpus run. It is the last corpus outstanding.
 - **A version accessor.** There is no `Version` constant; the tag is the version.
 
 Track it in the

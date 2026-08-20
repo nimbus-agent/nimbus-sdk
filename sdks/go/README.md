@@ -180,10 +180,54 @@ Malformed UTF-8 decodes to U+FFFD rather than erroring — the stream is untrust
 and refusing to decode it would terminate a connection the protocol says should carry
 on.
 
-**Missing from this package: the handshake.** `ipc` carries the hello frame and this
-line reader, but nothing here performs the read-hello / write-hello / negotiate exchange
-that Python's `perform_handshake` and TypeScript's `performHandshake` carry out end to
-end. See [Status](#status) below.
+**The handshake lives below.** `ipc` carries the hello frame, this line reader, and
+`PerformHandshake`, which performs the read-hello / write-hello / negotiate exchange that
+Python's `perform_handshake` and TypeScript's `performHandshake` carry out end to end. See
+[Performing the handshake](#performing-the-handshake).
+
+## Performing the handshake
+
+The one exchange this package performs end to end: announce, listen, agree — or refuse.
+**Synchronous**, over `io.Reader` / `io.Writer`, matching Python's `perform_handshake`
+rather than TypeScript's `async performHandshake`.
+
+```go
+result, err := ipc.PerformHandshake(os.Stdin, os.Stdout, ipc.HandshakeConfig{})
+if err != nil {
+	// The exchange could not be conducted: the write failed, the read failed for a
+	// reason other than io.EOF, or a frame broke the 1 MiB limit. A refusal is NOT an
+	// error — it arrives below, as a defined outcome of a working exchange.
+	log.Fatal(err)
+}
+
+switch outcome := result.(type) {
+case ipc.HandshakeOk:
+	// Process outcome.Pending BEFORE reading further: a peer announces unprompted, so
+	// its hello and its first request often arrive in the same read.
+	serve(outcome.Version, outcome.Pending)
+case ipc.HandshakeRefused:
+	fmt.Fprintf(os.Stderr, "handshake refused: %s\n", outcome.Reason)
+	os.Exit(contract.HandshakeExit)
+default:
+	// Go checks no exhaustiveness on a type switch, and an interface value can be nil —
+	// PerformHandshake returns a nil result with every error.
+	panic(fmt.Sprintf("unreachable handshake result %T", outcome))
+}
+```
+
+The result is non-nil if and only if `err` is nil, so `err` is the only thing to check
+before the switch.
+
+**Pass your own `Reader` when the session continues on the same stream.** `Pending`
+returns the complete frames that arrived alongside the hello; a *partial* frame in that
+same read was never a complete line and cannot come back that way. It survives only in the
+reader you supplied:
+
+```go
+reader := &ipc.LineReader{}
+result, err := ipc.PerformHandshake(conn, conn, ipc.HandshakeConfig{Reader: reader})
+// ... then keep reading through `reader`, not a fresh one.
+```
 
 ## Reading the contract data
 
@@ -233,10 +277,6 @@ and `framing` — all 25 cases.
 
 **Not here yet**, all of it Shipment 2:
 
-- **The handshake.** `ipc` carries the hello frame and the line reader, so you can
-  encode and parse a hello and read NDJSON off a stream, but nothing here performs the
-  exchange end to end. When it lands it will be **synchronous**, over `io.Reader` /
-  `io.Writer` — matching Python rather than TypeScript's `async`.
 - **Diagnostics.** No `Encode` / `Parse` / `MeetsLevel`, and no `diagnostics` corpus run.
 - **The connector kit.** No URL resolution, no environment seam, no MCP result builders,
   no search filter, and no `url-resolution` corpus run.

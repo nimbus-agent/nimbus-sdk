@@ -113,9 +113,10 @@ surface is shaped this way, which the generated file, by design, does not:
 - `spec` (`sdks/go/spec/`) — `LoadSchema` and `LoadCorpus` only. This is Python's single
   `nimbus_sdk` root split into two Go packages; a benign surface asymmetry.
 - `ipc` (`sdks/go/ipc/`) — the hello frame (`HelloMessage`, `EncodeHello`, `ParseHello`,
-  `HelloResult`, `HelloOk`, `HelloRefused`) and, since this branch, the NDJSON line
-  reader: `LineReader` (`Push`, `Flush`), `IPCMaxLineBytes`, `ErrFrameTooLong`,
-  `FlushResult`. The handshake itself is still Shipment 2 — see
+  `HelloResult`, `HelloOk`, `HelloRefused`), the NDJSON line reader (`LineReader` with
+  `Push` / `Flush`, `IPCMaxLineBytes`, `ErrFrameTooLong`, `FlushResult`), and, since this
+  branch, the handshake: `PerformHandshake`, `HandshakeConfig`, `HandshakeResult`,
+  `HandshakeOk`, `HandshakeRefused` — synchronous, over `io.Reader` / `io.Writer`. See
   [`docs/api-surface-go.md`](./docs/api-surface-go.md) for the exact signatures, which
   this list does not repeat.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
@@ -227,11 +228,15 @@ docstring discloses the exact mechanism.
   `nil`, a state neither other binding can produce. That is an accepted cost of D4, not an
   oversight: it means **every caller needs a `default:` arm**, and every example in
   `sdks/go/README.md` has one for that reason.
-- **Sync-vs-async is heading for two-against-one.** Go ships no handshake yet, but the
-  design fixes it as synchronous over `io.Reader` / `io.Writer`, matching Python. When
-  Shipment 2 lands it, TypeScript's `async` is the minority position, which weakens the
-  case that async is the contract's natural shape. Until then this line describes a
-  decision, not shipped code.
+- **Sync-vs-async is now two-against-one.** `ipc.PerformHandshake` is synchronous over
+  `io.Reader` / `io.Writer`, matching Python's `perform_handshake`, so TypeScript's
+  `async` is the minority position — which weakens the case that async is the contract's
+  natural shape. Go adds one shape of its own on the same function:
+  `(HandshakeResult, error)`, where Python raises `FrameTooLongError` and TypeScript
+  throws. **The result is non-nil if and only if the error is nil**, so a refusal — a
+  defined §7 outcome — is never an error, and a transport failure is never a refusal. The
+  streams are stdlib interfaces rather than the two-method object the other bindings
+  inject, because Go has one worth binding to and they do not.
 - **The U+FFFD count for an invalidated multi-octet prefix is a new divergence, and it
   is Go alone.** Whenever a well-formed *prefix* of a multi-octet UTF-8 sequence is
   invalidated, `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover

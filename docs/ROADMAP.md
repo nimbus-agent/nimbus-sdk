@@ -272,10 +272,9 @@ maintained."*
   of the four published corpora in full, nothing deferred in either: `negotiation` (all
   37 cases across all three kinds) and, since this work, `framing` (all 25 cases), run
   against a new `LineReader`. That is **not** the full suite: `diagnostics` and
-  `url-resolution` still land with the packages that bind them. Nor does a `LineReader`
-  mean the handshake is bound — `ipc` carries the hello frame and the line reader, not
-  the read-hello/write-hello/negotiate exchange between them, which is a separate,
-  not-yet-started plan. And it is not **official**, which is a governance act, not
+  `url-resolution` still land with the packages that bind them. The handshake **is** now
+  bound: `ipc.PerformHandshake` performs the read-hello/write-hello/negotiate exchange,
+  synchronously over `io.Reader` / `io.Writer`. And it is not **official**, which is a governance act, not
   a test result — [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four
   criteria have to be recorded as met in an RFC that names an owner, and
   [RFC-0012](./rfcs/0012-go-sdk-binding.md) deliberately does not claim them. RFC-0013

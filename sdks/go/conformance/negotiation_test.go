@@ -92,7 +92,7 @@ func TestNegotiateCases(t *testing.T) {
 		if got != (contract.NegotiationRefused{Reason: want}) {
 			t.Errorf("got %#v, want NegotiationRefused{%q}", got, want)
 		}
-		if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
+		if exit, _ := numberOf(expect["exit"]); int(exit) != contract.HandshakeExit {
 			t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
 		}
 	})
@@ -127,7 +127,7 @@ func TestHelloCases(t *testing.T) {
 		if got != (ipc.HelloRefused{Reason: want}) {
 			t.Errorf("got %#v, want HelloRefused{%q}", got, want)
 		}
-		if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
+		if exit, _ := numberOf(expect["exit"]); int(exit) != contract.HandshakeExit {
 			t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
 		}
 	})
@@ -164,7 +164,7 @@ func TestDeclarationCases(t *testing.T) {
 			if reason, _ := expect["reason"].(string); reason != "declaration-mismatch" {
 				t.Errorf("case reason = %q, want declaration-mismatch", reason)
 			}
-			if exit, _ := expect["exit"].(float64); int(exit) != contract.HandshakeExit {
+			if exit, _ := numberOf(expect["exit"]); int(exit) != contract.HandshakeExit {
 				t.Errorf("case exit = %v, want %d", exit, contract.HandshakeExit)
 			}
 		}

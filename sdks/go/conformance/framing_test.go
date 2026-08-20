@@ -2,6 +2,7 @@ package conformance
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -46,12 +47,13 @@ func octets(t *testing.T, node map[string]any) []byte {
 	}
 	if r, ok := node["repeat"].(map[string]any); ok {
 		var unit []byte
-		if b, ok := r["byte"].(float64); ok {
+		if b, ok := numberOf(r["byte"]); ok {
 			unit = []byte{byte(int(b))}
 		} else {
 			unit = []byte(r["utf8"].(string))
 		}
-		count := int(r["count"].(float64))
+		count64, _ := numberOf(r["count"])
+		count := int(count64)
 		return []byte(strings.Repeat(string(unit), count))
 	}
 	t.Fatalf("unrecognised chunk descriptor: %#v", node)
@@ -233,4 +235,19 @@ func TestFramingCorpus(t *testing.T) {
 		t.Errorf("executed %d subtests but the corpus lists %d cases", executed, len(cases))
 	}
 	t.Logf("measured: executed %d of %d framing cases", executed, len(cases))
+}
+
+// numberOf reads a JSON number from a corpus case.
+//
+// LoadCorpus decodes with UseNumber, so every corpus number is a json.Number rather than
+// a float64 — without which the diagnostics corpus cannot be loaded at all. A float64
+// type assertion on corpus data is therefore always wrong now, and the comma-ok form of
+// one is worse than the bare form: it yields 0 silently instead of panicking.
+func numberOf(value any) (float64, bool) {
+	n, ok := value.(json.Number)
+	if !ok {
+		return 0, false
+	}
+	f, err := n.Float64()
+	return f, err == nil
 }

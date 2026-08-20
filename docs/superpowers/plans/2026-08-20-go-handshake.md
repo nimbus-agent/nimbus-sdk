@@ -470,7 +470,7 @@ Every path where the exchange completes but does not agree. All four return
 - Consumes: everything Task 1 produced.
 - Produces: no new exports.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `sdks/go/ipc/handshake_test.go`:
 
@@ -563,7 +563,7 @@ func TestPerformHandshakeAcceptsAFinalFrameWithoutItsNewline(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the tests**
+- [x] **Step 2: Run the tests**
 
 ```bash
 go -C sdks/go test ./ipc/ -run TestPerformHandshake -v
@@ -574,7 +574,7 @@ paths. **If any fails, the failure is the finding**: fix `handshake.go`, do not 
 test to match the code. The most likely failure is the unterminated-frame case, if
 `readPeerHello` returns before calling `Flush`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add sdks/go/ipc/handshake_test.go
@@ -593,7 +593,7 @@ git commit -m "test(go): cover every handshake refusal path"
 - Consumes: everything Task 1 produced.
 - Produces: no new exports.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `sdks/go/ipc/handshake_test.go`:
 
@@ -688,7 +688,7 @@ func TestPerformHandshakeLeavesAPartialFrameInACallerSuppliedReader(t *testing.T
 }
 ```
 
-- [ ] **Step 2: Run the tests**
+- [x] **Step 2: Run the tests**
 
 ```bash
 go -C sdks/go test ./ipc/ -run TestPerformHandshake -v
@@ -698,7 +698,7 @@ Expected: all PASS. If `TestPerformHandshakeReturnsThreeTrailingFramesInOrder` f
 one frame instead of three, `readPeerHello` is returning `frames[1:2]` or re-slicing; it
 must return `frames[1:]`.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add sdks/go/ipc/handshake_test.go
@@ -718,7 +718,7 @@ git commit -m "test(go): pin pending-frame handling across the handshake boundar
   `ndjson.go`.
 - Produces: no new exports.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `sdks/go/ipc/handshake_test.go`:
 
@@ -843,7 +843,7 @@ func TestPerformHandshakeResultIsNonNilExactlyWhenErrIsNil(t *testing.T) {
 
 Add `"errors"` to the test file's import block.
 
-- [ ] **Step 2: Run the tests to verify which fail**
+- [x] **Step 2: Run the tests to verify which fail**
 
 ```bash
 go -C sdks/go test ./ipc/ -run TestPerformHandshake -v

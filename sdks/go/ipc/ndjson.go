@@ -46,9 +46,14 @@ const compactThreshold = 64 * 1024
 //
 // A single Push may hand over an arbitrarily large chunk, and reusing that capacity
 // forever would let one burst pin memory for the life of the reader. Beyond this the
-// buffer is released instead. The bound is the largest a *steady* reader legitimately
-// needs: the §6 limit for the live remainder, plus compactThreshold of consumed prefix
-// tolerated in front of it, rounded up to a whole multiple of the limit.
+// buffer is released instead.
+//
+// The bound is twice the §6 limit because that is compact's real worst case, not the
+// limit plus compactThreshold: compaction is declined while the consumed prefix is
+// smaller than the remainder, so a legitimate reader can sit at prefix ≈ remainder ≈
+// 1 MiB with len(buf) ≈ 2 MiB. Such a buffer is right at this cap, and one octet more
+// releases and regrows it — wasteful for that reader, harmless for correctness, and
+// still amortised linear.
 const maxRetainedCap = 2 * IPCMaxLineBytes
 
 // FlushResult is what remained at end-of-stream.
@@ -184,7 +189,9 @@ func (r *LineReader) Flush() (FlushResult, error) {
 //
 // The threshold caps the waste this tolerates on a small buffer, and the size condition
 // caps it on a large one, so buf never exceeds the §6 limit plus max(threshold,
-// remainder) — roughly 2 MiB — before latching would have fired anyway.
+// remainder). The worst case is therefore 2x the limit — about 2 MiB — reached when the
+// consumed prefix and the remainder are both near the limit, since that is exactly when
+// the size condition declines to slide. Past that, latching would have fired anyway.
 func (r *LineReader) compact() {
 	if r.start == 0 {
 		return

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.2.0...sdks/go/v0.3.0) (2026-08-20)
+
+
+### Features
+
+* **go:** perform the contract-version handshake (Shipment 2a) ([#144](https://github.com/nimbus-agent/nimbus-sdk/issues/144)) ([3deb666](https://github.com/nimbus-agent/nimbus-sdk/commit/3deb666ad28ec42174c7cef68948efe8feb8f046))
+
 ## [0.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.1.0...sdks/go/v0.2.0) (2026-08-20)
 
 

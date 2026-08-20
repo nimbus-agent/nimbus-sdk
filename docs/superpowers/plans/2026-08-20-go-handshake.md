@@ -91,7 +91,7 @@ exchange — `hello.go`, `ndjson.go` — not by kind of declaration.
   `HandshakeRefused{Reason string; Pending []string}`, and
   `HandshakeConfig{LocalVersions []string; Reader *LineReader}`. Tasks 2–4 add no exports.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `sdks/go/ipc/handshake_test.go`:
 
@@ -219,7 +219,7 @@ Add the `contract` import to the test file's import block:
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/contract"
 ```
 
-- [ ] **Step 2: Run the tests to verify they fail**
+- [x] **Step 2: Run the tests to verify they fail**
 
 ```bash
 go -C sdks/go test ./ipc/ -run TestPerformHandshake -v
@@ -228,7 +228,7 @@ go -C sdks/go test ./ipc/ -run TestPerformHandshake -v
 Expected: FAIL — `undefined: PerformHandshake`, `undefined: HandshakeConfig`,
 `undefined: HandshakeOk`.
 
-- [ ] **Step 3: Write the minimal implementation**
+- [x] **Step 3: Write the minimal implementation**
 
 Create `sdks/go/ipc/handshake.go`:
 
@@ -438,7 +438,7 @@ func anyVersions(versions []string) []any {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 ```bash
 go -C sdks/go test ./ipc/ -run TestPerformHandshake -v
@@ -448,7 +448,7 @@ test -z "$(gofmt -l sdks/go)"
 
 Expected: four tests PASS, vet silent, gofmt silent.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/ipc/handshake.go sdks/go/ipc/handshake_test.go

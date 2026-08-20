@@ -119,6 +119,8 @@ contract itself — then reach for a battery as you need it. Every public export
   [Discussions](https://github.com/nimbus-agent/Nimbus/discussions), where questions are
   asked, on the Nimbus board
 - [API surface](./api-surface.md) — the generated snapshot of every public export
+- [Go API surface](./api-surface-go.md) — the same, for every exported Go declaration
+  across `contract`, `ipc`, and `spec`
 - [Contract spec](./spec/) — versioned JSON Schemas, the
   [manifest rule registry](./spec/rules/v1/), the NDJSON
   [wire spec](./spec/wire/v1/framing.md), and the conformance corpora every language

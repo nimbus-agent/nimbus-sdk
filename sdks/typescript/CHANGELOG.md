@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.19.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.18.0...typescript-v1.19.0) (2026-08-20)
+
+
+### Features
+
+* **go:** add the Go SDK binding — Shipment 1 ([#135](https://github.com/nimbus-agent/nimbus-sdk/issues/135)) ([3848ad1](https://github.com/nimbus-agent/nimbus-sdk/commit/3848ad164024e117934249695c73d55cf30b68e5))
+
 ## [1.18.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.17.0...typescript-v1.18.0) (2026-08-19)
 
 

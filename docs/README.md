@@ -10,7 +10,7 @@ below is a *binding* of that contract and is held to the same conformance suite.
 |---|---|---|---|
 | [TypeScript](../sdks/typescript/) | [`@nimbus-dev/sdk`](https://www.npmjs.com/package/@nimbus-dev/sdk) | Node **≥ 22**, ESM | Reference implementation |
 | [Python](../sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Python **≥ 3.11** | Official |
-| [Go](../sdks/go/) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | Go **≥ 1.26** | Unreleased — no tag pushed |
+| [Go](../sdks/go/) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | Go **≥ 1.26** | Released (`sdks/go/v0.2.0`) — not yet official |
 
 TypeScript and Python publish with the strongest provenance their ecosystem supports: npm
 with `--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations,

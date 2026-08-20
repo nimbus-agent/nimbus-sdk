@@ -294,7 +294,7 @@ maintained."*
   JSON result helper — in its `main.py`. The scaffold works around the asymmetry
   deliberately (a scaffold is not where a published surface gets designed), but every
   Python connector re-derives those lines until the router and REST factories exist.
-- [~] **Go release model (tag-based, not a registry push)** — decide the module
+- [x] **Go release model (tag-based, not a registry push)** — decide the module
   layout (root vs. `sdks/go/` and its tag prefix), cut releases as **semver git
   tags** + GitHub Releases via release-please's `go` component, and confirm the
   module resolves through `proxy.golang.org` with docs on `pkg.go.dev` — *Pillars 5, 7*.
@@ -302,16 +302,22 @@ maintained."*
   release-please component producing `sdks/go/vX.Y.Z` tags (the `tag-separator` was
   confirmed per-package before it was set, so the other three components' tags are
   provably untouched), and `release-go.yml` firing on that tag pattern.
-  **No tag has been pushed**, so the last clause — the module actually resolving through
-  `proxy.golang.org` with docs on `pkg.go.dev` — has not been observed. That step is
-  irreversible (the proxy caches a version permanently and re-tagging shows forever as a
-  checksum mismatch), so it is a deliberate act after this work is green on `main`, not
-  part of landing it.
-- [~] **Provenance for Go** — since there is no registry token, attach **Sigstore / SLSA
+  **The last clause is now observed rather than designed.** `sdks/go/v0.1.0` and
+  `sdks/go/v0.2.0` were both tagged on 2026-08-20 and `release-go.yml` was green on both:
+  `proxy.golang.org` serves the module — `@latest` reports `v0.2.0`, resolved from
+  `refs/tags/sdks/go/v0.2.0` — `sum.golang.org` records its hashes, and `pkg.go.dev`
+  renders the package docs.
+
+  That step is irreversible, and it happened as a **consequence of merging a release
+  PR**, not as the separate deliberate act this box previously described: the proxy caches
+  a version permanently within minutes, and re-tagging one shows forever as a checksum
+  mismatch. Nothing was wrong with either version, but the lesson generalizes — from here
+  on, merging an `sdks/go` release PR *is* publishing.
+- [x] **Provenance for Go** — since there is no registry token, attach **Sigstore / SLSA
   build provenance** to what the release tags — *Pillar 5*. `release-go.yml` attests a
   `git archive` of the module tree at the tag, then verifies from a scratch directory
   outside any checkout that the module resolves through `proxy.golang.org` **with a
-  `go.sum` entry**. Unexercised until a tag exists.
+  `go.sum` entry**. Both halves have now run for real, on `v0.1.0` and `v0.2.0`.
 
   **This box's original wording was wrong in two ways, and both are corrected here.** It
   asked for provenance "attached to the GitHub Release artifacts," giving Go "the same
@@ -331,7 +337,7 @@ maintained."*
   And **no tag signing**: that needs a private key in repository secrets, which would put
   a long-lived credential into the one language that needs no publish credential at all.
   See [RFC-0012](./rfcs/0012-go-sdk-binding.md) and
-  [RELEASING.md](./RELEASING.md#go--module-proxy-implemented-not-yet-exercised).
+  [RELEASING.md](./RELEASING.md#go--module-proxy-implemented-and-exercised).
 - [ ] A **reusable release workflow** (harden-runner → build/test → publish →
   post-publish verify) that each language's release job calls, so the hardened
   pipeline is defined once and every SDK inherits it — *Pillar 5*

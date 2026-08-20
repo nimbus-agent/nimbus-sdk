@@ -181,8 +181,12 @@ Supported Go versions are **the two most recent stable minors** — Go's own pol
 outright instead of quietly downloading a toolchain.
 
 Releases are tagged **`sdks/go/vX.Y.Z`** (release-please component `sdks/go`,
-`tag-separator: "/"`, set per-package so the other three components are untouched). **No
-tag has been pushed yet.** For any future major ≥ 2, Go's semantic import versioning
+`tag-separator: "/"`, set per-package so the other three components are untouched).
+**`sdks/go/v0.1.0` and `sdks/go/v0.2.0` are pushed** — both on 2026-08-20, `release-go.yml`
+green on both — so the pipeline is now *observed*, not merely wired: `proxy.golang.org`
+serves the module, `sum.golang.org` records its hashes, and `pkg.go.dev` renders the docs.
+Both versions are cached permanently; that is the shape of every future tag too, so a
+wrong one cannot be taken back. For any future major ≥ 2, Go's semantic import versioning
 requires the `/v2` suffix in the **module path itself**; `go.mod` declares the unsuffixed
 path today, so a `sdks/go/v2.0.0` tag could not resolve. See
 [`docs/rfcs/0012-go-sdk-binding.md`](./docs/rfcs/0012-go-sdk-binding.md).

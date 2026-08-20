@@ -4,9 +4,11 @@
 - **Opened:** 2026-08-19
 - **Landed:** 2026-08-19 — this document lands with Shipment 1 of the Go binding:
   `sdks/go/` (the `spec`, `contract`, and `ipc` packages), the `go` CI job, the
-  `sdks/go` release-please component, and `.github/workflows/release-go.yml`. **No tag
-  has been pushed**, so nothing described here has yet been observed resolving through
-  `proxy.golang.org`
+  `sdks/go` release-please component, and `.github/workflows/release-go.yml`. **No tag had
+  been pushed at that point**, so nothing described here had been observed resolving
+  through `proxy.golang.org`; `sdks/go/v0.1.0` and `sdks/go/v0.2.0` followed on
+  2026-08-20, and both resolve — see *Since accepted* under
+  [What this RFC does not do](#what-this-rfc-does-not-do)
 - **Affects:** `sdks/go/` (a new module, `github.com/nimbus-agent/nimbus-sdk/sdks/go`),
   `release-please-config.json` and `.release-please-manifest.json` (a fourth component),
   `.github/workflows/ci.yml` (a `go` job, and `ci-complete`'s `needs`),
@@ -282,7 +284,7 @@ Go's real tamper-evidence is `sum.golang.org`, a public transparency log of modu
 hashes that every `go` client verifies automatically with no opt-in — broader in reach
 than npm provenance, which most installs never check, and narrower in claim, since it
 attests that the bytes are unchanged rather than where they were built. So
-[`RELEASING.md`](../RELEASING.md#go--module-proxy-implemented-not-yet-exercised) now
+[`RELEASING.md`](../RELEASING.md#go--module-proxy-implemented-and-exercised) now
 states plainly that the load-bearing guarantee for a Go consumer is the checksum
 database. This is a **correction to the roadmap's own wording**, not a reduction in
 scope.
@@ -513,6 +515,13 @@ Saying so is the point of recording it.
   irreversible and is a deliberate act after this work merges and CI is green on `main`,
   not a step in this plan. Everything above about `proxy.golang.org` and `sum.golang.org`
   is therefore *designed and wired*, not *observed*.
+
+  *Since accepted (2026-08-20):* `sdks/go/v0.1.0` and `sdks/go/v0.2.0` are both tagged
+  and `release-go.yml` was green on both, so this clause is now history — the proxy
+  serves the module, `sum.golang.org` records its hashes, and `pkg.go.dev` renders the
+  docs. The push was not the separate deliberate act described above: merging the
+  `sdks/go` release PR cut the tag directly. See
+  [`RELEASING.md`](../RELEASING.md#go--module-proxy-implemented-and-exercised).
 - **It does not add Go to Sonar.** `sonar-project.properties` has been TypeScript-only
   since before the Python binding landed. Adding Go alone would make the file assert that
   two of three languages are unanalysed, which is worse than the current honest state.

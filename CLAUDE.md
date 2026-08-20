@@ -102,10 +102,10 @@ Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require`
 The module root holds only `go.mod`: a package there would have an import path ending in
 `/go` while carrying some other package name, forcing a named import at every call site.
 
-The whole exported surface is seventeen identifiers, listed here in full even though
-the generated equivalent of `docs/api-surface.md`, `docs/api-surface-go.md`, now exists
-too — the prose grouping below explains *why* the surface is shaped this way, which the
-generated file, by design, does not:
+[`docs/api-surface-go.md`](./docs/api-surface-go.md) is the authority on what the
+exported surface currently holds — it is generated, and the Go equivalent of
+`docs/api-surface.md`. The grouping below is listed anyway because it explains *why* the
+surface is shaped this way, which the generated file, by design, does not:
 
 - `contract` (`sdks/go/contract/`) — `ContractVersions`, `HandshakeExit`,
   `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`,
@@ -184,7 +184,8 @@ export-granularity gate of its own, shipped separately from the four: the genera
 walker's live output no longer matches the committed snapshot. A second test in the same
 file asserts the hand-maintained `packages` list in `cmd/main.go` covers every
 non-internal package under `sdks/go`, so the gate cannot silently shrink when a package is
-added. Python still has no equivalent of its own — see below.
+added. Python still has no equivalent of its own — see the four-CI-gates bullet under
+[Conventions / non-negotiables](#conventions--non-negotiables).
 
 ## How the bindings diverge
 

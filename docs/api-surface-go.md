@@ -29,6 +29,29 @@ not even another package inside this module.
 - `type NegotiationResult interface {}`
 - `var ContractVersions = []string{"1"}`
 
+## `diagnostics`
+
+18 exports.
+
+- `func Encode(event any) EncodeResult`
+- `func MeetsLevel(level, threshold string) bool`
+- `func NewEmitter(extensionID string, sink Emit) Emitter`
+- `func Parse(line string) ParseResult`
+- `type Emit func(line string) error`
+- `type EmitDetail struct { CorrelationID string; Error *EmitError; Fields map[string]any; Ts string }`
+- `type EmitError struct { Code string; Retriable *bool }`
+- `type EmitResult interface {}`
+- `type EmitSinkFailed struct { Err error; Line string }`
+- `type Emitter interface { Audit(event string, detail EmitDetail) EmitResult; Debug(event string, detail EmitDetail) EmitResult; Error(event string, detail EmitDetail) EmitResult; Info(event string, detail EmitDetail) EmitResult; Warn(event string, detail EmitDetail) EmitResult }`
+- `type EncodeOk struct { Line string }`
+- `type EncodeRejected struct { Path string; Reason string }`
+- `type EncodeResult interface {}`
+- `type ParseOk struct { Event map[string]any }`
+- `type ParseRejected struct { Path string; Reason string }`
+- `type ParseResult interface {}`
+- `var DiagnosticKinds = []string{"diagnostic", "audit"}`
+- `var DiagnosticLevels = []string{"debug", "info", "warn", "error"}`
+
 ## `ipc`
 
 17 exports.

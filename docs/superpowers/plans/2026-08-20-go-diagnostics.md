@@ -122,7 +122,7 @@ notices because Go binds only two of them today.
 - Modify: `sdks/go/CHANGELOG.md` is release-please's, **not** yours — instead put the
   consumer-facing note in the commit body, which is what release-please copies.
 
-- [ ] **Step 1: Reproduce the failure before fixing it**
+- [x] **Step 1: Reproduce the failure before fixing it**
 
 ```bash
 cat > /tmp/loadprobe_test.go <<'EOF'
@@ -143,7 +143,7 @@ go -C sdks/go test ./spec/ -run TestProbeLoadsDiagnostics
 Expected: FAIL with the `1e400` message above. Delete `loadprobe_test.go` afterwards — it
 is a reproduction, not a test to keep; Task 4's runner covers this permanently.
 
-- [ ] **Step 2: Decode with `UseNumber`**
+- [x] **Step 2: Decode with `UseNumber`**
 
 In `LoadCorpus`, replace the `json.Unmarshal` of each case with a decoder that keeps every
 number as its exact literal:
@@ -161,7 +161,7 @@ Add `"bytes"` to the imports. Update `LoadCorpus`'s doc comment: numbers come ba
 `json.Number`, deliberately, because a corpus case may carry a literal outside `float64`'s
 range and because the exact literal is what a bound check at ±(2⁵³−1) needs.
 
-- [ ] **Step 3: Fix every `.(float64)` on corpus data — there are five, and they fail differently**
+- [x] **Step 3: Fix every `.(float64)` on corpus data — there are five, and they fail differently**
 
 `framing_test.go:49` and `:54`, and `negotiation_test.go:95`, `:130`, `:167`. Add one
 helper to `framing_test.go` and use it in both files:
@@ -187,7 +187,7 @@ Then `if b, ok := numberOf(r["byte"]); ok {`, `count64, _ := numberOf(r["count"]
 `framing_test.go:54`'s bare `.(float64)` would **panic**. Neither fails silently, which is
 the one mercy here — but 1.2 in the review is the case that does.
 
-- [ ] **Step 4: Verify both existing corpora still pass**
+- [x] **Step 4: Verify both existing corpora still pass**
 
 ```bash
 go -C sdks/go test ./conformance/ ./spec/ -v 2>&1 | tail -20
@@ -196,7 +196,7 @@ go -C sdks/go test ./conformance/ ./spec/ -v 2>&1 | tail -20
 Expected: `negotiation` (37 cases) and `framing` (25) still green. They are what proves the
 loader change is safe.
 
-- [ ] **Step 5: Commit, with the consumer-facing note in the body**
+- [x] **Step 5: Commit, with the consumer-facing note in the body**
 
 ```bash
 git add sdks/go/spec/spec.go sdks/go/conformance/
@@ -231,7 +231,7 @@ one that still cannot read published data. A loader that cannot load is a bug to
   and `ParseResult` (`ParseOk{Event map[string]any}`, `ParseRejected{Reason, Path string}`),
   and the unexported `escapePointerToken`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `sdks/go/diagnostics/event_test.go`:
 
@@ -302,7 +302,7 @@ func TestEscapePointerTokenEscapesTildeBeforeSlash(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 go -C sdks/go test ./diagnostics/ 2>&1 | head
@@ -311,7 +311,7 @@ go -C sdks/go test ./diagnostics/ 2>&1 | head
 Expected: FAIL — `no required module provides package .../diagnostics` or
 `undefined: MeetsLevel`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `sdks/go/diagnostics/event.go`:
 
@@ -427,7 +427,7 @@ func escapePointerToken(token string) string {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -v 2>&1 | head -20
@@ -437,7 +437,7 @@ gofmt -l sdks/go
 
 Expected: four tests PASS, vet silent, gofmt silent.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/diagnostics/
@@ -460,7 +460,7 @@ unexported, so its tests reach it directly — a package-internal test file, not
 - Produces (unexported): `validatedEvent` and
   `validateEvent(input any) (*validatedEvent, *failure)`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `sdks/go/diagnostics/validate_test.go`:
 
@@ -618,7 +618,7 @@ func TestValidateRejectsSeventeenFieldsAfterEveryKeyAndValuePasses(t *testing.T)
 
 Add `"math"` to the test file's imports.
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -run TestValidate 2>&1 | head
@@ -626,7 +626,7 @@ go -C sdks/go test ./diagnostics/ -run TestValidate 2>&1 | head
 
 Expected: FAIL — `undefined: validateEvent`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `sdks/go/diagnostics/validate.go`:
 
@@ -923,7 +923,7 @@ func isPublishedKind(kind string) bool {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -v 2>&1 | tail -20
@@ -933,7 +933,7 @@ gofmt -l sdks/go
 Expected: every test PASSes. If `TestValidateChecksEveryFieldKeyBeforeAnyFieldValue`
 fails, the two passes have been fused into one loop.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/diagnostics/
@@ -951,7 +951,7 @@ git commit -m "feat(go): validate diagnostic events in the spec's rejection orde
 - Consumes: `validateEvent`, `validatedEvent`, the result types.
 - Produces: `Encode(event any) EncodeResult`, `Parse(line string) ParseResult`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `sdks/go/diagnostics/encode_test.go`:
 
@@ -1110,7 +1110,7 @@ func TestParseNeverReportsLineTooLong(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -run "TestEncode|TestParse" 2>&1 | head
@@ -1118,7 +1118,7 @@ go -C sdks/go test ./diagnostics/ -run "TestEncode|TestParse" 2>&1 | head
 
 Expected: FAIL — `undefined: Encode`, `undefined: ipcMaxLineBytes`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `sdks/go/diagnostics/encode.go`:
 
@@ -1279,7 +1279,7 @@ func jsonString(s string) string {
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -v 2>&1 | tail -25
@@ -1291,7 +1291,7 @@ negative-zero test means a float formatter is still in the path; `\u003c` in the
 test means `SetEscapeHTML(false)` is missing; a `line-too-long` from `Parse` means the
 length check was put in the shared validator instead of in `Encode`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/diagnostics/
@@ -1310,7 +1310,7 @@ git commit -m "feat(go): encode and parse the diagnostics envelope"
   `Parse`, `MeetsLevel`.
 - Produces: nothing — a test-only package.
 
-- [ ] **Step 1: Write the runner**
+- [x] **Step 1: Write the runner**
 
 Create `sdks/go/conformance/diagnostics_test.go`:
 
@@ -1535,7 +1535,7 @@ func TestDiagnosticsCorpusCoversEveryKind(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the corpus**
+- [x] **Step 2: Run the corpus**
 
 ```bash
 go -C sdks/go test ./conformance/ -run TestDiagnostics -v 2>&1 | tail -30
@@ -1550,14 +1550,14 @@ raise it — that is an RFC-0007-shaped finding, not a local fix.
 The two cases carrying `repeat`/`concat` descriptors — `line-too-long-rejected.json` among
 them — are where a runner without `expand` fails first.
 
-- [ ] **Step 3: Read the parse-case field comparison once**
+- [x] **Step 3: Read the parse-case field comparison once**
 
 `runParseCase` compares with `fmt.Sprint` rather than `reflect.DeepEqual`, because a
 corpus `fields` value decodes to `float64(42)` while a round-tripped one is also
 `float64(42)` but a hand-built expectation might be `int(42)`. If a parse case fails on a
 numeric field, that comparison is the first suspect — not the parser.
 
-- [ ] **Step 4: Run everything**
+- [x] **Step 4: Run everything**
 
 ```bash
 go -C sdks/go test ./...
@@ -1565,7 +1565,7 @@ go -C sdks/go vet ./...
 gofmt -l sdks/go
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/conformance/diagnostics_test.go
@@ -1583,7 +1583,7 @@ git commit -m "test(go): execute the diagnostics conformance corpus"
 - Consumes: `Encode`, the result types.
 - Produces: `Emit`, `EmitDetail`, `EmitResult`, `Emitter`, `NewEmitter`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `sdks/go/diagnostics/emitter_test.go`:
 
@@ -1713,7 +1713,7 @@ func TestEmitterPassesEveryOptionalMemberThrough(t *testing.T) {
 func boolPtr(b bool) *bool { return &b }
 ```
 
-- [ ] **Step 2: Run it to verify it fails**
+- [x] **Step 2: Run it to verify it fails**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -run TestEmitter 2>&1 | head
@@ -1721,7 +1721,7 @@ go -C sdks/go test ./diagnostics/ -run TestEmitter 2>&1 | head
 
 Expected: FAIL — `undefined: NewEmitter`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `sdks/go/diagnostics/emitter.go`:
 
@@ -1880,7 +1880,7 @@ func (e *emitter) emit(level, kind, event string, detail EmitDetail) EmitResult 
 }
 ```
 
-- [ ] **Step 4: Run the tests**
+- [x] **Step 4: Run the tests**
 
 ```bash
 go -C sdks/go test ./diagnostics/ -v 2>&1 | tail -20
@@ -1891,7 +1891,7 @@ gofmt -l sdks/go
 Expected: every test PASSes, and the corpus still passes — the emitter adds no path the
 corpus exercises, so a corpus failure here means `Encode` was changed, not wrapped.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/diagnostics/
@@ -1907,7 +1907,7 @@ git commit -m "feat(go): add a synchronous diagnostics emitter"
   `sdks/go/README.md`, `CLAUDE.md`, `docs/ROADMAP.md`
 - Create: `sdks/go/diagnostics/doc.go`
 
-- [ ] **Step 1: Watch BOTH gates fire, then fix them in order**
+- [x] **Step 1: Watch BOTH gates fire, then fix them in order**
 
 ```bash
 go -C sdks/go test ./internal/apisurface/...
@@ -1933,7 +1933,7 @@ git diff --stat docs/api-surface-go.md
 Run this from the repository checkout, never a copied tree: `golden_test.go` skips when
 `../../../../../docs/api-surface-go.md` is absent, so a copy passes and proves nothing.
 
-- [ ] **Step 2: Write the package doc**
+- [x] **Step 2: Write the package doc**
 
 Create `sdks/go/diagnostics/doc.go`:
 
@@ -1969,7 +1969,7 @@ Create `sdks/go/diagnostics/doc.go`:
 package diagnostics
 ```
 
-- [ ] **Step 3: Update `sdks/go/README.md`**
+- [x] **Step 3: Update `sdks/go/README.md`**
 
 Read the file first; the quotations below are anchors, not strings to match.
 
@@ -2009,7 +2009,7 @@ the same event identically. Diagnostic lines travel on standard error, **never**
 frame stream.
 ````
 
-- [ ] **Step 4: Update `CLAUDE.md`**
+- [x] **Step 4: Update `CLAUDE.md`**
 
 Three passages, each located by anchor:
 
@@ -2027,14 +2027,14 @@ Three passages, each located by anchor:
    raises. Note the shared root cause with Go's existing framing divergence: the standard
    library counts bytes where the web platform counts sequences.
 
-- [ ] **Step 5: Update `docs/ROADMAP.md`**
+- [x] **Step 5: Update `docs/ROADMAP.md`**
 
 Phase 3's Go box says Go runs two of four corpora and that `diagnostics` and
 `url-resolution` "still land with the packages that bind them". After this it is three of
 four, and only `url-resolution` is outstanding — which leaves 2c as the last thing between
 Go and GOVERNANCE criterion 1.
 
-- [ ] **Step 6: Run every gate, then commit**
+- [x] **Step 6: Run every gate, then commit**
 
 ```bash
 NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./...

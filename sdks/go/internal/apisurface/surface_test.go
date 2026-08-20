@@ -436,3 +436,35 @@ func TestRenderPackageRecordsStructTags(t *testing.T) {
 		t.Errorf("changing a struct tag produced identical output:\n%s", got)
 	}
 }
+
+func TestRenderPackageOmitsMethodsOnAnUnexportedType(t *testing.T) {
+	// diagnostics' *emitter is the shape this guards: an unexported type whose methods
+	// carry exported names because they satisfy an exported interface. A consumer cannot
+	// name the type, so those methods are reachable only through that interface — which
+	// is listed in its own right. Listing them again claims a public type that is not,
+	// and inflates the package's export count by one per method.
+	dir := writeFixture(t, "x.go", `package demo
+
+type Shown struct{}
+
+func (Shown) Visible() {}
+
+type hidden struct{}
+
+func (hidden) Invisible() {}
+
+func (*hidden) AlsoInvisible() {}
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	if !strings.Contains(got, "Visible") {
+		t.Errorf("a method on an exported type went missing:\n%s", got)
+	}
+	for _, name := range []string{"Invisible", "AlsoInvisible"} {
+		if strings.Contains(got, name) {
+			t.Errorf("%s is a method on an unexported type and must not be surface:\n%s", name, got)
+		}
+	}
+}

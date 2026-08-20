@@ -107,7 +107,11 @@ func TestFramingCorpus(t *testing.T) {
 						t.Fatalf("push %d: err = %v, want ErrFrameTooLong", i, err)
 					}
 					failed = true
-					break
+					// Do not stop here: a latched reader is expected to keep
+					// rejecting every later push, and limit-violation-latches.json
+					// exists specifically to pin that a second push still errors
+					// rather than resuming. Continuing lets the loop check it.
+					continue
 				}
 				if err != nil {
 					t.Fatalf("push %d: unexpected error %v", i, err)
@@ -133,9 +137,10 @@ func TestFramingCorpus(t *testing.T) {
 				}
 				return
 			}
-			if failed {
-				return
-			}
+			// flush is checked whenever the key is present, regardless of whether a
+			// push failed: every case in the corpus today carries expect.flush,
+			// including the error cases, where it pins that the latch persists
+			// through Flush() too.
 
 			res, err := r.Flush()
 			if expectsError(flushExpect) {

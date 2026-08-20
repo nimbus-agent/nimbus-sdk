@@ -111,6 +111,14 @@ rather than a fourth behaviour — but it *is* a shape only Go has, and the pack
 so. Protocol refusals are not errors: they are `HandshakeRefused`, because §7 makes a
 refusal a defined outcome of a working exchange.
 
+**The result is non-nil if and only if `err == nil`.** This is a stated, tested contract,
+not an incidental property. Go's narrowing is already the weakest of the three bindings
+because an interface value can be nil — `CLAUDE.md` records exactly that — and returning
+nil on error makes that state routine rather than pathological. Fabricating a
+`HandshakeRefused` instead would be worse: it would claim a protocol event that never
+happened. So the shape stays, `err` is the only thing a caller checks before the type
+switch, and a test pins the biconditional.
+
 **2. `Read` can return bytes and `io.EOF` together.** `io.Reader` explicitly permits
 `n > 0` with `err == io.EOF` in one call. Neither reference binding can express that —
 their `read()` resolves data *or* null — so neither's loop shows what to do. Ours must
@@ -133,6 +141,13 @@ never a complete line — and survives only in a caller-supplied `Reader`. That 
 `HandshakeConfig` has the field: `Pending` returns what was extracted, the caller's reader
 retains what was not.
 
+**The error path is the exception, and it is not a leak.** If `Push` returns
+`ErrFrameTooLong`, `PerformHandshake` returns `(nil, err)` and any complete frames that
+same `Push` extracted go with it. The other two bindings lose them identically — a raised
+`FrameTooLongError` and a thrown error carry no frames — and §7 makes an over-long frame
+terminal, so there is no session left to deliver them to. Stated because the paragraph
+above promises the opposite for every non-error path.
+
 ### Tests
 
 Every scenario the TypeScript and Python suites cover, ported case for case so the three
@@ -149,15 +164,50 @@ remain comparable under review, plus the traps only Go has:
 `sdks/go/diagnostics/`, binding `docs/spec/diagnostics/v1/diagnostics.md` and running all
 75 cases of the `diagnostics` corpus byte-identically with the other two bindings.
 
+The runner carries Go's anti-vacuity convention rather than the case count: a **floor of
+60**, well below today's 75 so ordinary additions do not churn it and far above zero so a
+truncated corpus fails loudly, plus an assertion that the executed subtest count equals
+`len(cases)` — the mechanism `TestFramingCorpus` uses. `CLAUDE.md` records why Go uses
+floors where Python pins exact counts: both languages read the same `index.json`, so a
+duplicated exact pin detects nothing and makes every new case a four-file edit.
+
 ### The surface
 
 The corpus-bearing core mirrors Python's twelve names, minus `format_timestamp` — Go has
 `time.Time.Format(time.RFC3339Nano)` built in, so the helper Python needs has nothing to
 do here:
 
-`Encode`, `Parse`, `MeetsLevel`, `DiagnosticKinds`, `DiagnosticLevels`, and the
-`EncodeOk` / `EncodeRejected` / `ParseOk` / `ParseRejected` result types behind sealed
-`EncodeResult` / `ParseResult` interfaces.
+```go
+func Encode(event any) EncodeResult
+func Parse(line string) ParseResult
+func MeetsLevel(level, minimum string) bool
+```
+
+plus `DiagnosticKinds`, `DiagnosticLevels`, and the `EncodeOk` / `EncodeRejected` /
+`ParseOk` / `ParseRejected` result types behind sealed `EncodeResult` / `ParseResult`
+interfaces.
+
+**`Encode` takes `any`, not a typed event struct**, and this is forced rather than
+preferred. The corpus's *encode* cases include inputs no Go struct can express:
+`cases/unknown-member-rejected.json` feeds an event carrying `message` and expects
+`{ok: false, reason: "unknown-member", path: "/message"}`, and
+`cases/reason-order-unknown-before-ts.json` feeds one with *both* a malformed `ts` and an
+unknown `oops`, pinning that closedness is checked before field validity. A struct with a
+fixed field set cannot carry `oops` at all, so those cases could not be handed to a typed
+`Encode` — not fail, but be unrepresentable. Python hit this first and its signature shows
+it: `encode_diagnostic(event: object)`. The corpus feeds a `map[string]any` decoded from
+the case; an author passes a map or a struct, and a struct's surplus exported fields
+correctly become `unknown-member` instead of being silently dropped. Typed convenience
+lives in the emitter's `EmitDetail`, which is where a caller wants it anyway.
+
+**Validation runs to completion before anything is marshaled.** §5 requires non-finite
+numbers to be rejected as `invalid-field-value` with a pointer — but `json.Marshal`
+returns `json: unsupported value: NaN` (measured, and the same measurement 2c relies on),
+which is a Go error, not a §5 token. An encoder that builds the wire object and marshals
+first therefore fails the case that pins this. Marshaling is unreachable for any input
+that passed validation, and that ordering is also what §5's reason-order table needs: a
+marshal failing early would report whichever member it reached first rather than the
+reason the table says comes first.
 
 Plus an **emitter**, which Python does not ship:
 
@@ -178,10 +228,19 @@ type Emitter interface {
 block its caller and `contract-tests.ts` enforces it for that binding; a Go caller who
 needs that behaviour starts a goroutine, which is cheaper than making every caller await.
 
-The emitter keeps TypeScript's three invariants: it never panics (a sink error becomes
-`EmitResult` with reason `sink-failed`, never a panic), it never writes a line the encoder
-refused, and it reads no clock and generates no ids — `Ts` and `CorrelationID` are the
-caller's, per the spec's purity rule.
+The emitter keeps TypeScript's invariants with one narrowed honestly: it never panics **of
+its own accord** and a sink that *returns* an error becomes `EmitResult` with reason
+`sink-failed`; it never writes a line the encoder refused; and it reads no clock and
+generates no ids — `Ts` and `CorrelationID` are the caller's, per the spec's purity rule.
+
+**A panicking sink propagates; the emitter does not `recover`.** TypeScript's emitter
+catches a *throwing* sink because its natural fire-and-forget call shape would otherwise
+surface an unhandled rejection the caller cannot catch. Go has no such hazard, and a panic
+there is a bug in the sink — a closed channel, a nil map — not a diagnostic outcome.
+Swallowing it into `sink-failed` would disguise the caller's defect as a transport
+failure, which is worse than the crash. This is a fourth documented divergence from
+TypeScript's emitter, and stating it is the point: the alternative was claiming an
+invariant the mechanism does not deliver.
 
 **`Audit` copies TypeScript's gap rather than fixing it.** TypeScript's `audit` fixes
 `level: "info"` and `kind: "audit"`, so an audited *failure* has no path through the
@@ -230,8 +289,19 @@ the contract layer, which is where a disagreement between three implementations 
 ## 2c — The connector kit
 
 `sdks/go/connectorkit/` — one word, because Go package names take no hyphen and
-`connector_kit` is not a Go name. It binds Python's Shipment 1 core, module for module,
-and runs the 28-case `url-resolution` corpus.
+`connector_kit` is not a Go name. RFC-0012 already spells it this way, in the
+`errors.Is(err, connectorkit.ErrConnectorKit)` example. It binds Python's Shipment 1 core
+and runs the 28-case `url-resolution` corpus, under a **floor of 20** and the same
+subtest-count assertion 2b's runner carries.
+
+**One package or six is deferred to this sub-shipment's plan, with a recommendation.**
+Python's six modules could become six Go packages, and the choice is not cosmetic: every
+non-internal package must be listed in `internal/apisurface/cmd/main.go` and becomes an
+import path frozen by the first tag that ships it. The recommendation is **one package,
+six files** — Go prefers fewer, larger packages, and Python's own `__all__` already
+flattens the module boundary, so a caller writes
+`from nimbus_sdk.connector_kit import resolve_url_with_base` rather than naming `urls`.
+The plan must answer this explicitly rather than let the first file created decide it.
 
 ### Scope: exactly Python's shipped core
 
@@ -271,6 +341,13 @@ is stated once here and not re-litigated per symbol:
 `golint`'s initialism list is the authority for the first rule, and the API-surface gate
 will freeze whatever this shipment chooses, so it is chosen deliberately rather than
 per-file.
+
+**Where Python has no counterpart, follow TypeScript's name transformed to Go
+convention.** D4 says names follow Python's, which is silent for everything 2b adds beyond
+the core — the emitter exists only in TypeScript. The fallback makes `createEmitter` into
+`NewEmitter`, because Go's constructor convention is `New*` and a literal `CreateEmitter`
+would be a JavaScript name wearing Go capitalisation. Stated here, once, so the two
+sub-shipments do not answer it differently.
 
 ### The errors
 
@@ -353,11 +430,44 @@ behaviour. `test:` is the honest type and cuts nothing.
 Blocked on 2b and 2c: GOVERNANCE's criterion 1 is passing the full conformance suite, and
 `diagnostics` and `url-resolution` are what "full" is missing today.
 
+**"Full" needs pinning, and 2f is where it happens.** Six corpora are published and this
+design rules four of them — `manifest`, `item`, `predicates`, `sandbox` — out of Go by
+name, so a literal reading of criterion 1 would block officiality forever on the same
+document that claims it. `docs/GOVERNANCE.md` states the criterion in five words, defines
+nothing further, and closes by saying the detailed criteria "will be refined as the second
+and third bindings land." Go is the third. The operative reading already exists as
+precedent rather than prose: RFC-0008 promoted Python while it ran exactly these four
+corpora. So 2f writes it down — **"full" means every corpus whose surface the binding
+publishes** — and cites RFC-0008 rather than inventing a standard.
+
+2f also adds Go's row to GOVERNANCE's SDK-owner registry, which lists Python alone today.
+Criterion 3 is worded to be *checkable from that document*, so an owner named only inside
+the RFC does not satisfy it.
+
 RFC-0013 records all four criteria as met and **names an SDK owner**. That name is a
 decision for the maintainer, not something this design or the code can settle, and the RFC
 does not get written until it is supplied. RFC-0008 is the template — it ran Python
 through the same four criteria and recorded the asymmetry that TypeScript, as the
 reference implementation, never had a promotion RFC of its own.
+
+## Gates each sub-shipment trips
+
+None of the four TypeScript CI gates read Go, but Go has two of its own plus two traps
+`CLAUDE.md` documents, and they fire on things every sub-shipment below does incidentally.
+Listed here because three of the four fail in a file the sub-shipment does not otherwise
+touch:
+
+| Gate | Trips on | Sub-shipments |
+|---|---|---|
+| `docs/api-surface-go.md` golden test | any new export | 2a, 2b, 2c |
+| the hand-maintained `packages` slice in `internal/apisurface/cmd/main.go` | a **new package** — today the list is `contract`, `ipc`, `spec` | 2b, 2c |
+| `spec/drift_test.go` | any change under `docs/spec/` without `go -C sdks/go generate ./spec` | 2e |
+| Python's `_data/spec` snapshot | `pytest` without a prior `pip install -e .` — passes while executing none of the new cases | 2e |
+
+The first two are newer than the Shipment 1 design and have no counterpart in it, which is
+exactly why they are easy to miss: 2b and 2c each add a package, and a package added
+without its line in `packages` fails a coverage test in a command neither sub-shipment is
+otherwise editing.
 
 ## What this design does not do
 

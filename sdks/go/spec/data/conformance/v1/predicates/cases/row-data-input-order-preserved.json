@@ -1,0 +1,25 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "offenders are reported in the order they appear in the tool list",
+  "tools": [
+    {
+      "name": "zeta_scan"
+    },
+    {
+      "name": "bigquery_list"
+    },
+    {
+      "name": "alpha_rows"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "zeta_scan",
+      "segment": "scan"
+    },
+    {
+      "tool": "alpha_rows",
+      "segment": "rows"
+    }
+  ]
+}

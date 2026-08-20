@@ -1,0 +1,8 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "a missing summary is rejected",
+  "input": {
+    "actionId": "deploy-1"
+  },
+  "expect": false
+}

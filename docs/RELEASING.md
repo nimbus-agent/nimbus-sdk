@@ -1,9 +1,14 @@
 # nimbus-sdk — Releasing
 
-How each official SDK is published. TypeScript and Python both ship today; the Go
-pipeline is a [roadmap](./ROADMAP.md) Phase 3 deliverable and is described here as
-the target so every binding is held to the **same guarantees**, even where the
-mechanics differ.
+How each SDK is published. TypeScript and Python are official and both ship today. Go is
+on the official track but is not there yet — RFC-0013 is where that is claimed — and its
+pipeline is **written and wired but has never run**: no `sdks/go/v0.1.0` tag has been
+pushed, so nothing below about `proxy.golang.org` has been observed rather than designed.
+
+Every binding is held to the **same guarantees**, even where the mechanics differ — and
+Go is where "the mechanics differ" does real work, because the guarantee that actually
+protects a Go consumer is not the one the other two rely on. That is spelled out in the
+Go section rather than smoothed over here.
 
 ## Release parity — the guarantees every SDK meets
 
@@ -16,13 +21,15 @@ Whatever the language, an official Nimbus SDK is released so that:
    short-lived and identity-based (GitHub OIDC / Trusted Publishers), or there is no
    registry credential at all (Go). No `NPM_TOKEN` / `PYPI_TOKEN` in repo secrets.
 3. **It carries verifiable provenance.** The published artifact is signed and
-   attestable back to *this repo, this workflow, this commit*.
+   attestable back to *this repo, this workflow, this commit*. **Go satisfies this
+   differently in kind**, and the difference is not cosmetic — see
+   [below](#go--module-proxy-implemented-not-yet-exercised).
 4. **It runs on hardened CI.** `step-security/harden-runner`, pinned action SHAs,
    `persist-credentials: false`, least-privilege `permissions`.
 5. **It is verified after publish.** The job re-fetches the released artifact from
    the registry and verifies it before going green — because most registries cannot
-   unpublish, so a post-publish failure must *report* damage, not cause it. Both
-   ecosystems verify **cryptographically**: npm through `npm audit signatures`, PyPI
+   unpublish, so a post-publish failure must *report* damage, not cause it. npm and
+   PyPI both verify **cryptographically**: npm through `npm audit signatures`, PyPI
    through [`pypi-attestations`](https://github.com/trailofbits/pypi-attestations),
    which checks the PEP 740 attestation's Sigstore signature against a policy naming
    this issuer, this repository, this workflow ref, and this commit. In both cases the
@@ -36,7 +43,7 @@ Whatever the language, an official Nimbus SDK is released so that:
 |---|---|---|---|---|---|
 | **TypeScript** *(shipping)* | npm | release-please `node` | OIDC Trusted Publisher — no token | `npm publish --provenance` (Sigstore) | install from npm + `npm audit signatures` + provenance attestation check |
 | **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | download from PyPI + `pypi-attestations` **Sigstore verification** against a self-derived policy |
-| **Go** *(planned)* | none — module proxy | release-please `go` → semver tag + GitHub Release | tag push — no registry credential | signed tags + SLSA provenance on release artifacts | `GOSUMDB` checksum DB + `go mod verify` |
+| **Go** *(wired, never run)* | none — module proxy | release-please `sdks/go` → `sdks/go/vX.Y.Z` tag | tag push — no registry credential | `sum.golang.org` (load-bearing) + SLSA provenance on a `git archive` of the module tree (supplementary) | resolve `@version` through `proxy.golang.org` from a scratch directory and require a `go.sum` entry |
 
 ## TypeScript → npm (implemented today)
 
@@ -132,35 +139,125 @@ release ships tokenless, attested, and verified end-to-end. The phase's other ex
 criterion, a Python-authored connector passing the conformance suite, is separate
 and still open.
 
-## Go → module proxy (planned)
+## Go → module proxy (implemented, not yet exercised)
+
+Defined in [`.github/workflows/release-go.yml`](../.github/workflows/release-go.yml).
+Every decision below is recorded in [RFC-0012](./rfcs/0012-go-sdk-binding.md).
 
 Go does **not** push to a package registry. A module is "published" by **tagging a
-commit**; `proxy.golang.org` fetches it from the VCS on first request and
-`pkg.go.dev` renders its docs. So the Go pipeline is tag-centric, and its integrity
-story leans on Go's built-in transparency infrastructure.
+commit**; `proxy.golang.org` fetches it from the VCS on first request and `pkg.go.dev`
+renders its docs. There is no publish credential to protect, and no artifact anyone
+downloads by hand.
 
-- **Automation:** a release-please `go` component cuts a **semver git tag** and a
-  GitHub Release from merged commits.
-- **Module layout — a decision to make first:** the module path and tag format depend
-  on where the module lives:
-  - module at repo root → tags `vX.Y.Z`;
-  - module in a subdir (e.g. `sdks/go/`) → module path
-    `github.com/nimbus-agent/nimbus-sdk/sdks/go` and tags **must** be prefixed
-    `sdks/go/vX.Y.Z`;
-  - a major version `v2+` requires the `/v2` suffix in the module path.
-  A dedicated `nimbus-sdk-go` repo is a valid alternative that keeps tagging simple —
-  weigh it during Phase 3.
-- **Integrity (native):** authenticity is anchored by the **Go checksum database**
-  (`sum.golang.org`, a transparency log) plus `GONOSUMCHECK`/`go mod verify` on the
-  consumer side — no publish credential exists to protect.
-- **Build provenance (added):** **sign the release tags** (e.g. `git tag -s` or
-  Sigstore `gitsign`) and attach **SLSA build provenance** to the GitHub Release
-  artifacts, so Go matches the "verifiable, tokenless" property of the other SDKs.
-- **Post-publish verify:** confirm `GOPROXY=proxy.golang.org go install <module>@vX.Y.Z`
-  resolves and `pkg.go.dev` renders the version.
+1. **Release PR.** The `sdks/go` component in
+   [`release-please-config.json`](../release-please-config.json)
+   (`release-type: "go"`, `tag-separator: "/"`, `include-component-in-tag: true`) opens
+   its own release PR and maintains `sdks/go/CHANGELOG.md`.
 
-**Exit bar:** a Go release cut from a merged commit as a signed semver tag, resolving
-through the module proxy with provenance on the Release. See
+   Releases are tagged **`sdks/go/vX.Y.Z`** — the form the module proxy requires of a
+   module in a subdirectory, and the reason this component alone needs a `/` separator.
+   The option was confirmed **per-package** before it was set, against the exact
+   release-please version the pinned action runs, so the `typescript-`, `python-`, and
+   `create-connector-` tags are provably unaffected. The evidence is in
+   [RFC-0012](./rfcs/0012-go-sdk-binding.md#the-tag-format-and-the-evidence-behind-it).
+
+2. **The tag is the release.** `release-go.yml` fires on `sdks/go/v*` and **publishes
+   nothing** — there is nothing to publish. Its `attest` job builds the module and
+   attaches `actions/attest-build-provenance` to a `git archive` of `sdks/go` at that
+   tag: a real, reproducible artifact anyone can regenerate and diff. It is deliberately
+   *not* the zip `go get` fetches — that zip is synthesized by `proxy.golang.org`, and
+   reproducing it byte-for-byte needs `golang.org/x/mod/zip`, a dependency this
+   dependency-free module cannot take. So the attestation attests **what was tagged**,
+   not what was served.
+
+3. **Verify, from outside any checkout.** The `verify` job runs `go mod init` in a fresh
+   temporary directory and `go get`s the published version through the public proxy,
+   retrying because propagation is asynchronous, then **requires a `go.sum` entry** for
+   it. A build inside the repository would prove only that the source tree compiles; this
+   proves the module resolves for a stranger.
+
+**The load-bearing guarantee for a Go consumer is `sum.golang.org`, not the
+attestation.** This is a correction to what
+[the roadmap](./ROADMAP.md#phase-3--scale-languages--batteries) originally promised —
+that Go would get "the same 'verifiable, tokenless' property as the npm/PyPI SDKs" — and
+it does not survive contact with how Go distribution works. **Nobody fetches GitHub
+Release artifacts for a Go module.** `go get` resolves through `proxy.golang.org`, so an
+attestation on a tarball no consumer downloads is ceremony, however correctly it is
+produced.
+
+What does protect a Go consumer is the **checksum database**: a public, append-only
+transparency log of module hashes that **every `go` client verifies automatically**, with
+no opt-in and no extra command. That is *broader in reach* than npm provenance, which
+most installs never check, and *narrower in claim*, since it attests that the bytes are
+unchanged rather than where they were built. **Different in kind, not weaker** — and the
+`go.sum` assertion in the verify job is there precisely because it is the guarantee that
+actually reaches users.
+
+**No tag signing.** Conventional `git tag -s` needs a private key in repository secrets,
+which would put a long-lived credential into the one language in this repository that
+needs no publish credential at all — inverting the property Go should demonstrate most
+cleanly. If tag signing is wanted later it must be keyless (Sigstore `gitsign`, OIDC, no
+stored key).
+
+**Two irreversible properties to respect before the first push.** `proxy.golang.org`
+caches a version permanently within minutes of the first fetch — deleting the tag does
+not unpublish it, and re-tagging the same version with different content is visible
+forever as a checksum mismatch. There is no dry run: a throwaway `v0.0.1` is cached
+forever too. And for any major version **≥ 2**, Go's semantic import versioning requires
+the `/v2` suffix in the **module path itself**; `sdks/go/go.mod` declares the unsuffixed
+path, so a `sdks/go/v2.0.0` tag cannot resolve until the module path moves.
+
+### Go takes no bootstrap tag
+
+`git tag --list` shows `create-connector-v0.0.0`, pushed deliberately when that component
+was added, and `.release-please-manifest.json` seeds `"sdks/go": "0.0.0"` by the same
+pattern. **Do not complete the pattern.** A `sdks/go/v0.0.0` tag is not a local
+bookkeeping marker the way an npm one is: the moment anything resolves it,
+`proxy.golang.org` caches `github.com/nimbus-agent/nimbus-sdk/sdks/go@v0.0.0` and
+`sum.golang.org` records its hash, permanently, and `pkg.go.dev` may index a version that
+was never meant to exist. The npm precedent transfers no risk because npm publishes on a
+`npm publish`, not on a tag — a `create-connector-v0.0.0` tag put nothing in a registry.
+For Go the tag *is* the publish, which is the whole point of the section above.
+
+The tag is not needed, either. The manifest entry alone does the bootstrapping:
+release-please treats a manifest version of exactly `"0.0.0"` as the sentinel for "never
+released" and skips synthesizing a latest-release tag for that path, so the component is
+processed as unreleased and no `sdks/go/v0.0.0` is looked up. With no latest release
+found, the commit range for the first release PR is *all* of the default branch's
+history, filtered to commits touching `sdks/go/` — which for a component added in one
+branch is exactly that branch's commits, so nothing needs narrowing.
+
+**Neither knob release-please offers can narrow it per-component anyway**, which is worth
+knowing before someone reaches for one. `bootstrap-sha` ("For the initial release of a
+library, only consider as far back as this commit SHA") and `last-release-sha` ("For any
+release, only consider as far back as this commit SHA") are both **top-level** options in
+`release-please-config.json`, not per-package ones: setting either to scope Go's first
+release would move the floor for `sdks/typescript`, `sdks/python`, and
+`tools/create-connector` at the same time. The schema marks both "an uncommon use case
+and should generally be avoided." Leave them unset.
+
+**One thing to settle before the tag is pushed: the first version will be `1.0.0`, not
+`0.1.0`.** release-please's `go` strategy does not override the base initial version, and
+the `sdks/go` package config sets no `initial-version`, so with no prior release the first
+release PR proposes `1.0.0` — the base default — regardless of what the commits say.
+`sdks/go/README.md`, RFC-0012, and `release-config-guard.test.ts`'s comment all speak of
+`sdks/go/v0.1.0`. Getting `0.1.0` requires adding `"initial-version": "0.1.0"` to the
+`sdks/go` entry in `release-please-config.json`; that is a one-line change, and it must
+land *before* the release PR is merged, because the tag it produces is unretractable.
+
+**Confidence, stated rather than implied.** The three mechanisms above were read from
+`googleapis/release-please` on `main` — the `'0.0.0'` sentinel in `manifest.ts`'s
+latest-release backfill, `initialReleaseVersion()` in `strategies/base.ts`, and the
+option scopes in `schemas/config.json` — not from the exact release-please build that
+`googleapis/release-please-action@v5.0.0` bundles. They match its published
+documentation, and none of them is version-sensitive in a way this repository could
+detect from the outside. **Confirm the proposed version on the first release PR before
+merging it**, which is free and is the only observation that settles it; do not treat the
+`1.0.0` claim above as something CI has proven.
+
+**Exit bar:** a Go release cut from a merged commit as a semver tag, resolving through
+the module proxy with a `go.sum` entry and an attestation on the tagged tree. **Not yet
+met** — no tag exists. See
 [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
 
 ## Shared plumbing

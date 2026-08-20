@@ -1,0 +1,7 @@
+{
+  "description": "Two well-formed, non-empty sets that share no member — the plain refusal the algorithm exists to detect.",
+  "kind": "negotiate",
+  "local": ["1"],
+  "remote": ["2"],
+  "expect": { "ok": false, "reason": "no-common-version", "exit": 20 }
+}

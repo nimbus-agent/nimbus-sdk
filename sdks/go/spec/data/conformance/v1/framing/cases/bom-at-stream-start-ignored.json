@@ -1,0 +1,8 @@
+{
+  "description": "a BOM at the very start of the stream is not part of the first frame",
+  "chunks": [{ "concat": [{ "base64": "77u/" }, { "utf8": "{\"a\":1}\n" }] }],
+  "expect": {
+    "push": [["{\"a\":1}"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

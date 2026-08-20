@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/schemas/v1/hitl-request.schema.json",
+  "title": "HitlRequest",
+  "description": "A human-in-the-loop approval request. Published as a second, independent expression of the isHitlRequest predicate in docs/spec/predicates/v1/: the conformance corpus asserts the two agree, which only means something because they are computed separately. A binding MUST NOT implement the predicate by running this schema.",
+  "type": "object",
+  "required": ["actionId", "summary"],
+  "properties": {
+    "actionId": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Identifies the action awaiting approval. Non-empty — which is NOT the blankness rule the manifest registry defines: a single space is a valid value here."
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Human-facing description of what will happen if approved. Non-empty, on the same terms as actionId."
+    },
+    "diff": {
+      "type": "string",
+      "description": "Optional preview of the change. Absent and null are NOT interchangeable: omitting the key is valid, an explicit null is not. A binding whose map lookup returns the same value for a missing key and a null one (Python's dict.get, for instance) will get this wrong."
+    }
+  }
+}

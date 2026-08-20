@@ -1,0 +1,32 @@
+{
+  "kind": "harness",
+  "description": "a single empty-string host runs the network probes with an empty arg",
+  "platform": "linux",
+  "permissions": {
+    "network": [
+      ""
+    ]
+  },
+  "probeResults": {
+    "network-listed": 0,
+    "network-unlisted": 11,
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": ""
+      },
+      {
+        "probe": "network-unlisted",
+        "arg": ""
+      },
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

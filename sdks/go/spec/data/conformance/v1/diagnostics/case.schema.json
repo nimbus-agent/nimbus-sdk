@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/diagnostics/case.schema.json",
+  "title": "Diagnostics conformance case",
+  "description": "One case. Three kinds, because the specification has three separable assertions: encoding a value (encode), reading a line (parse), and the level ordering (level). A runner reads `kind` and dispatches.",
+  "type": "object",
+  "required": ["description", "kind"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["encode", "parse", "level"] },
+    "event": {
+      "description": "encode only. The candidate event. Deliberately unconstrained: most cases assert a malformed value is refused. A string-valued member (extensionId, in practice) MAY instead be a #/definitions/textLike descriptor, when the case needs a value too large to inline literally — the runner expands it into the literal string before the input reaches encodeDiagnostic. Keeping this property schema-unconstrained rather than switching it to a typed object is what still lets a case pass null, an array, or any other malformed shape here."
+    },
+    "line": {
+      "type": "string",
+      "description": "parse only. One decoded line, without its terminating LF. A string rather than a parsed object, because what is under test is the parsing."
+    },
+    "level": {
+      "type": "string",
+      "description": "level only. A plain string, not the four-value enum: meetsLevel is documented as total over an unpublished level in either argument position (spec §6), and an enum here would make that behavior structurally unpinnable."
+    },
+    "threshold": {
+      "type": "string",
+      "description": "level only, on the same terms as level."
+    },
+    "expect": {
+      "type": "object",
+      "required": ["ok"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "line": {
+          "$ref": "#/definitions/textLike",
+          "description": "encode only, on success: the exact canonical line — literal, or generated via #/definitions/textLike for a case whose extensionId is itself generated."
+        },
+        "event": { "description": "parse only, on success: the decoded event, without `nimbus`." },
+        "meets": { "type": "boolean", "description": "level only." },
+        "reason": {
+          "enum": [
+            "not-json",
+            "not-object",
+            "wrong-message",
+            "unknown-member",
+            "invalid-ts",
+            "invalid-level",
+            "invalid-extension-id",
+            "invalid-event",
+            "invalid-kind",
+            "invalid-correlation-id",
+            "invalid-fields",
+            "invalid-field-key",
+            "invalid-field-value",
+            "too-many-fields",
+            "invalid-error",
+            "line-too-long"
+          ]
+        },
+        "path": { "type": "string", "description": "On refusal: the JSON Pointer naming the offending member." }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "ok": { "const": false } }, "required": ["ok"] },
+          "then": { "required": ["reason", "path"] }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "encode" } }, "required": ["kind"] },
+      "then": { "required": ["event", "expect"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "parse" } }, "required": ["kind"] },
+      "then": { "required": ["line", "expect"] }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "level" } }, "required": ["kind"] },
+      "then": { "required": ["level", "threshold", "expect"] }
+    }
+  ],
+  "definitions": {
+    "repeat": {
+      "type": "object",
+      "required": ["repeat"],
+      "additionalProperties": false,
+      "properties": {
+        "repeat": {
+          "type": "object",
+          "required": ["utf8", "count"],
+          "additionalProperties": false,
+          "properties": {
+            "utf8": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Repeat this string's UTF-8 encoding, count times."
+            },
+            "count": { "type": "integer", "minimum": 0 }
+          }
+        }
+      },
+      "description": "Generated content, so a case at the IPC_MAX_LINE_BYTES limit costs a few lines rather than a megabyte of literal characters in git. Mirrors docs/spec/conformance/v1/framing/case.schema.json's repeat descriptor, narrowed to the utf8 variant: a diagnostic event's string members are JSON text, not transport octets, so there is no byte-vs-character distinction to preserve here the way framing's chunk/frame vocabulary needs one."
+    },
+    "textLike": {
+      "oneOf": [
+        { "type": "string" },
+        { "$ref": "#/definitions/repeat" },
+        {
+          "type": "object",
+          "required": ["concat"],
+          "additionalProperties": false,
+          "properties": {
+            "concat": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/definitions/textLike" }
+            }
+          },
+          "description": "One string built from several parts, joined in order — used when a generated value sits inside fixed surrounding text, such as the canonical line around a generated extensionId."
+        }
+      ],
+      "description": "A string, present literally, generated via #/definitions/repeat, or assembled from several such parts via concat. The runner resolves any of these three shapes to the same plain string before comparison."
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "EISDIR does NOT map to fsDenied",
+  "classifier": "filesystem",
+  "code": "EISDIR",
+  "expectExit": 2
+}

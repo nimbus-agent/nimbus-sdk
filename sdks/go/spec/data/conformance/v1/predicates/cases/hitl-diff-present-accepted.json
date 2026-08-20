@@ -1,0 +1,10 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "a string diff is accepted",
+  "input": {
+    "actionId": "deploy-1",
+    "summary": "Deploy build 1",
+    "diff": "--- a\n+++ b"
+  },
+  "expect": true
+}

@@ -1,0 +1,11 @@
+{
+  "description": "An extensionId one octet longer than the accepted maximum pushes the encoded line to 1048577 octets, one over IPC_MAX_LINE_BYTES, and is refused as line-too-long — the one reason measured after serialization rather than during member validation. extensionId is generated (repeat) rather than inlined, so this case costs a few lines rather than a megabyte of literal characters — mirrors docs/spec/conformance/v1/framing/cases/frame-one-octet-over-limit.json's repeat descriptor for the identical IPC_MAX_LINE_BYTES limit. Paired with line-at-limit-accepted.json, which uses the same descriptor one octet shorter and is accepted — together they pin that the check is strictly greater-than, not greater-than-or-equal.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": { "repeat": { "utf8": "x", "count": 1048476 } },
+    "event": "sync.page"
+  },
+  "expect": { "ok": false, "reason": "line-too-long", "path": "" }
+}

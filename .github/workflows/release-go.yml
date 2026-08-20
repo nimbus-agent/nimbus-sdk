@@ -1,0 +1,120 @@
+name: release-go
+
+on:
+  push:
+    tags:
+      - 'sdks/go/v*'
+
+permissions:
+  contents: read
+
+jobs:
+  # Go has no registry to push to and no publish credential at all: a git tag IS the
+  # release, and proxy.golang.org serves the module from it directly. This job does not
+  # publish anything — it attests what was tagged, and the `verify` job below checks
+  # what the proxy actually served. There is deliberately no signing key here: a GPG
+  # private key in repository secrets would put a long-lived credential into the one
+  # language in this repo that needs none — see CLAUDE.md's non-negotiable.
+  attest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      # Only for actions/checkout to authenticate its clone; this job never pushes
+      # anything and does not need contents: write. See the report for the full
+      # reasoning — the action's own minimum permission set is id-token: write +
+      # attestations: write, and create-storage-record (the one input that would need
+      # artifact-metadata: write) is a no-op here because push-to-registry is unset.
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          # Reaches the Sigstore signing chain (Fulcio/Rekor); audit (not block) avoids
+          # brittle allowlist drift on that chain, matching the npm/PyPI publish jobs.
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sdks/go/go.mod
+          cache: false
+
+      - name: Build
+        working-directory: sdks/go
+        run: go build ./...
+
+      # The attestation subject is a git archive of the module directory at this tag —
+      # a real, reproducible artifact anyone can regenerate and diff. It is deliberately
+      # NOT the zip `go get` fetches: that zip is synthesized by proxy.golang.org, and
+      # reproducing it byte-for-byte needs golang.org/x/mod/zip, a dependency this
+      # module cannot take. sum.golang.org remains the load-bearing guarantee for a
+      # consumer; this attests what was tagged, not what was served.
+      #
+      # No --prefix: the pathspec `sdks/go` already yields entries whose paths begin
+      # with `sdks/go/` (git archive preserves the path as given), so adding
+      # --prefix=sdks/go/ would double it into sdks/go/sdks/go/go.mod.
+      - name: Archive the module directory
+        shell: bash
+        run: git archive --format=tar.gz -o sdks-go.tar.gz "${GITHUB_REF_NAME}" sdks/go
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: sdks-go.tar.gz
+
+  # Deliberately outside any checkout: this must prove the module resolves for a
+  # stranger from the public proxy + checksum database, not that the source tree
+  # builds. pkg.go.dev indexing and proxy.golang.org propagation are asynchronous
+  # after a tag push, so this retries — and fails loudly, not silently, once the
+  # retries are exhausted.
+  verify:
+    needs: attest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          # Reaches proxy.golang.org and sum.golang.org; audit (not block) avoids
+          # brittle allowlist drift, matching the attest job.
+          egress-policy: audit
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Resolve the published module from the proxy
+        shell: bash
+        # Deliberately OUTSIDE any checkout: this must prove the module resolves for a
+        # stranger, not that the source tree builds.
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME##*/}"
+          dir="$(mktemp -d)"
+          cd "$dir"
+          go mod init verify
+          resolved=""
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if go get "github.com/nimbus-agent/nimbus-sdk/sdks/go@${version}"; then
+              resolved=1
+              break
+            fi
+            echo "proxy has not served ${version} yet (attempt ${attempt}); waiting"
+            sleep 30
+          done
+          if [ -z "$resolved" ]; then
+            echo "::error::proxy never served ${version} after 10 attempts"
+            exit 1
+          fi
+          grep "nimbus-sdk/sdks/go ${version}" go.sum || {
+            echo "::error::no go.sum entry — the checksum database did not vouch for this version"
+            exit 1
+          }

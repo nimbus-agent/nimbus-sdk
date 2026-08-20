@@ -1,0 +1,12 @@
+{
+  "description": "the mark's three octets arrive in separate pushes and are still stripped — nothing has been emitted before them, so it is at the very start of the stream",
+  "chunks": [
+    { "base64": "7w==" },
+    { "base64": "uw==" },
+    { "base64": "v3siYSI6MX0K" }
+  ],
+  "expect": {
+    "push": [[], [], ["{\"a\":1}"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

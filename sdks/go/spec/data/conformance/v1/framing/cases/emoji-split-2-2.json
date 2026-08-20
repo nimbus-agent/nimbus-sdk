@@ -1,0 +1,8 @@
+{
+  "description": "a four-octet sequence split down the middle decodes intact",
+  "chunks": [{ "base64": "8J8=" }, { "base64": "mIAK" }],
+  "expect": {
+    "push": [[], ["😀"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "description": "an LF-terminated frame is delivered without its delimiter",
+  "chunks": [{ "utf8": "{\"a\":1}\n" }],
+  "expect": {
+    "push": [["{\"a\":1}"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

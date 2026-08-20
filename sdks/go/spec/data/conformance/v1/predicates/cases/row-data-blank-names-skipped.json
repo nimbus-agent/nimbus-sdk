@@ -1,0 +1,22 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "names that are empty or whitespace-only produce nothing, including the characters JavaScript and Python disagree about",
+  "tools": [
+    {
+      "name": ""
+    },
+    {
+      "name": "   "
+    },
+    {
+      "name": "\u0085"
+    },
+    {
+      "name": "\u200B"
+    },
+    {
+      "name": "\uFEFF"
+    }
+  ],
+  "violations": []
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/index.schema.json",
+  "title": "Conformance fixture index",
+  "description": "Machine-readable manifest of the conformance fixtures, so a runner in any language can consume the corpus without parsing prose.",
+  "type": "object",
+  "required": ["fixtures"],
+  "properties": {
+    "fixtures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["file", "shape", "expect", "class", "reason"],
+        "allOf": [
+          {
+            "if": {
+              "properties": { "file": { "type": "string", "pattern": "^manifest/" } },
+              "required": ["file"]
+            },
+            "then": { "properties": { "shape": { "const": "ExtensionManifest" } } }
+          },
+          {
+            "if": {
+              "properties": { "file": { "type": "string", "pattern": "^item/" } },
+              "required": ["file"]
+            },
+            "then": { "properties": { "shape": { "const": "NimbusItem" } } }
+          },
+          {
+            "if": {
+              "properties": {
+                "class": { "const": "equivalence" },
+                "shape": { "const": "ExtensionManifest" }
+              },
+              "required": ["class", "shape"]
+            },
+            "then": {
+              "required": ["violations"],
+              "properties": { "violations": { "type": "array" } }
+            }
+          }
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "pattern": "^(manifest|item)/[A-Za-z0-9._-]+\\.json$",
+            "description": "Fixture path relative to this directory. Constrained to the two fixture subdirectories with no path separators in the filename, so an entry cannot reach outside the corpus. The allOf above binds the directory to the shape, so a manifest/ path cannot be validated against the item schema."
+          },
+          "shape": { "enum": ["ExtensionManifest", "NimbusItem"] },
+          "expect": { "enum": ["valid", "invalid"] },
+          "class": {
+            "enum": ["equivalence", "schema-only"],
+            "description": "equivalence: the schema and runContractTests both cover these fields and must agree. schema-only: the field is one the runtime never inspects, so only the schema is asserted."
+          },
+          "violations": {
+            "type": "array",
+            "description": "Every rule the fixture violates, sorted by rule id and then by path. Required on equivalence-class manifest entries: optional alone would let a fixture skip the assertion and still look complete. A parameterized rule appears once per offending location, so two bad entries are two distinguishable violations rather than a duplicated id.",
+            "items": {
+              "type": "object",
+              "required": ["rule", "path"],
+              "additionalProperties": false,
+              "properties": {
+                "rule": {
+                  "type": "string",
+                  "pattern": "^manifest\\.[A-Za-z]+\\.[a-z]+$",
+                  "description": "An id from docs/spec/rules/v1/manifest-rules.json."
+                },
+                "path": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z]+(/[0-9]+)?$",
+                  "description": "JSON Pointer to the location that violated the rule."
+                }
+              }
+            }
+          },
+          "reason": { "type": "string", "pattern": "\\S" }
+        }
+      }
+    }
+  }
+}

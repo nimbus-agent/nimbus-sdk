@@ -1,0 +1,10 @@
+{
+  "description": "A path merely beginning with the letters 'http' is relative — there is no colon, so no scheme. But the base carries no trailing slash, so concatenating it moves the host from api.example.com to api.example.comhttpdocs, and §4's origin check refuses it.",
+  "base": "https://api.example.com",
+  "input": "httpdocs/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.comhttpdocs, expected https://api.example.com)"
+  }
+}

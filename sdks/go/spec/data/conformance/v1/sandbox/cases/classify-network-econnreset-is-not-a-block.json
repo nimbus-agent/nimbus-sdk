@@ -1,0 +1,7 @@
+{
+  "kind": "classify",
+  "description": "ECONNRESET does NOT map to networkBlocked",
+  "classifier": "network",
+  "code": "ECONNRESET",
+  "expectExit": 2
+}

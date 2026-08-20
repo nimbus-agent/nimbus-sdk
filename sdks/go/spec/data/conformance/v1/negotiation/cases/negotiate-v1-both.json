@@ -1,0 +1,7 @@
+{
+  "description": "[\"1\"] is the set a manifest omitting contractVersions resolves to (the absent-field default), so agreement between two such peers is the absence-defaults-to-[\"1\"] assertion, not merely the only agreement possible today.",
+  "kind": "negotiate",
+  "local": ["1"],
+  "remote": ["1"],
+  "expect": { "ok": true, "version": "1" }
+}

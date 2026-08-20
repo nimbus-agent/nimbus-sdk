@@ -1,0 +1,10 @@
+{
+  "description": "A base that is not an absolute URL with a host is refused with its own reason, distinguishing caller misconfiguration from attacker input. Only reachable on the absolute path — §4 never parses the base.",
+  "base": "api.example.com",
+  "input": "https://api.example.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "invalid-base",
+    "message": "resolveUrlWithBase: base URL is not an absolute URL with a host"
+  }
+}

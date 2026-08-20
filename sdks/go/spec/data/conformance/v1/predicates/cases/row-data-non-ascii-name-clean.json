@@ -1,0 +1,10 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "a non-ASCII name is not itself a violation",
+  "tools": [
+    {
+      "name": "\u5206\u6790_list"
+    }
+  ],
+  "violations": []
+}

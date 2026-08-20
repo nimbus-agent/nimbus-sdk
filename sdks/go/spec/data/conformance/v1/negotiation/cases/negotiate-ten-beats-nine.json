@@ -1,0 +1,7 @@
+{
+  "description": "\"10\" against \"9\" — a binding comparing strings without the length step answers \"9\".",
+  "kind": "negotiate",
+  "local": ["9", "10"],
+  "remote": ["10", "9"],
+  "expect": { "ok": true, "version": "10" }
+}

@@ -1,0 +1,6 @@
+{
+  "description": "The complement, with the default on the base rather than on the input: an explicit :80 on http is the same origin as none.",
+  "base": "http://api.example.com:80",
+  "input": "http://api.example.com/x",
+  "expect": { "ok": true, "url": "http://api.example.com/x" }
+}

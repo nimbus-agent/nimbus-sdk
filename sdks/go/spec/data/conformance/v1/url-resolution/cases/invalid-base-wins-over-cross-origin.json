@@ -1,0 +1,10 @@
+{
+  "description": "An invalid base and a cross-origin input both hold here; invalid-base wins because §7 checks the base before comparing origins. Unlike the existing invalid-base case, this input's host does not match the base's text, so a binding that compares origins before validating the base would report cross-origin instead.",
+  "base": "api.example.com",
+  "input": "https://evil.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "invalid-base",
+    "message": "resolveUrlWithBase: base URL is not an absolute URL with a host"
+  }
+}

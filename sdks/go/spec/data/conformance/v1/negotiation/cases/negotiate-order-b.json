@@ -1,0 +1,7 @@
+{
+  "description": "The mirror of negotiate-order-a: local descending, remote ascending, same agreed major.",
+  "kind": "negotiate",
+  "local": ["2", "1"],
+  "remote": ["1", "2"],
+  "expect": { "ok": true, "version": "2" }
+}

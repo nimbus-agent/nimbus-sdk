@@ -56,7 +56,9 @@ the release-please bump.
   `HandshakeResult`) — the one exchange this package performs end to end. It is
   **synchronous** where TypeScript's `performHandshake` is async, which with the
   `isinstance`-vs-tagged-union split is one of the three ways the bindings differ
-  *behaviorally* — and one of the two that are deliberate. See the inventory below.
+  *behaviorally* — and one of the two that are deliberate. Go's handshake, when it lands,
+  is synchronous too, which turns this one from a split into a majority. See the
+  inventory below.
 - `nimbus_sdk.diagnostics` (`sdks/python/src/nimbus_sdk/diagnostics/`) — the Python
   binding of `docs/spec/diagnostics/v1/diagnostics.md`: `encode_diagnostic`,
   `parse_diagnostic`, `meets_level`, `DIAGNOSTIC_KINDS`, `DIAGNOSTIC_LEVELS`, and the
@@ -89,10 +91,95 @@ The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 point, so the boundary is documentation — and hoisting the names to the top level as a
 convenience would erase it.
 
-Both bindings execute the published conformance corpora: `negotiation` (all three
-kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py` — the
+TypeScript and Python both execute the published conformance corpora: `negotiation` (all
+three kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py` — the
 `url-resolution` corpus. Nothing is deferred, so a new corpus case runs in both
-languages the moment it is indexed.
+languages the moment it is indexed. **Go is narrower** — see the section below.
+
+## Go surface (three packages, and nothing at the module root)
+
+Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require` lines**.
+The module root holds only `go.mod`: a package there would have an import path ending in
+`/go` while carrying some other package name, forcing a named import at every call site.
+
+The whole exported surface is seventeen identifiers, listed here in full because Go has
+no `docs/api-surface.md` equivalent yet:
+
+- `contract` (`sdks/go/contract/`) — `ContractVersions`, `HandshakeExit`,
+  `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`,
+  `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
+- `spec` (`sdks/go/spec/`) — `LoadSchema` and `LoadCorpus` only. This is Python's single
+  `nimbus_sdk` root split into two Go packages; a benign surface asymmetry.
+- `ipc` (`sdks/go/ipc/`) — **the hello frame only**: `HelloMessage`, `EncodeHello`,
+  `ParseHello`, `HelloResult`, `HelloOk`, `HelloRefused`. The NDJSON reader and the
+  handshake are Shipment 2.
+- `internal/gen` and a test-only `conformance` package are not part of the surface.
+
+**Three asymmetries against the other bindings sit in that list, and a tag freezes every
+one of them.** Recorded here rather than discovered at the first `go get`:
+
+- **`contract.IsContractVersion` is public, and only in Go.** TypeScript's
+  `isContractVersion` is module-private and Python's `_is_contract_version` is
+  underscore-private; in both, the §3 predicate and the §5 hello parser share one module,
+  so the predicate never crosses a boundary. Go's hello parser lives in a *different
+  package* (RFC-0012 D2), and Go's only visibility control is the capital letter — so a
+  packaging decision became a permanent public commitment. Duplicating the check inside
+  `ipc` was the alternative, and two independently driftable copies of a corpus-pinned
+  predicate is worse.
+- **Python's `CONTRACT_VERSION_PATTERN` has no Go counterpart.** `contract` hand-rolls
+  the check byte-wise rather than compiling a regexp at init, so there is no pattern
+  object to publish; `IsContractVersion` is the only way to ask.
+- **Go trims the `contract` qualifier where the package already supplies it**, so D4's
+  "names follow Python's exactly" is true of every name's meaning and of every name's
+  spelling but two: `CONTRACT_HANDSHAKE_EXIT` → `HandshakeExit` and
+  `negotiate_contract_version` → `Negotiate`. It is trim-what-the-package-says, not
+  drop-the-prefix — `CONTRACT_VERSIONS` stays `ContractVersions`, since `Versions` names
+  nothing on its own.
+
+**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 306 files.** `go:embed`
+refuses paths outside the module directory and `go build` never runs a generator, so Go
+cannot reach `docs/spec/` the way Python's hatch build hook does. Regenerate with
+`go -C sdks/go generate ./spec` after **any** change under `docs/spec/`, or
+`spec/drift_test.go` fails the pull request — it compares the two trees in three
+directions (content differs, file added upstream, file deleted upstream). This is the
+mirror image of Python's local-only trap: Python's copy is gitignored and a stale one
+passes silently, where Go's is committed and a stale one is a red CI job. The cost is
+that every spec change now touches two trees.
+
+The guard **skips** when `../../../docs/spec` is absent, because Go module zips ship
+`_test.go` files and a consumer running `go test ./...` on the downloaded module has no
+checkout to compare against. `NIMBUS_SPEC_DRIFT=required` turns that skip into a failure,
+and the `go` CI job sets it — a bare skip would hide a path typo forever.
+
+The embedded `fs.FS` is **unexported and stays that way**. Exporting it would make the
+on-disk layout of `docs/spec` part of Go's public API, so moving `conformance/v1/framing/`
+would become a Go breaking change while staying invisible to the other two bindings.
+Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
+
+Shipment 1 executes the `negotiation` corpus and nothing else — all 37 cases across all
+three kinds (`negotiate` 16, `hello` 15, `declaration` 6). `framing`, `diagnostics`, and
+`url-resolution` land with the packages that bind them. Go carries a **floor** per corpus
+rather than Python's exact case counts, plus the structural assertion that `runKind`
+fails when it executes zero cases; both languages read the same `index.json`, so a
+duplicated exact pin detects nothing and makes every new case a four-file edit.
+
+Supported Go versions are **the two most recent stable minors** — Go's own policy — and
+`go.mod`'s `go` directive names the **older** of the two. CI runs with
+`GOTOOLCHAIN=local`, so a directive naming the newer minor would make the older leg fail
+outright instead of quietly downloading a toolchain.
+
+Releases are tagged **`sdks/go/vX.Y.Z`** (release-please component `sdks/go`,
+`tag-separator: "/"`, set per-package so the other three components are untouched). **No
+tag has been pushed yet.** For any future major ≥ 2, Go's semantic import versioning
+requires the `/v2` suffix in the **module path itself**; `go.mod` declares the unsuffixed
+path today, so a `sdks/go/v2.0.0` tag could not resolve. See
+[`docs/rfcs/0012-go-sdk-binding.md`](./docs/rfcs/0012-go-sdk-binding.md).
+
+**None of the four TypeScript CI gates below apply to Go**, and Go has no equivalent of
+its own yet — `docs/api-surface-go.md` is Shipment 2. Until it lands, Go's exported
+surface is unguarded, the same gap Python carries.
+
+## How the bindings diverge
 
 **The `ipc` and `diagnostics` contract surfaces differ in three *behavioral* ways.**
 Two predate this branch — sync-vs-async
@@ -109,10 +196,27 @@ input, and neither binding may invent one until the manifest rule registry const
 the identifier's format enough to rule the question out structurally. `event.py`'s own
 docstring discloses the exact mechanism.
 
+**The Go binding changes the shape of two of those three, without adding a fourth.**
+
+- **Narrowing is now three-way**: TypeScript's tagged union, Python's `isinstance`, and
+  Go's type switch over an interface sealed by an unexported marker method. Go's is the
+  weakest of the three — the compiler checks **no exhaustiveness** on a type switch, where
+  `mypy` *does* check it on `HelloOk | HelloRefused`, and a Go interface value can be
+  `nil`, a state neither other binding can produce. That is an accepted cost of D4, not an
+  oversight: it means **every caller needs a `default:` arm**, and every example in
+  `sdks/go/README.md` has one for that reason.
+- **Sync-vs-async is heading for two-against-one.** Go ships no handshake yet, but the
+  design fixes it as synchronous over `io.Reader` / `io.Writer`, matching Python. When
+  Shipment 2 lands it, TypeScript's `async` is the minority position, which weakens the
+  case that async is the contract's natural shape. Until then this line describes a
+  decision, not shipped code.
+
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
 and a corpus — and is not exhaustive across the package. `nimbus_sdk.connector_kit` is
-batteries, not a contract, and carries its own divergence (`json_result` refusing a
-non-finite number where `JSON.stringify` emits `null`); see the Python-binding section of
+batteries, not a contract, and carries its own divergence on non-finite numbers —
+`json_result` refuses them, and Go's `encoding/json` will refuse them too when the Go kit
+lands (it ships no counterpart yet), which makes **`JSON.stringify` emitting `null` the
+outlier**, two bindings to one; see the Python-binding section of
 [`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md) rather than this list.
 
 Diagnostics separately adds two *surface* asymmetries, not further behavioral ones, and
@@ -199,6 +303,16 @@ python -m pytest -q
 python -m build                 # sdist + wheel into dist/
 ```
 
+Go commands run from the repository root, via `go -C`:
+
+```bash
+go -C sdks/go build ./...
+go -C sdks/go vet ./...
+test -z "$(gofmt -l sdks/go)"                      # `gofmt -l` alone exits 0 — it can never fail a build
+NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./...  # without the env var an absent docs/spec SKIPS
+go -C sdks/go generate ./spec                      # re-sync sdks/go/spec/data from docs/spec
+```
+
 ## Conventions / non-negotiables
 
 - **Dependency-free at runtime.** No `dependencies` in `package.json`. If you need
@@ -266,6 +380,12 @@ python -m build                 # sdist + wheel into dist/
   nimbus-sdk` installs the wrong package rather than failing.
 - **Zero runtime dependencies in Python too.** `[project].dependencies` stays empty;
   `hatchling` is a build backend, not a dependency.
+- **Zero dependencies in Go, tests included.** `sdks/go/go.mod` has no `require` block and
+  the suite is stdlib `testing` only — no testify, no `x/tools`. That buys a CI property
+  neither other language has: a module with no dependencies needs no *module* downloads,
+  so the `go` job needs no `proxy.golang.org` or `sum.golang.org` allowance. It is not the
+  same as needing no network — `actions/setup-go` still fetches a toolchain, because the
+  runners preinstall one Go version and the matrix asks for two.
 
 ## Relationship to other repos
 

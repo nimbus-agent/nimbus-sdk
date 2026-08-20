@@ -1,0 +1,10 @@
+{
+  "description": "Two listeners on one host differ by port alone — the origin change a same-host redirect makes, written down.",
+  "base": "http://[::1]:8080",
+  "input": "http://[::1]:9090/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got http://[::1]:9090, expected http://[::1]:8080)"
+  }
+}

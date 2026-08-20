@@ -1,0 +1,19 @@
+{
+  "description": "An error object carrying a stack member is refused.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "error": {
+      "code": "x",
+      "stack": "at foo"
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-error",
+    "path": "/error/stack"
+  }
+}

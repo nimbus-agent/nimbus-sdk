@@ -1,0 +1,20 @@
+{
+  "description": "An extensionId sized so the encoded line is exactly 1048576 octets — exactly IPC_MAX_LINE_BYTES — is accepted: the limit is inclusive. The implementation checks byte length with a strict >, so a binding that instead uses >= would reject this line and still pass every other case in the corpus, since line-too-long-rejected.json only pins the one-octet-over side. Both event.extensionId and expect.line are generated (repeat/concat) rather than inlined, mirroring docs/spec/conformance/v1/framing/cases/frame-exactly-at-limit.json for the identical limit.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": { "repeat": { "utf8": "x", "count": 1048475 } },
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": true,
+    "line": {
+      "concat": [
+        "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"",
+        { "repeat": { "utf8": "x", "count": 1048475 } },
+        "\",\"event\":\"sync.page\"}"
+      ]
+    }
+  }
+}

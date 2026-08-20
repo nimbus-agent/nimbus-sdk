@@ -1,0 +1,7 @@
+{
+  "description": "The manifest's declared value is not an array at all. manifestContractVersions wraps it to a single-element array holding the malformed value rather than dropping it, so it reaches declaredVersionsMatch and is refused there — a non-array declaration can never match a well-formed announcement.",
+  "kind": "declaration",
+  "manifest": 5,
+  "hello": ["1"],
+  "expect": { "ok": false, "reason": "declaration-mismatch", "exit": 20 }
+}

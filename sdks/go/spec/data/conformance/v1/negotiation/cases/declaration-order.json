@@ -1,0 +1,7 @@
+{
+  "description": "The same two majors in a different order on each side. Comparison is on sets, so order carries no meaning here.",
+  "kind": "declaration",
+  "manifest": ["1", "2"],
+  "hello": ["2", "1"],
+  "expect": { "ok": true }
+}

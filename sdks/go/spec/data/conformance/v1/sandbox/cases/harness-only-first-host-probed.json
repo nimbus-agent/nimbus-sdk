@@ -1,0 +1,34 @@
+{
+  "kind": "harness",
+  "description": "three declared hosts produce one network-listed call, for the first",
+  "platform": "linux",
+  "permissions": {
+    "network": [
+      "first.example.com",
+      "second.example.com",
+      "third.example.com"
+    ]
+  },
+  "probeResults": {
+    "network-listed": 0,
+    "network-unlisted": 11,
+    "fs-denied": 10
+  },
+  "expect": {
+    "calls": [
+      {
+        "probe": "network-listed",
+        "arg": "first.example.com"
+      },
+      {
+        "probe": "network-unlisted",
+        "arg": ""
+      },
+      {
+        "probe": "fs-denied",
+        "arg": ""
+      }
+    ],
+    "outcome": "pass"
+  }
+}

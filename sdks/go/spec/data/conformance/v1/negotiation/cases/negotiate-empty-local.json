@@ -1,0 +1,7 @@
+{
+  "description": "An empty local set has nothing to intersect with, however populated the remote set is. Kept alongside negotiate-empty-remote because a binding that intersects in one direction only would refuse this and wrongly agree on the other.",
+  "kind": "negotiate",
+  "local": [],
+  "remote": ["1"],
+  "expect": { "ok": false, "reason": "no-common-version", "exit": 20 }
+}

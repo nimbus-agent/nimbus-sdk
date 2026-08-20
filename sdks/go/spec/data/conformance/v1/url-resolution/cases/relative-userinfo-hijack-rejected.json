@@ -1,0 +1,10 @@
+{
+  "description": "A relative input starting with '@' turns the base's own host into discarded userinfo once concatenated, handing the bearer token to evil.com instead. §4's origin check refuses it.",
+  "base": "https://api.example.com",
+  "input": "@evil.com/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://evil.com, expected https://api.example.com)"
+  }
+}

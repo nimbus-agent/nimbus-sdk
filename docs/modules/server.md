@@ -91,9 +91,10 @@ whatever this class happens to do.
   is optional, and `contract-version.md` §4 fixes what its absence *declares* — `["1"]`,
   frozen for as long as v1-era manifests exist. That is a different question from
   `CONTRACT_VERSIONS`, which is the set this SDK currently speaks and which grows with every
-  new major. `handshake` announces the former, because §7.2 obliges a connector's hello to
-  equal its own declaration: deferring to the latter would, the day a second major ships,
-  have every manifest written before the field existed announce a version it never promised.
+  new major. `handshake` announces the former, because §7's second refusal cause obliges a
+  connector's hello to equal its own declaration: deferring to the latter would, the day a
+  second major ships, have every manifest written before the field existed announce a
+  version it never promised.
   Declare `contractVersions` explicitly if you want to say anything else.
 - **Deliberately not part of `start()`.** `start()` is called with no arguments in the
   published examples and above in this page; giving it a required parameter to carry the
@@ -113,7 +114,7 @@ whatever this class happens to do.
 - **`options.reader` is the only option, and you need it if you keep reading.** It is
   forwarded verbatim to `performHandshake` — read [`ipc.md`](./ipc.md#the-handshake) for what
   it recovers that `pending` cannot. `localVersions` is deliberately *not* accepted: the
-  manifest declares the set, and letting a caller override it here is exactly the §7.2
+  manifest declares the set, and letting a caller override it here is exactly the §7
   `declaration-mismatch` this method exists to make impossible.
 - **Stores nothing.** There is no other operation here to gate on the result — `registerTool`
   is still a stub — so the method's only job is to hand you what `performHandshake` returned.

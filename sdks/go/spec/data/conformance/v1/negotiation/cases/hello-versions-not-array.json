@@ -1,0 +1,6 @@
+{
+  "description": "contractVersions is present but is a string, not an array. missing-versions must cover this too, not only the absent-field case.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":\"1\"}",
+  "expect": { "ok": false, "reason": "missing-versions", "exit": 20 }
+}

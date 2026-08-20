@@ -1,0 +1,6 @@
+{
+  "description": "An object carrying neither member. §5 checks the discriminator before contractVersions, and an absent nimbus is wrong-message, so a reader that inspects the array first and answers missing-versions is refused here.",
+  "kind": "hello",
+  "frame": "{}",
+  "expect": { "ok": false, "reason": "wrong-message", "exit": 20 }
+}

@@ -1,0 +1,16 @@
+{
+  "description": "An event with both a malformed ts and an unknown member (oops) reports unknown-member, not invalid-ts — closedness is checked first.",
+  "kind": "encode",
+  "event": {
+    "ts": "nope",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "oops": 1
+  },
+  "expect": {
+    "ok": false,
+    "reason": "unknown-member",
+    "path": "/oops"
+  }
+}

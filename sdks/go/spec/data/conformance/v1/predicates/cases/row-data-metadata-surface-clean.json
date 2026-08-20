@@ -1,0 +1,16 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "a warehouse connector exposing only list/get/search tools is clean",
+  "tools": [
+    {
+      "name": "bigquery_list_datasets"
+    },
+    {
+      "name": "bigquery_get_table_schema"
+    },
+    {
+      "name": "bigquery_search"
+    }
+  ],
+  "violations": []
+}

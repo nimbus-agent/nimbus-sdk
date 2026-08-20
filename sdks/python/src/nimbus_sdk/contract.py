@@ -116,10 +116,10 @@ def declared_versions_match(
 ) -> bool:
     """Whether a connector's running hello announces exactly what its manifest declared.
 
-    **Set equality, not containment** (§7.2): the same members, no more and no fewer.
-    Announcing *fewer* is as much a mismatch as announcing more — a connector that
-    declared two majors and announces one is not the connector its manifest described.
-    Order is irrelevant.
+    **Set equality, not containment**, per §7's second refusal cause: the same members,
+    no more and no fewer. Announcing *fewer* is as much a mismatch as announcing more —
+    a connector that declared two majors and announces one is not the connector its
+    manifest described. Order is irrelevant.
 
     Duplicates in ``hello_versions`` are collapsed, not rejected: ``["1"]`` matches
     ``["1", "1"]``, because the comparison is on sets and ``{"1"}`` is ``{"1"}``

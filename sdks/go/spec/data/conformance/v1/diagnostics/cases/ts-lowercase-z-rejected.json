@@ -1,0 +1,15 @@
+{
+  "description": "A ts with lowercase t and z is refused — the pattern is case-sensitive.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01t12:00:00.000z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-ts",
+    "path": "/ts"
+  }
+}

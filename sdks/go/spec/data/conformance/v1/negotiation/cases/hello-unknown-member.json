@@ -1,0 +1,6 @@
+{
+  "description": "An unknown member is ignored, not rejected — the same open-by-default posture the published schemas take.",
+  "kind": "hello",
+  "frame": "{\"nimbus\":\"hello\",\"contractVersions\":[\"1\"],\"extra\":1}",
+  "expect": { "ok": true, "contractVersions": ["1"] }
+}

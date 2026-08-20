@@ -1,0 +1,22 @@
+{
+  "predicate": "findRowDataTools",
+  "description": "malformed candidates are skipped without stopping the scan",
+  "tools": [
+    {
+      "name": 42
+    },
+    {
+      "name": null
+    },
+    {},
+    {
+      "name": "svc_rows"
+    }
+  ],
+  "violations": [
+    {
+      "tool": "svc_rows",
+      "segment": "rows"
+    }
+  ]
+}

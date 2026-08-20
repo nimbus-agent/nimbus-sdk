@@ -1,0 +1,7 @@
+{
+  "description": "The mirror of negotiate-empty-local: an empty remote set, so the roles of the two peers cannot be swapped to dodge the refusal.",
+  "kind": "negotiate",
+  "local": ["1"],
+  "remote": [],
+  "expect": { "ok": false, "reason": "no-common-version", "exit": 20 }
+}

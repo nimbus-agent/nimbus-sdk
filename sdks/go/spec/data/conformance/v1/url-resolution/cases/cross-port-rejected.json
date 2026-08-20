@@ -1,0 +1,10 @@
+{
+  "description": "The same host on a different explicit port is a different origin.",
+  "base": "https://api.example.com",
+  "input": "https://api.example.com:8443/x",
+  "expect": {
+    "ok": false,
+    "reason": "cross-origin",
+    "message": "resolveUrlWithBase: refusing to fetch cross-origin URL (got https://api.example.com:8443, expected https://api.example.com)"
+  }
+}

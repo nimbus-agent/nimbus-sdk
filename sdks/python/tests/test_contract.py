@@ -128,7 +128,7 @@ def test_validation_precedes_intersection() -> None:
 
 
 def test_declaration_is_set_equality_not_containment() -> None:
-    """The same members, no more and no fewer (§7.2).
+    """The same members, no more and no fewer, per §7's second refusal cause.
 
     Containment would pass a connector that declared two majors and announced one —
     not the connector its manifest described. **No corpus case covers `declared ⊃

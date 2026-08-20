@@ -144,8 +144,8 @@ def perform_handshake(
             pending = tuple(frames[1:])
 
     if peer_frame is None:
-        # §7.3: an absent hello is a refusal. There is no token for silence, and we
-        # never learned a set to intersect with.
+        # §7's third refusal cause: an absent hello is a refusal. There is no token for
+        # silence, and we never learned a set to intersect with.
         return HandshakeRefused(reason="no-common-version", pending=pending)
 
     parsed = parse_hello(peer_frame)

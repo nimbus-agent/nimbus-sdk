@@ -1,0 +1,7 @@
+{
+  "description": "Local ascending, remote descending — the agreed major does not depend on either peer's declared order.",
+  "kind": "negotiate",
+  "local": ["1", "2"],
+  "remote": ["2", "1"],
+  "expect": { "ok": true, "version": "2" }
+}

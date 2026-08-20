@@ -1,0 +1,10 @@
+{
+  "predicate": "isHitlRequest",
+  "description": "an explicit null diff is rejected, where an absent diff is accepted",
+  "input": {
+    "actionId": "deploy-1",
+    "summary": "Deploy build 1",
+    "diff": null
+  },
+  "expect": false
+}

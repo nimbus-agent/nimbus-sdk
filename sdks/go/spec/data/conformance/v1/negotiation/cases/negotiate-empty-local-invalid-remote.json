@@ -1,0 +1,7 @@
+{
+  "description": "An empty local set paired with a malformed remote member. Validation precedes intersection, so this is invalid-version and not the no-common-version an empty side alone would produce. It is also the corpus's only negotiate case with a malformed member on the remote side.",
+  "kind": "negotiate",
+  "local": [],
+  "remote": ["01"],
+  "expect": { "ok": false, "reason": "invalid-version", "exit": 20 }
+}

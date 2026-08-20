@@ -1,0 +1,20 @@
+{
+  "description": "An object-valued fields entry is refused — fields has no nesting.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page",
+    "fields": {
+      "a": {
+        "b": 1
+      }
+    }
+  },
+  "expect": {
+    "ok": false,
+    "reason": "invalid-field-value",
+    "path": "/fields/a"
+  }
+}

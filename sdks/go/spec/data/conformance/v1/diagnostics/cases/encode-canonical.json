@@ -1,0 +1,14 @@
+{
+  "description": "The canonical line the reference encoder emits.",
+  "kind": "encode",
+  "event": {
+    "ts": "2026-08-01T12:00:00.000Z",
+    "level": "info",
+    "extensionId": "acme-gcal",
+    "event": "sync.page"
+  },
+  "expect": {
+    "ok": true,
+    "line": "{\"nimbus\":\"diag\",\"ts\":\"2026-08-01T12:00:00.000Z\",\"level\":\"info\",\"extensionId\":\"acme-gcal\",\"event\":\"sync.page\"}"
+  }
+}

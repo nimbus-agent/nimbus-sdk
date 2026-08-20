@@ -15,8 +15,10 @@ a new `diagnostics` or `url-resolution` case reaches nothing here until Shipment
 those surfaces — see [Status](#status). Release tags are correspondingly prefixed —
 `sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
 
-> **Not yet released.** No `sdks/go/v0.1.0` tag has been pushed, so the `go get` above
-> does not resolve yet. The module builds from a checkout today.
+> **Released.** The `go get` above resolves: `proxy.golang.org` serves the module,
+> `sum.golang.org` vouches for it, and the docs render on
+> [pkg.go.dev](https://pkg.go.dev/github.com/nimbus-agent/nimbus-sdk/sdks/go). The latest
+> tag is `sdks/go/v0.2.0`. The surface is still early — see [Status](#status).
 
 ## What this is
 

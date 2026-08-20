@@ -22,7 +22,7 @@ widening the contract.
 | [0009](./0009-python-runtime.md) | `manifest.runtime` admits Python | accepted | [#95](https://github.com/nimbus-agent/nimbus-sdk/pull/95) |
 | [0010](./0010-diagnostics-contract-v0.md) | Diagnostics / telemetry contract v0 | accepted | [#113](https://github.com/nimbus-agent/nimbus-sdk/pull/113) |
 | [0011](./0011-url-resolution.md) | URL resolution for the connector kit | accepted | this document, the normative spec, and `docs/spec/README.md` |
-| [0012](./0012-go-sdk-binding.md) | A Go binding, and the release model it needs | accepted | this document and Shipment 1 of `sdks/go/`; no `sdks/go/v0.1.0` tag pushed |
+| [0012](./0012-go-sdk-binding.md) | A Go binding, and the release model it needs | accepted | this document and Shipment 1 of `sdks/go/`; released as `sdks/go/v0.1.0` and `v0.2.0` |
 
 ## Statuses
 

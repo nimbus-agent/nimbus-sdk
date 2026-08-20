@@ -1,9 +1,10 @@
 # nimbus-sdk — Releasing
 
 How each SDK is published. TypeScript and Python are official and both ship today. Go is
-on the official track but is not there yet — RFC-0013 is where that is claimed — and its
-pipeline is **written and wired but has never run**: no `sdks/go/v0.1.0` tag has been
-pushed, so nothing below about `proxy.golang.org` has been observed rather than designed.
+on the official track but is not there yet — RFC-0013 is where that is claimed — though
+its pipeline has now **run for real**: `sdks/go/v0.1.0` and `sdks/go/v0.2.0` were tagged
+on 2026-08-20, so everything below about `proxy.golang.org` and `sum.golang.org` is
+observed and not merely designed.
 
 Every binding is held to the **same guarantees**, even where the mechanics differ — and
 Go is where "the mechanics differ" does real work, because the guarantee that actually
@@ -23,7 +24,7 @@ Whatever the language, an official Nimbus SDK is released so that:
 3. **It carries verifiable provenance.** The published artifact is signed and
    attestable back to *this repo, this workflow, this commit*. **Go satisfies this
    differently in kind**, and the difference is not cosmetic — see
-   [below](#go--module-proxy-implemented-not-yet-exercised).
+   [below](#go--module-proxy-implemented-and-exercised).
 4. **It runs on hardened CI.** `step-security/harden-runner`, pinned action SHAs,
    `persist-credentials: false`, least-privilege `permissions`.
 5. **It is verified after publish.** The job re-fetches the released artifact from
@@ -43,7 +44,7 @@ Whatever the language, an official Nimbus SDK is released so that:
 |---|---|---|---|---|---|
 | **TypeScript** *(shipping)* | npm | release-please `node` | OIDC Trusted Publisher — no token | `npm publish --provenance` (Sigstore) | install from npm + `npm audit signatures` + provenance attestation check |
 | **Python** *(shipping)* | PyPI | release-please `python` | OIDC Trusted Publishers — no token | PEP 740 attestations (Sigstore) | download from PyPI + `pypi-attestations` **Sigstore verification** against a self-derived policy |
-| **Go** *(wired, never run)* | none — module proxy | release-please `sdks/go` → `sdks/go/vX.Y.Z` tag | tag push — no registry credential | `sum.golang.org` (load-bearing) + SLSA provenance on a `git archive` of the module tree (supplementary) | resolve `@version` through `proxy.golang.org` from a scratch directory and require a `go.sum` entry |
+| **Go** *(shipping — not yet official)* | none — module proxy | release-please `sdks/go` → `sdks/go/vX.Y.Z` tag | tag push — no registry credential | `sum.golang.org` (load-bearing) + SLSA provenance on a `git archive` of the module tree (supplementary) | resolve `@version` through `proxy.golang.org` from a scratch directory and require a `go.sum` entry |
 
 ## TypeScript → npm (implemented today)
 
@@ -139,7 +140,7 @@ release ships tokenless, attested, and verified end-to-end. The phase's other ex
 criterion, a Python-authored connector passing the conformance suite, is separate
 and still open.
 
-## Go → module proxy (implemented, not yet exercised)
+## Go → module proxy (implemented and exercised)
 
 Defined in [`.github/workflows/release-go.yml`](../.github/workflows/release-go.yml).
 Every decision below is recorded in [RFC-0012](./rfcs/0012-go-sdk-binding.md).
@@ -199,13 +200,16 @@ needs no publish credential at all — inverting the property Go should demonstr
 cleanly. If tag signing is wanted later it must be keyless (Sigstore `gitsign`, OIDC, no
 stored key).
 
-**Two irreversible properties to respect before the first push.** `proxy.golang.org`
+**Two irreversible properties to respect on every push.** `proxy.golang.org`
 caches a version permanently within minutes of the first fetch — deleting the tag does
 not unpublish it, and re-tagging the same version with different content is visible
 forever as a checksum mismatch. There is no dry run: a throwaway `v0.0.1` is cached
-forever too. And for any major version **≥ 2**, Go's semantic import versioning requires
-the `/v2` suffix in the **module path itself**; `sdks/go/go.mod` declares the unsuffixed
-path, so a `sdks/go/v2.0.0` tag cannot resolve until the module path moves.
+forever too. **Merging an `sdks/go` release PR is therefore itself the publish**, with no
+further confirmation step — `v0.1.0` and `v0.2.0` both went out that way, minutes after
+their release PRs merged. And for any major version **≥ 2**, Go's semantic import
+versioning requires the `/v2` suffix in the **module path itself**; `sdks/go/go.mod`
+declares the unsuffixed path, so a `sdks/go/v2.0.0` tag cannot resolve until the module
+path moves.
 
 ### Go takes no bootstrap tag
 
@@ -262,9 +266,9 @@ starts at v1 — for a Go module that is a commitment to API stability under sem
 tag is unretractable once the proxy has served it.
 
 **Exit bar:** a Go release cut from a merged commit as a semver tag, resolving through
-the module proxy with a `go.sum` entry and an attestation on the tagged tree. **Not yet
-met** — no tag exists. See
-[roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
+the module proxy with a `go.sum` entry and an attestation on the tagged tree. **Met**, on
+`sdks/go/v0.1.0` and `sdks/go/v0.2.0`, both tagged 2026-08-20 with `release-go.yml` green.
+See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
 
 ## Shared plumbing
 

@@ -100,6 +100,125 @@ file is what stops a later edit from teaching `Parse` a rule `Encode` does not k
 
 ---
 
+### Task 0: Teach `spec.LoadCorpus` a number `float64` cannot hold
+
+**This task is a prerequisite, not a nicety: without it Task 4 cannot run at all.**
+Measured — the first attempt to load the corpus, before a single case executed:
+
+```
+LoadCorpus: spec: case "cases/fields-nan-rejected.json" is not an object:
+  json: cannot unmarshal number 1e400 into Go struct field .event.fields.n of type float64
+```
+
+`fields-nan-rejected.json` spells a non-finite value the only way JSON can — the literal
+`1e400` — which overflows `float64`, and Go's decoder returns an **error** where Python's
+`json.loads` yields `inf` and JavaScript's `JSON.parse` yields `Infinity`. So a loader
+shipped in `sdks/go/v0.3.0` cannot read one of the four published corpora, and nothing
+notices because Go binds only two of them today.
+
+**Files:**
+- Modify: `sdks/go/spec/spec.go`
+- Modify: `sdks/go/conformance/framing_test.go`, `sdks/go/conformance/negotiation_test.go`
+- Modify: `sdks/go/CHANGELOG.md` is release-please's, **not** yours — instead put the
+  consumer-facing note in the commit body, which is what release-please copies.
+
+- [ ] **Step 1: Reproduce the failure before fixing it**
+
+```bash
+cat > /tmp/loadprobe_test.go <<'EOF'
+package spec
+
+import "testing"
+
+func TestProbeLoadsDiagnostics(t *testing.T) {
+	if _, err := LoadCorpus("diagnostics"); err != nil {
+		t.Fatalf("LoadCorpus: %v", err)
+	}
+}
+EOF
+cp /tmp/loadprobe_test.go sdks/go/spec/loadprobe_test.go
+go -C sdks/go test ./spec/ -run TestProbeLoadsDiagnostics
+```
+
+Expected: FAIL with the `1e400` message above. Delete `loadprobe_test.go` afterwards — it
+is a reproduction, not a test to keep; Task 4's runner covers this permanently.
+
+- [ ] **Step 2: Decode with `UseNumber`**
+
+In `LoadCorpus`, replace the `json.Unmarshal` of each case with a decoder that keeps every
+number as its exact literal:
+
+```go
+		var decoded map[string]any
+		dec := json.NewDecoder(bytes.NewReader(caseRaw))
+		dec.UseNumber()
+		if err := dec.Decode(&decoded); err != nil {
+			return nil, fmt.Errorf("spec: case %q is not an object: %w", entry.File, err)
+		}
+```
+
+Add `"bytes"` to the imports. Update `LoadCorpus`'s doc comment: numbers come back as
+`json.Number`, deliberately, because a corpus case may carry a literal outside `float64`'s
+range and because the exact literal is what a bound check at ±(2⁵³−1) needs.
+
+- [ ] **Step 3: Fix every `.(float64)` on corpus data — there are five, and they fail differently**
+
+`framing_test.go:49` and `:54`, and `negotiation_test.go:95`, `:130`, `:167`. Add one
+helper to `framing_test.go` and use it in both files:
+
+```go
+// numberOf reads a JSON number from a corpus case, which LoadCorpus decodes with
+// UseNumber so an out-of-range literal cannot fail the whole load.
+func numberOf(value any) (float64, bool) {
+	n, ok := value.(json.Number)
+	if !ok {
+		return 0, false
+	}
+	f, err := n.Float64()
+	return f, err == nil
+}
+```
+
+Then `if b, ok := numberOf(r["byte"]); ok {`, `count64, _ := numberOf(r["count"])`, and
+`if exit, _ := numberOf(expect["exit"]); int(exit) != contract.HandshakeExit {`.
+
+**Note which way each one breaks**, because it explains why this step is not optional:
+`negotiation_test.go`'s comma-ok assertions would yield `0`, and `0 != 20` fails loudly;
+`framing_test.go:54`'s bare `.(float64)` would **panic**. Neither fails silently, which is
+the one mercy here — but 1.2 in the review is the case that does.
+
+- [ ] **Step 4: Verify both existing corpora still pass**
+
+```bash
+go -C sdks/go test ./conformance/ ./spec/ -v 2>&1 | tail -20
+```
+
+Expected: `negotiation` (37 cases) and `framing` (25) still green. They are what proves the
+loader change is safe.
+
+- [ ] **Step 5: Commit, with the consumer-facing note in the body**
+
+```bash
+git add sdks/go/spec/spec.go sdks/go/conformance/
+git commit -m "fix(go): decode corpus numbers exactly, not through float64
+
+LoadCorpus could not read the diagnostics corpus at all: a case spells a
+non-finite fields value as the literal 1e400, which overflows float64, and
+Go's decoder errors where Python yields inf and JavaScript yields Infinity.
+
+Numbers now come back as json.Number. This is a behavioural change to a
+published function whose signature is unchanged, so docs/api-surface-go.md
+does not diff and no gate sees it: a caller who type-asserts float64 on a
+value from LoadCorpus must switch to json.Number."
+```
+
+**A sibling loader was considered and rejected.** Leaving `LoadCorpus` alone and adding
+`LoadCorpusExact` would preserve today's behaviour for any consumer depending on it, at the
+cost of two loaders for one corpus, a permanent question at every call site, and an older
+one that still cannot read published data. A loader that cannot load is a bug to fix.
+
+---
+
 ### Task 1: Tables, patterns, result types, `MeetsLevel`
 
 **Files:**
@@ -254,6 +373,12 @@ type ParseResult interface{ isParseResult() }
 
 // ParseOk carries the event with nimbus STRIPPED: it is wire framing rather than event
 // data, and stripping it is what makes Encode(Parse(line).Event) reproduce line exactly.
+//
+// NUMBERS IN Event ARE json.Number, NOT float64 — the undecoded literal, so a fields
+// value is bound-checked exactly rather than after rounding. A caller reaching for
+// Event["fields"].(map[string]any)["n"].(float64) gets a failed assertion, or a silent
+// zero with the comma-ok form. Python's ParseOk.event carries int and TypeScript's
+// carries number; this is a third shape for the same member.
 type ParseOk struct{ Event map[string]any }
 
 // ParseRejected carries one of §5's tokens, including the two — not-json and
@@ -509,6 +634,7 @@ Create `sdks/go/diagnostics/validate.go`:
 package diagnostics
 
 import (
+	"encoding/json"
 	"math"
 	"sort"
 )
@@ -698,6 +824,23 @@ func toFieldValue(value any) (fieldValue, bool) {
 		return floatField(float64(v))
 	case float64:
 		return floatField(v)
+	case json.Number:
+		// What LoadCorpus and Parse both hand over since Task 0: the EXACT literal,
+		// not a float64 that may have rounded on the way in. Int64 first, because it
+		// answers exactly for every integer the ±(2^53−1) bound admits — which makes
+		// the bound check exact rather than accidentally correct, as it would be for
+		// 9007199254740993 rounding down to …992.
+		if i, err := v.Int64(); err == nil {
+			return integerField(i)
+		}
+		f, err := v.Float64()
+		if err != nil {
+			// Outside float64's range entirely — 1e400 — which is how JSON spells a
+			// non-finite value. Python decodes it to inf and TypeScript to Infinity,
+			// and both reject it here; so must this.
+			return fieldValue{}, false
+		}
+		return floatField(f)
 	default:
 		// Strings, objects, arrays, nil, and every other type: §5's invalid-field-value.
 		return fieldValue{}, false
@@ -733,21 +876,32 @@ func validateError(raw any, out *validatedEvent) *failure {
 	if !isObject {
 		return &failure{"invalid-error", "/error"}
 	}
+	// THE POINTER NAMES THE MEMBER INSIDE error, NOT THE OBJECT. §5 gives invalid-error
+	// one row and describes five faults in prose, so the depth is visible only in the
+	// corpus — which pins /error/code for a missing code, and /error/message and
+	// /error/stack for the two cases that enforce a stack trace cannot ride along.
+	// Sorted, because Go map iteration is randomised and the corpus pins one path.
+	unknown := make([]string, 0, len(object))
 	for key := range object {
 		if key != "code" && key != "retriable" {
-			return &failure{"invalid-error", "/error"}
+			unknown = append(unknown, key)
 		}
 	}
+	if len(unknown) > 0 {
+		sort.Strings(unknown)
+		return &failure{"invalid-error", "/error/" + escapePointerToken(unknown[0])}
+	}
+
 	code, hasCode := object["code"].(string)
 	if !hasCode || !errorCodePattern.MatchString(code) {
-		return &failure{"invalid-error", "/error"}
+		return &failure{"invalid-error", "/error/code"}
 	}
 	out.errorCode, out.hasError = code, true
 
 	if raw, present := object["retriable"]; present {
 		retriable, isBool := raw.(bool)
 		if !isBool {
-			return &failure{"invalid-error", "/error"}
+			return &failure{"invalid-error", "/error/retriable"}
 		}
 		out.errorRetriable, out.hasRetriable = retriable, true
 	}
@@ -1061,8 +1215,14 @@ func Encode(event any) EncodeResult {
 // table §5 shares with the encode direction. line-too-long is NOT produced here and MUST
 // NOT be — the transport already answered the length question.
 func Parse(line string) ParseResult {
+	// UseNumber, for the reason Task 0 gives: without it a line carrying 1e400 in
+	// fields fails to decode and Parse answers not-json — but the line IS json, and
+	// both other bindings decode it and reject it as invalid-field-value at /fields/n.
+	// No corpus case covers this; measured directly instead.
 	var decoded any
-	if err := json.Unmarshal([]byte(line), &decoded); err != nil {
+	dec := json.NewDecoder(strings.NewReader(line))
+	dec.UseNumber()
+	if err := dec.Decode(&decoded); err != nil {
 		return ParseRejected{Reason: "not-json", Path: ""}
 	}
 
@@ -1152,6 +1312,7 @@ Create `sdks/go/conformance/diagnostics_test.go`:
 package conformance
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -1189,7 +1350,15 @@ func resolveTextLike(t *testing.T, value any) string {
 			// case.schema.json types count as JSON Schema "integer" — a constraint on
 			// VALUE, not on JSON's number type — and Go decodes every JSON number to
 			// float64 regardless.
-			count, _ := repeat["count"].(float64)
+			// json.Number since Task 0, NOT float64. A float64 assertion here
+			// yields 0, repeats the unit zero times, and hands the encoder an empty
+			// extensionId — so the case fails as invalid-extension-id, naming a
+			// member it never mentions.
+			countNum, _ := repeat["count"].(json.Number)
+			count, err := countNum.Int64()
+			if err != nil {
+				t.Fatalf("bad repeat count %v: %v", repeat["count"], err)
+			}
 			return strings.Repeat(unit, int(count))
 		}
 		if parts, ok := node["concat"].([]any); ok {
@@ -1877,7 +2046,10 @@ git commit -m "docs(go): record the diagnostics package in the surface and roadm
 ## Definition of done
 
 - All 75 `diagnostics` corpus cases pass, and the runner fails if the corpus drops below
-  60 or if its subtest count diverges from the case count.
+  60 or if its subtest count diverges from the case count. **This was measured on the
+  plan's own code before the plan was final** — 75/75, with `negotiation` and `framing`
+  still green under Task 0's loader change. An implementer who lands here has reproduced a
+  known-reachable state, not an aspiration.
 - `NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./...` is green for every package.
 - `go vet` silent, `gofmt -l sdks/go` empty, `go.mod` still has no `require` block.
 - `docs/api-surface-go.md` regenerated, and `diagnostics` is in the `packages` slice.

@@ -9,7 +9,8 @@ Every exported declaration of every non-internal package in
 `github.com/nimbus-agent/nimbus-sdk/sdks/go`.
 
 An interface that renders as `interface {}` is sealed: its only method is
-unexported, so no package outside this module can implement it.
+unexported, so no package other than the one that declares it can implement it —
+not even another package inside this module.
 
 ## `contract`
 

@@ -29,6 +29,18 @@ type utf8Stream struct {
 // With final false, a trailing incomplete-but-valid prefix is held back for the next
 // call. With final true, nothing is held: whatever remains has no completion left to
 // await and becomes U+FFFD.
+//
+// The count of U+FFFD produced when a multi-octet truncated sequence is finalized is
+// not pinned by the spec or by any corpus case — every case in the framing corpus uses
+// either a single invalid octet or a clean chunk split, so none of them decides this.
+// As measured against this implementation: a held two-octet prefix (e.g. "F0 9F", the
+// first half of a four-octet sequence) yields two U+FFFD at final, and a held
+// three-octet prefix yields three — one replacement per leftover octet, because
+// utf8.DecodeRune steps through an unfinishable prefix one octet at a time. WHATWG's
+// maximal-subpart rule, which TextDecoder follows, would instead collapse the same
+// prefix into a single U+FFFD, so a TextDecoder-based binding may disagree with this
+// one here. This count is inherited from utf8.DecodeRune's behaviour rather than
+// chosen, and should be revisited if a corpus case ever pins a specific count.
 func (s *utf8Stream) decode(chunk []byte, final bool) string {
 	buf := chunk
 	if len(s.pending) > 0 {

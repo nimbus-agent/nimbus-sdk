@@ -228,24 +228,34 @@ docstring discloses the exact mechanism.
   Shipment 2 lands it, TypeScript's `async` is the minority position, which weakens the
   case that async is the contract's natural shape. Until then this line describes a
   decision, not shipped code.
-- **The finalized-U+FFFD count is a new divergence, and it is Go alone.** When a held,
-  incomplete multi-octet UTF-8 prefix is finalized with nothing left to complete it,
-  `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover octet** — a
-  two-octet prefix (`F0 9F`, the start of a four-octet sequence) finalizes to two U+FFFD,
-  a three-octet prefix to three — where TypeScript's `TextDecoder` and Python's
-  `codecs.getincrementaldecoder("utf-8")("replace")` both collapse the same prefix into a
-  **single** U+FFFD, WHATWG's maximal-subpart rule. Measured directly on both prefixes
-  rather than assumed: Node's `TextDecoder` gives 1 for each, CPython's incremental
-  decoder gives 1 for each, `utf8Stream` gives 2 and 3 — a two-against-one split, Go the
-  outlier. This is permitted, not a bug: `docs/spec/wire/v1/framing.md` §4 requires only
-  that an ill-formed sequence become U+FFFD, never how many, and no case in the `framing`
-  corpus exercises a multi-octet prefix left incomplete at end-of-stream — every
-  ill-formed case there is either a single stray octet or a sequence split cleanly across
-  a chunk boundary — so nothing pins a count for either side to violate. Go's count is
-  inherited from `utf8.DecodeRune`, which steps through an unfinishable prefix one octet
-  at a time, rather than chosen. A future corpus case that pins a count would make
-  whichever binding disagrees with it non-conformant — which is exactly why this is
-  recorded now, while it is still a difference and not yet a bug.
+- **The U+FFFD count for an invalidated multi-octet prefix is a new divergence, and it
+  is Go alone.** Whenever a well-formed *prefix* of a multi-octet UTF-8 sequence is
+  invalidated, `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover
+  octet**, where TypeScript's `TextDecoder` and Python's
+  `codecs.getincrementaldecoder("utf-8")("replace")` collapse the whole prefix into a
+  **single** U+FFFD, WHATWG's maximal-subpart rule. **End-of-stream is not the only
+  trigger** — a non-continuation octet arriving mid-stream does it too, with no boundary
+  and no flush involved. Measured on this branch rather than assumed: `F0 9F` held and
+  finalized gives 2 in Go against 1 in Node and 1 in CPython; a three-octet prefix gives
+  3 against 1; and `F0 9F 41` in a **single mid-stream chunk** gives 2 in Go against 1 in
+  both — a truncated emoji followed by a closing quote inside a JSON string is enough.
+  Definitively-invalid octets are unaffected and all three agree: `FF` and `A9` give 1
+  each, `E0 80` and `C0 AF` 2, `ED A0 80` 3. **The consequence is not cosmetic**, because
+  §6's limit is measured on decoded octets in all three bindings and §7 makes exceeding
+  it terminal: 200,000 repetitions of `F0 9F 41` plus an LF is 600,001 raw octets, which
+  decode to 1,400,000 in Go — `Push` returns `ErrFrameTooLong` and latches — against
+  800,000 under the WHATWG rule, where Python's `NdjsonLineReader` delivers the frame,
+  both measured by running the two readers. One binding kills the connection where
+  another delivers a message, on input `framing.md`'s preamble says every binding must
+  handle identically. It is nevertheless permitted, not a bug: §4 requires only that an
+  ill-formed sequence become U+FFFD, never how many, and no case in the `framing` corpus
+  exercises an invalidated multi-octet prefix at all — every ill-formed case there is a
+  single stray octet or a sequence split cleanly across a chunk boundary — so nothing
+  pins a count for either side to violate, and Go's is inherited from `utf8.DecodeRune`
+  rather than chosen. A future corpus case that pins a count would make whichever binding
+  disagrees non-conformant, and fixing Go would mean fixing **both** triggers, not just
+  finalization — which is exactly why this is recorded now, while it is still a
+  difference and not yet a bug.
 
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
 and a corpus — and is not exhaustive across the package. `nimbus_sdk.connector_kit` is

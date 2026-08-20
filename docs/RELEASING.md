@@ -221,11 +221,18 @@ For Go the tag *is* the publish, which is the whole point of the section above.
 
 The tag is not needed, either. The manifest entry alone does the bootstrapping:
 release-please treats a manifest version of exactly `"0.0.0"` as the sentinel for "never
-released" and skips synthesizing a latest-release tag for that path, so the component is
-processed as unreleased and no `sdks/go/v0.0.0` is looked up. With no latest release
-found, the commit range for the first release PR is *all* of the default branch's
-history, filtered to commits touching `sdks/go/` — which for a component added in one
-branch is exactly that branch's commits, so nothing needs narrowing.
+released" and skips *synthesizing* a latest release for that path. It still looks the tag
+up — `backfillReleasesFromTags` derives `sdks/go/v0.0.0` from the manifest seed and
+searches for it — and simply finds nothing. That miss is the mechanism, and the two halves
+of this section are causally linked rather than independent: **not pushing the tag is
+precisely what leaves the component with no latest release**, and therefore at the base
+initial version rather than bumped from a prior one. `create-connector` released `0.1.0`
+instead of `1.0.0` for exactly the opposite reason — its `v0.0.0` tag *was* pushed, so
+release-please had something to bump from.
+
+With no latest release found, the commit range for the first release PR is *all* of the
+default branch's history, filtered to commits touching `sdks/go/` — which for a component
+added in one branch is exactly that branch's commits, so nothing needs narrowing.
 
 **Neither knob release-please offers can narrow it per-component anyway**, which is worth
 knowing before someone reaches for one. `bootstrap-sha` ("For the initial release of a
@@ -236,24 +243,23 @@ release would move the floor for `sdks/typescript`, `sdks/python`, and
 `tools/create-connector` at the same time. The schema marks both "an uncommon use case
 and should generally be avoided." Leave them unset.
 
-**One thing to settle before the tag is pushed: the first version will be `1.0.0`, not
-`0.1.0`.** release-please's `go` strategy does not override the base initial version, and
-the `sdks/go` package config sets no `initial-version`, so with no prior release the first
-release PR proposes `1.0.0` — the base default — regardless of what the commits say.
-`sdks/go/README.md`, RFC-0012, and `release-config-guard.test.ts`'s comment all speak of
-`sdks/go/v0.1.0`. Getting `0.1.0` requires adding `"initial-version": "0.1.0"` to the
-`sdks/go` entry in `release-please-config.json`; that is a one-line change, and it must
-land *before* the release PR is merged, because the tag it produces is unretractable.
+### Why `sdks/go` pins `initial-version`
 
-**Confidence, stated rather than implied.** The three mechanisms above were read from
-`googleapis/release-please` on `main` — the `'0.0.0'` sentinel in `manifest.ts`'s
-latest-release backfill, `initialReleaseVersion()` in `strategies/base.ts`, and the
-option scopes in `schemas/config.json` — not from the exact release-please build that
-`googleapis/release-please-action@v5.0.0` bundles. They match its published
-documentation, and none of them is version-sensitive in a way this repository could
-detect from the outside. **Confirm the proposed version on the first release PR before
-merging it**, which is free and is the only observation that settles it; do not treat the
-`1.0.0` claim above as something CI has proven.
+`release-please-config.json` sets `"initial-version": "0.1.0"` on the `sdks/go` entry, and
+none of the other three components sets it. That is not decoration.
+
+release-please's `go` strategy does **not** override the base initial version, which is
+`1.0.0` — the `python` and `go-yoshi` strategies both override it to `0.1.0`, plain `go`
+does not. So with no prior release, the first `sdks/go` release PR proposes `1.0.0`
+regardless of what the commits say, while `sdks/go/README.md`, RFC-0012, and
+`release-config-guard.test.ts`'s comment all speak of `v0.1.0`.
+
+**This was observed, not predicted.** Merging the Shipment 1 branch opened
+[#136](https://github.com/nimbus-agent/nimbus-sdk/pull/136), titled
+`chore(main): release sdks/go 1.0.0`, before this line was added. The pin is what makes the
+proposal match the documents. Do not remove it without deciding, deliberately, that Go
+starts at v1 — for a Go module that is a commitment to API stability under semver, and the
+tag is unretractable once the proxy has served it.
 
 **Exit bar:** a Go release cut from a merged commit as a semver tag, resolving through
 the module proxy with a `go.sum` entry and an attestation on the tagged tree. **Not yet

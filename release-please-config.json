@@ -22,6 +22,7 @@
       "release-type": "go",
       "component": "sdks/go",
       "package-name": "github.com/nimbus-agent/nimbus-sdk/sdks/go",
+      "initial-version": "0.1.0",
       "tag-separator": "/",
       "include-component-in-tag": true
     }

@@ -6,7 +6,10 @@
      matching semver bump — see docs/ROADMAP.md#7-versioning--compatibility. -->
 
 Every exported declaration of every non-internal package in
-`github.com/nimbus-agent/nimbus-sdk/sdks/go`.
+`github.com/nimbus-agent/nimbus-sdk/sdks/go`, as written in the source — which
+is not everything: doc comments, the value of a `const` or `var` that declares
+its own type, and the members an *unexported* embedded type promotes onto an
+exported one are all outside what this file records.
 
 An interface that renders as `interface {}` is sealed: its only method is
 unexported, so no package other than the one that declares it can implement it —
@@ -16,7 +19,7 @@ not even another package inside this module.
 
 9 exports.
 
-- `const HandshakeExit`
+- `const HandshakeExit = 20`
 - `func DeclaredVersionsMatch(manifestVersions []any, helloVersions []string) bool`
 - `func IsContractVersion(v any) bool`
 - `func ManifestContractVersions(manifest any) []any`
@@ -24,13 +27,13 @@ not even another package inside this module.
 - `type NegotiationOk struct { Version string }`
 - `type NegotiationRefused struct { Reason string }`
 - `type NegotiationResult interface {}`
-- `var ContractVersions`
+- `var ContractVersions = []string{"1"}`
 
 ## `ipc`
 
 6 exports.
 
-- `const HelloMessage`
+- `const HelloMessage = "hello"`
 - `func EncodeHello(versions []string) string`
 - `func ParseHello(frame string) HelloResult`
 - `type HelloOk struct { ContractVersions []string }`

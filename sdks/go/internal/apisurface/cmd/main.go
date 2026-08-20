@@ -26,7 +26,10 @@ const header = `# Go public API surface
      matching semver bump — see docs/ROADMAP.md#7-versioning--compatibility. -->
 
 Every exported declaration of every non-internal package in
-` + "`github.com/nimbus-agent/nimbus-sdk/sdks/go`" + `.
+` + "`github.com/nimbus-agent/nimbus-sdk/sdks/go`" + `, as written in the source — which
+is not everything: doc comments, the value of a ` + "`const`" + ` or ` + "`var`" + ` that declares
+its own type, and the members an *unexported* embedded type promotes onto an
+exported one are all outside what this file records.
 
 An interface that renders as ` + "`interface {}`" + ` is sealed: its only method is
 unexported, so no package other than the one that declares it can implement it —

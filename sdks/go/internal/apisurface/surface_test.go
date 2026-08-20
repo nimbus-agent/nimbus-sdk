@@ -36,8 +36,8 @@ func private() {}
 	for _, want := range []string{
 		"## `demo`",
 		"3 exports.",
-		"- `const Exported`",
-		"- `var Visible`",
+		"- `const Exported = 1`",
+		"- `var Visible = \"v\"`",
 		"- `func Public(a string) error`",
 	} {
 		if !strings.Contains(got, want) {
@@ -264,5 +264,175 @@ type List[T any] []T
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q (type parameters dropped?) in:\n%s", want, got)
 		}
+	}
+}
+
+func TestRenderPackageDistinguishesAnAliasFromADefinedType(t *testing.T) {
+	// Regression for a bug found in review: typeDeclaration never read s.Assign,
+	// so "type A = B" (an alias — the same type as B, sharing its method set and
+	// freely assignable) and "type C B" (a new defined type with none of B's
+	// methods) rendered byte-identically. Turning one into the other is the
+	// ordinary migration-shim move and breaks callers, and the gate saw nothing.
+	dir := writeFixture(t, "x.go", `package demo
+
+type B struct {
+	Field string
+}
+
+type A = B
+
+type C B
+
+type StructAlias = struct{ N int }
+
+type StructDefined struct{ N int }
+
+type IfaceAlias = interface{ M() }
+
+type IfaceDefined interface{ M() }
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	alias := "- `type A = B`"
+	defined := "- `type C B`"
+	if alias == defined {
+		t.Fatal("the fixture's two lines are identical strings; the test proves nothing")
+	}
+	for _, want := range []string{
+		alias,
+		defined,
+		// All three branches of typeDeclaration must carry the "=", not just
+		// the default one: an alias to a struct or interface literal is legal.
+		"- `type StructAlias = struct { N int }`",
+		"- `type StructDefined struct { N int }`",
+		"- `type IfaceAlias = interface { M() }`",
+		"- `type IfaceDefined interface { M() }`",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q (alias and defined type rendered alike?) in:\n%s", want, got)
+		}
+	}
+}
+
+func TestRenderPackageRecordsConstAndVarTypesAndValues(t *testing.T) {
+	// Regression for a bug found in review: specDeclarations emitted only the
+	// keyword and the name, so "var ContractVersions = []string{\"1\"}" rendered
+	// as "var ContractVersions" — and retyping it to []int, which breaks every
+	// consumer's compile, produced byte-identical output.
+	//
+	// The rule is: the declared type when the source writes one, otherwise the
+	// value. That is the same half `tsc --declaration` keeps for TypeScript's
+	// counterparts in docs/api-surface.md.
+	dir := writeFixture(t, "x.go", `package demo
+
+const TypedConst int = 10
+
+const UntypedConst = 20
+
+var TypedVar []string
+
+var ValuedVar = []string{"a"}
+
+var MultiA, MultiB = pair()
+
+func pair() (int, string) { return 0, "" }
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	for _, want := range []string{
+		"- `const TypedConst int`",
+		"- `const UntypedConst = 20`",
+		"- `var TypedVar []string`",
+		"- `var ValuedVar = []string{\"a\"}`",
+		// One multi-valued call feeding two names: no value belongs to either
+		// name alone, so both record the whole right-hand side.
+		"- `var MultiA = pair()`",
+		"- `var MultiB = pair()`",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+}
+
+func TestRenderPackageCarriesAConstGroupsTypeButNeverItsValue(t *testing.T) {
+	// A later spec in a const group has neither a type nor a value of its own;
+	// Go repeats the previous non-empty expression list and its type. Only the
+	// type is carried into the snapshot: it is true of the identifier wherever
+	// it appears, where a repeated "= iota" would read as "= 0" on every bullet
+	// — a claim that is false for all but the first.
+	dir := writeFixture(t, "x.go", `package demo
+
+type Kind int
+
+const (
+	KindA Kind = iota
+	KindB
+)
+
+const (
+	First = iota
+	Second
+)
+
+const (
+	Typed Kind = iota
+	Reset      = 5
+	AfterReset
+)
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	for _, want := range []string{
+		"- `const KindA Kind`",
+		"- `const KindB Kind`",
+		// An untyped iota block has no type to carry, so a later spec records
+		// its name alone — the honest limit of a walker that does not evaluate
+		// constants.
+		"- `const First = iota`",
+		"- `const Second`\n",
+		// A spec bringing its own value ends the type inheritance, exactly as
+		// the Go spec defines the repetition: AfterReset is untyped, not Kind.
+		"- `const Typed Kind`",
+		"- `const Reset = 5`",
+		"- `const AfterReset`\n",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "const KindB Kind = iota") {
+		t.Errorf("an inherited iota expression leaked into the surface:\n%s", got)
+	}
+}
+
+func TestRenderPackageRecordsStructTags(t *testing.T) {
+	// A struct tag is wire surface and part of Go's type identity, so retagging
+	// an exported field must not be invisible. The bullet switches to a doubled
+	// tick because a backquote cannot live inside a single-tick code span.
+	tagged := "package demo\n\ntype Tagged struct {\n\tName string `json:\"name\"`\n}\n"
+	retagged := "package demo\n\ntype Tagged struct {\n\tName string `json:\"renamed\"`\n}\n"
+
+	got, err := RenderPackage(writeFixture(t, "x.go", tagged))
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	want := "- `` type Tagged struct { Name string `json:\"name\"` } ``"
+	if !strings.Contains(got, want) {
+		t.Errorf("missing %q (struct tag dropped?) in:\n%s", want, got)
+	}
+
+	other, err := RenderPackage(writeFixture(t, "x.go", retagged))
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	if got == other {
+		t.Errorf("changing a struct tag produced identical output:\n%s", got)
 	}
 }

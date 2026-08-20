@@ -24,6 +24,16 @@ import (
 // Files are read with os.ReadDir and parsed one at a time rather than with
 // parser.ParseDir, which is deprecated and whose filter parameter is an
 // fs.FileInfo — an easy signature to get wrong for no benefit here.
+//
+// Known and accepted: this reads some files the go tool itself would not build.
+// parser.ParseFile with mode 0 evaluates no build constraints, so a file behind
+// //go:build ignore is parsed like any other, and the filter below rejects only
+// _test.go — not the "_"-prefixed and "testdata" names go/build excludes by
+// convention. Both directions are false positives, never a missed export: an
+// extra bullet in the snapshot, or a directory the packages guard in
+// cmd/golden_test.go reports as unlisted. Nothing in this module triggers
+// either, and filtering properly means reimplementing go/build's file
+// selection — worth doing the day such a file lands, not before.
 func RenderPackage(dir string) (string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -61,9 +71,22 @@ func RenderPackage(dir string) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "## `%s`\n\n%d exports.\n\n", name, len(lines))
 	for _, line := range lines {
-		fmt.Fprintf(&b, "- `%s`\n", line)
+		fmt.Fprintf(&b, "- %s\n", codeSpan(line))
 	}
 	return b.String(), nil
+}
+
+// codeSpan wraps one rendered declaration in a Markdown code span. A struct tag
+// is written in backquotes, and a backquote cannot appear inside a single-tick
+// span — so a line carrying one is fenced with a doubled tick and padded, the
+// CommonMark form for exactly this case (the padding spaces are stripped on
+// render). Every other line keeps the plain single-tick form, so this changes
+// nothing about the snapshot until a tagged exported field appears in it.
+func codeSpan(line string) string {
+	if !strings.Contains(line, "`") {
+		return "`" + line + "`"
+	}
+	return "`` " + line + " ``"
 }
 
 func declarations(fset *token.FileSet, file *ast.File) []string {
@@ -76,21 +99,36 @@ func declarations(fset *token.FileSet, file *ast.File) []string {
 			}
 			out = append(out, funcSignature(fset, d))
 		case *ast.GenDecl:
+			// groupType carries a const group's implicitly repeated type across
+			// its specs: in "const ( A Kind = iota; B )", B has neither a type
+			// nor a value of its own but is still of type Kind. Per the Go spec
+			// the repetition is of the previous non-empty expression list *and*
+			// its type, so a spec bringing its own values but no type ends the
+			// inheritance — in "A Kind = iota; B = 5; C", C is untyped.
+			var groupType ast.Expr
 			for _, spec := range d.Specs {
-				out = append(out, specDeclarations(fset, d.Tok, spec)...)
+				if vs, ok := spec.(*ast.ValueSpec); ok {
+					switch {
+					case vs.Type != nil:
+						groupType = vs.Type
+					case len(vs.Values) > 0:
+						groupType = nil
+					}
+				}
+				out = append(out, specDeclarations(fset, d.Tok, spec, groupType)...)
 			}
 		}
 	}
 	return out
 }
 
-func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec) []string {
+func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec, groupType ast.Expr) []string {
 	var out []string
 	switch s := spec.(type) {
 	case *ast.ValueSpec:
-		for _, ident := range s.Names {
+		for i, ident := range s.Names {
 			if ident.IsExported() {
-				out = append(out, fmt.Sprintf("%s %s", tok, ident.Name))
+				out = append(out, fmt.Sprintf("%s %s%s", tok, ident.Name, valueSuffix(fset, s, i, groupType)))
 			}
 		}
 	case *ast.TypeSpec:
@@ -102,15 +140,59 @@ func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec) []str
 	return out
 }
 
+// valueSuffix renders what follows the i-th name of a const or var spec: its
+// declared type when the source writes one, and otherwise the value it is bound
+// to. Recording one of the two rather than both is what `tsc --declaration`
+// does for the TypeScript counterparts in docs/api-surface.md —
+// CONTRACT_HANDSHAKE_EXIT keeps its literal 20 because nothing annotates it,
+// while CONTRACT_VERSIONS shows readonly string[] and not the array — and it is
+// the load-bearing half in each case: a written type is the promise to callers,
+// and where none is written the value is the only thing that fixes one.
+//
+// An inherited groupType is a last resort, and an inherited *value* is never
+// used at all. A repeated "= iota" would read, on a bullet stripped of its
+// group, as "= 0" for every constant in the block — a false claim, where the
+// inherited type stays true of the identifier wherever it appears.
+func valueSuffix(fset *token.FileSet, s *ast.ValueSpec, i int, groupType ast.Expr) string {
+	switch {
+	case s.Type != nil:
+		return " " + render(fset, s.Type)
+	case len(s.Values) == len(s.Names):
+		return " = " + render(fset, s.Values[i])
+	case len(s.Values) > 0:
+		// One multi-valued expression feeding several names ("var A, B = f()"):
+		// no single value belongs to one name, so record the whole right side.
+		parts := make([]string, 0, len(s.Values))
+		for _, v := range s.Values {
+			parts = append(parts, render(fset, v))
+		}
+		return " = " + strings.Join(parts, ", ")
+	case groupType != nil:
+		return " " + render(fset, groupType)
+	default:
+		return ""
+	}
+}
+
 func typeDeclaration(fset *token.FileSet, s *ast.TypeSpec) string {
 	tp := typeParams(fset, s)
+	// s.Assign is the position of the "=" in an alias declaration, and is
+	// token.NoPos for a defined type. The distinction is load-bearing and cannot
+	// be recovered from s.Type: "type A = B" makes A and B the same type, freely
+	// assignable and sharing one method set, while "type A B" defines a new type
+	// with none of B's methods. Converting one into the other — the ordinary
+	// migration-shim move — breaks callers, so the two must not render alike.
+	eq := ""
+	if s.Assign.IsValid() {
+		eq = " ="
+	}
 	switch t := s.Type.(type) {
 	case *ast.StructType:
-		return fmt.Sprintf("type %s%s struct {%s}", s.Name.Name, tp, exportedFields(fset, t.Fields, structField))
+		return fmt.Sprintf("type %s%s%s struct {%s}", s.Name.Name, tp, eq, exportedFields(fset, t.Fields, structField))
 	case *ast.InterfaceType:
-		return fmt.Sprintf("type %s%s interface {%s}", s.Name.Name, tp, exportedFields(fset, t.Methods, interfaceMethod))
+		return fmt.Sprintf("type %s%s%s interface {%s}", s.Name.Name, tp, eq, exportedFields(fset, t.Methods, interfaceMethod))
 	default:
-		return fmt.Sprintf("type %s%s %s", s.Name.Name, tp, render(fset, s.Type))
+		return fmt.Sprintf("type %s%s%s %s", s.Name.Name, tp, eq, render(fset, s.Type))
 	}
 }
 
@@ -188,7 +270,7 @@ func exportedFields(fset *token.FileSet, fields *ast.FieldList, kind memberKind)
 		}
 		for _, ident := range field.Names {
 			if ident.IsExported() {
-				parts = append(parts, renderMember(fset, ident.Name, field.Type, kind))
+				parts = append(parts, renderMember(fset, ident.Name, field, kind))
 			}
 		}
 	}
@@ -232,11 +314,20 @@ func embeddedIsExported(expr ast.Expr) bool {
 // error" is idiomatic Go), and inferring from shape alone would misrender that
 // field's "func" the same way — turning a callback field into what reads as an
 // interface method.
-func renderMember(fset *token.FileSet, name string, typ ast.Expr, kind memberKind) string {
+//
+// A struct field's tag is appended when it has one. A tag is wire surface —
+// retagging a field changes what every JSON consumer sees — and it counts toward
+// Go's own type identity, so two structs differing only in a tag are different
+// types. An interface method cannot carry one, which is why kind gates this too.
+func renderMember(fset *token.FileSet, name string, field *ast.Field, kind memberKind) string {
 	if kind == interfaceMethod {
-		return name + strings.TrimPrefix(render(fset, typ), "func")
+		return name + strings.TrimPrefix(render(fset, field.Type), "func")
 	}
-	return name + " " + render(fset, typ)
+	member := name + " " + render(fset, field.Type)
+	if field.Tag != nil {
+		member += " " + field.Tag.Value
+	}
+	return member
 }
 
 func funcSignature(fset *token.FileSet, d *ast.FuncDecl) string {

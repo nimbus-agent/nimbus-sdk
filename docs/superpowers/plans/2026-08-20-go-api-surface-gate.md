@@ -48,8 +48,8 @@
 **Rendering rules** — these are the contract the golden depends on, so get them exactly right:
 - Functions and methods: `func Name(params) results`, body omitted. A method renders with its receiver: `func (T) Name()`.
 - `const` / `var`: `const Name` / `var Name`, one bullet per exported name, no value and no type.
-- `type` with a struct underlying it: `type Name struct` followed by one bullet per **exported field**, rendered as `type Name struct { Field T }` — one bullet per field so a field addition shows as one line.
-- `type` with an interface underlying it: `type Name interface` plus one bullet per **exported method**, `type Name interface { Method() }`. Unexported methods are omitted, which is what makes a sealed interface render as `interface {}` — deliberate, and the golden records it.
+- `type` with a struct underlying it: **one bullet for the whole type**, with its exported fields inline and `; `-separated — `type Name struct { Field T; Other U }`. Fields are sorted, so a field addition shows as one changed line and the type stays visually with its members.
+- `type` with an interface underlying it: the same shape — `type Name interface { Method() (T, error) }`, methods sorted and `; `-separated. A method renders as `Name(params) results`, with **no `func` keyword** — that is how it reads in the source. Unexported methods are omitted, which is what makes a sealed interface render as `interface {}` — deliberate, and the golden records it.
 - Any other `type`: `type Name <printed underlying>`.
 - Unexported declarations are skipped entirely. Test files (`_test.go`) are never parsed.
 

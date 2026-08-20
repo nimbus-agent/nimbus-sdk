@@ -863,7 +863,7 @@ completes, not red-green drivers. Their value is regression pressure and reviewa
 case-for-case against the TypeScript and Python suites. Where a step says "expected PASS",
 a failure is a real finding about the implementation — fix `handshake.go`, never the test.
 
-- [ ] **Step 3: If anything did fail, fix the implementation**
+- [x] **Step 3: If anything did fail, fix the implementation**
 
 The likeliest culprits, in order: the `if n > 0 { … }` block moved after
 `if readErr != nil { … }` (breaks the EOF test); `frames[1:2]` instead of `frames[1:]`
@@ -872,7 +872,7 @@ an over-long chunk instead of keeping it for the next call (breaks the `ErrFrame
 test — measured: the 1 MiB frame is truncated to the 32 KiB buffer, never reaches the
 limit, and the handshake refuses `not-json` with a nil error).
 
-- [ ] **Step 4: Run the whole Go suite**
+- [x] **Step 4: Run the whole Go suite**
 
 ```bash
 go -C sdks/go test ./...
@@ -883,7 +883,7 @@ test -z "$(gofmt -l sdks/go)"
 Expected: every package PASSes, including `conformance` — the handshake changes no
 existing behaviour, so a failure there means something else broke.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add sdks/go/ipc/handshake_test.go sdks/go/ipc/handshake.go
@@ -904,7 +904,7 @@ git commit -m "test(go): cover the io.Reader traps the other bindings cannot exp
 - Consumes: the five exports Task 1 produced.
 - Produces: nothing further.
 
-- [ ] **Step 1: Regenerate the API surface and watch the gate fire first**
+- [x] **Step 1: Regenerate the API surface and watch the gate fire first**
 
 ```bash
 go -C sdks/go test ./internal/apisurface/...
@@ -936,7 +936,7 @@ Expected: PASS, and `git diff docs/api-surface-go.md` shows exactly `HandshakeCo
 `HandshakeOk`, `HandshakeRefused`, `HandshakeResult`, and `PerformHandshake` — no more.
 An unexpected entry means something was exported by accident.
 
-- [ ] **Step 2: Update `sdks/go/README.md` — it says this in TWO places**
+- [x] **Step 2: Update `sdks/go/README.md` — it says this in TWO places**
 
 **Read the file first.** Every quotation in Steps 2–4 is an anchor for locating the
 passage, not a string to match: this plan re-wraps what it quotes, and an editor keyed on
@@ -999,7 +999,7 @@ stream: `Pending` returns the complete frames that arrived with the hello, and t
 you supplied retains a partial one that `Pending` cannot carry.
 ````
 
-- [ ] **Step 3: Update `CLAUDE.md`**
+- [x] **Step 3: Update `CLAUDE.md`**
 
 In the Go surface section, find the `ipc` bullet's closing clause, anchored on **"The
 handshake itself is still Shipment 2"**, and replace the whole bullet — reading it in the
@@ -1026,7 +1026,7 @@ and that the line "describes a decision, not shipped code". Rewrite it as shippe
   is never a refusal.
 ```
 
-- [ ] **Step 4: Update `docs/ROADMAP.md`**
+- [x] **Step 4: Update `docs/ROADMAP.md`**
 
 In Phase 3's Go box, find the sentence anchored on **"mean the handshake is bound"**
 (around line 276) and replace it through the end of that sentence — it currently says a
@@ -1041,7 +1041,7 @@ with:
   them.
 ```
 
-- [ ] **Step 5: Verify nothing else still claims Go has no handshake**
+- [x] **Step 5: Verify nothing else still claims Go has no handshake**
 
 ```bash
 grep -rn "handshake" --include=*.md . | grep -vi "docs/superpowers" | grep -iE "not yet|no handshake|shipment 2|still" | head
@@ -1049,7 +1049,7 @@ grep -rn "handshake" --include=*.md . | grep -vi "docs/superpowers" | grep -iE "
 
 Expected: no hits outside `docs/superpowers/`. Any hit is a document this step missed.
 
-- [ ] **Step 6: Run every gate, then commit**
+- [x] **Step 6: Run every gate, then commit**
 
 ```bash
 go -C sdks/go test ./...

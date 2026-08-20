@@ -31,7 +31,7 @@ not even another package inside this module.
 
 ## `ipc`
 
-12 exports.
+17 exports.
 
 - `const HelloMessage = "hello"`
 - `const IPCMaxLineBytes = 1024 * 1024`
@@ -39,7 +39,12 @@ not even another package inside this module.
 - `func (r *LineReader) Push(chunk []byte) ([]string, error)`
 - `func EncodeHello(versions []string) string`
 - `func ParseHello(frame string) HelloResult`
+- `func PerformHandshake(r io.Reader, w io.Writer, cfg HandshakeConfig) (HandshakeResult, error)`
 - `type FlushResult struct { Frames []string; Truncated bool }`
+- `type HandshakeConfig struct { LocalVersions []string; Reader *LineReader }`
+- `type HandshakeOk struct { Pending []string; Version string }`
+- `type HandshakeRefused struct { Pending []string; Reason string }`
+- `type HandshakeResult interface {}`
 - `type HelloOk struct { ContractVersions []string }`
 - `type HelloRefused struct { Reason string }`
 - `type HelloResult interface {}`

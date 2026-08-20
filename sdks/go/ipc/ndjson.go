@@ -14,6 +14,20 @@ const IPCMaxLineBytes = 1024 * 1024
 //
 // Match it with errors.Is. It is a sentinel rather than a type because the only fact
 // it carries is which limit broke, and the stream is unusable either way.
+//
+// Returned as an error where ParseHello deliberately refuses as a value, and the two
+// are not in tension. A refusal is a parse verdict about one frame — a result the
+// contract enumerates, which a binding in another language has no exceptions to mirror
+// — so it is data. A limit violation is a stream fault: framing.md §7 makes it
+// terminal, there is no next frame to describe, and the caller's only move is to stop.
+// That section leaves the surfacing to the binding ("an exception, an error return,
+// a poisoned reader state"), so an error is conformant here where it would be a
+// mistake there.
+//
+// The message is capitalized against Go convention on purpose: it is the string both
+// other bindings raise, verbatim — Python's _LIMIT_MESSAGE and TypeScript's
+// LINE_LIMIT_MESSAGE — so one grep finds a limit violation in a mixed-language fleet's
+// logs. Do not lowercase it to satisfy a linter without changing the other two.
 var ErrFrameTooLong = errors.New("Message exceeds 1MB line limit")
 
 // byteOrderMark is stripped when it is the first character of the STREAM.

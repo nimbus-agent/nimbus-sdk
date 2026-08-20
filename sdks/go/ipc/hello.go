@@ -1,10 +1,18 @@
-// Package ipc carries the hello frame — the one message this contract specifies by
-// name.
+// Package ipc binds two wire surfaces: the hello frame — the one message this
+// contract specifies by name — and the NDJSON line reader that frames it.
 //
-// Normative document: docs/spec/negotiation/v1/contract-version.md (RFC-0005). The
-// frame's shape is frozen across every future contract major: a v1-only connector and
-// a v2-only gateway must still read each other's hello in order to discover they share
-// nothing, which is why its schema is published without a version segment.
+// A normative document each, and they are not the same one:
+//
+//   - docs/spec/negotiation/v1/contract-version.md (RFC-0005) governs the hello frame.
+//     Its shape is frozen across every future contract major: a v1-only connector and a
+//     v2-only gateway must still read each other's hello in order to discover they
+//     share nothing, which is why its schema is published without a version segment.
+//   - docs/spec/wire/v1/framing.md governs LineReader, the transport floor underneath —
+//     how octets become frames, and nothing about what a frame means.
+//
+// The handshake that puts the two together is not part of this package yet. Nothing
+// here touches a stream: a caller feeds LineReader the octets it read, and passes what
+// comes out to ParseHello itself.
 package ipc
 
 import (

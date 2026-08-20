@@ -37,6 +37,13 @@ findings S2.6 and S2.7.
   examples.
 - **`gofmt` must be clean:** `test -z "$(gofmt -l sdks/go)"`. Note `gofmt -l` alone exits
   0 and can never fail a build.
+- **Write Go files with LF line endings.** This is Windows, and a file written through a
+  text-mode path gets CRLF, which `gofmt` rewrites wholesale — measured: 374 CR bytes made
+  `gofmt -l` name the file and `gofmt -d` print a diff touching every line, and converting
+  to LF fixed it with no other edit. CI runs the `test -z` check above on three operating
+  systems, and this repository has already lost a build to a Windows-only failure that
+  every local run went green through. If `gofmt -l` names a file you did not touch, check
+  its line endings before its syntax.
 - **The API-surface gate is a golden file.** Any new export fails
   `internal/apisurface/cmd/golden_test.go` until `docs/api-surface-go.md` is regenerated.
   This task adds five exports, so the gate *will* fire — Task 5 handles it. It needs no
@@ -101,8 +108,10 @@ import (
 // scriptedPeer hands back queued chunks and records everything written, so a test can
 // assert on the ORDER of the two — §5 requires our hello to go out before we read.
 //
-// Read copies at most len(buf); every chunk in these tests is far below the 32 KiB
-// scratch buffer, so no chunk is ever split by the copy.
+// A chunk longer than buf is delivered across several Reads rather than truncated. That
+// is what an io.Reader does, and Task 4 depends on it: the over-limit chunk is 1 MiB + 1
+// against a 32 KiB buffer, so a helper that dropped the remainder would quietly deliver
+// a 32 KiB frame and never reach the limit at all.
 type scriptedPeer struct {
 	chunks  [][]byte
 	written bytes.Buffer
@@ -114,9 +123,13 @@ func (p *scriptedPeer) Read(buf []byte) (int, error) {
 	if len(p.chunks) == 0 {
 		return 0, io.EOF
 	}
-	chunk := p.chunks[0]
-	p.chunks = p.chunks[1:]
-	return copy(buf, chunk), nil
+	n := copy(buf, p.chunks[0])
+	if n < len(p.chunks[0]) {
+		p.chunks[0] = p.chunks[0][n:]
+	} else {
+		p.chunks = p.chunks[1:]
+	}
+	return n, nil
 }
 
 func (p *scriptedPeer) Write(b []byte) (int, error) {
@@ -796,20 +809,32 @@ func TestPerformHandshakeReturnsANonEOFReadError(t *testing.T) {
 }
 
 func TestPerformHandshakeResultIsNonNilExactlyWhenErrIsNil(t *testing.T) {
-	// The biconditional the doc comment promises, exercised over one case of each shape
-	// so a future refactor cannot quietly return both or neither.
+	// The biconditional the doc comment promises, over one case of each shape.
+	//
+	// wantErr is not redundant with the biconditional, and leaving it out is how this
+	// test hollows itself out: a biconditional is satisfied by EITHER side, so a case
+	// that silently stops erroring — because a helper truncated its input, say — still
+	// passes while testing nothing. Asserting the shape too is what keeps it honest.
 	agree := &scriptedPeer{chunks: [][]byte{helloFrameFor("1")}}
 	refuse := &scriptedPeer{chunks: [][]byte{[]byte("{\n")}}
 	fail := &scriptedPeer{chunks: [][]byte{[]byte(strings.Repeat("x", IPCMaxLineBytes+1))}}
 
 	for _, tc := range []struct {
-		name string
-		peer *scriptedPeer
-	}{{"agreement", agree}, {"refusal", refuse}, {"error", fail}} {
+		name    string
+		peer    *scriptedPeer
+		wantErr bool
+	}{
+		{"agreement", agree, false},
+		{"refusal", refuse, false},
+		{"error", fail, true},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, err := PerformHandshake(tc.peer, tc.peer, HandshakeConfig{})
 			if (err == nil) != (got != nil) {
 				t.Errorf("result = %#v with err = %v — exactly one must be present", got, err)
+			}
+			if (err != nil) != tc.wantErr {
+				t.Errorf("err = %v, wantErr = %v — this case is not exercising what it names", err, tc.wantErr)
 			}
 		})
 	}
@@ -824,15 +849,28 @@ Add `"errors"` to the test file's import block.
 go -C sdks/go test ./ipc/ -run TestPerformHandshake -v
 ```
 
-Expected: `TestPerformHandshakeReadsBytesDeliveredAlongsideEOF` is the one most likely to
-FAIL, and it is the trap this task exists for — if `readPeerHello` checks `readErr`
-before `n > 0`, the hello is discarded and the result is a `no-common-version` refusal
-rather than agreement. The others should pass against Task 1's implementation.
+Expected: **all five PASS**, unchanged, and that is not a weak result — measured on Go
+1.27 against Task 1's implementation exactly as written.
 
-- [ ] **Step 3: Fix any failure in the implementation**
+`TestPerformHandshakeReadsBytesDeliveredAlongsideEOF` passes because Task 1's
+`readPeerHello` already orders `if n > 0` before `if readErr != nil`. The test is a
+regression guard on that ordering, not a driver for it: reverse the two blocks and it
+fails with a `no-common-version` refusal instead of agreement, which is worth trying once
+to see the trap you are being protected from.
 
-If the EOF-with-bytes test fails, the `if n > 0 { … }` block in `readPeerHello` must come
-**before** the `if readErr != nil { … }` block. Do not reorder the test.
+**On Tasks 2–4 generally.** They are characterization tests over an implementation Task 1
+completes, not red-green drivers. Their value is regression pressure and reviewability
+case-for-case against the TypeScript and Python suites. Where a step says "expected PASS",
+a failure is a real finding about the implementation — fix `handshake.go`, never the test.
+
+- [ ] **Step 3: If anything did fail, fix the implementation**
+
+The likeliest culprits, in order: the `if n > 0 { … }` block moved after
+`if readErr != nil { … }` (breaks the EOF test); `frames[1:2]` instead of `frames[1:]`
+(breaks the three-frames test, Task 3); a `scriptedPeer.Read` that drops the remainder of
+an over-long chunk instead of keeping it for the next call (breaks the `ErrFrameTooLong`
+test — measured: the 1 MiB frame is truncated to the 32 KiB buffer, never reaches the
+limit, and the handshake refuses `not-json` with a nil error).
 
 - [ ] **Step 4: Run the whole Go suite**
 
@@ -872,9 +910,22 @@ git commit -m "test(go): cover the io.Reader traps the other bindings cannot exp
 go -C sdks/go test ./internal/apisurface/...
 ```
 
-Expected: FAIL — the golden file no longer matches the walker's output. This is the gate
-working; confirm it fails *before* regenerating, so the regeneration is known to be the
-fix rather than a no-op.
+Expected: FAIL, with this text — measured, not predicted:
+
+```
+the exported surface has changed but ../../../../../docs/api-surface-go.md was not regenerated.
+  committed: 12 exports.
+  generated: 17 exports.
+```
+
+Twelve to seventeen is the five new exports. Confirm it fails *before* regenerating, so
+the regeneration is known to be the fix rather than a no-op.
+
+**Run this from the repository checkout, never from a copy of `sdks/go` alone.**
+`golden_test.go:43` skips when `../../../../../docs/api-surface-go.md` is absent — the
+same courtesy `spec/drift_test.go` extends to consumers of the published module — so in a
+copied tree this gate passes with the new exports present and proves nothing. Unlike the
+drift guard, it has no `NIMBUS_SPEC_DRIFT`-style switch to turn that skip into a failure.
 
 ```bash
 go -C sdks/go run ./internal/apisurface/cmd
@@ -885,16 +936,35 @@ Expected: PASS, and `git diff docs/api-surface-go.md` shows exactly `HandshakeCo
 `HandshakeOk`, `HandshakeRefused`, `HandshakeResult`, and `PerformHandshake` — no more.
 An unexpected entry means something was exported by accident.
 
-- [ ] **Step 2: Update `sdks/go/README.md`**
+- [ ] **Step 2: Update `sdks/go/README.md` — it says this in TWO places**
 
-Delete the Status section's handshake bullet:
+**Read the file first.** Every quotation in Steps 2–4 is an anchor for locating the
+passage, not a string to match: this plan re-wraps what it quotes, and an editor keyed on
+the plan's line breaks will fail to find the real text.
+
+*First*, around line 182, inside the line-reader section, a paragraph opens
+**"Missing from this package: the handshake."** Do not delete it — a reader who arrives at
+the line reader still needs pointing somewhere. Replace it with a forward reference:
 
 ```markdown
-- **The handshake.** `ipc` carries the hello frame and the line reader, so you can
-  encode and parse a hello and read NDJSON off a stream, but nothing here performs the
-  exchange end to end. When it lands it will be **synchronous**, over `io.Reader` /
-  `io.Writer` — matching Python rather than TypeScript's `async`.
+**The handshake lives below.** `ipc` carries the hello frame, this line reader, and
+`PerformHandshake`, which performs the read-hello / write-hello / negotiate exchange that
+Python's `perform_handshake` and TypeScript's `performHandshake` carry out end to end. See
+[Performing the handshake](#performing-the-handshake).
 ```
+
+*Second*, in the Status section around line 237, delete the handshake bullet outright —
+the one beginning "**The handshake.**" and ending "matching Python rather than
+TypeScript's `async`." The three bullets after it (diagnostics, the connector kit, the
+version accessor) stay: those are still Shipment 2b–2d.
+
+Verify both landed:
+
+```bash
+grep -n "handshake" sdks/go/README.md
+```
+
+Expected: no line claims the exchange is missing or unperformed.
 
 Add a section after "Negotiating a contract version", with the `default:` arm every
 example in this README carries:
@@ -931,8 +1001,9 @@ you supplied retains a partial one that `Pending` cannot carry.
 
 - [ ] **Step 3: Update `CLAUDE.md`**
 
-In the Go surface section, the `ipc` bullet currently ends "The handshake itself is still
-Shipment 2". Replace that clause with the handshake's exports:
+In the Go surface section, find the `ipc` bullet's closing clause, anchored on **"The
+handshake itself is still Shipment 2"**, and replace the whole bullet — reading it in the
+file first, since the wrapping below is this plan's, not `CLAUDE.md`'s:
 
 ```markdown
 - `ipc` (`sdks/go/ipc/`) — the hello frame (`HelloMessage`, `EncodeHello`, `ParseHello`,
@@ -957,9 +1028,11 @@ and that the line "describes a decision, not shipped code". Rewrite it as shippe
 
 - [ ] **Step 4: Update `docs/ROADMAP.md`**
 
-Phase 3's Go box says "Nor does a `LineReader` mean the handshake is bound — `ipc`
-carries the hello frame and the line reader, not the read-hello/write-hello/negotiate
-exchange between them, which is a separate, not-yet-started plan." Replace with:
+In Phase 3's Go box, find the sentence anchored on **"mean the handshake is bound"**
+(around line 276) and replace it through the end of that sentence — it currently says a
+`LineReader` does not imply the exchange, and calls this "a separate, not-yet-started
+plan." Read the passage before editing; it wraps differently than quoted here. Replace
+with:
 
 ```markdown
   The handshake is bound as of this work: `ipc.PerformHandshake` performs the

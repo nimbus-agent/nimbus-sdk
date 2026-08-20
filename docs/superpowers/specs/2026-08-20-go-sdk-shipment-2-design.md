@@ -43,7 +43,7 @@ should be merged as if the tag were part of the merge, because it is.
 | 2a | The handshake | none — no handshake corpus exists | yes |
 | 2b | Diagnostics, core + emitter | `diagnostics`, 75 cases | yes |
 | 2c | The connector kit | `url-resolution`, 28 cases | yes |
-| 2d | The version accessor | none | **no — nothing to ship** |
+| 2d | The version accessor — `contract.SDKVersion()` | none | yes |
 | 2e | The parked `null` corpus case | one new `negotiation` case | commit type decides |
 | 2f | RFC-0013 — promote Go to official | none | no |
 
@@ -374,34 +374,77 @@ where `JSON.stringify` emits `null`, and predicts Go will refuse them too. Measu
 **`JSON.stringify` is the outlier, two to one** — the prediction holds, and this shipment
 turns it from a prediction into a measurement.
 
-## 2d — The version accessor: nothing to ship
+## 2d — The version accessor: `contract.SDKVersion()`
 
 `sdks/go/README.md` lists "a version accessor" among the things Shipment 2 brings, noting
-"there is no `Version` constant; the tag is the version." **The right move is to delete
-that gap rather than fill it.**
+"there is no `Version` constant; the tag is the version." **Ship the accessor. Do not ship
+a constant** — and those are two different decisions that an earlier draft of this design
+collapsed into one, on a premise that turned out to be false in both halves.
 
-Go already reports the version at runtime, and it was verified against the published
-module rather than assumed. A throwaway consumer module outside any checkout,
-`go get github.com/nimbus-agent/nimbus-sdk/sdks/go@v0.2.0`:
+**The premise, corrected.** That draft said TypeScript and Python ship version constants
+that Go should decline to copy. Neither does. Python's `__init__.py` derives `__version__`
+from `importlib.metadata.version("nimbus-dev-sdk")` — it asks the installed metadata at
+runtime, and there is no number in the source to drift. TypeScript exports no package
+version at all; `CONTRACT_VERSIONS` is the contract's majors, a different thing entirely.
+So the parity argument does not say "skip it." It says ship what Python ships: **an
+accessor that asks the runtime.** `debug.ReadBuildInfo()` is Go's
+`importlib.metadata.version`.
 
+```go
+// In sdks/go/contract/sdkversion.go
+const modulePath = "github.com/nimbus-agent/nimbus-sdk/sdks/go"
+
+// SDKVersion reports this module's version as the go toolchain recorded it, or "" when
+// no build information is available. Inside this module's own tests it reports
+// "(devel)", which is the honest answer: a source tree has no released version.
+func SDKVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	if info.Main.Path == modulePath {
+		return info.Main.Version
+	}
+	for _, dep := range info.Deps {
+		if dep.Path == modulePath {
+			return dep.Version
+		}
+	}
+	return ""
+}
 ```
-dep path=github.com/nimbus-agent/nimbus-sdk/sdks/go version=v0.2.0 sum=h1:Z4FrN8JA328Kb…
-```
 
-`debug.ReadBuildInfo()` names the version and the checksum, with nothing for this
-repository to maintain and no way for it to drift from the tag. TypeScript and Python ship
-version constants because npm and PyPI packages cannot ask their own runtime this
-question; Go can.
+**Measured against the published `v0.2.0`, from a consumer module outside any checkout**,
+rather than assumed:
 
-One nuance the documented recipe must carry, because it will otherwise be reported as a
-bug: `info.Main.Version` is `(devel)` when the consumer's own module is built with
-`go run` or `go build` from a checkout. The SDK's version lives on its entry in
-`info.Deps`, which is the one to read.
+| Context | `SDKVersion()` |
+|---|---|
+| Consumer, `go build` then run | `"v0.2.0"` |
+| Consumer, `go run .` | `"v0.2.0"` |
+| Consumer, `go mod vendor` + `-mod=vendor` | `"v0.2.0"` |
+| Inside this module's own `go test` | `"(devel)"` |
 
-So 2d ships **no code**. It replaces the README's Status bullet with the recipe, and adds
-a short section to `sdks/go/README.md`. If a future consumer produces a case
-`ReadBuildInfo` genuinely cannot serve, a const can be added then, by release-please
-`extra-files` — but a permanent exported symbol should not be added against a hypothetical.
+The vendored row is the one worth having measured: vendoring is where build information is
+most often assumed to be lost, and `vendor/modules.txt` carries the version through.
+
+**Why not a `const` maintained by release-please `extra-files`.** It would be a second
+source of truth for a fact the toolchain already records, and the failure mode is silent —
+a const that disagrees with the tag reports a version that was never released, and nothing
+in CI could catch it without re-deriving the truth from the tag anyway. The accessor cannot
+drift, because it has nothing to drift from.
+
+**Why `contract` rather than a package of its own.** `contract` is the package a consumer
+already imports to negotiate, so the accessor needs no new import path frozen by the next
+tag, and no new line in `internal/apisurface/cmd`'s `packages` slice. The name also does
+the disambiguating work that matters here: `SDKVersion` is not `ContractVersions`, and the
+two would be confusable under any shorter name. A dedicated `version` package was the
+alternative and was rejected — `version.Version()` stutters, and an import path that
+carries one function is a poor trade for a module that keeps its surface deliberately
+small.
+
+So 2d ships one file, one exported function, and a `sdks/go/README.md` section replacing
+the Status bullet — including the `"(devel)"` note, which will otherwise be reported as a
+bug by the first person who calls it from a checkout.
 
 ## 2e — The parked `null` corpus case
 
@@ -444,11 +487,12 @@ publishes** — and cites RFC-0008 rather than inventing a standard.
 Criterion 3 is worded to be *checkable from that document*, so an owner named only inside
 the RFC does not satisfy it.
 
-RFC-0013 records all four criteria as met and **names an SDK owner**. That name is a
-decision for the maintainer, not something this design or the code can settle, and the RFC
-does not get written until it is supplied. RFC-0008 is the template — it ran Python
-through the same four criteria and recorded the asymmetry that TypeScript, as the
-reference implementation, never had a promotion RFC of its own.
+RFC-0013 records all four criteria as met and **names an SDK owner**. That name is
+**Asaf Golombek ([@AsafGolombek](https://github.com/AsafGolombek))**, supplied 2026-08-20
+and the same owner GOVERNANCE already records for the Python SDK — so criterion 3 is
+answered and 2f is blocked only on 2b and 2c making criterion 1 true. RFC-0008 is the
+template: it ran Python through the same four criteria and recorded the asymmetry that
+TypeScript, as the reference implementation, never had a promotion RFC of its own.
 
 ## Gates each sub-shipment trips
 

@@ -112,9 +112,12 @@ surface is shaped this way, which the generated file, by design, does not:
   `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
 - `spec` (`sdks/go/spec/`) — `LoadSchema` and `LoadCorpus` only. This is Python's single
   `nimbus_sdk` root split into two Go packages; a benign surface asymmetry.
-- `ipc` (`sdks/go/ipc/`) — **the hello frame only**: `HelloMessage`, `EncodeHello`,
-  `ParseHello`, `HelloResult`, `HelloOk`, `HelloRefused`. The NDJSON reader and the
-  handshake are Shipment 2.
+- `ipc` (`sdks/go/ipc/`) — the hello frame (`HelloMessage`, `EncodeHello`, `ParseHello`,
+  `HelloResult`, `HelloOk`, `HelloRefused`) and, since this branch, the NDJSON line
+  reader: `LineReader` (`Push`, `Flush`), `IPCMaxLineBytes`, `ErrFrameTooLong`,
+  `FlushResult`. The handshake itself is still Shipment 2 — see
+  [`docs/api-surface-go.md`](./docs/api-surface-go.md) for the exact signatures, which
+  this list does not repeat.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every
@@ -158,12 +161,19 @@ on-disk layout of `docs/spec` part of Go's public API, so moving `conformance/v1
 would become a Go breaking change while staying invisible to the other two bindings.
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
-Shipment 1 executes the `negotiation` corpus and nothing else — all 37 cases across all
-three kinds (`negotiate` 16, `hello` 15, `declaration` 6). `framing`, `diagnostics`, and
-`url-resolution` land with the packages that bind them. Go carries a **floor** per corpus
-rather than Python's exact case counts, plus the structural assertion that `runKind`
-fails when it executes zero cases; both languages read the same `index.json`, so a
-duplicated exact pin detects nothing and makes every new case a four-file edit.
+Go now executes two of the four published conformance corpora, nothing deferred in
+either: `negotiation` — all 37 cases across all three kinds (`negotiate` 16, `hello` 15,
+`declaration` 6) — and, since this branch, `framing` — all 25 cases, run against
+`LineReader` by `sdks/go/conformance/framing_test.go`. `diagnostics` and
+`url-resolution` still land with the packages that bind them; Go has neither a
+diagnostics package nor a connector kit yet. Go carries a **floor** per corpus rather
+than Python's exact case counts (`negotiation`'s `TestTheCorpusIsSubstantial` fails
+under 30 total cases, `framing`'s inline check fails under 20), plus a structural
+guard against silent vacuity in each runner — `runKind` fails when a *kind* filter
+matches zero cases, `TestFramingCorpus` fails when its subtest count diverges from
+`len(cases)`, different mechanisms catching the same class of mistake. Both languages
+read the same `index.json`, so a duplicated exact pin would detect nothing and make
+every new case a four-file edit.
 
 Supported Go versions are **the two most recent stable minors** — Go's own policy — and
 `go.mod`'s `go` directive names the **older** of the two. CI runs with
@@ -204,7 +214,7 @@ input, and neither binding may invent one until the manifest rule registry const
 the identifier's format enough to rule the question out structurally. `event.py`'s own
 docstring discloses the exact mechanism.
 
-**The Go binding changes the shape of two of those three, without adding a fourth.**
+**The Go binding changes the shape of two of those three, and adds a fourth of its own.**
 
 - **Narrowing is now three-way**: TypeScript's tagged union, Python's `isinstance`, and
   Go's type switch over an interface sealed by an unexported marker method. Go's is the
@@ -218,6 +228,24 @@ docstring discloses the exact mechanism.
   Shipment 2 lands it, TypeScript's `async` is the minority position, which weakens the
   case that async is the contract's natural shape. Until then this line describes a
   decision, not shipped code.
+- **The finalized-U+FFFD count is a new divergence, and it is Go alone.** When a held,
+  incomplete multi-octet UTF-8 prefix is finalized with nothing left to complete it,
+  `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover octet** — a
+  two-octet prefix (`F0 9F`, the start of a four-octet sequence) finalizes to two U+FFFD,
+  a three-octet prefix to three — where TypeScript's `TextDecoder` and Python's
+  `codecs.getincrementaldecoder("utf-8")("replace")` both collapse the same prefix into a
+  **single** U+FFFD, WHATWG's maximal-subpart rule. Measured directly on both prefixes
+  rather than assumed: Node's `TextDecoder` gives 1 for each, CPython's incremental
+  decoder gives 1 for each, `utf8Stream` gives 2 and 3 — a two-against-one split, Go the
+  outlier. This is permitted, not a bug: `docs/spec/wire/v1/framing.md` §4 requires only
+  that an ill-formed sequence become U+FFFD, never how many, and no case in the `framing`
+  corpus exercises a multi-octet prefix left incomplete at end-of-stream — every
+  ill-formed case there is either a single stray octet or a sequence split cleanly across
+  a chunk boundary — so nothing pins a count for either side to violate. Go's count is
+  inherited from `utf8.DecodeRune`, which steps through an unfinishable prefix one octet
+  at a time, rather than chosen. A future corpus case that pins a count would make
+  whichever binding disagrees with it non-conformant — which is exactly why this is
+  recorded now, while it is still a difference and not yet a bug.
 
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
 and a corpus — and is not exhaustive across the package. `nimbus_sdk.connector_kit` is

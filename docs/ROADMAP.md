@@ -269,12 +269,12 @@ maintained."*
 - [~] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*. A Go
   binding exists at [`sdks/go/`](../sdks/go/) — module
   `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero dependencies — and now executes
-  **three** of the four published corpora in full, nothing deferred in any: `negotiation`
-  (all 37 cases across all three kinds), `framing` (all 25, run against `LineReader`), and,
-  since this work, `diagnostics` (all 75, across `encode`, `parse` and `level`, against a
-  new `diagnostics` package that ships an emitter Python does not have). That is **not**
-  yet the full suite: `url-resolution` lands with the connector kit, which is the last
-  binding between Go and criterion 1. The handshake **is** now
+  **all four** published corpora in full, nothing deferred in any: `negotiation`
+  (all 37 cases across all three kinds), `framing` (all 25, run against `LineReader`),
+  `diagnostics` (all 75, across `encode`, `parse` and `level`, against a `diagnostics`
+  package that ships an emitter Python does not have), and, since this work,
+  `url-resolution` (all 28, against a new `connectorkit` package binding Python's
+  Shipment 1 core). That is the same four Python runs, so criterion 1 is met. The handshake **is** now
   bound: `ipc.PerformHandshake` performs the read-hello/write-hello/negotiate exchange,
   synchronously over `io.Reader` / `io.Writer`. And it is not **official**, which is a governance act, not
   a test result — [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four
@@ -290,7 +290,9 @@ maintained."*
   [`url-resolution`](./spec/connector-kit/v1/url-resolution.md) corpus, both
   bindings execute), `require_env`, the `json_result` / `error_result` MCP result
   builders, and the `search_filter` port. Still missing: the transport, the tool router,
-  and the `rest.py` REST factories. Until those land, the generated Python connector
+  and the `rest.py` REST factories — and Go's `connectorkit` now carries the same pure
+  core with the same three deferrals, so the gap is identical in both bindings rather than
+  Python-shaped. Until those land, the generated Python connector
   still inlines what the full kit would absorb — `_on_list_tools`, `_on_call_tool` and a
   JSON result helper — in its `main.py`. The scaffold works around the asymmetry
   deliberately (a scaffold is not where a published surface gets designed), but every

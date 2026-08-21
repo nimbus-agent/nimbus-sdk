@@ -15,6 +15,47 @@ An interface that renders as `interface {}` is sealed: its only method is
 unexported, so no package other than the one that declares it can implement it —
 not even another package inside this module.
 
+## `connectorkit`
+
+36 exports.
+
+- `func (e *Error) Error() string`
+- `func (e *Error) Unwrap() error`
+- `func (e *HTTPStatusError) Error() string`
+- `func (e *HTTPStatusError) Unwrap() error`
+- `func (e *MissingEnvError) Error() string`
+- `func (e *MissingEnvError) Unwrap() error`
+- `func (e *URLResolutionError) Error() string`
+- `func (e *URLResolutionError) Unwrap() error`
+- `func AsObjectish(value any) (map[string]any, bool)`
+- `func AsRecord(value any) (map[string]any, bool)`
+- `func ErrorResult(message string) MCPToolResult`
+- `func FieldsFromKeys(keys []string, tags bool) FieldExtractor`
+- `func FilterByQuery(items []any, query string, fields FieldExtractor, limit *float64) []any`
+- `func JSONResult(data any) (MCPToolResult, error)`
+- `func JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet int, jsonParseErrorMessage string) (MCPToolResult, error)`
+- `func JSONResultIfOk(serviceLabel string, res JSONBodyResponse, snippetMax int) (MCPToolResult, error)`
+- `func MakeQueryFilter(fields FieldExtractor) SearchFilter`
+- `func MatchesResult(rows any, search SearchFilter, query string, limit *float64) (MCPToolResult, error)`
+- `func NestedString(root map[string]any, path []string) string`
+- `func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)`
+- `func RequireEnv(name string, env func(string) string) (string, error)`
+- `func ResolveURLWithBase(baseURL, pathOrURL string) (string, error)`
+- `func StringField(row map[string]any, key string) string`
+- `func TagNamesFromObjects(row map[string]any) string`
+- `func TagText(row map[string]any) string`
+- `type Error struct { Message string }`
+- `type FieldExtractor func(item any) ([]string, bool)`
+- `type HTTPStatusError struct { Service string; Snippet string; Status int }`
+- `type JSONBodyResponse interface { JSON() any; TextResponse }`
+- `` type MCPTextContent struct { Text string `json:"text"`; Type string `json:"type"` } ``
+- `` type MCPToolResult struct { Content []MCPTextContent `json:"content"`; IsError bool `json:"isError,omitempty"` } ``
+- `type MissingEnvError struct { Name string }`
+- `type SearchFilter func(items []any, query string, limit *float64) []any`
+- `type TextResponse interface { Ok() bool; Status() int; Text() string }`
+- `type URLResolutionError struct { Message string }`
+- `var ErrConnectorKit = errors.New("connectorkit")`
+
 ## `contract`
 
 9 exports.

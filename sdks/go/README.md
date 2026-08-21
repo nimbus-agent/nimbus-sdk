@@ -10,15 +10,15 @@ go get github.com/nimbus-agent/nimbus-sdk/sdks/go
 The import path ends in `/go` because the module lives in a subdirectory of the
 contract's own repository, which is what keeps the spec and the conformance corpora
 in-tree: a new corpus case runs the moment it is indexed, in every binding that already
-executes that corpus. For Go today that is `negotiation` and `framing` and no others, so
-a new `diagnostics` or `url-resolution` case reaches nothing here until Shipment 2 binds
-those surfaces — see [Status](#status). Release tags are correspondingly prefixed —
+executes that corpus. For Go that is now all four — `negotiation`, `framing`,
+`diagnostics` and `url-resolution` — so a new case in any of them reaches this binding
+without a release. Release tags are correspondingly prefixed —
 `sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
 
 > **Released.** The `go get` above resolves: `proxy.golang.org` serves the module,
 > `sum.golang.org` vouches for it, and the docs render on
 > [pkg.go.dev](https://pkg.go.dev/github.com/nimbus-agent/nimbus-sdk/sdks/go). The latest
-> tag is `sdks/go/v0.2.0`. The surface is still early — see [Status](#status).
+> tag is `sdks/go/v0.5.0`. See [Status](#status).
 
 ## What this is
 
@@ -305,18 +305,24 @@ staying invisible to the other two bindings.
 
 ## Status
 
-Narrower than the other two bindings, but no longer early. It carries the
-contract-version constants, the negotiation algorithm, the manifest declaration check,
-the hello frame, the spec loaders, the NDJSON line reader, the handshake, and the
-diagnostics envelope with its emitter. It executes **three** of the four published
-conformance corpora in full, nothing deferred in any: `negotiation` — all 37 cases across
-all three of its kinds, `negotiate`, `hello`, and `declaration` — `framing` — all 25
-cases — and `diagnostics` — all 75, across `encode`, `parse`, and `level`.
+Narrower than the other two bindings only in its batteries, not in its contracts. It
+carries the contract-version constants, the negotiation algorithm, the manifest
+declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
+handshake, the diagnostics envelope with its emitter, and the connector kit. It executes
+**all four** published conformance corpora in full, nothing deferred in any:
+`negotiation` — all 37 cases across all three of its kinds, `negotiate`, `hello`, and
+`declaration` — `framing` — all 25 cases — `diagnostics` — all 75, across `encode`,
+`parse`, and `level` — and `url-resolution` — all 28, against `ResolveURLWithBase`.
+
+That is the same four Python runs, which is what
+[GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)
+criterion 1 asks for. Officiality is still a governance act, not a test result — RFC-0013
+is what records it.
 
 **Not here yet:**
 
-- **The connector kit.** No URL resolution, no environment seam, no MCP result builders,
-  no search filter, and no `url-resolution` corpus run. It is the last corpus outstanding.
+- **The kit's transport, tool router and REST factories.** Out of Python's shipment 1 too;
+  a binding follows the kit rather than leading it.
 - **A version accessor.** There is no `Version` constant; the tag is the version.
 
 Track it in the

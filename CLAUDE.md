@@ -96,7 +96,7 @@ three kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py
 `url-resolution` corpus. Nothing is deferred, so a new corpus case runs in both
 languages the moment it is indexed. **Go is narrower** — see the section below.
 
-## Go surface (three packages, and nothing at the module root)
+## Go surface (four packages, and nothing at the module root)
 
 Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require` lines**.
 The module root holds only `go.mod`: a package there would have an import path ending in
@@ -107,6 +107,16 @@ exported surface currently holds — it is generated, and the Go equivalent of
 `docs/api-surface.md`. The grouping below is listed anyway because it explains *why* the
 surface is shaped this way, which the generated file, by design, does not:
 
+- `connectorkit` (`sdks/go/connectorkit/`) — the batteries a hand-rolled MCP connector
+  needs, binding Python's `nimbus_sdk.connector_kit` Shipment 1 core: `ResolveURLWithBase`
+  (the SSRF chokepoint, the one corpus-gated thing here), `RequireEnv`, `MCPTextContent` /
+  `MCPToolResult`, `JSONResult` and the `*IfOk` builders, and the search filter. **One
+  package where Python has six modules**, with the file names matching Python's module
+  names — Python's `__all__` already flattens that boundary for a caller, and splitting a
+  Go package later is breaking where merging one is not. Python's 27 exported names become
+  28: `ConnectorKitError` splits into the `errors.Is` sentinel `ErrConnectorKit` and the
+  concrete `connectorkit.Error`. Batteries, not contract — its divergence list lives in
+  [`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md), not here.
 - `contract` (`sdks/go/contract/`) — `ContractVersions`, `HandshakeExit`,
   `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`,
   `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
@@ -170,12 +180,13 @@ on-disk layout of `docs/spec` part of Go's public API, so moving `conformance/v1
 would become a Go breaking change while staying invisible to the other two bindings.
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
-Go now executes **three** of the four published conformance corpora, nothing deferred in
+Go now executes **all four** published conformance corpora, nothing deferred in
 any: `negotiation` — all 37 cases across all three kinds (`negotiate` 16, `hello` 15,
-`declaration` 6) — `framing` — all 25 cases, run against `LineReader` — and, since this
-branch, `diagnostics` — all 75, across `encode` (64), `parse` (6) and `level` (5). Only
-`url-resolution` is outstanding, and it lands with the connector kit, which Go does not
-have yet — so 2c is the last thing between this binding and GOVERNANCE criterion 1.
+`declaration` 6) — `framing` — all 25 cases, run against `LineReader` — `diagnostics` —
+all 75, across `encode` (64), `parse` (6) and `level` (5) — and, since this branch,
+`url-resolution` — all 28, run against `connectorkit.ResolveURLWithBase`. That is the same
+four Python executes, which is what GOVERNANCE criterion 1 asks for; officiality itself is
+a governance act, not a test result, and RFC-0013 is what records it.
 
 **`spec.LoadCorpus` decodes with `UseNumber`, and had to.** The `diagnostics` corpus
 spells a non-finite `fields` value as the literal `1e400`, which overflows `float64`, and
@@ -187,7 +198,7 @@ assertion on corpus data is now always wrong. The exact literal is also what mak
 
 Go carries a **floor** per corpus rather than Python's exact case counts (`negotiation`'s
 `TestTheCorpusIsSubstantial` fails under 30 total cases, `framing`'s inline check fails
-under 20, `diagnostics`' under 60), plus a structural
+under 20, `diagnostics`' under 60, `url-resolution`'s under 20), plus a structural
 guard against silent vacuity in each runner — `runKind` fails when a *kind* filter
 matches zero cases, `TestFramingCorpus` fails when its subtest count diverges from
 `len(cases)`, different mechanisms catching the same class of mistake. Both languages
@@ -297,12 +308,27 @@ docstring discloses the exact mechanism.
   finalization — which is exactly why this is recorded now, while it is still a
   difference and not yet a bug.
 
+- **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike every
+  entry above.** `strings.ToLower` applies Unicode's **simple** case mapping where Python's
+  `str.lower()` and JavaScript's `toLowerCase()` apply the **full** one; they disagree on
+  exactly one assigned code point, `İ` → `U+0069` in Go against `U+0069 U+0307` in both
+  others. Measured by sweeping all 0x110000 scalar values: that is the only real
+  disagreement, the other 28 being Go's Unicode 17.0.0 against CPython's 16.0.0 on code
+  points unassigned in 16. The connector kit's `foldForSearch` corrects it with a one-rune
+  replacer and a test re-runs the sweep, so a future Go that adds a second special case
+  fails CI rather than shipping. **Fixed rather than disclosed**, unlike the U+FFFD count
+  beside it, because the correction is one code point and exact where WHATWG's
+  maximal-subpart rule is neither, and because the consequence is a search silently
+  returning a different set of rows rather than a replacement-character count.
+
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
-and a corpus — and is not exhaustive across the package. `nimbus_sdk.connector_kit` is
-batteries, not a contract, and carries its own divergence on non-finite numbers —
-`json_result` refuses them, and Go's `encoding/json` will refuse them too when the Go kit
-lands (it ships no counterpart yet), which makes **`JSON.stringify` emitting `null` the
-outlier**, two bindings to one; see the Python-binding section of
+and a corpus — and is not exhaustive across the package. The connector kit is batteries,
+not a contract, and carries its own divergences: non-finite numbers, where `json_result`
+and Go's `JSONResult` both refuse and **`JSON.stringify` emitting `null` is the outlier**,
+two bindings to one — now measured against shipped Go rather than predicted — and **object
+key order**, where `encoding/json` sorts a map's keys and the other two emit insertion
+order, which is not fixable in Go because a map has no insertion order to preserve. See
+the Python- and Go-binding sections of
 [`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md) rather than this list.
 
 Diagnostics separately adds two *surface* asymmetries, not further behavioral ones, and

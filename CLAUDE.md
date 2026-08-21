@@ -96,7 +96,7 @@ three kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py
 `url-resolution` corpus. Nothing is deferred, so a new corpus case runs in both
 languages the moment it is indexed. **Go is narrower** — see the section below.
 
-## Go surface (four packages, and nothing at the module root)
+## Go surface (five packages, and nothing at the module root)
 
 Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require` lines**.
 The module root holds only `go.mod`: a package there would have an import path ending in

@@ -110,6 +110,41 @@ their own run against.
 | M20 | The generated `connectorkit` section of `docs/api-surface-go.md` | header reads **`36 exports.`** | **The plan's "28 exported names" is the wrong unit.** The generator counts *declarations*: 28 top-level names **plus the 8 `Error()` / `Unwrap()` methods** on the four error types. Expect `36 exports.` in the diff. |
 | M21 | `TestSnapshotMatchesTheExportedSurface` in a copied tree | **SKIPs** without `NIMBUS_SPEC_DRIFT`; **FAILS** with `NIMBUS_SPEC_DRIFT=required` | Only the *snapshot* test skips. `TestPackagesCoversEveryPublishedPackage` never skips, which is why M19 works anywhere. |
 
+### Rows added by reviewing this plan
+
+A second pass over the executed code, hunting for divergences the corpus cannot see.
+It found two defects and one unfixable difference; all three are recorded in
+[the review](./2026-08-21-go-connector-kit-review.md).
+
+| # | Probe | Result | Consequence |
+|---|---|---|---|
+| M22 | `FilterByQuery` with `limit` = 1e18, 1e19, 1e30, 1e300 over 5 matching rows, against Python | Go **5, 1, 1, 1**; Python **5, 5, 5, 5** | **A bug, fixed in this plan.** `int(float64)` is implementation-defined on overflow and yields `math.MinInt64` on amd64 — past the `<= 0` check, which runs on the float, and straight into `len(out) >= limitCap`, which is true after the first append. `normalizeCap` now clamps at `float64(math.MaxInt)` with `>=`, because that constant rounds **up** to 2⁶³ and `==` would let exactly 2⁶³ through. |
+| M23 | `snippet` on a body of 200 two-octet characters (400 bytes), default cap 300, against Python | Go **150 characters**; Python **all 200** — Python does not truncate at all | **A second bug, fixed.** A Go string index counts bytes where Python's counts code points, so Go truncated a diagnostic Python delivers whole, and an odd offset would split a sequence and end the message in U+FFFD. `snippet` now slices `[]rune`. |
+| M24 | `JSONResult(map[string]any{"zulu":1,"alpha":2,"mike":3})` against `json.dumps(indent=2)` and `JSON.stringify(_, null, 2)` | Go **alpha, mike, zulu**; Python and Node **zulu, alpha, mike** | **DEFERRED, not fixed** — see the box below. `encoding/json` sorts map keys and a Go map has no insertion order to preserve. Disclosed in `doc.go` instead. |
+| M25 | Does a type named `Error` with a method named `Error()` compile? | **Yes** — `go build`, `go vet` and 42 tests clean | It looks wrong and is not: method names and type names occupy different scopes. `connectorkit.Error` is the shape `url.Error` and `net.Error` already have. |
+
+### The one difference this plan does not fix
+
+**Object key order (M24).** Go emits a map's keys sorted; Python and TypeScript both emit
+them in insertion order. Every other divergence in this plan was either corrected (M12's
+case folding, M22, M23) or is a verdict the spec explicitly leaves undefined (M6's §9
+table). This one is neither, so it needs its reason stated rather than implied:
+
+- **It is not fixable, as opposed to merely unfixed.** A Go `map[string]any` does not
+  record insertion order at all, so there is nothing to preserve. Matching the other two
+  would mean introducing an ordered-map type into a dependency-free package and pushing
+  it through every caller's payload — which redesigns the surface to fix the *rendering*
+  of a text block.
+- **The consequence is confined to reading.** It is the same JSON object with the same
+  members; any consumer that parses it is unaffected. That is a strictly smaller blast
+  radius than M22 (wrong number of rows) or M23 (a truncated diagnostic), both of which
+  were fixed.
+- **A caller who needs an order has one**: struct fields marshal in declaration order.
+
+Recorded the way `ipc`'s U+FFFD count is recorded — as a known, measured difference with
+its reason, so a future corpus case that pins key order finds the decision already
+written down rather than having to reconstruct it.
+
 ### What M12 means, and why this plan fixes it instead of documenting it
 
 `docs/modules/connector-kit.md` currently states that `İ` "does **not** turn out to be a
@@ -432,7 +467,7 @@ func (e *HTTPStatusError) Unwrap() error { return ErrConnectorKit }
 // across an origin change; that obligation binds this module's future transport and
 // every transport a caller substitutes for it, not only the default one.
 //
-// # Two divergences this package carries
+// # Three divergences this package carries
 //
 // Non-finite numbers: JSONResult returns an error for NaN and the infinities, because
 // encoding/json refuses them. Python's json_result refuses them too. JSON.stringify
@@ -440,6 +475,17 @@ func (e *HTTPStatusError) Unwrap() error { return ErrConnectorKit }
 //
 // Case folding of U+0130: see searchfilter.go, which corrects Go's simple case mapping
 // to the full one for the single code point where the two disagree.
+//
+// OBJECT KEY ORDER, and this one is NOT corrected. encoding/json sorts a map's keys, so
+// JSONResult of {"zulu":1,"alpha":2,"mike":3} emits alpha, mike, zulu where Python's
+// json.dumps and JSON.stringify both emit zulu, alpha, mike — insertion order. Measured
+// on Go 1.27, CPython 3.14.6 and Node v24.18.1. It is not fixable here rather than merely
+// unfixed: a Go map HAS no insertion order to preserve, so matching the other two would
+// mean introducing an ordered-map type into a dependency-free package and pushing it
+// through every caller's payload. The consequence is confined to how the JSON text READS
+// — it is the same JSON object, and any consumer that parses it is unaffected — which is
+// why disclosing beats distorting the surface. A caller who needs a specific order can
+// pass a struct instead of a map: struct fields marshal in declaration order.
 package connectorkit
 ```
 
@@ -1117,14 +1163,19 @@ git commit -m "feat(go): add the connector-kit environment seam and MCP wire sha
   `JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet int, jsonParseErrorMessage string) (MCPToolResult, error)`;
   `ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)`.
 
-**Two things to get right, both measured:**
+**Three things to get right, all measured:**
 
 1. **`SetEscapeHTML(false)` is mandatory** (M7). `encoding/json` escapes `<`, `>` and `&`
-   to `\u003c\u003e\u0026` by default; Python's `json.dumps` and `JSON.stringify` do not.
-   The text lands in front of a human, so this is the same reasoning as Python's
+   to their backslash-u forms by default; Python's `json.dumps` and `JSON.stringify` do
+   not. The text lands in front of a human, so this is the same reasoning as Python's
    `ensure_ascii=False` — same JSON, different bytes.
 2. **The trailing newline must be trimmed** (M8). `Encoder.Encode` appends `\n`;
    `MarshalIndent` does not. Using the Encoder for (1) means inheriting (2).
+3. **`snippet` slices runes, not bytes** (M23). A Go string index counts bytes where
+   Python's `res.text[:n]` counts code points, so a byte slice truncates a diagnostic
+   Python delivers whole *and* can split a multi-octet sequence. This is the fix a
+   review found after the plan first passed its own tests — the original ASCII-only
+   test could not see it.
 
 **Optional arguments.** Python defaults `snippet_max=300` and `max_snippet=400`. Go has no
 default arguments, so **`0` selects the documented default** and the values are named in
@@ -1267,6 +1318,32 @@ func TestJSONResultIfOkCapsTheSnippet(t *testing.T) {
 	}
 }
 
+// The cap counts CODE POINTS, not bytes, which is what Python's res.text[:n] counts.
+// Measured on Go 1.27 before this was fixed: a body of 200 two-octet characters is 400
+// bytes, so a byte slice truncated it to 150 characters while Python returned the whole
+// 200 — and an odd offset split a sequence and ended the message in U+FFFD.
+func TestJSONResultIfOkCapsTheSnippetByCodePoints(t *testing.T) {
+	body := strings.Repeat("\u00e9", 200) // 200 code points, 400 bytes
+	_, err := JSONResultIfOk("svc", fakeResponse{ok: false, status: 500, text: body}, 0)
+	var status *HTTPStatusError
+	if !errors.As(err, &status) {
+		t.Fatalf("err = %v, want *HTTPStatusError", err)
+	}
+	// 200 code points is under the 300 default, so Python returns the body untouched.
+	if got := len([]rune(status.Snippet)); got != 200 {
+		t.Errorf("snippet = %d code points, want 200 (the whole body, as Python returns)", got)
+	}
+	if strings.ContainsRune(status.Snippet, '\uFFFD') {
+		t.Error("snippet ends in a replacement character: a multi-octet sequence was split")
+	}
+	// And when it really does truncate, it truncates to code points.
+	_, err = JSONResultIfOk("svc", fakeResponse{ok: false, status: 500, text: body}, 10)
+	errors.As(err, &status)
+	if got := len([]rune(status.Snippet)); got != 10 {
+		t.Errorf("explicit cap: snippet = %d code points, want 10", got)
+	}
+}
+
 func TestJSONResultFromTextIfOkParsesThenWraps(t *testing.T) {
 	res, err := JSONResultFromTextIfOk("svc", fakeResponse{ok: true, status: 200, text: `{"a":1}`}, 0, "")
 	if err != nil {
@@ -1406,21 +1483,29 @@ func ErrorResult(message string) MCPToolResult {
 	}
 }
 
-// snippet caps text at max runes' worth of bytes, or at fallback when max is 0.
+// snippet caps text at limit CODE POINTS, or at fallback when limit is 0.
 //
-// Sliced by BYTES, matching Python's res.text[:n] on a str only insofar as both are "the
-// first n units of the body"; a Go string index is bytes where Python's is code points.
-// The value is a diagnostic snippet inside an error message, never re-parsed, so the
-// difference is cosmetic — but it can split a multi-octet sequence, so callers that
-// display it should expect a replacement character at the very end.
+// The parameter is `limit`, not `max`: `max` is a builtin since Go 1.21, and shadowing it
+// compiles cleanly but reads as a bug at the one place it matters.
+//
+// SLICED BY RUNE, NOT BY BYTE, so it means what Python's res.text[:n] means. A byte slice
+// diverges twice over, and neither is cosmetic: on a body of 200 two-octet characters
+// Python's text[:300] returns the WHOLE body while text[:300] in Go truncates it to 150
+// characters, and an odd offset splits a multi-octet sequence so the message ends in a
+// replacement character. Measured on Go 1.27. The allocation is on the error path only.
+//
+// TypeScript's .slice(0, n) counts UTF-16 code units, so it agrees with this for the BMP
+// and can still split a surrogate pair above it; that is TypeScript's divergence, not one
+// this function should reproduce.
 func snippet(text string, limit, fallback int) string {
 	if limit <= 0 {
 		limit = fallback
 	}
-	if len(text) <= limit {
+	runes := []rune(text)
+	if len(runes) <= limit {
 		return text
 	}
-	return text[:limit]
+	return string(runes[:limit])
 }
 
 // JSONResultIfOk returns an HTTPStatusError on a non-2xx, else wraps res.JSON().
@@ -1525,6 +1610,14 @@ omits validation passes a raw JSON number straight through, so `NaN` and `+Inf` 
 reachable — and `search_filter.py` notes those edges are *more* reachable in a binding
 whose router takes validation as an optional seam, not less. `nil` means "not supplied".
 
+**`normalizeCap` must clamp before converting to `int` (M22).** This is the one place a
+faithful transcription of the Python is *wrong* in Go: `int(math.Floor(1e19))` is
+implementation-defined on overflow and yields `math.MinInt64` on amd64, which slips past
+a negative check made on the float and then stops the loop after the first match.
+Measured: five matching rows, `limit=1e19` → **1 row in Go, 5 in Python**. Python has no
+such edge because `math.floor` returns an arbitrary-precision `int`. The comparison is
+`>=`, not `>`, because `float64(math.MaxInt)` rounds up to exactly 2⁶³.
+
 - [ ] **Step 1: Write the failing tests**
 
 `sdks/go/connectorkit/searchfilter_test.go`:
@@ -1602,6 +1695,25 @@ func TestFilterByQueryNegativeAndFractionalLimits(t *testing.T) {
 	}
 	if got := FilterByQuery(many, "match", FieldsFromKeys([]string{"name"}, false), ptr(2.9)); len(got) != 2 {
 		t.Errorf("fractional limit: got %d, want 2 (floor)", len(got))
+	}
+}
+
+// Converting an out-of-range float64 to int is implementation-defined in Go, and on
+// amd64 it yields math.MinInt64 — which is neither zero nor caught by a negative check
+// made before the conversion, so it reaches the loop and stops it after the FIRST match.
+// Measured on Go 1.27 before the clamp: limit=1e19 over five matching rows returned 1 row
+// where Python returns 5. 1e19 is an unremarkable "give me everything" value, and the
+// router treats validation as an optional seam, so this is reachable from real input.
+func TestFilterByQueryHugeLimitDoesNotOverflow(t *testing.T) {
+	rows := make([]any, 5)
+	for i := range rows {
+		rows[i] = map[string]any{"name": "match"}
+	}
+	fields := FieldsFromKeys([]string{"name"}, false)
+	for _, limit := range []float64{1e18, 1e19, 1e30, 1e300} {
+		if got := FilterByQuery(rows, "match", fields, ptr(limit)); len(got) != 5 {
+			t.Errorf("limit=%g: got %d matches, want all 5 (Python returns 5)", limit, len(got))
+		}
 	}
 }
 
@@ -1970,13 +2082,27 @@ func NestedString(root map[string]any, path []string) string {
 // Non-finite falls back to the documented default rather than to "unlimited": a caller
 // who wants everything omits limit, and silently honouring positive infinity would make
 // NaN and infinity behave alike when only one of them is plausibly deliberate.
+//
+// THE CLAMP IS NOT DEFENSIVE. Converting an out-of-range float64 to int is
+// implementation-defined in Go, and on amd64 it yields math.MinInt64 — which is neither
+// zero nor negative-after-the-check, so it survives to the loop and stops it after the
+// FIRST match. Measured on Go 1.27: without the clamp, limit=1e19 over five matching rows
+// returns 1 row where Python returns 5, silently. Python has no equivalent edge because
+// math.floor returns an arbitrary-precision int. 1e19 is an unremarkable "give me
+// everything" value for a caller to send, and the router treats validation as an optional
+// seam, so it is reachable from real input.
 func normalizeCap(limit *float64) int {
 	if limit == nil || math.IsNaN(*limit) || math.IsInf(*limit, 0) {
 		return defaultCap
 	}
 	capped := math.Floor(*limit)
-	if capped < 0 {
+	if capped <= 0 {
 		return 0
+	}
+	// float64(math.MaxInt) rounds UP to 2^63, so >= is required: == would let exactly
+	// 2^63 through to a conversion that overflows.
+	if capped >= float64(math.MaxInt) {
+		return math.MaxInt
 	}
 	return int(capped)
 }
@@ -2123,54 +2249,211 @@ from the worktree.
 
 - [ ] **Step 5: Update `sdks/go/README.md`**
 
-Two edits. In the header note near line 14, drop `url-resolution` from the list of corpora
-a new case "reaches nothing here". In `## Status` near line 318, replace the "The connector
-kit" bullet — which currently reads "No URL resolution, no environment seam, no MCP result
-builders, no search filter, and no `url-resolution` corpus run. It is the last corpus
-outstanding." — with a moved-to-shipped entry, and add a `connectorkit` example with a
-`default:` arm if the section's examples call for one.
+Three edits, not two — **the file is already stale in two places 2c does not cause**, and
+leaving them teaches a reader the Status section is not maintained.
+
+**5a.** The header paragraph still claims Go runs two corpora. Replace:
+
+```
+in-tree: a new corpus case runs the moment it is indexed, in every binding that already
+executes that corpus. For Go today that is `negotiation` and `framing` and no others, so
+a new `diagnostics` or `url-resolution` case reaches nothing here until Shipment 2 binds
+those surfaces — see [Status](#status). Release tags are correspondingly prefixed —
+```
+
+with:
+
+```
+in-tree: a new corpus case runs the moment it is indexed, in every binding that already
+executes that corpus. For Go that is now all four — `negotiation`, `framing`,
+`diagnostics` and `url-resolution` — so a new case in any of them reaches this binding
+without a release. Release tags are correspondingly prefixed —
+```
+
+**5b.** The released-note names a tag three releases old. Replace
+`> tag is \`sdks/go/v0.2.0\`. The surface is still early — see [Status](#status).` with
+`> tag is \`sdks/go/v0.5.0\`. See [Status](#status).`
+
+**Check the real tag before writing it.** `sdks/go/v0.4.0` shipped 2026-08-21 with 2b, so
+2c cuts **v0.5.0** — but confirm with `git tag -l 'sdks/go/*'` rather than trusting this
+line, since 2d/2e may land first.
+
+**5c.** Replace the whole Status paragraph and its first bullet:
+
+```
+Narrower than the other two bindings, but no longer early. It carries the
+contract-version constants, the negotiation algorithm, the manifest declaration check,
+the hello frame, the spec loaders, the NDJSON line reader, the handshake, and the
+diagnostics envelope with its emitter. It executes **three** of the four published
+conformance corpora in full, nothing deferred in any: `negotiation` — all 37 cases across
+all three of its kinds, `negotiate`, `hello`, and `declaration` — `framing` — all 25
+cases — and `diagnostics` — all 75, across `encode`, `parse`, and `level`.
+
+**Not here yet:**
+
+- **The connector kit.** No URL resolution, no environment seam, no MCP result builders,
+  no search filter, and no `url-resolution` corpus run. It is the last corpus outstanding.
+```
+
+with:
+
+```
+Narrower than the other two bindings only in its batteries, not in its contracts. It
+carries the contract-version constants, the negotiation algorithm, the manifest
+declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
+handshake, the diagnostics envelope with its emitter, and the connector kit. It executes
+**all four** published conformance corpora in full, nothing deferred in any:
+`negotiation` — all 37 cases across all three of its kinds, `negotiate`, `hello`, and
+`declaration` — `framing` — all 25 cases — `diagnostics` — all 75, across `encode`,
+`parse`, and `level` — and `url-resolution` — all 28, against `ResolveURLWithBase`.
+
+That is the same four Python runs, which is what
+[GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)
+criterion 1 asks for. Officiality is still a governance act, not a test result — RFC-0013
+is what records it.
+
+**Not here yet:**
+
+- **The kit's transport, tool router and REST factories.** Out of Python's shipment 1 too;
+  a binding follows the kit rather than leading it.
+```
 
 - [ ] **Step 6: Update `docs/modules/connector-kit.md`**
 
-Three edits:
+Three edits.
 
-1. **Add a "Go binding" section** after the Python one, mirroring its discipline: the
-   package, the one-package-six-files decision, the 27→28 name mapping summary, and the
-   two Go-only asymmetries (`ErrConnectorKit` as the taxonomy's `errors.Is` target;
-   `RequireEnv`'s `func(string) string` seam, which meets INCLUSION-POLICY §2 the same way
-   Python's `Mapping` does).
-2. **Amend the non-finite bullet.** It currently says Go "will do so through the Go kit's
-   result builders when they land in its Shipment 2 — Go ships no `json_result`
-   counterpart today, so this is a property of the stdlib the binding will use, not yet of
-   shipped code." That is now false: `JSONResult` ships and returns an error. Change it to
-   measured, shipped fact.
-3. **Amend the `İ` sentence.** It currently reads that `İ` "does **not** turn out to be a
-   second one", on CPython-and-Node evidence. Go makes it one, and this kit corrects it.
-   Replace with the M10/M12/M13 finding: Go's `strings.ToLower` is the simple mapping, the
-   full-versus-simple difference is one code point, the kit's `foldForSearch` corrects it,
-   and a sweeping test keeps it corrected. Note explicitly that the 28 other sweep
-   differences are Unicode 17.0.0-vs-16.0.0 table skew and are **not** a divergence.
+**6a.** Add a `## Go binding` section after the Python one, mirroring its discipline:
+
+```
+## Go binding
+
+`connectorkit` (`sdks/go/connectorkit/`) is the Go binding of this module — one package
+where Python has six modules, because Python's own `__all__` already flattens that
+boundary for a caller and Go prefers fewer, larger packages. The file names match Python's
+module names one-for-one so the two read side by side. It ships Python's shipment-1 core
+and nothing beyond it: `ResolveURLWithBase` (binding
+[`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md), whose 28-case corpus all
+three bindings now execute), `RequireEnv`, the `MCPTextContent` / `MCPToolResult` wire
+shapes, the result builders, and the search filter.
+
+Python's 27 exported names map to 28 Go names. The one that splits is `ConnectorKitError`:
+Go has no exception hierarchy, so the `except` target becomes the sentinel
+`ErrConnectorKit`, reachable with `errors.Is`, and the concrete carrier for the one site
+that raises the base class directly becomes `connectorkit.Error`. Initialisms follow Go's
+convention — `ResolveURLWithBase`, `JSONResult`, `MCPToolResult`, `HTTPStatusError`.
+
+### Asymmetries in Go's favour
+
+- **`RequireEnv`'s seam is a function, not a mapping.** `RequireEnv(name, env)` takes
+  `func(string) string`, which is exactly `os.Getenv`'s signature — so the standard library
+  supplies the default and `nil` selects it. It meets
+  [`INCLUSION-POLICY.md`](../INCLUSION-POLICY.md) §2 the same way Python's `Mapping`
+  parameter does, and gives a caller no seam that invites writing to the environment.
+- **Every kit error answers `errors.Is(err, ErrConnectorKit)` and `errors.As`.** Python's
+  taxonomy is catchable but its parts are reachable only on `HttpStatusError`; in Go all
+  four types carry their parts as exported fields.
+
+### Divergences
+
+- **Object key order: Go is the outlier, and this one is not corrected.** `encoding/json`
+  sorts a map's keys, so `JSONResult` of `{"zulu":1,"alpha":2,"mike":3}` emits `alpha`,
+  `mike`, `zulu` where `json.dumps` and `JSON.stringify` both emit insertion order.
+  Measured on Go 1.27, CPython 3.14.6 and Node v24.18.1. It is not fixable rather than
+  merely unfixed: a Go map has no insertion order to preserve, so matching the other two
+  would mean an ordered-map type in a dependency-free package. The consequence is confined
+  to how the text reads — same object, same members — and a caller who needs an order can
+  pass a struct, whose fields marshal in declaration order.
+- **`snippet` and the `*IfOk` caps count code points, matching Python.** Stated because the
+  obvious Go spelling does not: a Go string index counts bytes, which truncates a
+  diagnostic Python delivers whole and can split a sequence.
+```
+
+**6b.** In the non-finite bullet, replace:
+
+```
+Go's `encoding/json` also errors on a non-finite float (`json: unsupported value: NaN`),
+and will do so through the Go kit's result builders when they land in its Shipment 2 —
+Go ships no `json_result` counterpart today, so this is a property of the stdlib the
+binding will use, not yet of shipped code.
+```
+
+with:
+
+```
+Go's `encoding/json` also errors on a non-finite float (`json: unsupported value: NaN`),
+and now does so through the Go kit's own `JSONResult`, which returns that error rather
+than a result. Measured on Go 1.27 against shipped code, no longer a prediction about a
+binding that did not exist.
+```
+
+**6c.** Replace the `İ` claim. The current text says it does **not** turn out to be a
+second divergence, on CPython-and-Node evidence. Replace from `` `İ` (`U+0130`, dotted
+capital I) does **not** `` to the end of that bullet with:
+
+```
+`İ` (`U+0130`, dotted capital I) is a second one — but only once a *third* binding
+arrives, and it belongs to Go rather than to Python. On CPython 3.14.6 and Node 24.18.1,
+`str.lower()`, `str.casefold()`, and `String.prototype.toLowerCase()` all fold it to the
+same two code points, `U+0069 U+0307`. **Go 1.27's `strings.ToLower` folds it to a bare
+`U+0069`**, because it applies Unicode's *simple* case mapping where the other two apply
+the full one. The measured consequence is a search returning different rows: query
+`istanbul` matches a row reading `İstanbul Office` in a naive Go port and matches nothing
+in the other two. The Go kit corrects it with a one-rune replacer, and a test sweeps every
+scalar value to keep the correction complete — a sweep of all 0x110000 found `U+0130` to
+be the only real disagreement, the other 28 being Go's Unicode 17.0.0 against CPython's
+16.0.0 on code points unassigned in 16. `ß` remains the only character on which `lower()`
+and `casefold()` themselves disagree.
+```
 
 - [ ] **Step 7: Update `CLAUDE.md`**
 
-Four edits in the Go sections:
-1. Add `connectorkit` to the package list under "Go surface (three packages…)" — and change
-   that heading, which will then read **four** packages.
-2. Change "Go now executes **three** of the four published conformance corpora" to **four
-   of four**, nothing deferred, and drop the "Only `url-resolution` is outstanding" clause.
-3. Add the `url-resolution` floor (≥ 20) to the per-corpus floor list.
-4. Under "How the bindings diverge", add the U+0130 finding — but as a divergence Go
-   **corrects** rather than carries, which makes it unlike the U+FFFD entry beside it. Note
-   that the connector kit's own divergence list lives in
-   `docs/modules/connector-kit.md`, per the existing convention.
+Four edits in the Go sections. Each is a search-and-replace on text that exists today:
+
+1. **The heading.** `## Go surface (three packages, and nothing at the module root)` →
+   `## Go surface (four packages, and nothing at the module root)`. Then add a
+   `connectorkit` bullet to the package list, in the same shape as the `diagnostics` one:
+   what it holds, that it is batteries rather than contract, and the one-package-six-files
+   decision.
+2. **The corpus count.** Replace `Go now executes **three** of the four published
+   conformance corpora, nothing deferred in any:` and the sentence ending
+   `` so 2c is the last thing between this binding and GOVERNANCE criterion 1. `` with a
+   four-of-four statement naming `url-resolution` — all 28 cases — and noting criterion 1
+   is now met on the same four corpora Python runs.
+3. **The floor list.** In `` (`negotiation`'s `TestTheCorpusIsSubstantial` fails under 30
+   total cases, `framing`'s inline check fails under 20, `diagnostics`' under 60) ``, add
+   `` `url-resolution`'s under 20 ``.
+4. **The divergence inventory.** Add the `U+0130` finding under "How the bindings diverge",
+   framed as a divergence Go **corrects** — which makes it unlike the U+FFFD entry beside
+   it, and that contrast is the point. Note that the kit's own divergence list, key order
+   included, lives in `docs/modules/connector-kit.md` per the existing convention, and that
+   the non-finite prediction there is now measured against shipped code.
 
 - [ ] **Step 8: Update `docs/ROADMAP.md`**
 
-In the Phase 3 Go bullet (line ~268): three of four becomes **four of four**, "That is
-**not** yet the full suite" becomes that it now is, and "`url-resolution` lands with the
-connector kit, which is the last binding between Go and criterion 1" becomes shipped.
-RFC-0013 is now blocked on nothing. In the Python `connector-kit` bullet, note that Go now
-carries the same pure core.
+In the Phase 3 Go bullet, replace:
+
+```
+**three** of the four published corpora in full, nothing deferred in any: `negotiation`
+(all 37 cases across all three kinds), `framing` (all 25, run against `LineReader`), and,
+since this work, `diagnostics` (all 75, across `encode`, `parse` and `level`, against a
+new `diagnostics` package that ships an emitter Python does not have). That is **not**
+yet the full suite: `url-resolution` lands with the connector kit, which is the last
+binding between Go and criterion 1.
+```
+
+with:
+
+```
+**all four** published corpora in full, nothing deferred in any: `negotiation` (all 37
+cases across all three kinds), `framing` (all 25, run against `LineReader`),
+`diagnostics` (all 75, across `encode`, `parse` and `level`, against a `diagnostics`
+package that ships an emitter Python does not have), and, since this work,
+`url-resolution` (all 28, against a new `connectorkit` package binding Python's
+shipment-1 core). That is the same four Python runs, so criterion 1 is met.
+```
+
+Then, in the Python `connector-kit` bullet, append a sentence recording that Go now
+carries the same pure core and the same three deferrals.
 
 - [ ] **Step 9: Run every gate**
 

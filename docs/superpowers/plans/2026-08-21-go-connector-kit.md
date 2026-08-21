@@ -306,7 +306,7 @@ is what makes a future drift review a side-by-side read.
   `*HTTPStatusError`, each with `Error() string` and `Unwrap() error` returning
   `ErrConnectorKit`. Every later task returns one of these.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdks/go/connectorkit/errors_test.go`:
 
@@ -366,12 +366,12 @@ func TestUnrelatedSentinelDoesNotMatch(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `go -C sdks/go test ./connectorkit/ -run TestEveryError -v`
 Expected: FAIL — `undefined: Error`, `undefined: ErrConnectorKit`, and so on.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `sdks/go/connectorkit/errors.go`:
 
@@ -489,12 +489,12 @@ func (e *HTTPStatusError) Unwrap() error { return ErrConnectorKit }
 package connectorkit
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `go -C sdks/go test ./connectorkit/ -v`
 Expected: PASS, four tests.
 
-- [ ] **Step 5: Format, vet, and commit**
+- [x] **Step 5: Format, vet, and commit**
 
 ```bash
 go -C sdks/go vet ./connectorkit/
@@ -520,7 +520,7 @@ git commit -m "feat(go): add the connector-kit error taxonomy"
 `net/url` — `url.Parse` cuts `#frag` off before its control-character scan, so a tab in the
 fragment sails through and the resolution succeeds where Python refuses.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `sdks/go/connectorkit/urls_test.go`:
 
@@ -610,12 +610,12 @@ func TestUndefinedInV1MatchesPython(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `go -C sdks/go test ./connectorkit/ -run TestControlCharacter -v`
 Expected: FAIL — `undefined: ResolveURLWithBase`.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `sdks/go/connectorkit/urls.go`. This is the code M1 ran; it passed all 28 cases unchanged.
 
@@ -765,12 +765,12 @@ func ResolveURLWithBase(baseURL, pathOrURL string) (string, error) {
 }
 ```
 
-- [ ] **Step 4: Run the tests to verify they pass**
+- [x] **Step 4: Run the tests to verify they pass**
 
 Run: `go -C sdks/go test ./connectorkit/ -v`
 Expected: PASS, eight tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 go -C sdks/go vet ./connectorkit/ && gofmt -l sdks/go
@@ -797,7 +797,7 @@ git commit -m "feat(go): resolve a path-or-URL against a base, the kit's SSRF ch
 contains no numbers at all** — every value is a string or a bool — so no `json.Number`
 handling is needed here, unlike the other three runners.
 
-- [ ] **Step 1: Write the runner**
+- [x] **Step 1: Write the runner**
 
 `sdks/go/conformance/urlresolution_test.go`:
 
@@ -909,7 +909,7 @@ func TestURLResolutionCorpus(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run it**
+- [x] **Step 2: Run it**
 
 Run: `go -C sdks/go test ./conformance/ -run TestURLResolutionCorpus -v`
 Expected: PASS, 28 subtests, and a final line reading
@@ -918,7 +918,7 @@ Expected: PASS, 28 subtests, and a final line reading
 **If any subtest fails, the implementation is wrong, not the corpus.** M1 ran this exact
 combination and got 28/28.
 
-- [ ] **Step 3: Prove the runner is not vacuous**
+- [x] **Step 3: Prove the runner is not vacuous**
 
 Temporarily break `ResolveURLWithBase` — change `msgMalformed` to end in `URL.` — and
 re-run. Expected: **exactly 7 of the 28** subtests fail on the message comparison (M18).
@@ -929,7 +929,7 @@ implementation is worse than no runner. **A different number means something is 
 fewer, and the runner is comparing less than it should; more, and `msgMalformed` is
 reachable from a path it should not be.
 
-- [ ] **Step 3b: Prove the corpus does NOT cover the fragment guard**
+- [x] **Step 3b: Prove the corpus does NOT cover the fragment guard**
 
 Delete the `strings.ContainsAny(pathOrURL, forbiddenWhitespace)` block from `urls.go` and
 run both suites. Expected, and measured as M17:
@@ -942,7 +942,7 @@ go test ./connectorkit/ -run TestControlCharacter     ->  FAIL    (all three)
 Restore the block. This is what justifies keeping a guard that looks redundant: the
 corpus is blind to it, so deleting it would be a green-CI regression.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 go -C sdks/go vet ./conformance/ && gofmt -l sdks/go
@@ -974,7 +974,7 @@ implementation for free, and a read-only function cannot tempt a caller into wri
 environment the way a `map` would. `nil` selects `os.Getenv`, so the common call is
 `RequireEnv("API_TOKEN", nil)`.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `sdks/go/connectorkit/env_test.go`:
 
@@ -1068,12 +1068,12 @@ func TestMCPToolResultCarriesIsErrorWhenSet(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `go -C sdks/go test ./connectorkit/ -run 'TestRequireEnv|TestMCPToolResult' -v`
 Expected: FAIL — `undefined: RequireEnv`, `undefined: MCPToolResult`.
 
-- [ ] **Step 3: Write the implementations**
+- [x] **Step 3: Write the implementations**
 
 `sdks/go/connectorkit/env.go`:
 
@@ -1134,12 +1134,12 @@ type MCPToolResult struct {
 }
 ```
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `go -C sdks/go test ./connectorkit/ -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 go -C sdks/go vet ./connectorkit/ && gofmt -l sdks/go
@@ -1181,7 +1181,7 @@ git commit -m "feat(go): add the connector-kit environment seam and MCP wire sha
 default arguments, so **`0` selects the documented default** and the values are named in
 the doc comment. That adds no exported names, which is the point.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `sdks/go/connectorkit/results_test.go`:
 
@@ -1390,12 +1390,12 @@ func TestParseJSONTextIfOkPropagatesTheDecodeError(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `go -C sdks/go test ./connectorkit/ -run 'TestJSONResult|TestErrorResult|TestParseJSON' -v`
 Expected: FAIL — `undefined: JSONResult`, and so on.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `sdks/go/connectorkit/results.go`:
 
@@ -1570,12 +1570,12 @@ func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (a
 }
 ```
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `go -C sdks/go test ./connectorkit/ -v`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 go -C sdks/go vet ./connectorkit/ && gofmt -l sdks/go
@@ -1618,7 +1618,7 @@ Measured: five matching rows, `limit=1e19` → **1 row in Go, 5 in Python**. Pyt
 such edge because `math.floor` returns an arbitrary-precision `int`. The comparison is
 `>=`, not `>`, because `float64(math.MaxInt)` rounds up to exactly 2⁶³.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `sdks/go/connectorkit/searchfilter_test.go`:
 
@@ -1898,12 +1898,12 @@ func TestMatchesResultOnNonListRows(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run to verify they fail**
+- [x] **Step 2: Run to verify they fail**
 
 Run: `go -C sdks/go test ./connectorkit/ -run 'TestFilter|TestFold|TestAs|TestString|TestTag|TestNested|TestMake|TestMatches' -v`
 Expected: FAIL — `undefined: FilterByQuery`, and so on.
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `sdks/go/connectorkit/searchfilter.go`:
 
@@ -2159,18 +2159,18 @@ func MatchesResult(rows any, search SearchFilter, query string, limit *float64) 
 }
 ```
 
-- [ ] **Step 4: Run to verify they pass**
+- [x] **Step 4: Run to verify they pass**
 
 Run: `go -C sdks/go test ./connectorkit/ -v`
 Expected: PASS. Note `TestFoldForSearchSpecialCasesExactlyTheDocumentedCodePoints` sweeps
 1.1M code points and takes a second or two — that is expected, not a hang.
 
-- [ ] **Step 5: Run the whole module**
+- [x] **Step 5: Run the whole module**
 
 Run: `NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./...`
 Expected: all packages PASS, including the 28-case corpus runner from Task 3.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 go -C sdks/go vet ./connectorkit/ && gofmt -l sdks/go
@@ -2194,7 +2194,7 @@ git commit -m "feat(go): add the connector-kit search filter"
 - Consumes: everything above.
 - Produces: green CI.
 
-- [ ] **Step 1: Add the package to the hand-maintained list**
+- [x] **Step 1: Add the package to the hand-maintained list**
 
 `sdks/go/internal/apisurface/cmd/main.go`, line 19 — insert in the existing alphabetical
 order:
@@ -2203,7 +2203,7 @@ order:
 var packages = []string{"connectorkit", "contract", "diagnostics", "ipc", "spec"}
 ```
 
-- [ ] **Step 2: Verify the coverage test would have caught the omission**
+- [x] **Step 2: Verify the coverage test would have caught the omission**
 
 **Do this BEFORE Step 1 and it costs nothing** — the guard fires on its own the moment
 the package exists, with no environment variable and nothing reverted (M19):
@@ -2222,7 +2222,7 @@ After Step 1, re-run: `go -C sdks/go test ./internal/apisurface/... -v` → PASS
 wrong door: `connectorkit` is a published package, so it belongs in `packages`. The
 exception list is for a package that must never appear in the surface at all.
 
-- [ ] **Step 3: Regenerate the API surface**
+- [x] **Step 3: Regenerate the API surface**
 
 ```bash
 go -C sdks/go run ./internal/apisurface/cmd
@@ -2237,7 +2237,7 @@ file.
 The command must run from the module root — `RenderPackage` resolves `connectorkit`
 relative to the working directory, which is what `go -C sdks/go` arranges.
 
-- [ ] **Step 4: Run the golden test from the checkout**
+- [x] **Step 4: Run the golden test from the checkout**
 
 Run: `go -C sdks/go test ./internal/apisurface/... -v`
 Expected: `TestSnapshotMatchesTheExportedSurface` PASSes.
@@ -2247,7 +2247,7 @@ unset — with `NIMBUS_SPEC_DRIFT=required` it *fails* instead, which is how CI 
 typo from hiding forever. `TestPackagesCoversEveryPublishedPackage` never skips. Run this
 from the worktree.
 
-- [ ] **Step 5: Update `sdks/go/README.md`**
+- [x] **Step 5: Update `sdks/go/README.md`**
 
 Three edits, not two — **the file is already stale in two places 2c does not cause**, and
 leaving them teaches a reader the Status section is not maintained.
@@ -2318,7 +2318,7 @@ is what records it.
   a binding follows the kit rather than leading it.
 ```
 
-- [ ] **Step 6: Update `docs/modules/connector-kit.md`**
+- [x] **Step 6: Update `docs/modules/connector-kit.md`**
 
 Three edits.
 
@@ -2405,7 +2405,7 @@ be the only real disagreement, the other 28 being Go's Unicode 17.0.0 against CP
 and `casefold()` themselves disagree.
 ```
 
-- [ ] **Step 7: Update `CLAUDE.md`**
+- [x] **Step 7: Update `CLAUDE.md`**
 
 Four edits in the Go sections. Each is a search-and-replace on text that exists today:
 
@@ -2428,7 +2428,7 @@ Four edits in the Go sections. Each is a search-and-replace on text that exists 
    included, lives in `docs/modules/connector-kit.md` per the existing convention, and that
    the non-finite prediction there is now measured against shipped code.
 
-- [ ] **Step 8: Update `docs/ROADMAP.md`**
+- [x] **Step 8: Update `docs/ROADMAP.md`**
 
 In the Phase 3 Go bullet, replace:
 
@@ -2455,7 +2455,7 @@ shipment-1 core). That is the same four Python runs, so criterion 1 is met.
 Then, in the Python `connector-kit` bullet, append a sentence recording that Go now
 carries the same pure core and the same three deferrals.
 
-- [ ] **Step 9: Run every gate**
+- [x] **Step 9: Run every gate**
 
 ```bash
 gofmt -l sdks/go                                        # must print NOTHING
@@ -2468,7 +2468,7 @@ go -C sdks/go build ./...
 and `spec/drift_test.go` should pass unchanged. If it fails, something outside this plan's
 scope changed `docs/spec/`.
 
-- [ ] **Step 10: Commit and open the PR**
+- [x] **Step 10: Commit and open the PR**
 
 ```bash
 git add -A
@@ -2483,20 +2483,20 @@ SSH port 22 is blocked here; the explicit HTTPS remote is required.
 
 ## Definition of done
 
-- [ ] `sdks/go/connectorkit/` exists as one package in seven files, exporting **28**
+- [x] `sdks/go/connectorkit/` exists as one package in seven files, exporting **28**
       top-level names — which `docs/api-surface-go.md` reports as **`36 exports.`**, the
       8 `Error()` / `Unwrap()` methods included.
-- [ ] `go -C sdks/go test ./conformance/ -run TestURLResolutionCorpus -v` reports
+- [x] `go -C sdks/go test ./conformance/ -run TestURLResolutionCorpus -v` reports
       `measured: executed 28 of 28 url-resolution cases`.
-- [ ] Go executes **four of four** published corpora, nothing deferred in any.
-- [ ] `gofmt -l sdks/go` prints nothing; `go vet ./...` is clean.
-- [ ] `docs/api-surface-go.md` is regenerated and `connectorkit` is in `packages`; the
+- [x] Go executes **four of four** published corpora, nothing deferred in any.
+- [x] `gofmt -l sdks/go` prints nothing; `go vet ./...` is clean.
+- [x] `docs/api-surface-go.md` is regenerated and `connectorkit` is in `packages`; the
       golden test passes **from the checkout**.
-- [ ] `go.mod` still has no `require` block.
-- [ ] The fragment-control-character test (Task 2) exists and fails if the §5 guard is
+- [x] `go.mod` still has no `require` block.
+- [x] The fragment-control-character test (Task 2) exists and fails if the §5 guard is
       removed — while the corpus stays green, which is the whole reason it exists (M17).
-- [ ] The fold sweep (Task 6) exists and names U+0130 as the only special case.
-- [ ] `CLAUDE.md`, `docs/ROADMAP.md`, `sdks/go/README.md` and
+- [x] The fold sweep (Task 6) exists and names U+0130 as the only special case.
+- [x] `CLAUDE.md`, `docs/ROADMAP.md`, `sdks/go/README.md` and
       `docs/modules/connector-kit.md` all say Go has a connector kit and four corpora.
 
 ## Out of scope

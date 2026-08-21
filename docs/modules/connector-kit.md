@@ -183,9 +183,9 @@ Stated so they read as decisions, not gaps:
   `JSON.stringify` silently emits `null` for all three. This was recorded here as
   *Python's* divergence, which quietly treated TypeScript as the norm — and the third
   binding shows that reading was wrong. Go's `encoding/json` also errors on a non-finite
-  float (`json: unsupported value: NaN`), and will do so through the Go kit's result
-  builders when they land in its Shipment 2 — Go ships no `json_result` counterpart today,
-  so this is a property of the stdlib the binding will use, not yet of shipped code. On
+  float (`json: unsupported value: NaN`), and now does so through the Go kit's own
+  `JSONResult`, which returns that error rather than a result — measured on Go 1.27
+  against shipped code, no longer a prediction about a binding that did not exist. On
   that basis **two of the three bindings refuse and one substitutes**, and it is
   `JSON.stringify` that is the odd one out. Refusing is also the
   only behaviour that does not silently hand the other end a value it did not ask for: a
@@ -201,11 +201,76 @@ Stated so they read as decisions, not gaps:
   element; the Python equivalent, `{}.get("0")`, is always `None`. No extractor in
   `search_filter.py` reads a numeric-string key, so this divergence is never reached in
   practice, but it is a real one, not a hypothetical.
-- **Case folding does *not* diverge.** `search_filter.py` uses `str.lower()`, never
-  `.casefold()`, specifically because `casefold()` maps `ß` to `ss` where JavaScript's
-  `toLowerCase()` leaves it alone — a real divergence trap the module's docstring
-  documents and its test suite pins. `İ` (`U+0130`, dotted capital I) does **not** turn
-  out to be a second one: measured on CPython 3.14.6 / Unicode 16.0.0 and Node 24.18.1,
-  `str.lower()`, `str.casefold()`, and `String.prototype.toLowerCase()` all fold it to
-  the same two code points, `U+0069 U+0307`. `ß` remains the only character on which
-  `lower()` and `casefold()` themselves disagree.
+- **Case folding diverges, but not between these two.** `search_filter.py` uses
+  `str.lower()`, never `.casefold()`, specifically because `casefold()` maps `ß` to `ss`
+  where JavaScript's `toLowerCase()` leaves it alone — a real divergence trap the module's
+  docstring documents and its test suite pins. `İ` (`U+0130`, dotted capital I) **is** a
+  second one, and it belongs to Go: on CPython 3.14.6 / Unicode 16.0.0 and Node 24.18.1,
+  `str.lower()`, `str.casefold()`, and `String.prototype.toLowerCase()` all fold it to the
+  same two code points, `U+0069 U+0307`, but **Go 1.27's `strings.ToLower` folds it to a
+  bare `U+0069`**, because it applies Unicode's *simple* case mapping where the other two
+  apply the full one. The measured consequence is a search returning different rows: a
+  query of `istanbul` matches a row reading `İstanbul Office` in a naive Go port and
+  matches nothing in the other two. The Go kit corrects it with a one-rune replacer, and a
+  test sweeps every scalar value to keep the correction complete — a sweep of all
+  0x110000 found `U+0130` to be the only real disagreement, the other 28 being Go's Unicode
+  17.0.0 against CPython's 16.0.0 on code points unassigned in 16. `ß` remains the only
+  character on which `lower()` and `casefold()` themselves disagree.
+
+## Go binding
+
+`connectorkit` (`sdks/go/connectorkit/`) is the Go binding of this module — **one package
+where Python has six modules**, because Python's own `__all__` already flattens that
+boundary for a caller and Go prefers fewer, larger packages. The file names match Python's
+module names one-for-one so the two read side by side. It ships Python's Shipment 1 core
+and nothing beyond it: `ResolveURLWithBase` (binding
+[`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md), whose 28-case corpus all
+three bindings now execute), `RequireEnv`, the `MCPTextContent` / `MCPToolResult` wire
+shapes, the result builders, and the search filter. The transport, the tool router and the
+REST factories are out here for exactly the reason they are out of Python — see the Phase 3
+box in [`ROADMAP.md`](../ROADMAP.md).
+
+Python's **27** exported names map to **28** Go names. The one that splits is
+`ConnectorKitError`: Go has no exception hierarchy, so the `except` target becomes the
+sentinel `ErrConnectorKit`, reachable with `errors.Is`, and the concrete carrier for the
+one site that raises the base class directly becomes `connectorkit.Error` — the shape
+`url.Error` and `net.Error` already have. Initialisms follow Go's convention:
+`ResolveURLWithBase`, `JSONResult`, `MCPToolResult`, `HTTPStatusError`.
+
+### Asymmetries in Go's favour
+
+- **`RequireEnv`'s seam is a function, not a mapping.** `RequireEnv(name, env)` takes
+  `func(string) string`, which is exactly `os.Getenv`'s signature — so the standard library
+  supplies the default implementation and `nil` selects it, making the common call
+  `RequireEnv("API_TOKEN", nil)`. It meets
+  [`INCLUSION-POLICY.md`](../INCLUSION-POLICY.md) §2 the same way Python's `Mapping`
+  parameter does, and a read-only function gives a caller no seam that invites writing to
+  the environment.
+- **Every kit error answers `errors.Is` and `errors.As`.** Python's taxonomy is catchable
+  as a group, but its parts are reachable only on `HttpStatusError`; in Go all four types
+  carry their parts as exported fields.
+
+### Divergences
+
+- **Object key order: Go is the outlier, and this one is *not* corrected.**
+  `encoding/json` sorts a map's keys, so `JSONResult` of
+  `{"zulu":1,"alpha":2,"mike":3}` emits `alpha`, `mike`, `zulu` where `json.dumps` and
+  `JSON.stringify` both emit insertion order. Measured on Go 1.27, CPython 3.14.6 and Node
+  v24.18.1. It is **not fixable** rather than merely unfixed: a Go map records no insertion
+  order at all, so there is none to preserve, and matching the other two would mean putting
+  an ordered-map type into a dependency-free package and threading it through every
+  caller's payload — redesigning a published surface to change how a text block renders.
+  The consequence is confined to reading: it is the same JSON object with the same members,
+  and any consumer that parses it is unaffected. A caller who needs a specific order can
+  pass a struct, whose fields marshal in declaration order.
+- **The snippet caps count code points, matching Python.** Stated because the obvious Go
+  spelling does not: a Go string index counts bytes, so `text[:300]` truncated a body of
+  200 two-octet characters to 150 where Python's `text[:300]` returns it whole, and an odd
+  offset splits a sequence so the message ends in U+FFFD. `snippet` slices `[]rune`.
+  TypeScript's `.slice(0, n)` counts UTF-16 code units, so it agrees across the BMP and can
+  still split a surrogate pair above it.
+- **`normalizeCap` clamps before converting to `int`.** Converting an out-of-range
+  `float64` to `int` is implementation-defined in Go and yields `math.MinInt64` on amd64,
+  which is neither zero nor caught by a negative check made on the float — so `limit=1e19`
+  over five matching rows returned **1** row where Python returns **5**, silently. Python
+  has no equivalent edge, because `math.floor` returns an arbitrary-precision `int`.

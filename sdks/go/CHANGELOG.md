@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.4.0...sdks/go/v0.5.0) (2026-08-21)
+
+
+### Features
+
+* **go:** bind the connector kit and execute the url-resolution corpus (Shipment 2c) ([#148](https://github.com/nimbus-agent/nimbus-sdk/issues/148)) ([baaf365](https://github.com/nimbus-agent/nimbus-sdk/commit/baaf365b680b05a08f0d1f07cf70f7a98e1462be))
+
 ## [0.4.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.3.0...sdks/go/v0.4.0) (2026-08-20)
 
 

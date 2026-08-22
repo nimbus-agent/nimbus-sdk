@@ -184,6 +184,18 @@ func TestUTF8StreamDoesNotConsumeTheInvalidatingOctet(t *testing.T) {
 
 // Every input of one, two and three octets — 16,843,008 of them. Two octets would never
 // reach the third-octet continuation check, which is the rule most easily mistyped.
+//
+// Scope: this catches a scanner that REJECTS input it should accept — any such mistake
+// fails the identity property, since a well-formed input is utf8.Valid but no longer
+// comes back unchanged. It does NOT catch the opposite mistake, a scanner that ACCEPTS
+// input it should reject: utf8.DecodeRune backstops scanComplete regardless of
+// scanUTF8's say-so, so a sequence wrongly called complete still decodes to RuneError,
+// the output is still well-formed, and the input was never utf8.Valid to begin with —
+// none of the three properties here has anything to object to. That class is pinned
+// elsewhere: TestScanUTF8ClassifiesTheHeadOfTheBuffer's {0xED, 0xA0, 0x80} row checks
+// scanUTF8's own verdict directly, and TestUTF8StreamReplacementCountsMatchTheOtherBindings
+// checks the resulting replacement count against an oracle. Neither property this sweep
+// runs is a stand-in for those.
 func TestUTF8StreamSweepsEveryShortInput(t *testing.T) {
 	// Holds for every input: well-formed input survives unchanged, and output is always
 	// well-formed however ill-formed the input was.

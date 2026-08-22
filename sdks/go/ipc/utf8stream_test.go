@@ -181,3 +181,52 @@ func TestUTF8StreamDoesNotConsumeTheInvalidatingOctet(t *testing.T) {
 		t.Errorf("decode(F0 9F C3 A9) = %q, want %q", got, want)
 	}
 }
+
+// Every input of one, two and three octets — 16,843,008 of them. Two octets would never
+// reach the third-octet continuation check, which is the rule most easily mistyped.
+func TestUTF8StreamSweepsEveryShortInput(t *testing.T) {
+	// Holds for every input: well-formed input survives unchanged, and output is always
+	// well-formed however ill-formed the input was.
+	check := func(in []byte) {
+		var whole utf8Stream
+		got := whole.decode(in, true)
+		if utf8.Valid(in) && got != string(in) {
+			t.Fatalf("decode(% x) = %q, want the input unchanged", in, got)
+		}
+		if !utf8.ValidString(got) {
+			t.Fatalf("decode(% x) = %q, which is not well-formed UTF-8", in, got)
+		}
+	}
+
+	// framing.md §4: "The count does not depend on how the octets were chunked." Stated
+	// executably, and the property that catches every pending-handling mistake.
+	checkChunking := func(in []byte) {
+		var whole utf8Stream
+		got := whole.decode(in, true)
+		for split := 0; split <= len(in); split++ {
+			var parts utf8Stream
+			piecewise := parts.decode(in[:split], false) +
+				parts.decode(in[split:], false) +
+				parts.decode(nil, true)
+			if piecewise != got {
+				t.Fatalf("decode(% x) whole = %q, but split at %d = %q", in, got, split, piecewise)
+			}
+		}
+	}
+
+	buf := make([]byte, 3)
+	for a := 0; a < 256; a++ {
+		buf[0] = byte(a)
+		check(buf[:1])
+		checkChunking(buf[:1])
+		for b := 0; b < 256; b++ {
+			buf[1] = byte(b)
+			check(buf[:2])
+			checkChunking(buf[:2])
+			for c := 0; c < 256; c++ {
+				buf[2] = byte(c)
+				check(buf[:3])
+			}
+		}
+	}
+}

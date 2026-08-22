@@ -121,8 +121,8 @@ this change would break, and §11 would send the whole thing to a `wire/v2/`: a 
 version, a new corpus tree, and a negotiation story, for a replacement count. That is
 wildly disproportionate, and it was the first thing this design had to answer.
 
-**It does not apply, because Go was never conformant.** The preamble — three paragraphs
-above the RFC 2119 declaration that governs it — already says:
+**It does not apply, because Go was never conformant.** The preamble — the paragraph
+immediately above the RFC 2119 declaration that governs it — already says:
 
 > It is the transport floor of the contract: every binding, in every language, **MUST
 > implement it identically** for a connector written in one language to be interchangeable

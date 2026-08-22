@@ -311,18 +311,17 @@ docstring discloses the exact mechanism.
   rather than disclosed, like the U+0130 fold and unlike the two entries above it, because
   two of three bindings already agreed and the preamble already required them to.
 
-- **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike every
-  entry above.** `strings.ToLower` applies Unicode's **simple** case mapping where Python's
-  `str.lower()` and JavaScript's `toLowerCase()` apply the **full** one; they disagree on
-  exactly one assigned code point, `İ` → `U+0069` in Go against `U+0069 U+0307` in both
-  others. Measured by sweeping all 0x110000 scalar values: that is the only real
+- **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike the
+  first two entries above.** `strings.ToLower` applies Unicode's **simple** case mapping
+  where Python's `str.lower()` and JavaScript's `toLowerCase()` apply the **full** one; they
+  disagree on exactly one assigned code point, `İ` → `U+0069` in Go against `U+0069 U+0307`
+  in both others. Measured by sweeping all 0x110000 scalar values: that is the only real
   disagreement, the other 28 being Go's Unicode 17.0.0 against CPython's 16.0.0 on code
   points unassigned in 16. The connector kit's `foldForSearch` corrects it with a one-rune
   replacer and a test re-runs the sweep, so a future Go that adds a second special case
-  fails CI rather than shipping. **Fixed rather than disclosed**, unlike the U+FFFD count
-  beside it, because the correction is one code point and exact where WHATWG's
-  maximal-subpart rule is neither, and because the consequence is a search silently
-  returning a different set of rows rather than a replacement-character count.
+  fails CI rather than shipping. **Fixed rather than disclosed, like the U+FFFD count beside
+  it** — that one because two of three bindings already agreed and the preamble already
+  required them to, this one because the correction is a single code point.
 
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
 and a corpus — and is not exhaustive across the package. The connector kit is batteries,

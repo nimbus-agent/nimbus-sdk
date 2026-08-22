@@ -54,8 +54,8 @@ truncated four-octet lead invalidated by an ASCII octet, two hundred thousand ti
 terminating LF is 600,001 raw octets — under §6's 1,048,576-octet limit. Decoded under the
 maximal-subpart rule it is 800,000 octets, still under; decoded per-octet in Go it is
 1,400,000, over. `Push` returns `ErrFrameTooLong` and latches. One binding kills the
-connection on input the other two deliver as an ordinary frame — on input §4's preamble
-already says every binding must handle identically.
+connection on input the other two deliver as an ordinary frame — on input
+framing.md's preamble already says every binding must handle identically.
 
 ## Why this is a `v1` change
 
@@ -71,8 +71,8 @@ conformant reader non-conformant, and §11 would route the fix through a new `wi
 a new spec version, a new corpus tree, a negotiation story, all for a replacement count.
 
 **It does not apply, because no reader was conformant on this point to begin with.** The
-preamble, three paragraphs above the RFC 2119 boilerplate that governs it, is already a
-MUST:
+preamble, the paragraph immediately above the RFC 2119 declaration that governs it, is
+already a MUST:
 
 > It is the transport floor of the contract: every binding, in every language, MUST
 > implement it identically for a connector written in one language to be interchangeable
@@ -84,6 +84,41 @@ The set of readers that were conformant and this RFC makes non-conformant is the
 **empty**. Node and CPython's bindings stay conformant because they already agreed with the
 rule this RFC writes down. Go was never conformant with the preamble — it was violating a
 `v1` MUST from the day `utf8Stream` shipped, and nothing in the corpus could tell.
+
+**The competing reading, named.** A narrower reading says the preamble's "identically"
+reaches only what the document's numbered sections actually specify — §4 was silent on the
+count, so there was nothing to implement identically, and no MUST was broken. Two things
+answer it. The preamble is written in terms of an outcome, not the document's own sections:
+"for a connector written in one language to be interchangeable with a connector written in
+another." A stream one binding terminates and another delivers is not interchangeable,
+whether or not any numbered section named the count that caused the difference. And the
+narrow reading makes the preamble's MUST redundant — if "identically" reached only what the
+numbered sections already specified, the sentence would say nothing beyond "satisfy every
+MUST below," which §11 already says on its own. A MUST this document keeps is not read as
+saying nothing.
+
+Three further points hold the reading up independently of that answer:
+
+- **§11's own words.** Conformance is "every MUST **above**" — unqualified, not "every
+  numbered MUST" and not "every MUST in a section below the preamble." The preamble sits
+  above §11 and contains a MUST, so on §11's own terms that MUST is inside the set a reader
+  has to satisfy. This is the strongest single piece of evidence for the reading, because it
+  requires no inference beyond the section that governs the question.
+- **§4's silence against §5's explicit declaration.** §5 says reader behaviour for a
+  mid-stream BOM "is **undefined** by this version" — in those words, on purpose, recording
+  that supported runtimes disagree. §4 says nothing of the kind about the replacement count.
+  This document declares undefined behaviour when it means to; §4's silence is not that
+  declaration, and reading it as one erases a distinction the document itself draws
+  elsewhere.
+- **RFC-0007 already made this move, once, within `v1`.** Its compatibility section:
+  "A reader conformant with the published prose today stays conformant. The only readers
+  that begin failing are those that were already violating a rule the documents state." That
+  is this RFC's claim, accepted before. RFC-0007 also **refused** to pin mid-stream BOM
+  behaviour, which looks like a counter-precedent until the reason is read: it refused
+  because §5 declares that case undefined *on purpose*, which is exactly the case the leg
+  above rules out here. Declared-undefined is off-limits to pin; silent-and-contradicted-by-
+  the-preamble is not — the two RFC-0007 outcomes are consistent with each other and with
+  this one, not in tension.
 
 Three things follow, and they are the reason this document is one RFC rather than three:
 
@@ -228,11 +263,12 @@ request — TypeScript's guard, Python's runner, and Go's `TestFramingCorpus` al
 same `index.json`. Five of the eight newly failed the pre-fix Go binding:
 `three-octet-prefix-at-eof`, `four-octet-prefix-at-eof`,
 `four-octet-prefix-invalidated-in-one-chunk`, `four-octet-prefix-invalidated-across-chunks`,
-and `truncated-sequence-followed-by-valid`. The other three —
-`overlong-lead-gives-two-replacements`, `surrogate-encoding-gives-three-replacements`, and
-`limit-counts-decoded-octets` — pin behaviour all three bindings already had, guarding
-against a fix that collapses too eagerly and answers 1 for `ED A0 80`. TypeScript and
-Python passed all 33 unchanged; Go passed all 33 only after the fix.
+and `truncated-sequence-followed-by-valid`. The other three pin behaviour all three
+bindings already had. Two of them, `overlong-lead-gives-two-replacements` and
+`surrogate-encoding-gives-three-replacements`, guard against a fix that collapses too
+eagerly and answers 1 for `ED A0 80`. The third, `limit-counts-decoded-octets`, pins §6's
+measurement basis. TypeScript and Python passed all 33 unchanged; Go passed all 33 only
+after the fix.
 
 Mutation evidence, measured against the fixed code: reverting the end-of-stream arm of
 `decode` back to one U+FFFD per octet fails **2 of 33** cases; reverting the mid-stream arm
@@ -247,3 +283,19 @@ well-formed input exactly, and emits nothing but U+FFFD and well-formed runes ot
 The corpus proves interoperability across the three bindings on the cases that were written
 down; the sweep proves the scanner has no blind spot the corpus's finite case count could
 still be hiding.
+
+## What this RFC does not claim
+
+- **It does not touch the BOM question.** §5's mid-stream BOM stays undefined, on purpose,
+  as RFC-0001 recorded; nothing here changes that argument or that fixture.
+- **It does not resolve `diagnostics.md` §8's undefined `extensionId`.** That divergence has
+  a different cause — `encoding/json` substituting U+FFFD per ill-formed byte on *encode*,
+  not on decode — and needs the manifest rule registry to constrain the identifier's format
+  before a verdict can be invented. `CLAUDE.md` naming it beside this divergence, with the
+  same "root cause" phrase, does not make this RFC's fix reach it; it is its own open
+  question and its own future RFC.
+- **It does not change `encoding/json`'s key ordering**, the third item RFC-0013 named,
+  which is not fixable in Go: a map has no insertion order to preserve.
+- **It does not add a differential test harness across the three bindings.** The `framing`
+  corpus is that harness, and the eight new cases plus the Go-only sweep are additions to
+  it, not a parallel mechanism.

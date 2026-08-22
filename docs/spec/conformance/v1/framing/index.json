@@ -125,6 +125,46 @@
       "file": "cases/blank-remainder-dropped-at-eof.json",
       "section": "9",
       "reason": "the rule holds identically at end-of-stream"
+    },
+    {
+      "file": "cases/three-octet-prefix-at-eof.json",
+      "section": "4",
+      "reason": "a two-octet prefix is one maximal subpart; the corpus previously exercised only a one-octet prefix, where the per-octet and maximal-subpart rules coincide"
+    },
+    {
+      "file": "cases/four-octet-prefix-at-eof.json",
+      "section": "4",
+      "reason": "a three-octet prefix is still one maximal subpart — the case that separates the two rules most widely"
+    },
+    {
+      "file": "cases/four-octet-prefix-invalidated-in-one-chunk.json",
+      "section": "4",
+      "reason": "end-of-stream is not the only trigger; a non-continuation octet mid-chunk invalidates a prefix too"
+    },
+    {
+      "file": "cases/four-octet-prefix-invalidated-across-chunks.json",
+      "section": "4",
+      "reason": "the count does not depend on chunking, which a reader holding a prefix across a boundary could otherwise get wrong"
+    },
+    {
+      "file": "cases/truncated-sequence-followed-by-valid.json",
+      "section": "4",
+      "reason": "the invalidating octet is not consumed with the subpart — a fix that swallowed it would pass every other case here"
+    },
+    {
+      "file": "cases/overlong-lead-gives-two-replacements.json",
+      "section": "4",
+      "reason": "guards the opposite error: a fix that collapses too eagerly answers one here"
+    },
+    {
+      "file": "cases/surrogate-encoding-gives-three-replacements.json",
+      "section": "4",
+      "reason": "three subparts, not one; the widest gap an over-collapsing fix would produce"
+    },
+    {
+      "file": "cases/limit-counts-decoded-octets.json",
+      "section": "6",
+      "reason": "the limit is measured on decoded octets, so a frame under it raw can be over it decoded"
     }
   ]
 }

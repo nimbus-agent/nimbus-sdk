@@ -1,0 +1,8 @@
+{
+  "description": "400000 octets that no sequence can start decode to 400000 U+FFFD at three octets each — 1200000 decoded, over the limit, though the raw input is under it",
+  "chunks": [{ "repeat": { "byte": 255, "count": 400000 } }],
+  "expect": {
+    "push": [{ "error": "frame-too-long" }],
+    "flush": { "error": "frame-too-long" }
+  }
+}

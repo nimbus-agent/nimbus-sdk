@@ -1,0 +1,8 @@
+{
+  "description": "E0 requires A0..BF next, so E0 is its own maximal subpart and the 80 stands alone — two U+FFFD, not one",
+  "chunks": [{ "base64": "4IAK" }],
+  "expect": {
+    "push": [["��"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

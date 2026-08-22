@@ -1,0 +1,8 @@
+{
+  "description": "the octet that invalidates a prefix is not consumed with it — a lead octet both ends the subpart and starts its own sequence",
+  "chunks": [{ "base64": "8J/DqQo=" }],
+  "expect": {
+    "push": [["�é"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

@@ -10,22 +10,47 @@
  * Imports by package name so resolution goes through the `exports` map, exactly as
  * `smoke-esm.mjs` does. Requires `bun run build` (or a downloaded dist/ artifact) first.
  */
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { NdjsonLineReader } from "@nimbus-dev/sdk/ipc";
 import { CORPUS_DIR, checkCase, loadCases } from "./framing-corpus.mjs";
 
+// Inline rather than imported: this file runs under plain `node`, which cannot load the
+// TypeScript recorder. Same envelope, same filename convention — the reconciler unions this
+// with framing-guard's report.
+function writeConformanceReport(executed) {
+  const dir = process.env["NIMBUS_CONFORMANCE_REPORT"];
+  if (!dir) return;
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, "typescript.framing.node.json"),
+    JSON.stringify({
+      language: "typescript",
+      corpus: "framing",
+      producer: "node",
+      executed: [...new Set(executed)].sort(),
+    }),
+    "utf8",
+  );
+}
+
 const cases = loadCases();
 const failures = [];
+const executed = [];
 
 for (const entry of cases) {
   const problems = checkCase(() => new NdjsonLineReader(), entry.body);
   if (problems.length === 0) {
     process.stdout.write(`ok   ${entry.file}\n`);
+    executed.push(entry.file);
     continue;
   }
   for (const problem of problems) {
     failures.push(`${entry.file} (framing.md §${entry.section}) — ${problem}`);
   }
 }
+
+writeConformanceReport(executed);
 
 if (cases.length === 0) {
   failures.push(`${CORPUS_DIR}/index.json listed no cases — an empty corpus proves nothing`);

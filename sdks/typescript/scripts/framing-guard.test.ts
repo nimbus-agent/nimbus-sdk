@@ -19,11 +19,12 @@
  * property is asserted by the case alone, with nothing to notice if a later edit weakened it.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
 import { NdjsonLineReader } from "../src/ipc/index.ts";
+import { createRecorder } from "./conformance-report.ts";
 import {
   CORPUS_DIR,
   caseFilesOnDisk,
@@ -136,6 +137,9 @@ describe("framing guard — corpus integrity", () => {
   });
 });
 
+const recorder = createRecorder("framing", "guard");
+afterAll(() => recorder.flush());
+
 describe("framing guard — cases", () => {
   const ajv = makeAjv();
   const entries = (loadIndex() as { cases: IndexEntry[] }).cases;
@@ -159,6 +163,7 @@ describe("framing guard — cases", () => {
         `${entry.file} does not match framing.md §${entry.section}: ${entry.reason}\n  ` +
           failures.join("\n  "),
       ).toEqual([]);
+      recorder.record(entry.file);
     });
   }
 });

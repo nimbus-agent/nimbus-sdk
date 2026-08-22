@@ -18,12 +18,13 @@
  * can pass by always answering the same way.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
 import { findRowDataTools, ROW_DATA_TOOL_SEGMENTS } from "../src/contract-tests.ts";
 import { isHitlRequest } from "../src/hitl-request.ts";
+import { createRecorder } from "./conformance-report.ts";
 import { repoRoot } from "./paths.ts";
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -75,6 +76,9 @@ const CASES: { entry: IndexEntry; body: PredicateCase }[] = INDEX.cases.map((ent
   entry,
   body: readJson(`${CORPUS_DIR}/${entry.file}`) as PredicateCase,
 }));
+
+const recorder = createRecorder("predicates", "guard");
+afterAll(() => recorder.flush());
 
 const newAjv = (): Ajv => new Ajv({ allErrors: true, strict: true });
 
@@ -183,6 +187,7 @@ describe("predicates guard — isHitlRequest", () => {
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+    for (const { entry } of hitlCases) recorder.record(entry.file);
   });
 
   test("the published schema reaches the same verdict as the runtime on every case", () => {
@@ -229,6 +234,7 @@ describe("predicates guard — findRowDataTools", () => {
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+    for (const { entry } of rowCases) recorder.record(entry.file);
   });
 
   test("every published segment is matched by at least one case", () => {

@@ -10,12 +10,13 @@
  * produce one.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
 import { type ExtensionManifest, runContractTests, validateManifest } from "../src/index.ts";
 import { buildSurface, collectEntryPoints } from "./api-surface.ts";
+import { createRecorder } from "./conformance-report.ts";
 import { packageRoot, readFromPackage, repoRoot } from "./paths.ts";
 import { diffShapes, isEmptyDiff, schemaShapeOf, tsShapeOf } from "./schema-shape.ts";
 
@@ -208,6 +209,13 @@ async function runtimeAccepts(fixture: unknown): Promise<boolean> {
   }
 }
 
+const manifestRecorder = createRecorder("manifest", "guard");
+const itemRecorder = createRecorder("item", "guard");
+afterAll(() => {
+  manifestRecorder.flush();
+  itemRecorder.flush();
+});
+
 describe("schema guard — fixtures", () => {
   const ajv = makeAjv();
 
@@ -264,6 +272,8 @@ describe("schema guard — fixtures", () => {
         `expected the schema to consider ${entry.file} ${entry.expect}. ${entry.reason}\n` +
           `ajv: ${ajv.errorsText(validate.errors)}`,
       ).toBe(entry.expect === "valid");
+      const recorder = entry.shape === "ExtensionManifest" ? manifestRecorder : itemRecorder;
+      recorder.record(entry.file);
     });
   }
 

@@ -36,6 +36,7 @@ import {
   SANDBOX_PROBE_EXIT,
   SANDBOX_PROBES,
 } from "../src/testing/sandbox-protocol.ts";
+import { createRecorder } from "./conformance-report.ts";
 import { repoRoot } from "./paths.ts";
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -96,6 +97,9 @@ const CASES: { entry: IndexEntry; body: SandboxCase }[] = INDEX.cases.map((entry
 
 const harnessCases = CASES.filter(({ body }) => body.kind === "harness");
 const classifyCases = CASES.filter(({ body }) => body.kind === "classify");
+
+const recorder = createRecorder("sandbox", "guard");
+afterAll(() => recorder.flush());
 
 const newAjv = (): Ajv => new Ajv({ allErrors: true, strict: true });
 
@@ -258,6 +262,7 @@ describe("sandbox guard — the harness decision table", () => {
       }
     }
     expect(disagreed).toEqual([]);
+    for (const { entry } of harnessCases) recorder.record(entry.file);
   });
 
   test("a throwing case names the probe it blames", async () => {
@@ -312,6 +317,7 @@ describe("sandbox guard — the errno classification", () => {
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+    for (const { entry } of classifyCases) recorder.record(entry.file);
   });
 
   test("the corpus exercises both classifiers, and both answers for each", () => {

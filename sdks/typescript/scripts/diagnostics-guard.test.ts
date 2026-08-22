@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
@@ -12,6 +12,7 @@ import {
   meetsLevel,
   parseDiagnostic,
 } from "../src/diagnostics/event.ts";
+import { createRecorder } from "./conformance-report.ts";
 import { repoRoot } from "./paths.ts";
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -219,6 +220,9 @@ const paired: { entry: IndexEntry; case: Case }[] = rawPaired.map(({ entry, case
 });
 const cases: Case[] = paired.map((p) => p.case);
 
+const recorder = createRecorder("diagnostics", "guard");
+afterAll(() => recorder.flush());
+
 describe("diagnostics corpus", () => {
   test("every case validates against case.schema.json", () => {
     // Against the raw disk content, generated-content descriptors included — that is what
@@ -381,6 +385,7 @@ describe("diagnostics corpus — execution", () => {
           c.expect["meets"] as boolean,
         );
       }
+      recorder.record(entry.file);
     });
   }
 });

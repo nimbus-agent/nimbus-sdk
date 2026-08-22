@@ -6,11 +6,12 @@
  * and refuse to pass vacuously. The last part is the point — a corpus that cannot fail is
  * a corpus that reports coverage it does not have.
  */
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
 import { resolveUrlWithBase } from "../src/connector-kit/fetch-bearer-json.ts";
+import { createRecorder } from "./conformance-report.ts";
 import { repoRoot } from "./paths.ts";
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -41,6 +42,9 @@ const cases: { entry: IndexEntry; body: Case }[] = index.cases.map((entry) => ({
   entry,
   body: readJson(`${CORPUS_DIR}/${entry.file}`) as Case,
 }));
+
+const recorder = createRecorder("url-resolution", "guard");
+afterAll(() => recorder.flush());
 
 describe("published artifacts", () => {
   test("the spec document exists and is normative", () => {
@@ -138,10 +142,12 @@ describe("the reference binding satisfies every case", () => {
     test(`${entry.file}: ${body.description}`, () => {
       if (body.expect.ok) {
         expect(resolveUrlWithBase(body.base, body.input)).toBe(body.expect.url);
+        recorder.record(entry.file);
         return;
       }
       const message = body.expect.message;
       expect(() => resolveUrlWithBase(body.base, body.input)).toThrow(message);
+      recorder.record(entry.file);
     });
   }
 });

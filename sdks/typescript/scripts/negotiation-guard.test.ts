@@ -29,7 +29,7 @@
  * when nothing does.
  */
 
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import Ajv from "ajv";
@@ -48,6 +48,7 @@ import {
   type HelloRefusalReason,
   parseHello,
 } from "../src/ipc/hello.ts";
+import { createRecorder } from "./conformance-report.ts";
 import { repoRoot } from "./paths.ts";
 
 const readJson = (path: string): unknown => JSON.parse(readFileSync(join(repoRoot, path), "utf8"));
@@ -271,6 +272,9 @@ const CASES: { entry: CorpusEntry; body: NegotiationCase }[] = CORPUS_INDEX.case
 const casesOfKind = (kind: NegotiationCase["kind"]): typeof CASES =>
   CASES.filter(({ body }) => body.kind === kind);
 
+const recorder = createRecorder("negotiation", "guard");
+afterAll(() => recorder.flush());
+
 describe("negotiation guard — the corpus", () => {
   test("the index validates against its own schema", () => {
     const ajv = newAjv();
@@ -382,6 +386,7 @@ describe("negotiation guard — the reference implementation agrees with every c
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+    for (const { entry } of casesOfKind("negotiate")) recorder.record(entry.file);
   });
 
   test("hello", () => {
@@ -397,6 +402,7 @@ describe("negotiation guard — the reference implementation agrees with every c
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+    for (const { entry } of casesOfKind("hello")) recorder.record(entry.file);
   });
 
   test("declaration", () => {
@@ -421,6 +427,7 @@ describe("negotiation guard — the reference implementation agrees with every c
       })
       .filter((m): m is string => m !== null);
     expect(disagreed).toEqual([]);
+    for (const { entry } of casesOfKind("declaration")) recorder.record(entry.file);
   });
 
   test("the hello schema reaches the same verdict as the runtime on every well-formed case", () => {

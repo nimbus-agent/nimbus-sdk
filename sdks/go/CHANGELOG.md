@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.5.0...sdks/go/v0.6.0) (2026-08-22)
+
+
+### Features
+
+* **go:** report the module's own version as contract.SDKVersion (Shipment 2d) ([#151](https://github.com/nimbus-agent/nimbus-sdk/issues/151)) ([e3e1a04](https://github.com/nimbus-agent/nimbus-sdk/commit/e3e1a04b3a66e340efb404ac590280c3928057bf))
+
 ## [0.5.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.4.0...sdks/go/v0.5.0) (2026-08-21)
 
 

@@ -60,9 +60,14 @@ func runKind(t *testing.T, kind string, run func(*testing.T, map[string]any)) {
 			continue
 		}
 		executed++
-		if t.Run(describe(c.Body), func(t *testing.T) { run(t, c.Body) }) {
-			recordCase("negotiation", c.File)
-		}
+		t.Run(describe(c.Body), func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("negotiation", c.File)
+				}
+			})
+			run(t, c.Body)
+		})
 	}
 	if executed == 0 {
 		t.Fatalf("executed no %q cases — either the corpus has none or this filter is misspelled", kind)

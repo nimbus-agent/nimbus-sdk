@@ -51,7 +51,13 @@ describe("reconcile", () => {
     writeEverything();
     const { table } = reconcile(dir);
     for (const language of LANGUAGES) expect(table).toContain(language);
-    expect(table).toContain("275");
+    // Derived, never a literal: hard-coding today's 275 would fail this test — with no
+    // message saying why — the moment anyone adds a conformance case, which is exactly
+    // the workflow the reconciler exists to serve. The corpora stay the one source.
+    let total = 0;
+    for (const cases of publishedCorpora().values()) total += cases.length;
+    expect(total).toBeGreaterThan(0);
+    expect(table).toContain(String(total));
   });
 
   test("a missing case in a claimed corpus is a problem naming the case", () => {

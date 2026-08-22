@@ -57,3 +57,8 @@ produces a truthful but partial report, and reconciling that fails: nothing can 
 filtered run from a broken one. The reconciler runs in CI, where nothing filters, and is
 part of no local test command.
 
+**Go needs `-count=1`.** A second identical `go test ./conformance/` is served from the
+test cache, prints `ok (cached)`, and writes no report files at all — so reconciling picks
+up whatever the previous run left behind, or nothing. The CI step passes `-count=1` for
+the same reason.
+

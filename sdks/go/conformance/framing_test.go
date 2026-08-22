@@ -98,7 +98,12 @@ func TestFramingCorpus(t *testing.T) {
 	executed := 0
 	for _, c := range cases {
 		c := c
-		ran := t.Run(describe(c.Body), func(t *testing.T) {
+		t.Run(describe(c.Body), func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("framing", c.File)
+				}
+			})
 			executed++
 			// Checked rather than comma-ok'd away: a case with a mistyped "chunks" or
 			// "expect" key would otherwise run vacuously — both assertions yield nil,
@@ -212,9 +217,6 @@ func TestFramingCorpus(t *testing.T) {
 				t.Errorf("flush truncated = %v, want %v", res.Truncated, wantTruncated)
 			}
 		})
-		if ran {
-			recordCase("framing", c.File)
-		}
 	}
 
 	// Subtests run to completion before the parent resumes, so this sees the real

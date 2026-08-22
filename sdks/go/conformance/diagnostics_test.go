@@ -93,7 +93,12 @@ func TestDiagnosticsCorpus(t *testing.T) {
 		kind, _ := testCase.Body["kind"].(string)
 		name := fmt.Sprintf("%d/%s", i, kind)
 		executed++
-		ran := t.Run(name, func(t *testing.T) {
+		t.Run(name, func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("diagnostics", testCase.File)
+				}
+			})
 			expect, _ := testCase.Body["expect"].(map[string]any)
 			ok, _ := expect["ok"].(bool)
 
@@ -111,9 +116,6 @@ func TestDiagnosticsCorpus(t *testing.T) {
 				t.Fatalf("unknown case kind %q", kind)
 			}
 		})
-		if ran {
-			recordCase("diagnostics", testCase.File)
-		}
 	}
 
 	// Structural guard against silent vacuity, the same class of check runKind applies to

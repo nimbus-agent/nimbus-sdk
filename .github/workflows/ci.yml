@@ -313,7 +313,6 @@ jobs:
             release-assets.githubusercontent.com:443
             registry.npmjs.org:443
             bun.sh:443
-            nodejs.org:443
             pypi.org:443
             files.pythonhosted.org:443
             storage.googleapis.com:443
@@ -418,7 +417,8 @@ jobs:
         if: matrix.language == 'go'
         env:
           GOTOOLCHAIN: local
-        run: go -C sdks/go test ./conformance/
+        # -count=1 is load-bearing: a cached pass writes no report files at all.
+        run: go -C sdks/go test -count=1 ./conformance/
 
       # `warn` is the default and is precisely wrong here: a leg whose test command matched
       # no files would go green having uploaded nothing, and the failure would surface a job

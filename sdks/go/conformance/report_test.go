@@ -10,6 +10,15 @@
 // cannot reach a path outside its own package directory. ../spec/data is committed, ships in
 // the module zip, and spec/drift_test.go holds it equal to docs/spec.
 //
+// Every wiring site records from INSIDE the subtest, out of a t.Cleanup guarded on the
+// subtest's own Failed/Skipped state — because t.Run's boolean is not a pass signal.
+// Measured on go1.27: a subtest that calls t.Skip returns true, so a case nothing ran would
+// be recorded; a subtest that calls t.Parallel() returns true IMMEDIATELY, before the body
+// runs, so a FAILING case would be recorded as executed. TypeScript and Python cannot record
+// a non-passing case at all — their record call sits after the assertions — and this makes
+// Go match. t.Cleanup runs after the subtest finishes, parallel subtests included, so the
+// guard is correct under both hazards.
+//
 // The map is mutex-guarded, unlike the Python and TypeScript recorders. No test here calls
 // t.Parallel() today, but Go is the only one of the three where the next person to add it
 // gets "fatal error: concurrent map writes" — a process-level panic that takes the package

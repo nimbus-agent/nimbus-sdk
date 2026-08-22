@@ -27,7 +27,12 @@ func TestURLResolutionCorpus(t *testing.T) {
 	executed := 0
 	for _, c := range cases {
 		c := c
-		ran := t.Run(describe(c.Body), func(t *testing.T) {
+		t.Run(describe(c.Body), func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("url-resolution", c.File)
+				}
+			})
 			executed++
 			// Checked rather than comma-ok'd away: a case with a mistyped key would
 			// otherwise run vacuously — base and input would both be "", the
@@ -90,9 +95,6 @@ func TestURLResolutionCorpus(t *testing.T) {
 				t.Errorf("base=%q input=%q:\n got %q\nwant %q", base, input, err.Error(), wantMessage)
 			}
 		})
-		if ran {
-			recordCase("url-resolution", c.File)
-		}
 	}
 
 	// Subtests run to completion before the parent resumes, so this sees the real

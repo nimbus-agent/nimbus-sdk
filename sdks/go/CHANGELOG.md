@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.6.0...sdks/go/v0.6.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **go:** replace an invalidated UTF-8 prefix with one U+FFFD, not one per octet ([#155](https://github.com/nimbus-agent/nimbus-sdk/issues/155)) ([a7ba675](https://github.com/nimbus-agent/nimbus-sdk/commit/a7ba675138d07df44656ecc25f85d2ff8812fbea))
+
 ## [0.6.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.5.0...sdks/go/v0.6.0) (2026-08-22)
 
 

@@ -1,0 +1,39 @@
+{
+  "$comment": "Hand-maintained. Which conformance corpora each binding executes, and for the ones it does not, why. docs/conformance-coverage.md is generated from this plus the corpus indexes; run `bun run conformance:coverage` after editing. sdks/typescript/scripts/corpus-parity.test.ts holds this complete against docs/spec/conformance/v1/, and CI's conformance-report job holds it TRUE by execution.",
+  "languages": {
+    "typescript": {
+      "claims": [
+        "diagnostics",
+        "framing",
+        "item",
+        "manifest",
+        "negotiation",
+        "predicates",
+        "sandbox",
+        "url-resolution"
+      ],
+      "unclaimed": {},
+      "deferred": {}
+    },
+    "python": {
+      "claims": ["diagnostics", "framing", "negotiation", "url-resolution"],
+      "unclaimed": {
+        "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",
+        "sandbox": "binds the sandbox probe protocol, which nimbus_sdk does not publish",
+        "manifest": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
+        "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written"
+      },
+      "deferred": {}
+    },
+    "go": {
+      "claims": ["diagnostics", "framing", "negotiation", "url-resolution"],
+      "unclaimed": {
+        "predicates": "binds predicates no Go package publishes",
+        "sandbox": "binds the sandbox probe protocol, which no Go package publishes",
+        "manifest": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written",
+        "item": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written"
+      },
+      "deferred": {}
+    }
+  }
+}

@@ -232,11 +232,13 @@ same contract.*
 > **Boxes 1–7 are done, and Python is now an official SDK.** A Python release can
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 was the first
-> to ship that way, and every release since has followed it. The binding executes all
-> three published conformance corpora —
-> `negotiation`, `framing`, and `diagnostics` — every case kind, with nothing deferred,
-> so **the suite is green for both languages in CI** — two clauses of the exit criteria,
-> met.
+> to ship that way, and every release since has followed it. The binding executes every
+> published corpus its surface publishes — `negotiation`, `framing`, `diagnostics` and
+> `url-resolution`, four of the eight in the tree — every case kind, with nothing
+> deferred, so **the suite is green for both languages in CI** — two clauses of the exit
+> criteria, met. ("Full", for criterion 1, is pinned to exactly that reading by
+> [RFC-0013](./rfcs/0013-go-sdk-official.md); the other four corpora bind surfaces neither
+> Python nor Go publishes.)
 >
 > Promotion to **official** was a separate, governance step, and it is complete:
 > [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
@@ -266,21 +268,22 @@ author can scaffold and ship a Python connector from the docs alone.
 *Goal: go from "two languages work" to "the polyglot promise is real and
 maintained."*
 
-- [~] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*. A Go
-  binding exists at [`sdks/go/`](../sdks/go/) — module
-  `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero dependencies — and now executes
-  **all four** published corpora in full, nothing deferred in any: `negotiation`
-  (all 38 cases across all three kinds), `framing` (all 25, run against `LineReader`),
+- [~] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*. **Go is
+  now official**; Rust is untouched, which is what keeps this box open. The binding lives
+  at [`sdks/go/`](../sdks/go/) — module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero
+  dependencies — and executes **every published corpus its surface publishes**, four of
+  the eight in the tree, in full and with nothing deferred in any: `negotiation` (all 38
+  cases across all three kinds), `framing` (all 25, run against `LineReader`),
   `diagnostics` (all 75, across `encode`, `parse` and `level`, against a `diagnostics`
-  package that ships an emitter Python does not have), and, since this work,
-  `url-resolution` (all 28, against a new `connectorkit` package binding Python's
-  Shipment 1 core). That is the same four Python runs, so criterion 1 is met. The handshake **is** now
-  bound: `ipc.PerformHandshake` performs the read-hello/write-hello/negotiate exchange,
-  synchronously over `io.Reader` / `io.Writer`. And it is not **official**, which is a governance act, not
-  a test result — [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four
-  criteria have to be recorded as met in an RFC that names an owner, and
-  [RFC-0012](./rfcs/0012-go-sdk-binding.md) deliberately does not claim them. RFC-0013
-  will, once the remaining corpora are green. Rust is untouched.
+  package that ships an emitter Python does not have), and `url-resolution` (all 28,
+  against a `connectorkit` package binding Python's Shipment 1 core). That is the same four
+  Python runs. The handshake is bound too: `ipc.PerformHandshake` performs the
+  read-hello/write-hello/negotiate exchange, synchronously over `io.Reader` / `io.Writer`.
+  Promotion to **official** was a separate, governance step, and it is complete:
+  [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
+  recorded as met in [RFC-0013](./rfcs/0013-go-sdk-official.md), which names the SDK owner
+  and pins what "the full conformance suite" means — every corpus whose surface the
+  binding publishes, the reading RFC-0008 promoted Python under without writing it down.
 - [ ] The hottest batteries ported to the additional languages — *Pillar 3*
 - [~] A **Python `connector-kit`** — *Pillar 3*. TypeScript publishes
   [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md)
@@ -351,7 +354,10 @@ maintained."*
 - [x] The written process for **how a language becomes "official"** — *Pillar 9*.
   Published as [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official),
   and Phase 2 already ran a language through it, in
-  [RFC-0008](./rfcs/0008-python-sdk-official.md).
+  [RFC-0008](./rfcs/0008-python-sdk-official.md). Run a second time for Go, in
+  [RFC-0013](./rfcs/0013-go-sdk-official.md), which also pins what criterion 1's "full
+  conformance suite" means — the refinement this document said would come as the third
+  binding landed.
 
 **Exit criteria:** at least three official SDKs pass the suite in a shared matrix;
 each publishes through its ecosystem's tokenless, provenance-carrying path (npm /

@@ -476,7 +476,17 @@ Blocked on 2b and 2c: GOVERNANCE's criterion 1 is passing the full conformance s
 **"Full" needs pinning, and 2f is where it happens.** Six corpora are published and this
 design rules four of them — `manifest`, `item`, `predicates`, `sandbox` — out of Go by
 name, so a literal reading of criterion 1 would block officiality forever on the same
-document that claims it. `docs/GOVERNANCE.md` states the criterion in five words, defines
+document that claims it.
+
+> **Correction, 2026-08-22.** "Six corpora are published" is wrong, and internally so —
+> four ruled out plus the four Go runs is eight, not six. **Eight** are published: six
+> carry their own `index.json` (`negotiation` 38, `framing` 25, `diagnostics` 75,
+> `url-resolution` 28, `predicates` 33, `sandbox` 31) and two are fixture sets in the
+> top-level `conformance/v1/index.json`'s `fixtures` array (`manifest` 31, `item` 6) —
+> 267 cases, of which Go and Python execute 166 and TypeScript all 267. Six was the count
+> when **RFC-0008** was accepted, which is probably where the number came from; it is not
+> the count now. The conclusion this paragraph reaches is unaffected and was kept — see
+> [RFC-0013](../../rfcs/0013-go-sdk-official.md), which states the arithmetic correctly. `docs/GOVERNANCE.md` states the criterion in five words, defines
 nothing further, and closes by saying the detailed criteria "will be refined as the second
 and third bindings land." Go is the third. The operative reading already exists as
 precedent rather than prose: RFC-0008 promoted Python while it ran exactly these four

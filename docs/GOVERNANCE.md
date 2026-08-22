@@ -29,6 +29,9 @@ It is a statement of intent for how the project is run, not a legal document.
   - **Python** (`nimbus-dev-sdk`) — Asaf Golombek
     ([@AsafGolombek](https://github.com/AsafGolombek)), per
     [RFC-0008](./rfcs/0008-python-sdk-official.md).
+  - **Go** (`github.com/nimbus-agent/nimbus-sdk/sdks/go`) — Asaf Golombek
+    ([@AsafGolombek](https://github.com/AsafGolombek)), per
+    [RFC-0013](./rfcs/0013-go-sdk-official.md).
   - **TypeScript** (`@nimbus-dev/sdk`) — the reference implementation, maintained by the
     maintainers above. It predates this process and has no promotion RFC of its own;
     RFC-0008 records that asymmetry rather than resolving it.
@@ -73,8 +76,17 @@ A new language SDK is promoted from community to **official** when:
    changes.
 4. An RFC recording the above is accepted.
 
+**Criterion 1, read.** "Full" means **every published corpus whose surface the binding
+publishes** — not every corpus in the tree. Eight are published and no binding but the
+reference implementation runs all eight, so the literal reading is a standard nothing has
+ever met: Python was promoted on two of six. [RFC-0013](./rfcs/0013-go-sdk-official.md)
+writes the reading down, with the per-corpus table and the precedent behind it. The
+criterion's own wording is unchanged; this is what it has always been applied to mean.
+
 The detailed criteria are a [Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries)
-deliverable and will be refined as the second and third bindings land.
+deliverable and will be refined as the second and third bindings land. Criterion 1's
+reading above is the first instalment of that refinement, made as the third binding
+landed.
 
 ## Third-party connectors & trust
 

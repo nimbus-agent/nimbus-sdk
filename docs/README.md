@@ -10,20 +10,23 @@ below is a *binding* of that contract and is held to the same conformance suite.
 |---|---|---|---|
 | [TypeScript](../sdks/typescript/) | [`@nimbus-dev/sdk`](https://www.npmjs.com/package/@nimbus-dev/sdk) | Node **≥ 22**, ESM | Reference implementation |
 | [Python](../sdks/python/) | [`nimbus-dev-sdk`](https://pypi.org/project/nimbus-dev-sdk/) | Python **≥ 3.11** | Official |
-| [Go](../sdks/go/) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | Go **≥ 1.26** | Released (`sdks/go/v0.2.0`) — not yet official |
+| [Go](../sdks/go/) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | Go **≥ 1.26** | Official |
 
-TypeScript and Python publish with the strongest provenance their ecosystem supports: npm
-with `--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations,
-both via GitHub OIDC with no long-lived token. Go has no registry and no publish
-credential at all — a tag *is* the release, and what protects a consumer there is
-`sum.golang.org`, the checksum transparency log every `go` client verifies automatically.
-See [Releasing](./RELEASING.md).
+Each publishes with the strongest provenance its ecosystem supports: npm with
+`--provenance`, PyPI with [PEP 740](https://peps.python.org/pep-0740/) attestations, both
+via GitHub OIDC with no long-lived token. Go's answer is different in kind rather than
+weaker — it has no registry and no publish credential at all: a tag *is* the release, and
+what protects a consumer there is `sum.golang.org`, the checksum transparency log every
+`go` client verifies automatically. See [Releasing](./RELEASING.md).
 
-The Go binding is new and narrower than the other two: it executes the `negotiation`
-corpus in full and nothing else yet, and it is **not** official —
-[RFC-0012](./rfcs/0012-go-sdk-binding.md) records its layout, tag format, and release
-model without claiming [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s
-four criteria.
+The Go binding is the newest and is narrower than the other two in its *batteries*, not in
+its contracts: it executes the same four corpora Python does — `negotiation`, `framing`,
+`diagnostics` and `url-resolution`, every case, nothing deferred — which is every published
+corpus its surface publishes, four of the eight in the tree.
+[RFC-0012](./rfcs/0012-go-sdk-binding.md) records its layout, tag format and release model;
+[RFC-0013](./rfcs/0013-go-sdk-official.md) promotes it to **official**, names its owner,
+and pins what "the full conformance suite" means in
+[GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s criterion 1.
 
 ## Scaffold a connector
 

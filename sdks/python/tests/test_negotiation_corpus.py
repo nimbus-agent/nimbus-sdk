@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 import pytest
+from _conformance_report import corpus_files, recorder
 
 from nimbus_sdk import (
     CONTRACT_HANDSHAKE_EXIT,
@@ -29,6 +30,16 @@ from nimbus_sdk.ipc import HelloOk, HelloRefused, parse_hello
 # snapshot and passes while executing none of the new cases. CI installs into a clean
 # checkout and is unaffected.
 CASES = load_corpus("negotiation")
+FILES = corpus_files("negotiation")
+assert len(FILES) == len(CASES), "the index and load_corpus disagree on the case count"
+_RECORDER = recorder("negotiation")
+
+# Filter the (file, case) PAIRS together — filtering CASES and then zipping FILES back
+# in would misalign every case after the first one a kind excludes.
+PAIRS = list(zip(FILES, CASES, strict=True))
+NEGOTIATE_PAIRS = [(f, c) for f, c in PAIRS if c["kind"] == "negotiate"]
+DECLARATION_PAIRS = [(f, c) for f, c in PAIRS if c["kind"] == "declaration"]
+HELLO_PAIRS = [(f, c) for f, c in PAIRS if c["kind"] == "hello"]
 
 # Every kind in the corpus is now executed. DEFERRED_KINDS is kept, empty, rather
 # than deleted: the assertion below is what fails when a *new* kind appears, and a
@@ -43,11 +54,11 @@ def test_every_corpus_kind_is_accounted_for() -> None:
 
 
 @pytest.mark.parametrize(
-    "case",
-    [c for c in CASES if c["kind"] == "negotiate"],
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    NEGOTIATE_PAIRS,
+    ids=lambda v: str(v["description"])[:60] if isinstance(v, dict) else str(v),
 )
-def test_negotiate_cases(case: dict[str, object]) -> None:
+def test_negotiate_cases(file: str, case: dict[str, object]) -> None:
     expect = case["expect"]
     assert isinstance(expect, dict)
     result = negotiate_contract_version(case["local"], case["remote"])  # type: ignore[arg-type]
@@ -55,14 +66,15 @@ def test_negotiate_cases(case: dict[str, object]) -> None:
         assert result == NegotiationOk(version=str(expect["version"]))
     else:
         assert result == NegotiationRefused(reason=str(expect["reason"]))
+    _RECORDER.record(file)
 
 
 @pytest.mark.parametrize(
-    "case",
-    [c for c in CASES if c["kind"] == "declaration"],
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    DECLARATION_PAIRS,
+    ids=lambda v: str(v["description"])[:60] if isinstance(v, dict) else str(v),
 )
-def test_declaration_cases(case: dict[str, object]) -> None:
+def test_declaration_cases(file: str, case: dict[str, object]) -> None:
     # A case's `manifest` field is the RAW declared value of `contractVersions` — a list
     # in the ordinary cases, but deliberately `5` in one of them, and absent entirely in
     # the case that pins the absence default. So it is wrapped into a manifest object
@@ -85,6 +97,7 @@ def test_declaration_cases(case: dict[str, object]) -> None:
         # coincidentally-correct boolean.
         assert expect["reason"] == "declaration-mismatch"
         assert expect["exit"] == CONTRACT_HANDSHAKE_EXIT
+    _RECORDER.record(file)
 
 
 def _short_circuiting_on_empty(
@@ -125,11 +138,11 @@ def test_corpus_refuses_a_binding_that_short_circuits_on_an_empty_set() -> None:
 
 
 @pytest.mark.parametrize(
-    "case",
-    [c for c in CASES if c["kind"] == "hello"],
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    HELLO_PAIRS,
+    ids=lambda v: str(v["description"])[:60] if isinstance(v, dict) else str(v),
 )
-def test_hello_cases(case: dict[str, object]) -> None:
+def test_hello_cases(file: str, case: dict[str, object]) -> None:
     expect = case["expect"]
     assert isinstance(expect, dict)
     result = parse_hello(str(case["frame"]))
@@ -143,3 +156,4 @@ def test_hello_cases(case: dict[str, object]) -> None:
     else:
         assert result == HelloRefused(reason=str(expect["reason"]))
         assert expect["exit"] == CONTRACT_HANDSHAKE_EXIT
+    _RECORDER.record(file)

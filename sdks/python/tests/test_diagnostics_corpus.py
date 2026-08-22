@@ -25,6 +25,7 @@ does not expand parse cases either.
 from __future__ import annotations
 
 import pytest
+from _conformance_report import corpus_files, recorder
 
 from nimbus_sdk import load_corpus
 from nimbus_sdk.diagnostics import (
@@ -112,6 +113,17 @@ def _expand_case(case: dict[str, object]) -> dict[str, object]:
 
 
 CASES = [_expand_case(case) for case in load_corpus("diagnostics")]
+FILES = corpus_files("diagnostics")
+assert len(FILES) == len(CASES), "the index and load_corpus disagree on the case count"
+_RECORDER = recorder("diagnostics")
+
+# Filter the (file, case) PAIRS together — filtering CASES and then zipping FILES back
+# in would misalign every case after the first one a kind excludes. Expansion above
+# preserves index order, so FILES still lines up with CASES one-for-one.
+PAIRS = list(zip(FILES, CASES, strict=True))
+ENCODE_PAIRS = [(f, c) for f, c in PAIRS if c["kind"] == "encode"]
+PARSE_PAIRS = [(f, c) for f, c in PAIRS if c["kind"] == "parse"]
+LEVEL_PAIRS = [(f, c) for f, c in PAIRS if c["kind"] == "level"]
 
 IMPLEMENTED_KINDS = {"encode", "parse", "level"}
 DEFERRED_KINDS: set[str] = set()
@@ -130,11 +142,11 @@ def test_the_corpus_is_not_empty() -> None:
 
 
 @pytest.mark.parametrize(
-    "case",
-    [c for c in CASES if c["kind"] == "encode"],
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    ENCODE_PAIRS,
+    ids=lambda v: str(v["description"])[:60] if isinstance(v, dict) else str(v),
 )
-def test_encode_cases(case: dict[str, object]) -> None:
+def test_encode_cases(file: str, case: dict[str, object]) -> None:
     expect = case["expect"]
     assert isinstance(expect, dict)
     result = encode_diagnostic(case["event"])
@@ -144,14 +156,15 @@ def test_encode_cases(case: dict[str, object]) -> None:
         assert result == EncodeRejected(
             reason=str(expect["reason"]), path=str(expect["path"])
         )
+    _RECORDER.record(file)
 
 
 @pytest.mark.parametrize(
-    "case",
-    [c for c in CASES if c["kind"] == "parse"],
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    PARSE_PAIRS,
+    ids=lambda v: str(v["description"])[:60] if isinstance(v, dict) else str(v),
 )
-def test_parse_cases(case: dict[str, object]) -> None:
+def test_parse_cases(file: str, case: dict[str, object]) -> None:
     expect = case["expect"]
     assert isinstance(expect, dict)
     result = parse_diagnostic(str(case["line"]))
@@ -161,14 +174,16 @@ def test_parse_cases(case: dict[str, object]) -> None:
         assert result == ParseRejected(
             reason=str(expect["reason"]), path=str(expect["path"])
         )
+    _RECORDER.record(file)
 
 
 @pytest.mark.parametrize(
-    "case",
-    [c for c in CASES if c["kind"] == "level"],
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    LEVEL_PAIRS,
+    ids=lambda v: str(v["description"])[:60] if isinstance(v, dict) else str(v),
 )
-def test_level_cases(case: dict[str, object]) -> None:
+def test_level_cases(file: str, case: dict[str, object]) -> None:
     expect = case["expect"]
     assert isinstance(expect, dict)
     assert meets_level(str(case["level"]), str(case["threshold"])) is expect["meets"]
+    _RECORDER.record(file)

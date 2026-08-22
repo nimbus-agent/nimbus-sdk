@@ -14,11 +14,15 @@ in each binding's own unit tests.
 from __future__ import annotations
 
 import pytest
+from _conformance_report import corpus_files, recorder
 
 from nimbus_sdk import load_corpus
 from nimbus_sdk.connector_kit import UrlResolutionError, resolve_url_with_base
 
 CASES = load_corpus("url-resolution")
+FILES = corpus_files("url-resolution")
+assert len(FILES) == len(CASES), "the index and load_corpus disagree on the case count"
+_RECORDER = recorder("url-resolution")
 
 
 def _ids() -> list[str]:
@@ -44,8 +48,10 @@ def test_both_outcomes_are_exercised() -> None:
     assert {_outcome(case) for case in CASES} == {True, False}
 
 
-@pytest.mark.parametrize("case", CASES, ids=_ids())
-def test_case(case: dict[str, object]) -> None:
+@pytest.mark.parametrize(
+    ("file", "case"), list(zip(FILES, CASES, strict=True)), ids=_ids()
+)
+def test_case(file: str, case: dict[str, object]) -> None:
     base = case["base"]
     input_ = case["input"]
     expect = case["expect"]
@@ -55,8 +61,10 @@ def test_case(case: dict[str, object]) -> None:
 
     if expect["ok"]:
         assert resolve_url_with_base(base, input_) == expect["url"]
+        _RECORDER.record(file)
         return
 
     with pytest.raises(UrlResolutionError) as excinfo:
         resolve_url_with_base(base, input_)
     assert str(excinfo.value) == expect["message"]
+    _RECORDER.record(file)

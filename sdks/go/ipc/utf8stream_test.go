@@ -1,6 +1,10 @@
 package ipc
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"unicode/utf8"
+)
 
 func TestUTF8StreamHoldsAnIncompletePrefix(t *testing.T) {
 	var s utf8Stream
@@ -116,5 +120,64 @@ func TestScanUTF8IncompleteConsumesTheWholeBuffer(t *testing.T) {
 		if n != len(in) {
 			t.Errorf("scanUTF8(% x) n = %d, want %d", in, n, len(in))
 		}
+	}
+}
+
+// The ten input classes that separate the two candidate rules, each run through all three
+// ways a prefix can be invalidated. Counts are Node's and CPython's, which agree on all 30.
+func TestUTF8StreamReplacementCountsMatchTheOtherBindings(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []byte
+		want int
+	}{
+		{"cannot begin a sequence", []byte{0xFF}, 1},
+		{"continuation with no lead", []byte{0xA9}, 1},
+		{"overlong two-octet lead", []byte{0xC0, 0xAF}, 2},
+		{"below E0's floor", []byte{0xE0, 0x80}, 2},
+		{"surrogate encoding", []byte{0xED, 0xA0, 0x80}, 3},
+		{"two-octet lead alone", []byte{0xC3}, 1},
+		{"two of a three-octet sequence", []byte{0xE2, 0x82}, 1},
+		{"three-octet lead alone", []byte{0xE2}, 1},
+		{"two of a four-octet sequence", []byte{0xF0, 0x9F}, 1},
+		{"three of a four-octet sequence", []byte{0xF0, 0x9F, 0x8D}, 1},
+	}
+
+	count := func(s string) int { return strings.Count(s, string(utf8.RuneError)) }
+
+	for _, tt := range cases {
+		t.Run(tt.name+"/finalized", func(t *testing.T) {
+			var s utf8Stream
+			got := s.decode(tt.in, false) + s.decode(nil, true)
+			if n := count(got); n != tt.want {
+				t.Errorf("decode(% x) finalized = %q, %d replacements, want %d", tt.in, got, n, tt.want)
+			}
+		})
+		t.Run(tt.name+"/invalidated in one chunk", func(t *testing.T) {
+			var s utf8Stream
+			got := s.decode(append(append([]byte(nil), tt.in...), 0x41), false)
+			if n := count(got); n != tt.want {
+				t.Errorf("decode(% x 41) = %q, %d replacements, want %d", tt.in, got, n, tt.want)
+			}
+			if !strings.HasSuffix(got, "A") {
+				t.Errorf("decode(% x 41) = %q, want it to end in the A that invalidated the prefix", tt.in, got)
+			}
+		})
+		t.Run(tt.name+"/invalidated across chunks", func(t *testing.T) {
+			var s utf8Stream
+			got := s.decode(tt.in, false) + s.decode([]byte{0x41}, false)
+			if n := count(got); n != tt.want {
+				t.Errorf("decode(% x)+decode(41) = %q, %d replacements, want %d", tt.in, got, n, tt.want)
+			}
+		})
+	}
+}
+
+// The invalidating octet starts its own sequence, so it must survive intact.
+func TestUTF8StreamDoesNotConsumeTheInvalidatingOctet(t *testing.T) {
+	var s utf8Stream
+	got := s.decode([]byte{0xF0, 0x9F, 0xC3, 0xA9}, false)
+	if want := "�é"; got != want {
+		t.Errorf("decode(F0 9F C3 A9) = %q, want %q", got, want)
 	}
 }

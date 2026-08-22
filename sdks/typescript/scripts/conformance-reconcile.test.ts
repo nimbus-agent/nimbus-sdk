@@ -76,6 +76,11 @@ describe("reconcile", () => {
     // framing is driven twice in TypeScript — under Bun by framing-guard, and again under
     // plain Node by framing-node.mjs, because TextDecoder differs between the runtimes.
     writeEverything();
+    // writeEverything() already wrote a COMPLETE typescript.framing.suite.json. Remove it so
+    // the two half-coverage reports below are the ONLY typescript/framing reports present —
+    // otherwise a broken last-write-wins reducer could still pass by reading the complete
+    // suite report, regardless of readdirSync ordering.
+    rmSync(join(dir, "typescript.framing.suite.json"), { force: true });
     const framing = publishedCorpora().get("framing") ?? [];
     const half = Math.floor(framing.length / 2);
     write("typescript", "framing", "guard", framing.slice(0, half));

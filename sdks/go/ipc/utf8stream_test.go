@@ -71,3 +71,50 @@ func TestUTF8StreamFinalWithNothingHeldEmitsNothing(t *testing.T) {
 		t.Errorf("decode(nil, final) = %q, want empty", got)
 	}
 }
+
+func TestScanUTF8ClassifiesTheHeadOfTheBuffer(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		in    []byte
+		n     int
+		state scanState
+	}{
+		{"ascii", []byte{0x41}, 1, scanComplete},
+		{"two-octet complete", []byte{0xC3, 0xA9}, 2, scanComplete},
+		{"three-octet complete", []byte{0xE2, 0x82, 0xAC}, 3, scanComplete},
+		{"four-octet complete", []byte{0xF0, 0x9F, 0x98, 0x80}, 4, scanComplete},
+		{"lead alone", []byte{0xC3}, 1, scanIncomplete},
+		{"two of three", []byte{0xE2, 0x82}, 2, scanIncomplete},
+		{"three of four", []byte{0xF0, 0x9F, 0x8D}, 3, scanIncomplete},
+		{"never a lead", []byte{0xFF}, 1, scanIllFormed},
+		{"continuation alone", []byte{0xA9}, 1, scanIllFormed},
+		{"overlong two-octet lead", []byte{0xC0, 0xAF}, 1, scanIllFormed},
+		{"second octet below E0's floor", []byte{0xE0, 0x80}, 1, scanIllFormed},
+		{"second octet above ED's ceiling", []byte{0xED, 0xA0, 0x80}, 1, scanIllFormed},
+		{"second octet below F0's floor", []byte{0xF0, 0x8F, 0x80, 0x80}, 1, scanIllFormed},
+		{"second octet above F4's ceiling", []byte{0xF4, 0x90, 0x80, 0x80}, 1, scanIllFormed},
+		{"third octet not a continuation", []byte{0xF0, 0x9F, 0x41}, 2, scanIllFormed},
+		{"fourth octet not a continuation", []byte{0xF0, 0x9F, 0x98, 0x41}, 3, scanIllFormed},
+		{"trailing bytes are not examined", []byte{0x41, 0xFF, 0xFF}, 1, scanComplete},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			n, state := scanUTF8(tt.in)
+			if n != tt.n || state != tt.state {
+				t.Errorf("scanUTF8(% x) = (%d, %v), want (%d, %v)", tt.in, n, state, tt.n, tt.state)
+			}
+		})
+	}
+}
+
+// scanIncomplete promises n == len(buf); decode relies on it to hold the whole remainder.
+func TestScanUTF8IncompleteConsumesTheWholeBuffer(t *testing.T) {
+	for _, in := range [][]byte{{0xC3}, {0xE2}, {0xE2, 0x82}, {0xF0}, {0xF0, 0x9F}, {0xF0, 0x9F, 0x8D}} {
+		n, state := scanUTF8(in)
+		if state != scanIncomplete {
+			t.Fatalf("scanUTF8(% x) state = %v, want scanIncomplete", in, state)
+		}
+		if n != len(in) {
+			t.Errorf("scanUTF8(% x) n = %d, want %d", in, n, len(in))
+		}
+	}
+}

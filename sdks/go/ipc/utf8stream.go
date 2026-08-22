@@ -5,6 +5,89 @@ import (
 	"unicode/utf8"
 )
 
+// scanState is what scanUTF8 found at the head of a buffer.
+type scanState int
+
+const (
+	// scanComplete: buf[:n] is a well-formed sequence.
+	scanComplete scanState = iota
+	// scanIncomplete: buf[:n] is ALL of buf and could still be completed by more octets.
+	scanIncomplete
+	// scanIllFormed: buf[:n] is the maximal subpart of an ill-formed sequence.
+	scanIllFormed
+)
+
+// isContinuation reports whether b is a UTF-8 continuation octet, 80..BF.
+func isContinuation(b byte) bool { return b&0xC0 == 0x80 }
+
+// scanUTF8 classifies the head of buf, which must be non-empty. n >= 1 in every state.
+//
+// This is framing.md §4's maximal subpart, computed directly: the longest prefix of buf
+// that could still begin a well-formed sequence. The standard library cannot answer the
+// question — utf8.DecodeRune reports size 1 on any error, which is precisely the
+// per-octet count §4 now forbids.
+//
+// It takes no `final` argument and must not gain one. Whether an incomplete prefix is
+// held or replaced is decode's decision; keeping this a pure function of the octets is
+// what lets TestUTF8StreamSweepsEveryShortInput sweep it exhaustively.
+//
+// The offending octet is never consumed. A bad octet at position two yields n = 1, so
+// that octet is re-examined as the head of the next sequence — which is what makes
+// "F0 9F C3 A9" decode to one U+FFFD followed by "é" rather than swallowing the C3.
+func scanUTF8(buf []byte) (int, scanState) {
+	b0 := buf[0]
+	if b0 < 0x80 {
+		return 1, scanComplete
+	}
+
+	// need is the sequence's total length; lo..hi is the range the SECOND octet must
+	// fall in, which is the only position whose range depends on the lead. Octets three
+	// and four are plain continuations, checked in the loop below.
+	var need int
+	var lo, hi byte
+	switch {
+	case b0 < 0xC2: // 80..BF continuation with no lead; C0..C1 overlong two-octet leads
+		return 1, scanIllFormed
+	case b0 < 0xE0: // C2..DF
+		need, lo, hi = 2, 0x80, 0xBF
+	case b0 == 0xE0: // no overlong three-octet forms
+		need, lo, hi = 3, 0xA0, 0xBF
+	case b0 < 0xED: // E1..EC
+		need, lo, hi = 3, 0x80, 0xBF
+	case b0 == 0xED: // no UTF-16 surrogates
+		need, lo, hi = 3, 0x80, 0x9F
+	case b0 < 0xF0: // EE..EF
+		need, lo, hi = 3, 0x80, 0xBF
+	case b0 == 0xF0: // no overlong four-octet forms
+		need, lo, hi = 4, 0x90, 0xBF
+	case b0 < 0xF4: // F1..F3
+		need, lo, hi = 4, 0x80, 0xBF
+	case b0 == 0xF4: // nothing above U+10FFFF
+		need, lo, hi = 4, 0x80, 0x8F
+	default: // F5..FF
+		return 1, scanIllFormed
+	}
+
+	// Every read past buf[0] is length-guarded at its own position, not once up front:
+	// scanUTF8([]byte{0xF0}) is an ordinary call on the hot path of every sequence split
+	// across a chunk boundary, and reading buf[1] there would panic.
+	if len(buf) < 2 {
+		return 1, scanIncomplete
+	}
+	if buf[1] < lo || buf[1] > hi {
+		return 1, scanIllFormed
+	}
+	for i := 2; i < need; i++ {
+		if len(buf) <= i {
+			return i, scanIncomplete
+		}
+		if !isContinuation(buf[i]) {
+			return i, scanIllFormed
+		}
+	}
+	return need, scanComplete
+}
+
 // utf8Stream decodes UTF-8 octets arriving in arbitrary chunks.
 //
 // Go's standard library has no streaming decoder — `unicode/utf8` works on whole

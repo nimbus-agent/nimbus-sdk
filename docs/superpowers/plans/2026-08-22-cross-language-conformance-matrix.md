@@ -1499,7 +1499,7 @@ import pytest
 
 from nimbus_sdk import load_corpus
 
-from _conformance_report import Recorder, corpus_files
+from _conformance_report import Recorder, corpus_files, recorder
 
 
 def test_corpus_files_returns_index_order_file_identities() -> None:
@@ -1535,6 +1535,19 @@ def test_recorder_writes_nothing_without_a_directory(tmp_path: Path) -> None:
     rec.record("cases/a.json")
     rec.flush()
     assert list(tmp_path.iterdir()) == []
+
+
+def test_the_producer_carries_the_xdist_worker_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # xdist runs workers as separate processes, so a lock would not help — a per-worker file
+    # name is what stops two workers clobbering one report. The reconciler unions producers.
+    monkeypatch.setenv("NIMBUS_CONFORMANCE_REPORT", str(tmp_path))
+    monkeypatch.setenv("PYTEST_XDIST_WORKER", "gw3")
+    rec = recorder("framing")
+    rec.record("cases/a.json")
+    rec.flush()
+    assert (tmp_path / "python.framing.suite-gw3.json").is_file()
 
 
 def test_corpus_files_rejects_an_unknown_area() -> None:
@@ -1573,9 +1586,16 @@ index through the same ``spec_root()``, and each runner zips the two — so this
 bundled-copy behaviour, including the local-only trap that an un-reinstalled ``_data/spec``
 serves a stale index (run ``python -m pip install -e .`` after editing ``docs/spec``).
 
-No lock: the suite is single-threaded, nothing in its configuration makes it otherwise, and
-``list``/``set`` mutation is atomic under the GIL regardless. A lock here would assert that
-contention is possible, which would mislead the next reader.
+No lock, and that is a considered position rather than an omission. The suite is
+single-threaded, nothing in its configuration makes it otherwise, and ``set`` mutation is
+atomic under the GIL regardless.
+
+The scenario worth guarding is ``pytest-xdist``, and a lock does not guard it: xdist
+distributes across PROCESSES, so every worker would get its own recorder, its own ``atexit``,
+and its own GIL — while all of them wrote to the same ``python.<corpus>.suite.json`` and
+clobbered each other. The producer segment is what makes that correct, so it carries the
+worker id when one is set. The reconciler already unions producers, so N workers reporting a
+slice each reconcile to the whole corpus.
 """
 
 from __future__ import annotations
@@ -1637,7 +1657,15 @@ def recorder(corpus: str, producer: str = "suite") -> Recorder:
 
     ``atexit`` rather than a pytest fixture: the corpus modules are parametrised at import
     time and a session-scoped fixture would have to be requested by every test to run at all.
+
+    Under ``pytest-xdist`` each worker is a separate PROCESS with its own recorder, so the
+    worker id joins the producer name — otherwise every worker would write the same file and
+    the last one to exit would be the only one counted. Nothing sets that variable today; the
+    two lines are what make adding ``-n auto`` a non-event instead of a silent truncation.
     """
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker:
+        producer = f"{producer}-{worker}"
     rec = Recorder(corpus, producer, os.environ.get("NIMBUS_CONFORMANCE_REPORT"))
     atexit.register(rec.flush)
     return rec
@@ -1646,7 +1674,7 @@ def recorder(corpus: str, producer: str = "suite") -> Recorder:
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run from `sdks/python/`: `python -m pytest tests/test_conformance_report.py -q`
-Expected: PASS, 5 tests.
+Expected: PASS, 6 tests.
 
 - [ ] **Step 5: Wire `test_url_resolution_corpus.py` first**
 
@@ -2164,19 +2192,39 @@ every action in this file is pinned and the comment carries the version.
         with:
           python-version: "3.13"
 
+      # Two things this step must NOT do, both of which look right and both of which fail.
+      #
+      # `pip install -e .` does not bring pytest: [project].dependencies is empty by policy,
+      # so pytest is installed explicitly, exactly as the `python` job does.
+      #
+      # And it runs the four corpus modules by name rather than `tests/`. The full directory
+      # cannot work here: test_verify_publish.py imports `cryptography` at module level and
+      # test_gate_dist.py imports from scripts/, neither of which `pip install -e .` provides
+      # — the `python` job installs verify-requirements.txt for exactly that reason. Pulling
+      # a hash-pinned attestation toolchain into a job about conformance corpora would be the
+      # wrong fix. A new corpus module not listed here goes unrecorded and the reconciler
+      # fails, which is the same loud-in-the-right-place property the TypeScript leg has.
       - name: Run the Python corpus suite
         if: matrix.language == 'python'
         working-directory: sdks/python
         run: |
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip pytest
           python -m pip install -e .
-          python -m pytest -q tests/
+          python -m pytest -q             tests/test_negotiation_corpus.py             tests/test_framing_corpus.py             tests/test_diagnostics_corpus.py             tests/test_url_resolution_corpus.py
 
+      # `go-version-file` rather than a literal, so this is not a third place to update when
+      # the supported minors move. The policy is the two most recent stable minors with the
+      # go.mod directive naming the OLDER of the two; GOTOOLCHAIN=local means a mismatch here
+      # would fail the leg outright rather than quietly downloading a toolchain. Reading the
+      # directive keeps them in sync by construction.
+      #
+      # This leg therefore runs one Go version, the floor. The `go` job above is what covers
+      # both minors; this job's axis is language.
       - name: Setup Go
         if: matrix.language == 'go'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: "1.27"
+          go-version-file: sdks/go/go.mod
           cache: false
 
       - name: Run the Go conformance suite

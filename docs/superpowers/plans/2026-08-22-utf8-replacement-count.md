@@ -46,6 +46,15 @@ says so itself, and it is what CI runs.
 - **Commit type `fix(go):` for the PR subject.** It changes behaviour in a released binding
   and cuts `sdks/go/v0.6.1`. `commit-guard` compares the PR *title* against every carried
   commit, so a `docs:` title over these commits fails.
+- **`sdks/go/go.mod` must not change, and will not change on its own.** Measured on this
+  branch: `go generate ./spec` and `go test` run under **Go 1.27 against the `go 1.26`
+  directive** leave `go.mod` byte-identical, and there is no `go.sum` at all because the
+  module has zero dependencies. Only `go get` and `go mod tidy` rewrite those files, and no
+  step in this plan runs either. So if `git status` ever shows `go.mod`, something went
+  wrong — revert it rather than committing it. The directive is a **supported-versions
+  decision**, not a build detail: CI runs `GOTOOLCHAIN=local` across 1.26 and 1.27, so
+  raising it to 1.27 would make the 1.26 leg fail outright rather than quietly download a
+  toolchain, and dropping a supported Go version is a changelog-worthy act.
 - **Do not run bare `git stash`** in this worktree; the stash stack is shared with others.
 
 ---
@@ -766,15 +775,33 @@ Expected: every `ipc` test passes, including the four that predate this change �
 `TestUTF8StreamDecodesAFourOctetSequenceSplitAtEveryBoundary`, and
 `TestUTF8StreamPassesWellFormedInputThrough` — and the framing corpus reports **33 of 33**.
 
-- [ ] **Step 6: Prove the corpus can see the defect it was blind to**
+- [ ] **Step 6: Prove the corpus can see the defect it was blind to — both triggers**
 
-Revert `decode`'s `scanIncomplete` arm to write one U+FFFD per octet
-(`for range buf { out.WriteRune(utf8.RuneError) }` in place of the single write), re-run
-the corpus, and record the number of failing subtests. Restore afterwards.
+Two mutations, not one. The design's whole argument for this approach is that *both*
+triggers flow through the same table, so evidence for only one of them proves half the
+claim — and the half it leaves unproven is the one the rejected approach B would also have
+got right.
 
-Expected: the two end-of-stream cases fail. Before this change the same mutation failed
-**0 of 25**. Record both numbers in the PR description; this is the "caught by N of M"
-evidence the repo's convention asks for.
+**Mutation A — the end-of-stream trigger.** In `decode`'s `scanIncomplete` arm, replace the
+single `out.WriteRune(utf8.RuneError)` with `for range buf[:n] { out.WriteRune(utf8.RuneError) }`.
+Re-run the corpus, record the failures, restore.
+
+Expected: **2 of 33** fail — `three-octet-prefix-at-eof` and `four-octet-prefix-at-eof`.
+The mid-stream cases route through `scanIllFormed` and are untouched.
+
+**Mutation B — the mid-stream trigger.** Restore Mutation A first, then in the
+`scanIllFormed` arm replace the single write with
+`for range buf[:n] { out.WriteRune(utf8.RuneError) }`. Re-run, record, restore.
+
+Expected: **3 of 33** fail — `four-octet-prefix-invalidated-in-one-chunk`,
+`four-octet-prefix-invalidated-across-chunks` and `truncated-sequence-followed-by-valid`.
+The two over-collapse guards and `limit-counts-decoded-octets` do **not** fail, because
+every subpart in them is a single octet and `n` is 1: the mutation is a no-op there. That
+asymmetry is the point — those three cases are the only thing in the corpus that can see a
+mid-stream regression.
+
+Before this change, both mutations failed **0 of 25**. Record all four numbers in the PR
+description; this is the "caught by N of M" evidence the repo's convention asks for.
 
 - [ ] **Step 7: Commit**
 
@@ -972,6 +999,13 @@ The PR number is not knowable before the PR exists. Predict it — `gh pr list -
 amended commit if the prediction is off. RFC-0013 was written this way and the prediction
 held.
 
+**If `gh` is unavailable or offline, do not commit `#NNN`.** A placeholder in a landed RFC
+is a broken link in the document that records a contract decision, and placeholders survive
+exactly as long as nobody re-reads the file. Two fallbacks, in order: open the PR in a
+browser and read the number off it — the same step that needs `gh` anyway produces the
+number either way — or land the RFC with the **`Landed:` line omitted entirely** and add it
+in a follow-up commit once the PR exists. An absent line is honest; a fake number is not.
+
 ```markdown
 - **Affects:** [`framing.md`](../spec/wire/v1/framing.md) §4 and §6, the `framing`
   conformance corpus, and `sdks/go/ipc/`
@@ -1088,24 +1122,39 @@ Expected: TypeScript 1360+ pass / 0 fail; Python 364+ passed; Go all nine packag
 The permanent sweep asserts invariants; this asserts *agreement*. Write both sides to the
 scratchpad, not the repo — it is a measurement, not a test.
 
-Go side: a `TestMain`-free program under the scratchpad that imports nothing from this
-module (copy `scanUTF8` and `decode` into it), printing one line per input of one, two and
-three octets: the hex input and the decoded string's replacement count.
+**Emit binary, not text.** One line of `f0 9f 8d 1\n` per input is ~12–20 octets, so
+16,843,008 lines is 200–330 MB per side, and diffing two files that size is slow enough to
+discourage re-running the measurement. Instead each side writes:
 
-Python side: the same inputs through `codecs.getincrementaldecoder("utf-8")("replace")`,
-finalized, printing the same shape. Compare the two files.
+- **one octet per input** — the replacement count, which is 0..3 and fits — in a fixed
+  enumeration order (all 1-octet inputs, then all 2-octet, then all 3-octet, each
+  lexicographic). 16,843,008 octets, ~16.8 MB per side, and `cmp` is near-instant. Because
+  the order is fixed, the byte offset of the first difference **is** the input, so a
+  mismatch is locatable without any text.
+- **one SHA-256 over the concatenated decoded strings**, printed at the end. The count byte
+  alone cannot see a divergence where both sides replace the same number of times but keep
+  different octets; the digest can, at no extra file size. Compare the two digests as well
+  as the two files.
 
-Expected: **identical on all 16,843,008 inputs.** Record the number in the PR description.
-If they differ anywhere, stop and report — the corpus cases are the contract, and a
-disagreement outside them is a finding.
+Go side: a standalone `main` under the scratchpad that imports nothing from this module —
+copy `scanUTF8`, the `scanState` constants and `decode` into it, so the measurement is of
+the code as written rather than of an import path.
+
+Python side: the same enumeration through `codecs.getincrementaldecoder("utf-8")("replace")`,
+finalized with `decode(b"", True)`.
+
+Expected: `cmp` reports no difference across all 16,843,008 octets, **and** the two digests
+match. Record both facts in the PR description. If either differs, stop and report — the
+corpus cases are the contract, and a disagreement outside them is a finding.
 
 - [ ] **Step 3: Open the pull request**
 
 Title: `fix(go): replace an invalidated UTF-8 prefix with one U+FFFD, not one per octet`
 
 The body must carry: the 10×3 measured table; the §11 argument, first, because it is what a
-reviewer should attack; the eight case names with which five failed Go before the fix; the
-"caught by 0 of 25 before, 2 of 33 after" mutation numbers from Task 4 Step 6; and the
+reviewer should attack; the eight case names with which five failed Go before the fix; both
+mutation results from Task 4 Step 6 — end-of-stream **0 of 25 before, 2 of 33 after**, and
+mid-stream **0 of 25 before, 3 of 33 after**; and the
 cross-language sweep result. Note that merging cuts `sdks/go/v0.6.1` and that Go's decoded
 output changes for ill-formed input.
 

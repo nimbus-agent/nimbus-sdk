@@ -119,7 +119,10 @@ surface is shaped this way, which the generated file, by design, does not:
   [`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md), not here.
 - `contract` (`sdks/go/contract/`) — `ContractVersions`, `HandshakeExit`,
   `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`,
-  `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`.
+  `NegotiationRefused`, `ManifestContractVersions`, `DeclaredVersionsMatch`, and
+  `SDKVersion` — the module's own version, read from `debug.ReadBuildInfo()` rather than
+  from a constant, which is why nothing in the release path maintains one. It reports
+  `"(devel)"` from a checkout and from any consumer whose `replace` points at one.
 - `spec` (`sdks/go/spec/`) — `LoadSchema` and `LoadCorpus` only. This is Python's single
   `nimbus_sdk` root split into two Go packages; a benign surface asymmetry.
 - `diagnostics` (`sdks/go/diagnostics/`) — the diagnostics contract v0: `Encode`, `Parse`,

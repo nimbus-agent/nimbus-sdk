@@ -11,8 +11,10 @@ The import path ends in `/go` because the module lives in a subdirectory of the
 contract's own repository, which is what keeps the spec and the conformance corpora
 in-tree: a new corpus case runs the moment it is indexed, in every binding that already
 executes that corpus. For Go that is `negotiation`, `framing`, `diagnostics` and
-`url-resolution` — four of the eight published, and every one whose surface this module
-publishes — so a new case in any of them reaches this binding without a release. Release tags are correspondingly prefixed —
+`url-resolution` — every corpus whose surface this module publishes, and the case counts
+are generated into
+[`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
+— so a new case in any of them reaches this binding without a release. Release tags are correspondingly prefixed —
 `sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
 
 > **Released.** The `go get` above resolves: `proxy.golang.org` serves the module,
@@ -356,12 +358,14 @@ carries the contract-version constants, the negotiation algorithm, the manifest
 declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
 handshake, the diagnostics envelope with its emitter, the connector kit, and the SDK
 version accessor. It executes **every published conformance corpus its surface publishes**
-— four of the eight in the tree — in full, nothing deferred in any: `negotiation` — all 38
-cases across all three of its kinds, `negotiate`, `hello`, and `declaration` — `framing` —
-all 33 cases — `diagnostics` — all 75, across `encode`, `parse`, and `level` — and
-`url-resolution` — all 28, against `ResolveURLWithBase`. The other four — `predicates`,
-`sandbox`, `manifest` and `item` — bind surfaces this module does not publish, and the last
-two need a JSON Schema validator no dependency-free binding has written.
+— in full, nothing deferred in any: `negotiation` — across all three of its kinds,
+`negotiate`, `hello`, and `declaration` — `framing` — `diagnostics` — across `encode`,
+`parse`, and `level` — and `url-resolution` — against `ResolveURLWithBase`. The other four —
+`predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module does not publish,
+and the last two need a JSON Schema validator no dependency-free binding has written. Which
+binding claims which corpus, and every case count behind these numbers, is generated into
+[`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
+rather than restated here.
 
 That is the same four Python runs, and it is what
 [GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)

@@ -285,9 +285,10 @@ func TestLineReaderReleasesAnOutsizedBufferButKeepsAModestOne(t *testing.T) {
 
 func TestLineReaderFlushEnforcesTheLimitOnDecodedOctets(t *testing.T) {
 	// §6 counts decoded octets, and the final decode can grow the remainder: an
-	// incomplete multi-byte sequence held at end-of-stream becomes U+FFFD, three octets
-	// per leftover octet. So a buffer that was under the limit at Push can cross it at
-	// Flush, and Flush has to check rather than assume Push already did.
+	// incomplete multi-byte sequence held at end-of-stream becomes a single U+FFFD per
+	// maximal subpart (§4), three octets total regardless of how many octets were held.
+	// So a buffer that was under the limit at Push can cross it at Flush, and Flush has
+	// to check rather than assume Push already did.
 	var r LineReader
 	if _, err := r.Push([]byte(strings.Repeat("x", IPCMaxLineBytes-2))); err != nil {
 		t.Fatalf("Push: %v", err)
@@ -296,8 +297,8 @@ func TestLineReaderFlushEnforcesTheLimitOnDecodedOctets(t *testing.T) {
 	if _, err := r.Push([]byte{0xF0, 0x9F}); err != nil {
 		t.Fatalf("Push of the partial sequence: %v", err)
 	}
-	// At Flush those two octets become two U+FFFD — six octets — taking the remainder
-	// to IPCMaxLineBytes+4.
+	// At Flush those two octets — one maximal subpart — become a single U+FFFD, three
+	// octets, taking the remainder to IPCMaxLineBytes+1.
 	if _, err := r.Flush(); !errors.Is(err, ErrFrameTooLong) {
 		t.Fatalf("Flush: %v, want ErrFrameTooLong once the replacements are counted", err)
 	}

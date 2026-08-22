@@ -1,0 +1,8 @@
+{
+  "description": "the same prefix invalidated by an octet arriving in a LATER chunk gives the same one U+FFFD, because the count does not depend on chunking",
+  "chunks": [{ "base64": "8J8=" }, { "base64": "QQo=" }],
+  "expect": {
+    "push": [[], ["�A"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

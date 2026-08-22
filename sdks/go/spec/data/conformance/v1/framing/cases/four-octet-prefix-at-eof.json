@@ -1,0 +1,8 @@
+{
+  "description": "a three-octet prefix of a four-octet sequence is one maximal subpart, so end-of-stream replaces it with exactly one U+FFFD rather than one per leftover octet",
+  "chunks": [{ "base64": "8J+N" }],
+  "expect": {
+    "push": [[]],
+    "flush": { "frames": ["�"], "truncated": true }
+  }
+}

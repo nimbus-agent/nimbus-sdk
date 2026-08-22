@@ -27,9 +27,13 @@
 // UnicodeEncodeError, so this is a third answer to a case §8 declares undefined in v0.
 // It is inherited from the standard library rather than chosen: §5's rejection tokens are
 // closed, so there is no invalid-utf8 to return, and §8 forbids a binding inventing a
-// verdict until the manifest rule registry constrains the identifier's format. The same
-// per-byte counting shows up in the framing binding's U+FFFD divergence — Go's standard
-// library counts bytes where the web platform counts sequences.
+// verdict until the manifest rule registry constrains the identifier's format. This
+// encode-side substitution is unaffected by RFC-0014: diagnostics.md §8's undefined
+// behaviour is still undefined. The same per-byte counting used to show up in the framing
+// binding's U+FFFD count too — Go emitted one U+FFFD per leftover octet of an invalidated
+// multi-octet prefix, where the web platform's maximal-subpart rule counts sequences —
+// until RFC-0014 pinned framing.md §4 to that rule and this module's decode was corrected
+// to match it.
 //
 // The emitter does not recover from a panicking sink — see emitter.go.
 package diagnostics

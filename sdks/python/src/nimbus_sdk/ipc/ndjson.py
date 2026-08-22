@@ -33,9 +33,10 @@ def _exceeds_limit(text: str) -> bool:
     **Measured on the decoded text, not the raw input octets**, matching the reference
     implementation, which calls ``byteLengthUtf8`` on the already-decoded string. The
     distinction is observable: a line of ill-formed octets expands under
-    ``errors="replace"``, since each becomes U+FFFD at three octets. No corpus case
-    pins it — every limit case uses well-formed input — so this is a deliberate
-    agreement with the reference rather than a rule anything enforces.
+    ``errors="replace"``, since each maximal subpart becomes a single U+FFFD at three
+    octets. ``framing.md`` §6 states the decoded-octet basis normatively, and the
+    ``limit-counts-decoded-octets`` corpus case — built from 400,000 ill-formed octets —
+    pins it.
 
     Bounded before encoding because :meth:`NdjsonLineReader.push` checks the *whole*
     pending buffer on every call: a peer feeding one large frame in small chunks would

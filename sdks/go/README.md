@@ -358,7 +358,7 @@ handshake, the diagnostics envelope with its emitter, the connector kit, and the
 version accessor. It executes **every published conformance corpus its surface publishes**
 — four of the eight in the tree — in full, nothing deferred in any: `negotiation` — all 38
 cases across all three of its kinds, `negotiate`, `hello`, and `declaration` — `framing` —
-all 25 cases — `diagnostics` — all 75, across `encode`, `parse`, and `level` — and
+all 33 cases — `diagnostics` — all 75, across `encode`, `parse`, and `level` — and
 `url-resolution` — all 28, against `ResolveURLWithBase`. The other four — `predicates`,
 `sandbox`, `manifest` and `item` — bind surfaces this module does not publish, and the last
 two need a JSON Schema validator no dependency-free binding has written.

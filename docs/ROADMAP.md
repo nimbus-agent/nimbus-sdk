@@ -273,7 +273,7 @@ maintained."*
   at [`sdks/go/`](../sdks/go/) — module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero
   dependencies — and executes **every published corpus its surface publishes**, four of
   the eight in the tree, in full and with nothing deferred in any: `negotiation` (all 38
-  cases across all three kinds), `framing` (all 25, run against `LineReader`),
+  cases across all three kinds), `framing` (all 33, run against `LineReader`),
   `diagnostics` (all 75, across `encode`, `parse` and `level`, against a `diagnostics`
   package that ships an emitter Python does not have), and `url-resolution` (all 28,
   against a `connectorkit` package binding Python's Shipment 1 core). That is the same four

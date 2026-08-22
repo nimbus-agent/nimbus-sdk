@@ -1,0 +1,8 @@
+{
+  "description": "ED requires 80..9F next, so a WTF-8 surrogate is three maximal subparts — three U+FFFD, not one",
+  "chunks": [{ "base64": "7aCACg==" }],
+  "expect": {
+    "push": [["���"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

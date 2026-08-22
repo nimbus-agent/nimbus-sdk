@@ -1,0 +1,8 @@
+{
+  "description": "a four-octet prefix invalidated by a following ASCII octet in the SAME chunk is still one maximal subpart — end-of-stream is not the only trigger",
+  "chunks": [{ "base64": "8J9BCg==" }],
+  "expect": {
+    "push": [["�A"]],
+    "flush": { "frames": [], "truncated": false }
+  }
+}

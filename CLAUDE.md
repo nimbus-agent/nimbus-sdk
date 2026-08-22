@@ -189,7 +189,7 @@ Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
 Go executes **four of the eight published conformance corpora**, nothing deferred in
 any: `negotiation` — all 38 cases across all three kinds (`negotiate` 16, `hello` 15,
-`declaration` 7) — `framing` — all 25 cases, run against `LineReader` — `diagnostics` —
+`declaration` 7) — `framing` — all 33 cases, run against `LineReader` — `diagnostics` —
 all 75, across `encode` (64), `parse` (6) and `level` (5) — and `url-resolution` — all 28,
 run against `connectorkit.ResolveURLWithBase`. That is the same four Python executes.
 
@@ -269,7 +269,9 @@ input, and neither binding may invent one until the manifest rule registry const
 the identifier's format enough to rule the question out structurally. `event.py`'s own
 docstring discloses the exact mechanism.
 
-**The Go binding changes the shape of two of those three, and adds a fourth of its own.**
+**The Go binding changes the shape of two of those three. It once added a fourth of its
+own — the U+FFFD count for an invalidated multi-octet prefix — which
+[RFC-0014](./docs/rfcs/0014-utf8-replacement-count.md) has since closed.**
 
 - **Narrowing is now three-way**: TypeScript's tagged union, Python's `isinstance`, and
   Go's type switch over an interface sealed by an unexported marker method. Go's is the
@@ -300,47 +302,28 @@ docstring discloses the exact mechanism.
   manifest rule registry constrains the identifier's format. Same root cause as the
   bullet below: Go's standard library counts bytes where the web platform counts
   sequences.
-- **The U+FFFD count for an invalidated multi-octet prefix is a new divergence, and it
-  is Go alone.** Whenever a well-formed *prefix* of a multi-octet UTF-8 sequence is
-  invalidated, `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover
-  octet**, where TypeScript's `TextDecoder` and Python's
-  `codecs.getincrementaldecoder("utf-8")("replace")` collapse the whole prefix into a
-  **single** U+FFFD, WHATWG's maximal-subpart rule. **End-of-stream is not the only
-  trigger** — a non-continuation octet arriving mid-stream does it too, with no boundary
-  and no flush involved. Measured on this branch rather than assumed: `F0 9F` held and
-  finalized gives 2 in Go against 1 in Node and 1 in CPython; a three-octet prefix gives
-  3 against 1; and `F0 9F 41` in a **single mid-stream chunk** gives 2 in Go against 1 in
-  both — a truncated emoji followed by a closing quote inside a JSON string is enough.
-  Definitively-invalid octets are unaffected and all three agree: `FF` and `A9` give 1
-  each, `E0 80` and `C0 AF` 2, `ED A0 80` 3. **The consequence is not cosmetic**, because
-  §6's limit is measured on decoded octets in all three bindings and §7 makes exceeding
-  it terminal: 200,000 repetitions of `F0 9F 41` plus an LF is 600,001 raw octets, which
-  decode to 1,400,000 in Go — `Push` returns `ErrFrameTooLong` and latches — against
-  800,000 under the WHATWG rule, where Python's `NdjsonLineReader` delivers the frame,
-  both measured by running the two readers. One binding kills the connection where
-  another delivers a message, on input `framing.md`'s preamble says every binding must
-  handle identically. It is nevertheless permitted, not a bug: §4 requires only that an
-  ill-formed sequence become U+FFFD, never how many, and no case in the `framing` corpus
-  exercises an invalidated multi-octet prefix at all — every ill-formed case there is a
-  single stray octet or a sequence split cleanly across a chunk boundary — so nothing
-  pins a count for either side to violate, and Go's is inherited from `utf8.DecodeRune`
-  rather than chosen. A future corpus case that pins a count would make whichever binding
-  disagrees non-conformant, and fixing Go would mean fixing **both** triggers, not just
-  finalization — which is exactly why this is recorded now, while it is still a
-  difference and not yet a bug.
+- **The U+FFFD count for an invalidated multi-octet prefix was a Go-only divergence, and is
+  now fixed.** Go emitted one U+FFFD per leftover octet where `TextDecoder` and
+  `codecs.getincrementaldecoder` collapse an invalidated prefix into one. Because §6's limit
+  is measured on decoded octets and §7 makes exceeding it terminal, that could kill a
+  connection where another binding delivered the message — measured, on 200,000 repetitions
+  of `F0 9F 41`. [RFC-0014](./docs/rfcs/0014-utf8-replacement-count.md) pinned
+  `framing.md` §4 to Unicode's maximal-subpart rule, `sdks/go/ipc/utf8stream.go`'s
+  `scanUTF8` implements it, and eight corpus cases hold all three bindings to it. Fixed
+  rather than disclosed, like the U+0130 fold and unlike the three entries above it, because
+  two of three bindings already agreed and the preamble already required them to.
 
-- **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike every
-  entry above.** `strings.ToLower` applies Unicode's **simple** case mapping where Python's
-  `str.lower()` and JavaScript's `toLowerCase()` apply the **full** one; they disagree on
-  exactly one assigned code point, `İ` → `U+0069` in Go against `U+0069 U+0307` in both
-  others. Measured by sweeping all 0x110000 scalar values: that is the only real
+- **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike the
+  first three entries above.** `strings.ToLower` applies Unicode's **simple** case mapping
+  where Python's `str.lower()` and JavaScript's `toLowerCase()` apply the **full** one; they
+  disagree on exactly one assigned code point, `İ` → `U+0069` in Go against `U+0069 U+0307`
+  in both others. Measured by sweeping all 0x110000 scalar values: that is the only real
   disagreement, the other 28 being Go's Unicode 17.0.0 against CPython's 16.0.0 on code
   points unassigned in 16. The connector kit's `foldForSearch` corrects it with a one-rune
   replacer and a test re-runs the sweep, so a future Go that adds a second special case
-  fails CI rather than shipping. **Fixed rather than disclosed**, unlike the U+FFFD count
-  beside it, because the correction is one code point and exact where WHATWG's
-  maximal-subpart rule is neither, and because the consequence is a search silently
-  returning a different set of rows rather than a replacement-character count.
+  fails CI rather than shipping. **Fixed rather than disclosed, like the U+FFFD count beside
+  it** — that one because two of three bindings already agreed and the preamble already
+  required them to, this one because the correction is a single code point.
 
 This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
 and a corpus — and is not exhaustive across the package. The connector kit is batteries,

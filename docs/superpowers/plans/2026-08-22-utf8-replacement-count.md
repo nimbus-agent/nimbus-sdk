@@ -893,11 +893,20 @@ and CI runs it on six legs.
 
 - [ ] **Step 3: Prove the sweep is not vacuous**
 
-Change one range in `scanUTF8` — `case b0 == 0xED: need, lo, hi = 3, 0x80, 0xBF` (the
-surrogate guard removed) — and re-run. Record which property fails and restore.
+Removing the surrogate guard (`case b0 == 0xED: need, lo, hi = 3, 0x80, 0xBF`) does **not**
+work as a mutation: `utf8.DecodeRune` still rejects the surrogate and returns `RuneError`
+regardless of what `scanUTF8` calls complete, so the output is one U+FFFD instead of three
+— a count regression none of the sweep's properties can see, since `utf8.Valid(ED A0 80)`
+is false and identity never applies to that input in the first place. That mutation passes
+silently; do not use it.
 
-Expected: the `utf8.Valid` identity property fails, because the scanner now calls a
-surrogate encoding complete while `utf8.Valid` rejects it.
+Change the generic two-octet second-octet range instead — `case b0 < 0xE0: need, lo, hi =
+2, 0x80, 0xBF` narrowed to `2, 0x80, 0x9F` — and re-run. Record which property fails and
+restore.
+
+Expected: the `utf8.Valid` identity property fails, because a *valid* two-octet sequence
+like `C3 A9` (`é`) now scans as ill-formed and decodes to U+FFFD instead of surviving
+unchanged. Measured: `decode(00 c2 a0) = "\x00��", want the input unchanged`.
 
 - [ ] **Step 4: Commit**
 

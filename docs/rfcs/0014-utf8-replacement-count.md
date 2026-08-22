@@ -190,7 +190,9 @@ one without the other documents half of a load-bearing relationship.
 | `framing.md` §6 | adds one paragraph stating the decoded-not-raw measurement basis |
 | `framing` conformance corpus | eight new cases, 25 → 33 |
 | `sdks/go/ipc/utf8stream.go` | `decode` rewritten around `scanUTF8`, a maximal-subpart scanner, replacing the old `utf8.DecodeRune` per-octet stepping |
+| `sdks/go/spec/data/` | regenerated mirror of `docs/spec/` (`go generate ./spec`) — ten files, the eight new corpus cases, their `index.json`, and `framing.md` itself |
 | `sdks/python/tests/test_spec.py` | the framing corpus size pin moves 25 → 33 |
+| `sdks/python/src/nimbus_sdk/ipc/ndjson.py` | `_exceeds_limit`'s docstring corrected — documentation only, no behaviour change |
 
 No schema changes, no new case kind, no change to TypeScript or Python behaviour, no change
 to `sdks/go/go.mod`.
@@ -204,8 +206,10 @@ ships as `sdks/go/v0.6.1`, `fix(go):`, a patch release: the binding is being cor
 against a rule that was already binding on it, per the §11 argument above, not migrated to
 a new one.
 
-TypeScript and Python are untouched — measured against all ten prefixes and all three
-triggers, their output was already the rule this RFC pins.
+TypeScript and Python's behaviour is untouched — measured against all ten prefixes and all
+three triggers, their output was already the rule this RFC pins. (Python's `_exceeds_limit`
+docstring, which had denied this rule, is corrected as a documentation-only change; see the
+`sdks/python/src/nimbus_sdk/ipc/ndjson.py` row above.)
 
 A consumer that depended on Go's old per-octet count — for example, code that counted
 U+FFFD in a decoded frame to detect corruption — was depending on behaviour no document
@@ -278,9 +282,11 @@ caught by **0 of 25**.
 
 Beyond the corpus, `sdks/go/ipc` carries an exhaustive sweep over every one-, two- and
 three-octet input — 16,843,008 sequences, run in about half a second — asserting the
-scanner's invariants directly: it never panics, never loses an octet, reproduces
-well-formed input exactly, and emits nothing but U+FFFD and well-formed runes otherwise.
-The corpus proves interoperability across the three bindings on the cases that were written
+scanner's invariants directly: **chunking invariance**, decoding a sequence whole equals
+decoding it split at every possible byte boundary, the executable form of §4's own "the
+count does not depend on how the octets were chunked"; well-formed input always survives
+unchanged; and output is always well-formed UTF-8, however ill-formed the input was. The
+corpus proves interoperability across the three bindings on the cases that were written
 down; the sweep proves the scanner has no blind spot the corpus's finite case count could
 still be hiding.
 

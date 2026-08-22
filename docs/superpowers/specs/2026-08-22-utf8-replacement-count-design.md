@@ -346,11 +346,13 @@ pins in the repository. Go's floor of 20 is unchanged, per RFC-0012 D7.
   is the rule most likely to be mistyped and the one the review had to point out was missing
   from this document; three octets reaches it and stays cheap, since each iteration is a
   slice scan. It asserts the invariants the rule implies rather than a checked-in expected
-  table: the scanner never panics, never loses an octet (subpart lengths sum to the input
-  length), reproduces the input exactly whenever `utf8.Valid` accepts it, and emits nothing
+  table: **chunking invariance** — decoding a sequence whole equals decoding it split at
+  every possible byte boundary, the executable form of §4's own "the count does not depend
+  on how the octets were chunked" — that well-formed input, whenever `utf8.Valid` accepts
+  it, is reproduced exactly, and that output is always well-formed UTF-8, emitting nothing
   but U+FFFD and well-formed runes otherwise. This is the shape the U+0130 sweep already
-  established in `connectorkit`: a hand-written table needs a guard that fails CI when a
-  future edit mistypes a range, not a spot check.
+  established in `connectorkit`: a hand-written table needs
+  a guard that fails CI when a future edit mistypes a range, not a spot check.
 - **A one-off cross-language sweep against CPython over the same 16,843,008 inputs**,
   recorded as a measurement in the implementation plan rather than kept as a test. That is
   what turns "the invariants hold" into "Go agrees with the reference behaviour on every

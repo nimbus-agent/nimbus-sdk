@@ -189,7 +189,7 @@ Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
 Go executes **four of the eight published conformance corpora**, nothing deferred in
 any: `negotiation` — all 38 cases across all three kinds (`negotiate` 16, `hello` 15,
-`declaration` 7) — `framing` — all 25 cases, run against `LineReader` — `diagnostics` —
+`declaration` 7) — `framing` — all 33 cases, run against `LineReader` — `diagnostics` —
 all 75, across `encode` (64), `parse` (6) and `level` (5) — and `url-resolution` — all 28,
 run against `connectorkit.ResolveURLWithBase`. That is the same four Python executes.
 
@@ -269,7 +269,9 @@ input, and neither binding may invent one until the manifest rule registry const
 the identifier's format enough to rule the question out structurally. `event.py`'s own
 docstring discloses the exact mechanism.
 
-**The Go binding changes the shape of two of those three, and adds a fourth of its own.**
+**The Go binding changes the shape of two of those three. It once added a fourth of its
+own — the U+FFFD count for an invalidated multi-octet prefix — which
+[RFC-0014](./docs/rfcs/0014-utf8-replacement-count.md) has since closed.**
 
 - **Narrowing is now three-way**: TypeScript's tagged union, Python's `isinstance`, and
   Go's type switch over an interface sealed by an unexported marker method. Go's is the
@@ -308,11 +310,11 @@ docstring discloses the exact mechanism.
   of `F0 9F 41`. [RFC-0014](./docs/rfcs/0014-utf8-replacement-count.md) pinned
   `framing.md` §4 to Unicode's maximal-subpart rule, `sdks/go/ipc/utf8stream.go`'s
   `scanUTF8` implements it, and eight corpus cases hold all three bindings to it. Fixed
-  rather than disclosed, like the U+0130 fold and unlike the two entries above it, because
+  rather than disclosed, like the U+0130 fold and unlike the three entries above it, because
   two of three bindings already agreed and the preamble already required them to.
 
 - **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike the
-  first two entries above.** `strings.ToLower` applies Unicode's **simple** case mapping
+  first three entries above.** `strings.ToLower` applies Unicode's **simple** case mapping
   where Python's `str.lower()` and JavaScript's `toLowerCase()` apply the **full** one; they
   disagree on exactly one assigned code point, `İ` → `U+0069` in Go against `U+0069 U+0307`
   in both others. Measured by sweeping all 0x110000 scalar values: that is the only real

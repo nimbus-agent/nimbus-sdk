@@ -223,6 +223,10 @@ const (
 )
 
 // scanUTF8 classifies the head of buf. n >= 1 in every state.
+//
+// It takes no `final` argument and must not gain one: whether an incomplete prefix is
+// held or replaced is decode's decision, not the scanner's. Keeping scan a pure
+// function of the octets is what makes the exhaustive sweep below possible.
 func scanUTF8(buf []byte) (n int, state scanState)
 ```
 
@@ -241,13 +245,40 @@ Its table is the standard lead-octet ranges with the four narrowed second-octet 
 | `F4` | 4 | `80..8F` |
 | `F5..FF` | — | never a lead |
 
+**Octets three and four are not covered by that table and are not arbitrary: each MUST be a
+continuation octet, `80..BF`.** The table narrows only octet two, because that is the only
+position where the valid range depends on the lead. An implementer who reads the table as
+the whole rule writes a scanner that accepts `F0 9F 41 41` as a four-octet sequence.
+
+Both checks feed the same output, which is the part that matters for the count:
+
+- **A byte out of range at any position** — two, three or four — makes the sequence
+  ill-formed *now*. `n` is the number of octets validated so far, never including the
+  offending one, and never zero: a bad octet at position two yields `n = 1`. The offending
+  octet is not consumed; it is re-examined as the head of the next sequence, which is what
+  makes `F0 9F C3 A9` decode to one U+FFFD followed by `é` rather than swallowing the `C3`.
+- **Running out of buffer before a violation** yields `scanIncomplete` with `n = len(buf)`.
+  Every read past `buf[0]` must be length-guarded first, at each position rather than once
+  up front: `scanUTF8([]byte{0xF0})` is an ordinary call, not an edge case, and reading
+  `buf[1]` there panics. This is the state a chunk boundary inside a sequence produces, so
+  it is on the hot path of every split-sequence case in the corpus.
+
+Since `scanIncomplete` implies `n == len(buf)` and no valid prefix exceeds three octets,
+`len(buf) <= 3` whenever the scanner reports it — which bounds `pending` at three octets.
+
 `decode` then reads as the spec sentence does:
 
 - `scanComplete` — write the rune, advance `n`. The slice is already validated, so handing
   it to `utf8.DecodeRune` is safe: the table excludes surrogates and overlongs, which is the
   only reason that call cannot return `RuneError` here.
 - `scanIncomplete` and `!final` — hold the prefix in `pending`, unchanged from today, copied
-  rather than aliased for the reason the existing comment gives.
+  rather than aliased for the reason the existing comment gives. **Deferred, deliberately:**
+  `pending` is bounded at three octets, so a `[3]byte` array plus a length would remove both
+  small allocations on this path — the copy here, and the `append(s.pending, chunk...)` that
+  joins them on the next call. It is left as a dynamic slice because this change is a
+  correctness fix in a released binding and the allocation is not on a hot path: it occurs
+  only when a chunk boundary falls *inside* a multi-octet sequence, not once per chunk.
+  Revisit under a profile, not on principle.
 - `scanIncomplete` and `final` — no completion is coming, so the prefix *is* the maximal
   subpart: one U+FFFD, advance `n`.
 - `scanIllFormed` — one U+FFFD, advance `n`.
@@ -310,13 +341,22 @@ pins in the repository. Go's floor of 20 is unchanged, per RFC-0012 D7.
 
 - **The ten-row matrix × three triggers**, as explicit Go unit tests. The corpus covers the
   interesting rows; this covers all of them in one table, in the package that owns the bug.
-- **An exhaustive sweep over all 1- and 2-octet inputs** — 65,792 — asserting the count the
-  rule requires, kept as a permanent test. This is the shape the U+0130 sweep already
+- **An exhaustive sweep over every input of one, two and three octets** — 16,843,008 — kept
+  as a permanent test. Two octets would not reach the third-octet continuation check, which
+  is the rule most likely to be mistyped and the one the review had to point out was missing
+  from this document; three octets reaches it and stays cheap, since each iteration is a
+  slice scan. It asserts the invariants the rule implies rather than a checked-in expected
+  table: the scanner never panics, never loses an octet (subpart lengths sum to the input
+  length), reproduces the input exactly whenever `utf8.Valid` accepts it, and emits nothing
+  but U+FFFD and well-formed runes otherwise. This is the shape the U+0130 sweep already
   established in `connectorkit`: a hand-written table needs a guard that fails CI when a
   future edit mistypes a range, not a spot check.
-- **A one-off cross-language sweep against CPython**, recorded as a measurement in the
-  implementation plan rather than kept as a test. The corpus is the permanent
-  cross-language mechanism; a differential harness would duplicate it.
+- **A one-off cross-language sweep against CPython over the same 16,843,008 inputs**,
+  recorded as a measurement in the implementation plan rather than kept as a test. That is
+  what turns "the invariants hold" into "Go agrees with the reference behaviour on every
+  short input", which no invariant can establish on its own. It is slow in Python and
+  therefore run once, deliberately: the corpus is the permanent cross-language mechanism,
+  and a standing differential harness would duplicate it.
 
 Existing Go tests need no rewriting: `TestUTF8StreamReplacesAnIncompletePrefixAtFinal` uses
 `C3`, a one-octet prefix, where old and new rules agree. That is a comfort and an

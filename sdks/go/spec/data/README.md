@@ -251,16 +251,17 @@ Eight guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
-holds the contract to being **language-neutral** is that a second binding executes the
-same fixtures: `sdks/python/` runs the `negotiation` corpus — all three case kinds —
-the `framing` corpus, the `diagnostics` corpus, and the `url-resolution` corpus, from the
-same `index.json` files the TypeScript guards read, with nothing deferred. A case added to
-any of the four therefore runs in both languages as soon as it is indexed, and a claim only
-one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
+holds the contract to being **language-neutral** is that other bindings execute the
+same fixtures: `sdks/python/` and `sdks/go/` each run the `negotiation` corpus — all three
+case kinds — the `framing` corpus, the `diagnostics` corpus, and the `url-resolution`
+corpus, from the same `index.json` files the TypeScript guards read, with nothing deferred.
+A case added to any of the four therefore runs in all three languages as soon as it is
+indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
-`url-resolution` holds a narrower one — that `resolveUrlWithBase` and
-`resolve_url_with_base`, two separate implementations of the same SSRF chokepoint rather
-than two ends of a protocol, reach the same verdict and the same words on every case.
+`url-resolution` holds a narrower one — that `resolveUrlWithBase`,
+`resolve_url_with_base` and `ResolveURLWithBase`, three separate implementations of the
+same SSRF chokepoint rather than the two ends of a protocol, reach the same verdict and the
+same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. `predicates` and `sandbox` are executed by the **TypeScript** binding only — real

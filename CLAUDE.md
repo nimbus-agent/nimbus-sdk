@@ -91,10 +91,14 @@ The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 point, so the boundary is documentation — and hoisting the names to the top level as a
 convenience would erase it.
 
-TypeScript and Python both execute the published conformance corpora: `negotiation` (all
-three kinds), `framing`, `diagnostics`, and — since `connector_kit`'s `urls.py` — the
-`url-resolution` corpus. Nothing is deferred, so a new corpus case runs in both
-languages the moment it is indexed. **Go is narrower** — see the section below.
+TypeScript and Python both execute four of the eight published conformance corpora:
+`negotiation` (all three kinds), `framing`, `diagnostics`, and — since `connector_kit`'s
+`urls.py` — `url-resolution`. Nothing is deferred, so a new case in any of the four runs in
+both languages the moment it is indexed. TypeScript additionally executes the other four —
+`predicates`, `sandbox`, `manifest`, `item` — which no second binding runs, so those carry
+no language-neutrality evidence; `docs/spec/README.md` says so, and the count is broken
+down in the Go section below. **Go is narrower still, in its batteries rather than its
+corpora** — it runs the same four Python does.
 
 ## Go surface (five packages, and nothing at the module root)
 
@@ -183,13 +187,27 @@ on-disk layout of `docs/spec` part of Go's public API, so moving `conformance/v1
 would become a Go breaking change while staying invisible to the other two bindings.
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
-Go now executes **all four** published conformance corpora, nothing deferred in
+Go executes **four of the eight published conformance corpora**, nothing deferred in
 any: `negotiation` — all 38 cases across all three kinds (`negotiate` 16, `hello` 15,
 `declaration` 7) — `framing` — all 25 cases, run against `LineReader` — `diagnostics` —
-all 75, across `encode` (64), `parse` (6) and `level` (5) — and, since this branch,
-`url-resolution` — all 28, run against `connectorkit.ResolveURLWithBase`. That is the same
-four Python executes, which is what GOVERNANCE criterion 1 asks for; officiality itself is
-a governance act, not a test result, and RFC-0013 is what records it.
+all 75, across `encode` (64), `parse` (6) and `level` (5) — and `url-resolution` — all 28,
+run against `connectorkit.ResolveURLWithBase`. That is the same four Python executes.
+
+**Eight are published, not four**, and the phrase "all four" — which this file and both
+READMEs used to carry — read as though only four existed. Six carry their own `index.json`
+(the four above plus `predicates` 33 and `sandbox` 31); two are fixture sets in the
+*top-level* `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` 31 and
+`item` 6), with their case files sitting directly in the corpus directory and no `cases/`
+subdirectory. 267 cases in total; Go and Python execute 166 of them, TypeScript all 267.
+The other four bind surfaces neither Go nor Python publishes, and `manifest` / `item` need
+a JSON Schema validator the dependency-free rule would make hand-written.
+
+Four is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
+[RFC-0013](./docs/rfcs/0013-go-sdk-official.md) pins "the full conformance suite" to
+**every published corpus whose surface the binding publishes** — the reading RFC-0008
+already promoted Python under, on two corpora of the six then published. RFC-0013 also
+records the four criteria as met and names the SDK owner, so **Go is official**;
+officiality is a governance act, not a test result.
 
 **`spec.LoadCorpus` decodes with `UseNumber`, and had to.** The `diagnostics` corpus
 spells a non-finite `fields` value as the literal `1e400`, which overflows `float64`, and

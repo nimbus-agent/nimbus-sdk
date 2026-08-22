@@ -10,15 +10,15 @@ go get github.com/nimbus-agent/nimbus-sdk/sdks/go
 The import path ends in `/go` because the module lives in a subdirectory of the
 contract's own repository, which is what keeps the spec and the conformance corpora
 in-tree: a new corpus case runs the moment it is indexed, in every binding that already
-executes that corpus. For Go that is now all four — `negotiation`, `framing`,
-`diagnostics` and `url-resolution` — so a new case in any of them reaches this binding
-without a release. Release tags are correspondingly prefixed —
+executes that corpus. For Go that is `negotiation`, `framing`, `diagnostics` and
+`url-resolution` — four of the eight published, and every one whose surface this module
+publishes — so a new case in any of them reaches this binding without a release. Release tags are correspondingly prefixed —
 `sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
 
 > **Released.** The `go get` above resolves: `proxy.golang.org` serves the module,
 > `sum.golang.org` vouches for it, and the docs render on
 > [pkg.go.dev](https://pkg.go.dev/github.com/nimbus-agent/nimbus-sdk/sdks/go). The latest
-> tag is `sdks/go/v0.5.0`. See [Status](#status).
+> tag is `sdks/go/v0.6.0`. See [Status](#status).
 
 ## What this is
 
@@ -315,7 +315,7 @@ import (
 )
 
 func main() {
-	fmt.Println(contract.SDKVersion()) // v0.5.0, from a consumer that requires v0.5.0
+	fmt.Println(contract.SDKVersion()) // v0.6.0, from a consumer that requires v0.6.0
 }
 ```
 
@@ -332,13 +332,14 @@ those even when `go.mod` nominally requires a released version, because what is 
 is the source tree. It returns `""` only when the binary carries no build information at
 all.
 
-Measured against the published **`v0.5.0`** from a consumer module outside any checkout:
+Measured against the published **`v0.6.0`** — the first release to carry this function —
+from a consumer module outside any checkout, calling the shipped `SDKVersion` itself:
 
 | Context | `SDKVersion()` |
 |---|---|
-| Consumer, `go build` then run the binary | `"v0.5.0"` |
-| Consumer, `go run .` | `"v0.5.0"` |
-| Consumer, `go mod vendor` + `-mod=vendor` | `"v0.5.0"` |
+| Consumer, `go build` then run the binary | `"v0.6.0"` |
+| Consumer, `go run .` | `"v0.6.0"` |
+| Consumer, `go mod vendor` + `-mod=vendor` | `"v0.6.0"` |
 | Consumer, `replace` pointing at a local checkout | `"(devel)"` |
 | Inside this module's own `go test` | `"(devel)"` |
 
@@ -354,16 +355,20 @@ Narrower than the other two bindings only in its batteries, not in its contracts
 carries the contract-version constants, the negotiation algorithm, the manifest
 declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
 handshake, the diagnostics envelope with its emitter, the connector kit, and the SDK
-version accessor. It executes
-**all four** published conformance corpora in full, nothing deferred in any:
-`negotiation` — all 38 cases across all three of its kinds, `negotiate`, `hello`, and
-`declaration` — `framing` — all 25 cases — `diagnostics` — all 75, across `encode`,
-`parse`, and `level` — and `url-resolution` — all 28, against `ResolveURLWithBase`.
+version accessor. It executes **every published conformance corpus its surface publishes**
+— four of the eight in the tree — in full, nothing deferred in any: `negotiation` — all 38
+cases across all three of its kinds, `negotiate`, `hello`, and `declaration` — `framing` —
+all 25 cases — `diagnostics` — all 75, across `encode`, `parse`, and `level` — and
+`url-resolution` — all 28, against `ResolveURLWithBase`. The other four — `predicates`,
+`sandbox`, `manifest` and `item` — bind surfaces this module does not publish, and the last
+two need a JSON Schema validator no dependency-free binding has written.
 
-That is the same four Python runs, which is what
+That is the same four Python runs, and it is what
 [GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)
-criterion 1 asks for. Officiality is still a governance act, not a test result — RFC-0013
-is what records it.
+criterion 1 asks for. **This binding is official**, by
+[RFC-0013](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0013-go-sdk-official.md),
+which records the four criteria as met, names the SDK owner, and pins that reading of
+"full" — officiality being a governance act rather than a test result.
 
 **Not here yet:**
 

@@ -74,6 +74,25 @@ trailing continuation octets then decode alone.
 At end-of-stream an incomplete sequence has no completion left to await, and MUST be
 replaced with U+FFFD at that point (§8).
 
+**How many.** Exactly one U+FFFD replaces each *maximal subpart* of an ill-formed sequence —
+the longest prefix of the remaining octets that could still begin a well-formed sequence, or
+a single octet when no such prefix exists. Decoding resumes at the octet after that subpart.
+The count does not depend on how the octets were chunked, nor on whether the sequence was
+invalidated by a following octet or by the end of the stream.
+
+This is Unicode 3.9's recommended practice and the rule the
+[WHATWG Encoding Standard](https://encoding.spec.whatwg.org/) states, so a binding decoding
+through `TextDecoder` or through Python's incremental UTF-8 decoder conforms without doing
+anything. A binding that steps through an unfinishable prefix one octet at a time will not:
+it reports one U+FFFD per leftover octet, which this rule forbids.
+
+| Octets | Replacements | Why |
+|---|---|---|
+| `F0 9F 8D` | 1 | a valid prefix of one 4-octet sequence — a single subpart |
+| `E0 80` | 2 | `E0` requires `A0..BF` next, so `E0` alone is the subpart; `80` then stands alone |
+| `ED A0 80` | 3 | `ED` requires `80..9F` next; each of the three octets is its own subpart |
+| `C0 AF` | 2 | `C0` can never lead a sequence; `AF` then stands alone |
+
 The frame size limit in §6 counts **octets, not characters**.
 
 ## 5. Byte order mark
@@ -93,6 +112,11 @@ asserts it.
 
 A frame MUST NOT exceed **1 MiB — 1048576 octets** — measured as UTF-8 after the CR and LF
 of §3 are removed. A frame of exactly 1048576 octets is conformant; 1048577 is not.
+
+The measurement is on the **decoded** text re-encoded as UTF-8, not on the raw input octets.
+The two differ only for ill-formed input, where each U+FFFD of §4 occupies three octets and
+can carry a frame past the limit that its raw octets did not reach. §4's replacement count
+is therefore load-bearing here, and through §7 it decides whether a stream survives.
 
 A reader MUST enforce the limit in both places it can be exceeded:
 

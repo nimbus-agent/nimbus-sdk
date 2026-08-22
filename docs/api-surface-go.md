@@ -58,13 +58,14 @@ not even another package inside this module.
 
 ## `contract`
 
-9 exports.
+10 exports.
 
 - `const HandshakeExit = 20`
 - `func DeclaredVersionsMatch(manifestVersions []any, helloVersions []string) bool`
 - `func IsContractVersion(v any) bool`
 - `func ManifestContractVersions(manifest any) []any`
 - `func Negotiate(local, remote []any) NegotiationResult`
+- `func SDKVersion() string`
 - `type NegotiationOk struct { Version string }`
 - `type NegotiationRefused struct { Reason string }`
 - `type NegotiationResult interface {}`

@@ -247,6 +247,14 @@ its version via `runtime/debug.ReadBuildInfo()`, which needs no generated consta
 cannot drift from the tag. Documented caveat: it returns empty under `go test` and
 `go run`, so it is not the exact analogue of Python's `__version__`.
 
+> **Correction, 2026-08-22 (the caveat only — the decision stands).** That caveat is
+> wrong on both counts, measured on Go 1.27 while shipping the accessor as
+> `contract.SDKVersion()`: under `go test` in this module it returns `"(devel)"`, not
+> empty, and under `go run` from a consumer module it returns the resolved version —
+> `"v0.5.0"` against the published tag — as does a vendored build. Empty is reserved for a
+> binary carrying no build information at all. `sdks/go/README.md` carries the measured
+> table; it is a closer analogue of Python's `__version__` than this paragraph claims.
+
 Shipment 1 ships **no version accessor at all**. The decision is recorded because the
 alternative — a release-please-maintained constant — would have to be wired into the
 release configuration this RFC lands, and choosing it later would be a change to the

@@ -303,12 +303,58 @@ either: exporting one would make the on-disk layout of `docs/spec` part of this 
 public API, and moving a corpus directory would become a Go breaking change while
 staying invisible to the other two bindings.
 
+## Reporting the SDK version
+
+```go
+package main
+
+import (
+	"fmt"
+
+	"github.com/nimbus-agent/nimbus-sdk/sdks/go/contract"
+)
+
+func main() {
+	fmt.Println(contract.SDKVersion()) // v0.5.0, from a consumer that requires v0.5.0
+}
+```
+
+**There is no `Version` constant, and there will not be one.** `SDKVersion` asks
+`debug.ReadBuildInfo()` what the toolchain recorded, which is the same question Python's
+`__version__` asks of `importlib.metadata`. A constant would be a second source of truth
+for a fact the build already carries, and one that disagreed with the tag would report a
+version that was never released, with nothing in CI able to notice.
+
+**Inside a checkout of this module it reports `"(devel)"`, and that is not a bug.** A
+source tree has no released version, so `go test` here, `go run` here, and any consumer
+whose `replace` directive points at a local checkout all get `"(devel)"` — the last of
+those even when `go.mod` nominally requires a released version, because what is running
+is the source tree. It returns `""` only when the binary carries no build information at
+all.
+
+Measured against the published **`v0.5.0`** from a consumer module outside any checkout:
+
+| Context | `SDKVersion()` |
+|---|---|
+| Consumer, `go build` then run the binary | `"v0.5.0"` |
+| Consumer, `go run .` | `"v0.5.0"` |
+| Consumer, `go mod vendor` + `-mod=vendor` | `"v0.5.0"` |
+| Consumer, `replace` pointing at a local checkout | `"(devel)"` |
+| Inside this module's own `go test` | `"(devel)"` |
+
+The vendored row is the one worth having measured: vendoring is where build information
+is most often assumed to be lost, and `vendor/modules.txt` carries the version through.
+
+`SDKVersion` reports **this module's** version. `ContractVersions` reports the contract
+majors it speaks; the two are unrelated numbers and only one of them is a semver.
+
 ## Status
 
 Narrower than the other two bindings only in its batteries, not in its contracts. It
 carries the contract-version constants, the negotiation algorithm, the manifest
 declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
-handshake, the diagnostics envelope with its emitter, and the connector kit. It executes
+handshake, the diagnostics envelope with its emitter, the connector kit, and the SDK
+version accessor. It executes
 **all four** published conformance corpora in full, nothing deferred in any:
 `negotiation` — all 37 cases across all three of its kinds, `negotiate`, `hello`, and
 `declaration` — `framing` — all 25 cases — `diagnostics` — all 75, across `encode`,
@@ -323,7 +369,6 @@ is what records it.
 
 - **The kit's transport, tool router and REST factories.** Out of Python's shipment 1 too;
   a binding follows the kit rather than leading it.
-- **A version accessor.** There is no `Version` constant; the tag is the version.
 
 Track it in the
 [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).

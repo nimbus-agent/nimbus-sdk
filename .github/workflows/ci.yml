@@ -278,6 +278,205 @@ jobs:
       - name: Test
         run: go test ./...
 
+  # The cross-language conformance matrix: one job whose axis is LANGUAGE, running each
+  # binding's corpus suite with NIMBUS_CONFORMANCE_REPORT set and uploading what it executed.
+  # `conformance-report` below reconciles the three against docs/conformance-coverage.json.
+  #
+  # Linux only, three legs, deliberately. Cross-OS coverage already exists: build-test,
+  # python and go each run their full suite — corpora included — on ubuntu, macos and
+  # windows. This job's axis is language; an OS axis would re-run per-OS coverage that
+  # already exists and triple the heterogeneous-toolchain flake surface for nothing.
+  #
+  # The corpus tests consequently run twice on Linux. That is accepted: they are the fast
+  # part of each suite, and the alternative is either dropping them from the per-language
+  # jobs — making a local `pytest -q` a weaker check than CI — or having no job whose axis is
+  # language at all.
+  conformance:
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [typescript, python, go]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      NIMBUS_CONFORMANCE_REPORT: ${{ github.workspace }}/conformance-reports
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            registry.npmjs.org:443
+            bun.sh:443
+            nodejs.org:443
+            pypi.org:443
+            files.pythonhosted.org:443
+            storage.googleapis.com:443
+            dl.google.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # The TypeScript leg runs the guards under Bun AND framing-node.mjs under plain Node.
+      # framing is deliberately driven twice — TextDecoder's edge behaviour differs between
+      # the runtimes — so it reports two producers the reconciler unions.
+      # The guards are listed one by one rather than as `bun test scripts/`, which would also
+      # pull in api-surface / smoke-calls / docs-snippets — three gates that execute dist/ and
+      # belong to build-test, not here. A NEW guard added later is not listed, its corpus goes
+      # unrecorded, and the reconciler fails: loud, and in the right place.
+      #
+      # rules-guard is absent on purpose. It guards the rule REGISTRY and executes no manifest
+      # case, so it records nothing.
+      - name: Run the TypeScript corpus guards
+        if: matrix.language == 'typescript'
+        working-directory: sdks/typescript
+        run: |
+          bun test \
+            scripts/diagnostics-guard.test.ts \
+            scripts/framing-guard.test.ts \
+            scripts/negotiation-guard.test.ts \
+            scripts/predicates-guard.test.ts \
+            scripts/sandbox-guard.test.ts \
+            scripts/schema-guard.test.ts \
+            scripts/url-resolution-guard.test.ts
+
+      # framing's SECOND producer, under plain Node rather than Bun — the whole point of it,
+      # since TextDecoder's edge behaviour differs. It imports @nimbus-dev/sdk/ipc, so dist/
+      # has to exist first.
+      - name: Run the framing corpus under plain Node
+        if: matrix.language == 'typescript'
+        working-directory: sdks/typescript
+        run: |
+          bun run build
+          node scripts/framing-node.mjs
+
+      - name: Setup Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      # Two things this step must NOT do, both of which look right and both of which fail.
+      #
+      # `pip install -e .` does not bring pytest: [project].dependencies is empty by policy,
+      # so pytest is installed explicitly, exactly as the `python` job does.
+      #
+      # And it runs the four corpus modules by name rather than `tests/`. The full directory
+      # cannot work here: test_verify_publish.py imports `cryptography` at module level and
+      # test_gate_dist.py imports from scripts/, neither of which `pip install -e .` provides
+      # — the `python` job installs verify-requirements.txt for exactly that reason. Pulling
+      # a hash-pinned attestation toolchain into a job about conformance corpora would be the
+      # wrong fix. A new corpus module not listed here goes unrecorded and the reconciler
+      # fails, which is the same loud-in-the-right-place property the TypeScript leg has.
+      - name: Run the Python corpus suite
+        if: matrix.language == 'python'
+        working-directory: sdks/python
+        run: |
+          python -m pip install --upgrade pip pytest
+          python -m pip install -e .
+          python -m pytest -q \
+            tests/test_negotiation_corpus.py \
+            tests/test_framing_corpus.py \
+            tests/test_diagnostics_corpus.py \
+            tests/test_url_resolution_corpus.py
+
+      # `go-version-file` rather than a literal, so this is not a third place to update when
+      # the supported minors move. The policy is the two most recent stable minors with the
+      # go.mod directive naming the OLDER of the two; GOTOOLCHAIN=local means a mismatch here
+      # would fail the leg outright rather than quietly downloading a toolchain. Reading the
+      # directive keeps them in sync by construction.
+      #
+      # This leg therefore runs one Go version, the floor. The `go` job above is what covers
+      # both minors; this job's axis is language.
+      - name: Setup Go
+        if: matrix.language == 'go'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: sdks/go/go.mod
+          cache: false
+
+      # No NIMBUS_SPEC_DRIFT here, deliberately. Only spec/drift_test.go reads it, and this
+      # step builds ./conformance's tests alone — so setting it would be inert, and an inert
+      # env var reads as a guarantee this step does not provide. The `go` job runs `./...`
+      # and is where that guard lives.
+      - name: Run the Go conformance suite
+        if: matrix.language == 'go'
+        env:
+          GOTOOLCHAIN: local
+        run: go -C sdks/go test ./conformance/
+
+      # `warn` is the default and is precisely wrong here: a leg whose test command matched
+      # no files would go green having uploaded nothing, and the failure would surface a job
+      # later as a puzzling reconciliation error instead of here.
+      - name: Upload the conformance reports
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: conformance-${{ matrix.language }}
+          path: conformance-reports/
+          if-no-files-found: error
+          retention-days: 1
+
+  # Hold docs/conformance-coverage.json TRUE by execution: every corpus a binding claims was
+  # run, case for case, in THIS run. A leg that FAILS never reaches here — `needs:` requires
+  # success, so this job is skipped and ci-complete's `skipped` check reddens the run.
+  conformance-report:
+    needs: [conformance]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+            registry.npmjs.org:443
+            bun.sh:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: latest
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # merge-multiple flattens all three artifacts into one directory, which is what the
+      # reconciler globs.
+      - name: Download every leg's reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: conformance-*
+          merge-multiple: true
+          path: conformance-reports
+
+      - name: Reconcile
+        run: bun run sdks/typescript/scripts/conformance-reconcile.ts conformance-reports
+
   # The scaffolder's output has to be a project someone can actually run, and nothing above
   # proves that: `build-test` only typechecks and unit-tests the generator. These two jobs
   # pack the SDK from *this* commit, generate a connector, install the packed artifact into
@@ -658,7 +857,7 @@ jobs:
   # dependency fails, the required check would never report, and PRs would hang
   # waiting for a status that never arrives.
   ci-complete:
-    needs: [build-test, node-smoke, python, go, commit-guard, scaffold-typescript, scaffold-python]
+    needs: [build-test, node-smoke, python, go, conformance, conformance-report, commit-guard, scaffold-typescript, scaffold-python]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -673,4 +872,4 @@ jobs:
 
       - name: Fail unless every CI job succeeded
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} commit-guard=${{ needs.commit-guard.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1
+        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} conformance=${{ needs.conformance.result }} conformance-report=${{ needs.conformance-report.result }} commit-guard=${{ needs.commit-guard.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1

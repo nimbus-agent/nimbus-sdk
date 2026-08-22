@@ -113,7 +113,8 @@ that this file will not show; review those by hand.
 ### Changing the Go public API surface
 
 `docs/api-surface-go.md` is the Go equivalent: a generated snapshot of every exported
-declaration across `contract`, `ipc`, and `spec`. If you add, remove, rename, or change
+declaration across `connectorkit`, `contract`, `diagnostics`, `ipc`, and `spec`. If you
+add, remove, rename, or change
 the signature of an exported Go declaration, regenerate it in the same commit:
 
 ```bash

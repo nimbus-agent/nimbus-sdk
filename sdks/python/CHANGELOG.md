@@ -10,6 +10,13 @@
   `results.py` (`json_result` and its `*_if_ok` variants), and `search_filter.py`. The
   transport, the tool router, and `rest.py` follow in a later release.
 
+## [0.8.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.8.0...python-v0.8.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **go:** replace an invalidated UTF-8 prefix with one U+FFFD, not one per octet ([#155](https://github.com/nimbus-agent/nimbus-sdk/issues/155)) ([a7ba675](https://github.com/nimbus-agent/nimbus-sdk/commit/a7ba675138d07df44656ecc25f85d2ff8812fbea))
+
 ## [0.8.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.7.0...python-v0.8.0) (2026-08-20)
 
 

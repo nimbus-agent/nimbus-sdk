@@ -60,35 +60,25 @@ func octets(t *testing.T, node map[string]any) []byte {
 	return nil
 }
 
-// frameText is an expected frame: a literal string, or a repeat descriptor decoded.
+// frameText is an expected frame: a literal string, or a repeat descriptor expanded.
 //
-// Decoded, not reinterpreted: a Go string conversion carries octets through unchanged,
-// where TypeScript's expandFrame runs the same descriptor through TextDecoder and
-// Python's _frame_text through bytes.decode("utf-8"). Every repeat descriptor in the
-// corpus today repeats an ASCII octet, for which the two agree, so this changes nothing
-// now — but a case repeating a non-ASCII octet would compare raw octets against the
-// reader's decoded text and fail Go alone, for a reason having nothing to do with the
-// reader. A repeat unit that is not well-formed UTF-8 would additionally hit the
-// replacement-count divergence documented in sdks/go/ipc/utf8stream.go, and needs that
-// settled before such a case can be indexed.
+// Every repeat descriptor in the corpus expands to well-formed UTF-8, and this refuses to
+// guess what to do if one ever does not. The replacement rule is framing.md §4's, it lives
+// in ipc.scanUTF8, and a second copy here would be free to drift from it — which is what
+// the previous implementation did: it applied the per-octet count that §4 now forbids.
+// TypeScript's expandFrame runs the same descriptor through TextDecoder and Python's
+// _frame_text through bytes.decode("utf-8"), so all three now decline to reinterpret.
 func frameText(t *testing.T, node any) string {
 	t.Helper()
 	if s, ok := node.(string); ok {
 		return s
 	}
-	return decodeUTF8(octets(t, node.(map[string]any)))
-}
-
-// decodeUTF8 turns octets into text the way the reader does: one U+FFFD per octet that
-// no valid sequence can start or continue. Identity on well-formed input.
-func decodeUTF8(b []byte) string {
-	var out strings.Builder
-	for len(b) > 0 {
-		r, size := utf8.DecodeRune(b)
-		out.WriteRune(r)
-		b = b[size:]
+	raw := octets(t, node.(map[string]any))
+	if !utf8.Valid(raw) {
+		t.Fatalf("an expected-frame descriptor expanded to ill-formed UTF-8; write the frame " +
+			"as a literal string, or share ipc's decoder rather than reimplementing §4 here")
 	}
-	return out.String()
+	return string(raw)
 }
 
 // expectsError reports whether an expectation node is {"error": …}.

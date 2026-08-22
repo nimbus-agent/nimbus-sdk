@@ -13,7 +13,8 @@
 ## Global Constraints
 
 - **Dependency-free at runtime in all three languages.** No `dependencies` in any `package.json`, `[project].dependencies` stays empty in Python, `sdks/go/go.mod` keeps zero `require` lines. Test-only and script-only code may use what is already installed (`ajv` is already a devDependency and is already imported by the guards).
-- **No `any` in TypeScript; strict mode.** Use `unknown` at boundaries and narrow with a type guard. Biome enforces `noExplicitAny` and `noConsole` in `sdks/typescript/src/` — **`scripts/` is linted but `noConsole` does not apply there**, and existing scripts print freely.
+- **No `any` in TypeScript; strict mode.** Use `unknown` at boundaries and narrow with a type guard.
+- **`noConsole` is an error everywhere except `*.test.ts` / `*.spec.ts`.** `sdks/typescript/biome.json`'s single override exempts test files and nothing else, so a `console.log` in a `scripts/*.ts` module fails `bun run lint`. Non-test scripts print with `process.stdout.write` / `process.stderr.write` — as `scripts/api-surface.ts:718` already does — and must supply their own `\n`.
 - **Python is `mypy --strict` clean and `ruff` clean** (`python -m ruff check . && python -m ruff format --check .`).
 - **Go is `gofmt`-clean and `go vet`-clean.** Formatting is checked by `test -z "$(gofmt -l .)"`.
 - **Never change a published surface for this work.** `nimbus_sdk.load_corpus` and `spec.LoadCorpus` keep their current signatures and return types. Nothing is added to `sdks/typescript/src/`, `sdks/python/src/nimbus_sdk/` (outside `tests/`), or any non-`internal` exported Go identifier.
@@ -621,7 +622,8 @@ export function renderCoverage(): string {
 
 if (import.meta.main) {
   writeFileSync(joinRepo(OUTPUT_PATH), renderCoverage(), "utf8");
-  console.log(`wrote ${OUTPUT_PATH}`);
+  // process.stdout.write, not console.log: biome's noConsole is an error outside *.test.ts.
+  process.stdout.write(`wrote ${OUTPUT_PATH}\n`);
 }
 ```
 
@@ -1010,7 +1012,7 @@ Create `sdks/typescript/scripts/conformance-reconcile.ts`:
  * Every problem is returned rather than thrown, so the caller can print all of them at once.
  * A reader fixing CI wants the whole list, not the first line of it.
  */
-import { readFileSync, readdirSync } from "node:fs";
+import { appendFileSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { publishedCorpora } from "./conformance-corpora.ts";
 import { LANGUAGES, expectedCases, readManifest } from "./conformance-manifest.ts";
@@ -1120,24 +1122,25 @@ export function reconcile(reportDir: string): { problems: string[]; table: strin
   return { problems, table: renderTable(byLanguage) };
 }
 
+// process.stdout.write / process.stderr.write rather than console: biome's noConsole is an
+// error outside *.test.ts, and these must supply their own newlines.
 if (import.meta.main) {
   const reportDir = process.argv[2];
   if (reportDir === undefined) {
-    console.error("usage: conformance-reconcile.ts <report-dir>");
+    process.stderr.write("usage: conformance-reconcile.ts <report-dir>\n");
     process.exit(2);
   }
   const { problems, table } = reconcile(reportDir);
-  console.log(table);
+  process.stdout.write(`${table}\n`);
   const summary = process.env.GITHUB_STEP_SUMMARY;
   if (summary !== undefined) {
-    const { appendFileSync } = await import("node:fs");
     appendFileSync(summary, `## Conformance coverage\n\n${table}\n`, "utf8");
   }
   if (problems.length > 0) {
-    for (const problem of problems) console.error(`::error::${problem}`);
+    for (const problem of problems) process.stderr.write(`::error::${problem}\n`);
     process.exit(1);
   }
-  console.log("conformance coverage reconciles with docs/conformance-coverage.json");
+  process.stdout.write("conformance coverage reconciles with docs/conformance-coverage.json\n");
 }
 ```
 
@@ -2227,11 +2230,14 @@ every action in this file is pinned and the comment carries the version.
           go-version-file: sdks/go/go.mod
           cache: false
 
+      # No NIMBUS_SPEC_DRIFT here, deliberately. Only spec/drift_test.go reads it, and this
+      # step builds ./conformance's tests alone — so setting it would be inert, and an inert
+      # env var reads as a guarantee this step does not provide. The `go` job runs `./...`
+      # and is where that guard lives.
       - name: Run the Go conformance suite
         if: matrix.language == 'go'
         env:
           GOTOOLCHAIN: local
-          NIMBUS_SPEC_DRIFT: required
         run: go -C sdks/go test ./conformance/
 
       # `warn` is the default and is precisely wrong here: a leg whose test command matched

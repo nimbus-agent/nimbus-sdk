@@ -106,6 +106,46 @@ The corpus name is the first path segment for the fixture sets, and the director
 | `item` | 6 | top-level `fixtures` |
 | **Total** | **275** | |
 
+### Getting that identity into the recorder
+
+**Neither published loader exposes it.** `nimbus_sdk.load_corpus`
+(`sdks/python/src/nimbus_sdk/spec.py`) and `spec.LoadCorpus` (`sdks/go/spec/spec.go`) both
+read `entry["file"]` to find the case body and then **discard it**, returning bodies only.
+A Python or Go runner therefore cannot name the case it just executed.
+
+Neither loader changes. Both are published surface — `spec.LoadCorpus` is in
+`docs/api-surface-go.md`, and widening either to serve a CI concern would put a reporting
+detail into the contract two third-party bindings compile against. Instead each binding's
+**test tree** reads the index itself and zips:
+
+- **TypeScript** — nothing to do. The guards read `index.json` directly and already hold
+  `entry.file` beside each case.
+- **Python** — `_conformance_report.py` exposes `corpus_files(area) -> list[str]`, reading
+  `spec_root() / "conformance" / "v1" / area / "index.json"`. `spec_root()` is already
+  public and already how the suite finds the spec, so this inherits the bundled-copy
+  behaviour — including the local-only trap that an un-reinstalled `_data/spec` serves a
+  stale index.
+- **Go** — the test-only `conformance` package reads
+  `../spec/data/conformance/v1/<name>/index.json` with `os.ReadFile`. It cannot use the
+  embedded `fs.FS`, which is unexported and stays that way, and `go:embed` cannot reach a
+  path outside its own package directory. That file is committed, ships in the module zip,
+  and `spec/drift_test.go` already holds it equal to `docs/spec`.
+
+**Every zip asserts equal length before use.** If a loader and its index ever disagree on
+how many cases there are, the recorder must fail loudly rather than mislabel every case
+after the first divergence.
+
+**Go carries the file alongside the case rather than deriving it from loop position**, and
+this is not optional: `runKind` (`sdks/go/conformance/negotiation_test.go:60`) filters by
+`kind`, so a case's position in the filtered loop is not its position in the index. The
+package gains `type indexedCase struct { File string; Body map[string]any }` and a
+`corpusCases(t, name) []indexedCase` helper; `runKind` iterates those.
+
+**A case is recorded only once it has passed.** In TypeScript and Python the call sits at
+the end of the test body, after the assertions, so a throw skips it; in Go it is guarded on
+`t.Run`'s boolean return. "Executed" therefore means executed-and-agreed, which is the only
+reading under which a full executed set is evidence of conformance.
+
 ## The report format
 
 Each binding writes, per **producer**, one JSON file into the directory named by
@@ -360,8 +400,8 @@ New:
 - `sdks/typescript/scripts/conformance-coverage.test.ts` — golden test
 - `sdks/typescript/scripts/conformance-reconcile.ts` — reconciler
 - `sdks/typescript/scripts/conformance-reconcile.test.ts` — reconciler unit tests
-- `sdks/python/tests/_conformance_report.py` — recorder
-- `sdks/go/conformance/report_test.go` — recorder + `TestMain`
+- `sdks/python/tests/_conformance_report.py` — recorder + `corpus_files(area)`
+- `sdks/go/conformance/report_test.go` — recorder, `TestMain`, `indexedCase`, `corpusCases`
 
 Modified:
 
@@ -371,7 +411,8 @@ Modified:
   `rules-guard` is deliberately untouched (it executes no cases)
 - `sdks/typescript/scripts/framing-node.mjs` — record per case, as `framing`'s second producer
 - `sdks/python/tests/test_{negotiation,framing,diagnostics,url_resolution}_corpus.py` — record per case
-- `sdks/go/conformance/{negotiation,framing,diagnostics,urlresolution}_test.go` — record per case
+- `sdks/go/conformance/{negotiation,framing,diagnostics,urlresolution}_test.go` — record per
+  case; their `*Cases` helpers and `runKind` move from `[]map[string]any` to `[]indexedCase`
 - `.github/workflows/ci.yml` — two jobs, plus `ci-complete`
 - `package.json` and `sdks/typescript/package.json` — the `conformance:coverage` script
 - `CLAUDE.md`, `docs/spec/README.md`, `docs/ROADMAP.md` — link the generated doc; tick the box

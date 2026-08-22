@@ -56,9 +56,8 @@ the release-please bump.
   `HandshakeResult`) — the one exchange this package performs end to end. It is
   **synchronous** where TypeScript's `performHandshake` is async, which with the
   `isinstance`-vs-tagged-union split is one of the three ways the bindings differ
-  *behaviorally* — and one of the two that are deliberate. Go's handshake, when it lands,
-  is synchronous too, which turns this one from a split into a majority. See the
-  inventory below.
+  *behaviorally* — and one of the two that are deliberate. Go's handshake is synchronous
+  too, which makes this a majority rather than a split. See the inventory below.
 - `nimbus_sdk.diagnostics` (`sdks/python/src/nimbus_sdk/diagnostics/`) — the Python
   binding of `docs/spec/diagnostics/v1/diagnostics.md`: `encode_diagnostic`,
   `parse_diagnostic`, `meets_level`, `DIAGNOSTIC_KINDS`, `DIAGNOSTIC_LEVELS`, and the
@@ -139,8 +138,8 @@ surface is shaped this way, which the generated file, by design, does not:
   counterpart: `time.Format` is built in.
 - `ipc` (`sdks/go/ipc/`) — the hello frame (`HelloMessage`, `EncodeHello`, `ParseHello`,
   `HelloResult`, `HelloOk`, `HelloRefused`), the NDJSON line reader (`LineReader` with
-  `Push` / `Flush`, `IPCMaxLineBytes`, `ErrFrameTooLong`, `FlushResult`), and, since this
-  branch, the handshake: `PerformHandshake`, `HandshakeConfig`, `HandshakeResult`,
+  `Push` / `Flush`, `IPCMaxLineBytes`, `ErrFrameTooLong`, `FlushResult`), and the
+  handshake: `PerformHandshake`, `HandshakeConfig`, `HandshakeResult`,
   `HandshakeOk`, `HandshakeRefused` — synchronous, over `io.Reader` / `io.Writer`. See
   [`docs/api-surface-go.md`](./docs/api-surface-go.md) for the exact signatures, which
   this list does not repeat.
@@ -167,7 +166,7 @@ one of them.** Recorded here rather than discovered at the first `go get`:
   drop-the-prefix — `CONTRACT_VERSIONS` stays `ContractVersions`, since `Versions` names
   nothing on its own.
 
-**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 306 files.** `go:embed`
+**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 315 files.** `go:embed`
 refuses paths outside the module directory and `go build` never runs a generator, so Go
 cannot reach `docs/spec/` the way Python's hatch build hook does. Regenerate with
 `go -C sdks/go generate ./spec` after **any** change under `docs/spec/`, or
@@ -198,7 +197,7 @@ READMEs used to carry — read as though only four existed. Six carry their own 
 (the four above plus `predicates` 33 and `sandbox` 31); two are fixture sets in the
 *top-level* `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` 31 and
 `item` 6), with their case files sitting directly in the corpus directory and no `cases/`
-subdirectory. 267 cases in total; Go and Python execute 166 of them, TypeScript all 267.
+subdirectory. 275 cases in total; Go and Python execute 174 of them, TypeScript all 275.
 The other four bind surfaces neither Go nor Python publishes, and `manifest` / `item` need
 a JSON Schema validator the dependency-free rule would make hand-written.
 
@@ -233,11 +232,11 @@ outright instead of quietly downloading a toolchain.
 
 Releases are tagged **`sdks/go/vX.Y.Z`** (release-please component `sdks/go`,
 `tag-separator: "/"`, set per-package so the other three components are untouched).
-**`sdks/go/v0.1.0` and `sdks/go/v0.2.0` are pushed** — both on 2026-08-20, `release-go.yml`
-green on both — so the pipeline is now *observed*, not merely wired: `proxy.golang.org`
-serves the module, `sum.golang.org` records its hashes, and `pkg.go.dev` renders the docs.
-Both versions are cached permanently; that is the shape of every future tag too, so a
-wrong one cannot be taken back. For any future major ≥ 2, Go's semantic import versioning
+**Seven `sdks/go` versions are pushed**, `v0.1.0` through `v0.6.1`, `release-go.yml` green
+on each — so the pipeline is *observed*, not merely wired: `proxy.golang.org` serves the
+module, `sum.golang.org` records its hashes, and `pkg.go.dev` renders the docs. Every one
+of them is cached permanently; that is the shape of every future tag too, so a wrong one
+cannot be taken back. For any future major ≥ 2, Go's semantic import versioning
 requires the `/v2` suffix in the **module path itself**; `go.mod` declares the unsuffixed
 path today, so a `sdks/go/v2.0.0` tag could not resolve. See
 [`docs/rfcs/0012-go-sdk-binding.md`](./docs/rfcs/0012-go-sdk-binding.md).
@@ -255,9 +254,9 @@ added. Python still has no equivalent of its own — see the four-CI-gates bulle
 ## How the bindings diverge
 
 **The `ipc` and `diagnostics` contract surfaces differ in three *behavioral* ways.**
-Two predate this branch — sync-vs-async
-`performHandshake`/`perform_handshake`, and `isinstance`-vs-tagged-union narrowing.
-Diagnostics adds a third, verified by execution: given
+Two are long-standing — sync-vs-async `performHandshake`/`perform_handshake`, and
+`isinstance`-vs-tagged-union narrowing. Diagnostics adds a third, verified by execution:
+given
 `extensionId: "\ud800"` (a lone UTF-16 surrogate), `encodeDiagnostic` returns
 `{ ok: true, line: ... }` — `JSON.stringify` and `TextEncoder` both pass an ill-formed
 code point through rather than rejecting it — while `encode_diagnostic` raises
@@ -516,18 +515,27 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
 
 ## Releasing
 
-**Three release-please components release independently**, one per package, and
+**Four release-please components release independently**, one per package, and
 `separate-pull-requests` is on — so merged Conventional Commits open a release PR *per
 component*, and merging one tags and publishes only that component:
 
 | Component | Package | Registry | Changelog |
 |---|---|---|---|
-| `typescript` | `@nimbus-dev/sdk` | npm | `sdks/typescript/CHANGELOG.md` |
-| `python` | `nimbus-dev-sdk` | PyPI | `sdks/python/CHANGELOG.md` |
-| `create-connector` | `@nimbus-dev/create-connector` | npm | `tools/create-connector/CHANGELOG.md` |
+| `sdks/typescript` | `@nimbus-dev/sdk` | npm | `sdks/typescript/CHANGELOG.md` |
+| `sdks/python` | `nimbus-dev-sdk` | PyPI | `sdks/python/CHANGELOG.md` |
+| `tools/create-connector` | `@nimbus-dev/create-connector` | npm | `tools/create-connector/CHANGELOG.md` |
+| `sdks/go` | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | none — a `sdks/go/vX.Y.Z` tag the module proxy serves | `sdks/go/CHANGELOG.md` |
 
 Record a user-facing change in the changelog of the package you touched — not
 TypeScript's by default.
+
+**release-please assigns a commit to a component by the PATHS it touches, not by its
+scope.** A squashed pull request titled `fix(go):` that also edits one file under
+`sdks/python/` cuts a *Python* patch release whose changelog entry reads `**go:** …` —
+observed on [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155), which corrected a
+docstring in `sdks/python/src/nimbus_sdk/ipc/ndjson.py` and released `nimbus-dev-sdk`
+0.8.1 for it. Keep a change that spans packages in separate pull requests, or accept that
+every package it touches releases under that one subject line.
 
 **No release path uses a long-lived token.** Both npm jobs publish with `--provenance`;
 the PyPI job publishes via Trusted Publishers with

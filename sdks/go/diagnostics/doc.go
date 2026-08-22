@@ -32,8 +32,9 @@
 // behaviour is still undefined. The same per-byte counting used to show up in the framing
 // binding's U+FFFD count too — Go emitted one U+FFFD per leftover octet of an invalidated
 // multi-octet prefix, where the web platform's maximal-subpart rule counts sequences —
-// until RFC-0014 pinned framing.md §4 to that rule and this module's decode was corrected
-// to match it.
+// until RFC-0014 pinned framing.md §4 to that rule and the ipc package's decoder was
+// corrected to match it. Nothing in this package decodes a stream; that fix landed in
+// sdks/go/ipc/utf8stream.go.
 //
 // The emitter does not recover from a panicking sink — see emitter.go.
 package diagnostics

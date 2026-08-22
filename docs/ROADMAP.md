@@ -308,11 +308,13 @@ maintained."*
   release-please component producing `sdks/go/vX.Y.Z` tags (the `tag-separator` was
   confirmed per-package before it was set, so the other three components' tags are
   provably untouched), and `release-go.yml` firing on that tag pattern.
-  **The last clause is now observed rather than designed.** `sdks/go/v0.1.0` and
-  `sdks/go/v0.2.0` were both tagged on 2026-08-20 and `release-go.yml` was green on both:
-  `proxy.golang.org` serves the module — `@latest` reports `v0.2.0`, resolved from
-  `refs/tags/sdks/go/v0.2.0` — `sum.golang.org` records its hashes, and `pkg.go.dev`
-  renders the package docs.
+  **The last clause is now observed rather than designed**, and repeatedly: every
+  `sdks/go` version from `v0.1.0` through `v0.6.1` has been tagged this way with
+  `release-go.yml` green. The verify job resolves the **exact** tag — `go get
+  …/sdks/go@vX.Y.Z`, retrying while the proxy catches up — so what is proven per release is
+  that that version resolves and carries a `go.sum` entry, not that a moving `@latest`
+  selector points somewhere. `sum.golang.org` records its hashes, and `pkg.go.dev` renders
+  the package docs.
 
   That step is irreversible, and it happened as a **consequence of merging a release
   PR**, not as the separate deliberate act this box previously described: the proxy caches
@@ -323,7 +325,8 @@ maintained."*
   build provenance** to what the release tags — *Pillar 5*. `release-go.yml` attests a
   `git archive` of the module tree at the tag, then verifies from a scratch directory
   outside any checkout that the module resolves through `proxy.golang.org` **with a
-  `go.sum` entry**. Both halves have now run for real, on `v0.1.0` and `v0.2.0`.
+  `go.sum` entry**. Both halves have now run for real, on every version from `v0.1.0`
+  through `v0.6.1`.
 
   **This box's original wording was wrong in two ways, and both are corrected here.** It
   asked for provenance "attached to the GitHub Release artifacts," giving Go "the same

@@ -18,7 +18,7 @@ publishes — so a new case in any of them reaches this binding without a releas
 > **Released.** The `go get` above resolves: `proxy.golang.org` serves the module,
 > `sum.golang.org` vouches for it, and the docs render on
 > [pkg.go.dev](https://pkg.go.dev/github.com/nimbus-agent/nimbus-sdk/sdks/go). The latest
-> tag is `sdks/go/v0.6.0`. See [Status](#status).
+> tag is `sdks/go/v0.6.1`. See [Status](#status).
 
 ## What this is
 

@@ -300,34 +300,16 @@ docstring discloses the exact mechanism.
   manifest rule registry constrains the identifier's format. Same root cause as the
   bullet below: Go's standard library counts bytes where the web platform counts
   sequences.
-- **The U+FFFD count for an invalidated multi-octet prefix is a new divergence, and it
-  is Go alone.** Whenever a well-formed *prefix* of a multi-octet UTF-8 sequence is
-  invalidated, `sdks/go/ipc/utf8stream.go`'s `utf8Stream` emits **one U+FFFD per leftover
-  octet**, where TypeScript's `TextDecoder` and Python's
-  `codecs.getincrementaldecoder("utf-8")("replace")` collapse the whole prefix into a
-  **single** U+FFFD, WHATWG's maximal-subpart rule. **End-of-stream is not the only
-  trigger** — a non-continuation octet arriving mid-stream does it too, with no boundary
-  and no flush involved. Measured on this branch rather than assumed: `F0 9F` held and
-  finalized gives 2 in Go against 1 in Node and 1 in CPython; a three-octet prefix gives
-  3 against 1; and `F0 9F 41` in a **single mid-stream chunk** gives 2 in Go against 1 in
-  both — a truncated emoji followed by a closing quote inside a JSON string is enough.
-  Definitively-invalid octets are unaffected and all three agree: `FF` and `A9` give 1
-  each, `E0 80` and `C0 AF` 2, `ED A0 80` 3. **The consequence is not cosmetic**, because
-  §6's limit is measured on decoded octets in all three bindings and §7 makes exceeding
-  it terminal: 200,000 repetitions of `F0 9F 41` plus an LF is 600,001 raw octets, which
-  decode to 1,400,000 in Go — `Push` returns `ErrFrameTooLong` and latches — against
-  800,000 under the WHATWG rule, where Python's `NdjsonLineReader` delivers the frame,
-  both measured by running the two readers. One binding kills the connection where
-  another delivers a message, on input `framing.md`'s preamble says every binding must
-  handle identically. It is nevertheless permitted, not a bug: §4 requires only that an
-  ill-formed sequence become U+FFFD, never how many, and no case in the `framing` corpus
-  exercises an invalidated multi-octet prefix at all — every ill-formed case there is a
-  single stray octet or a sequence split cleanly across a chunk boundary — so nothing
-  pins a count for either side to violate, and Go's is inherited from `utf8.DecodeRune`
-  rather than chosen. A future corpus case that pins a count would make whichever binding
-  disagrees non-conformant, and fixing Go would mean fixing **both** triggers, not just
-  finalization — which is exactly why this is recorded now, while it is still a
-  difference and not yet a bug.
+- **The U+FFFD count for an invalidated multi-octet prefix was a Go-only divergence, and is
+  now fixed.** Go emitted one U+FFFD per leftover octet where `TextDecoder` and
+  `codecs.getincrementaldecoder` collapse an invalidated prefix into one. Because §6's limit
+  is measured on decoded octets and §7 makes exceeding it terminal, that could kill a
+  connection where another binding delivered the message — measured, on 200,000 repetitions
+  of `F0 9F 41`. [RFC-0014](./docs/rfcs/0014-utf8-replacement-count.md) pinned
+  `framing.md` §4 to Unicode's maximal-subpart rule, `sdks/go/ipc/utf8stream.go`'s
+  `scanUTF8` implements it, and eight corpus cases hold all three bindings to it. Fixed
+  rather than disclosed, like the U+0130 fold and unlike the two entries above it, because
+  two of three bindings already agreed and the preamble already required them to.
 
 - **U+0130 case folding is a divergence Go *corrects*, which is what makes it unlike every
   entry above.** `strings.ToLower` applies Unicode's **simple** case mapping where Python's

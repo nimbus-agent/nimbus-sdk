@@ -239,7 +239,7 @@ same contract.*
 > is pinned to exactly that reading by [RFC-0013](./rfcs/0013-go-sdk-official.md); the
 > other four corpora bind surfaces neither Python nor Go publishes.) Which corpus each
 > binding claims, and the case counts behind it, is generated into
-> [`docs/conformance-coverage.md`](../conformance-coverage.md) rather than restated here.
+> [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
 >
 > Promotion to **official** was a separate, governance step, and it is complete:
 > [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
@@ -278,7 +278,7 @@ maintained."*
   `diagnostics` package that ships an emitter Python does not have), and `url-resolution`
   (against a `connectorkit` package binding Python's Shipment 1 core). That is the same
   four Python runs — the case counts behind every one of these corpora are generated into
-  [`docs/conformance-coverage.md`](../conformance-coverage.md) rather than restated here.
+  [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
   The handshake is bound too: `ipc.PerformHandshake` performs the
   read-hello/write-hello/negotiate exchange, synchronously over `io.Reader` / `io.Writer`.
   Promotion to **official** was a separate, governance step, and it is complete:
@@ -356,9 +356,9 @@ maintained."*
   SDK — *Pillar 5*. `ci.yml`'s `conformance` job takes **language** as its matrix axis and
   runs each binding's corpus suite with `NIMBUS_CONFORMANCE_REPORT` set; `conformance-report`
   unions the three legs' per-case reports and reconciles them against
-  [`docs/conformance-coverage.json`](../conformance-coverage.json). The counts that used to
+  [`docs/conformance-coverage.json`](./conformance-coverage.json). The counts that used to
   be restated as prose in four places are now generated into
-  [`docs/conformance-coverage.md`](../conformance-coverage.md).
+  [`docs/conformance-coverage.md`](./conformance-coverage.md).
 
   **What this changed is the standard of evidence, not the coverage.** No binding executes a
   corpus it did not execute before. What is new is that a corpus a binding claims must be

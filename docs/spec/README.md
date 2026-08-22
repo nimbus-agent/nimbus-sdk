@@ -273,8 +273,8 @@ carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, 
 implementable twice".
 
 Which binding runs which corpus is declared in
-[`docs/conformance-coverage.json`](../../conformance-coverage.json) and rendered, with the
-case counts, into [`docs/conformance-coverage.md`](../../conformance-coverage.md).
+[`docs/conformance-coverage.json`](../conformance-coverage.json) and rendered, with the
+case counts, into [`docs/conformance-coverage.md`](../conformance-coverage.md).
 `sdks/typescript/scripts/corpus-parity.test.ts` holds that declaration complete and holds this
 paragraph to it in both directions, and CI's `conformance-report` job holds it true by
 execution — every claimed corpus run case for case, or the build fails.

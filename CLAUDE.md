@@ -184,8 +184,8 @@ would become a Go breaking change while staying invisible to the other two bindi
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
 Go now executes **all four** published conformance corpora, nothing deferred in
-any: `negotiation` — all 37 cases across all three kinds (`negotiate` 16, `hello` 15,
-`declaration` 6) — `framing` — all 25 cases, run against `LineReader` — `diagnostics` —
+any: `negotiation` — all 38 cases across all three kinds (`negotiate` 16, `hello` 15,
+`declaration` 7) — `framing` — all 25 cases, run against `LineReader` — `diagnostics` —
 all 75, across `encode` (64), `parse` (6) and `level` (5) — and, since this branch,
 `url-resolution` — all 28, run against `connectorkit.ResolveURLWithBase`. That is the same
 four Python executes, which is what GOVERNANCE criterion 1 asks for; officiality itself is

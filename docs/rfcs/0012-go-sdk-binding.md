@@ -561,6 +561,13 @@ shaped divergence. It is deliberately **not added here**: a corpus case is a cha
 the language-neutral contract, and this RFC changes nothing under `docs/spec/`. Shipment
 2 is where it lands, with the `framing` and `diagnostics` corpus work.
 
+> **Landed** 2026-08-22, as
+> [`declaration-manifest-null.json`](../spec/conformance/v1/negotiation/cases/declaration-manifest-null.json),
+> the `negotiation` corpus's 38th case and its 7th `declaration` one. It is free exactly
+> as predicted: all three bindings passed it unchanged. What the case buys is measured —
+> a binding that keys §4's absence default on the *value* being null rather than on the
+> *key* being absent is caught by **0 of the 6** declaration cases that preceded it.
+
 One adjacent asymmetry was found in the same pass and is recorded rather than fixed.
 TypeScript's `manifestContractVersions` tests `declared === undefined`, so an object with
 the key *present* and set to JavaScript `undefined` takes the §4 absence default and

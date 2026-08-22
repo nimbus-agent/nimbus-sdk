@@ -185,6 +185,11 @@
       "file": "cases/declaration-manifest-not-array.json",
       "section": "§7",
       "reason": "A non-array manifest declaration reaches the comparison rather than being dropped, and case.schema.json's own manifest property promises exactly this is refused."
+    },
+    {
+      "file": "cases/declaration-manifest-null.json",
+      "section": "§7",
+      "reason": "An explicit null declaration is present, so §4's absence default does not apply to it. Measured: a binding that keys the default on the value rather than on the key is caught by 0 of the 6 declaration cases that preceded this one, and answers ok on this one."
     }
   ]
 }

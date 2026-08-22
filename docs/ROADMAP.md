@@ -270,7 +270,7 @@ maintained."*
   binding exists at [`sdks/go/`](../sdks/go/) — module
   `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero dependencies — and now executes
   **all four** published corpora in full, nothing deferred in any: `negotiation`
-  (all 37 cases across all three kinds), `framing` (all 25, run against `LineReader`),
+  (all 38 cases across all three kinds), `framing` (all 25, run against `LineReader`),
   `diagnostics` (all 75, across `encode`, `parse` and `level`, against a `diagnostics`
   package that ships an emitter Python does not have), and, since this work,
   `url-resolution` (all 28, against a new `connectorkit` package binding Python's

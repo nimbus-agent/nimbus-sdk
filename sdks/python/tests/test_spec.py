@@ -36,7 +36,7 @@ def test_published_schemas_load(name: str) -> None:
 
 def test_negotiation_corpus_loads() -> None:
     cases = load_corpus("negotiation")
-    assert len(cases) == 37
+    assert len(cases) == 38
     assert {case["kind"] for case in cases} == {"declaration", "hello", "negotiate"}
 
 

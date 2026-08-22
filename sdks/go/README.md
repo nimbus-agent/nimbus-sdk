@@ -290,7 +290,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(len(cases), "negotiation cases") // 37 negotiation cases
+	fmt.Println(len(cases), "negotiation cases") // 38 negotiation cases
 }
 ```
 
@@ -356,7 +356,7 @@ declaration check, the hello frame, the spec loaders, the NDJSON line reader, th
 handshake, the diagnostics envelope with its emitter, the connector kit, and the SDK
 version accessor. It executes
 **all four** published conformance corpora in full, nothing deferred in any:
-`negotiation` — all 37 cases across all three of its kinds, `negotiate`, `hello`, and
+`negotiation` — all 38 cases across all three of its kinds, `negotiate`, `hello`, and
 `declaration` — `framing` — all 25 cases — `diagnostics` — all 75, across `encode`,
 `parse`, and `level` — and `url-resolution` — all 28, against `ResolveURLWithBase`.
 

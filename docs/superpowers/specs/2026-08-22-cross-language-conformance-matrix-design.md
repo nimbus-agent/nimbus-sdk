@@ -108,21 +108,33 @@ The corpus name is the first path segment for the fixture sets, and the director
 
 ## The report format
 
-Each binding writes, per corpus, one JSON file into the directory named by
+Each binding writes, per **producer**, one JSON file into the directory named by
 `NIMBUS_CONFORMANCE_REPORT`:
 
 ```json
 {
   "language": "go",
   "corpus": "framing",
+  "producer": "conformance-package",
   "executed": ["cases/single-frame-lf.json", "cases/split-frame.json"]
 }
 ```
 
-`executed` is sorted and deduplicated. The file is named `<language>.<corpus>.json`.
+`executed` is sorted and deduplicated. The file is named
+`<language>.<corpus>.<producer>.json`, and the reconciler globs
+`<language>.<corpus>.*.json` and **unions** their `executed` sets.
 
-**One file per (language, corpus), never a shared append target.** Bun and pytest may run
-test files concurrently; separate files make a race impossible rather than unlikely.
+**The producer segment is load-bearing, not decoration.** A corpus can have more than one
+runner in the same language, and `framing` already does: `framing-guard.test.ts` drives it
+under Bun, and `scripts/framing-node.mjs` drives it again under plain Node, because
+`TextDecoder`'s edge behaviour differs between the two runtimes. A single
+`typescript.framing.json` would have the second run silently truncate the first to whatever
+it happened to cover. Unioning per-producer files is what makes adding a second runner a
+non-event.
+
+**No two writers ever open the same path**, so there is no append target and no interleaving
+to reason about — which is the property the union buys, independent of whether any given
+runner happens to execute concurrently today.
 
 **When `NIMBUS_CONFORMANCE_REPORT` is unset, recording is a no-op.** A local `bun run test`,
 `pytest -q` or `go test ./...` behaves exactly as it does today and writes nothing. This
@@ -131,24 +143,58 @@ inherits that variable's hazard, that a silent no-op is indistinguishable from a
 reconciler is what closes it — gate 2's executed-set-equals-index assertion — which is why an
 empty report is a failure and not an absence.
 
+**Setting the variable is for full-suite runs only.** A developer who sets it and then runs
+`go test -run TestFramingCorpus/single_frame` or `pytest -k negotiation` gets a truthful but
+partial report, and feeding that to the reconciler fails the executed-set assertion — as it
+should, since the reconciler cannot distinguish a filtered run from a broken one. The
+reconciler runs in CI, where nothing filters; locally it is not part of any test command.
+`docs/conformance-coverage.md` says so, so the first person to try it reads it there rather
+than deducing it from a failure.
+
 ## The recorders
 
 Each binding's runner already loops over the index. The recorder is a call inside that loop
 plus a flush — roughly twenty lines per language, no new dependency in any of them.
 
 - **TypeScript** — `sdks/typescript/scripts/conformance-report.ts` exports
-  `createRecorder(corpus)`; each of the eight guards
-  (`diagnostics`, `framing`, `negotiation`, `predicates`, `rules`, `sandbox`, `schema`,
-  `url-resolution`) records per case and flushes in `afterAll`. Note the mapping is not
-  one-guard-one-corpus at both ends: `schema-guard` covers the `manifest` and `item`
-  fixture sets and `rules-guard` covers the `manifest` rule registry, so those two guards
-  between them account for the two top-level fixture corpora.
+  `createRecorder(corpus, producer)`; a guard records per case and flushes in `afterAll`.
+
+  **Seven producers, not eight guards.** Which guard records which corpus is not the
+  identity mapping, and getting it wrong is the easiest way to build a gate that measures
+  the wrong thing:
+
+  | Guard | Records |
+  |---|---|
+  | `diagnostics-guard` | `diagnostics` |
+  | `framing-guard` | `framing` |
+  | `negotiation-guard` | `negotiation` |
+  | `predicates-guard` | `predicates` |
+  | `sandbox-guard` | `sandbox` |
+  | `url-resolution-guard` | `url-resolution` |
+  | `schema-guard` | `manifest` **and** `item` |
+  | `rules-guard` | **nothing** |
+  | `framing-node.mjs` | `framing`, second producer |
+
+  `rules-guard` reads the top-level index's `fixtures` array, but only to assert that every
+  published rule id is cited by at least one fixture — it is a guard on the rule *registry*,
+  not a runner of manifest cases. `schema-guard` is what actually validates each `manifest`
+  and `item` fixture, so it is the sole recorder for both. A recorder in `rules-guard` would
+  report cases it never executed, which is the one lie this design exists to prevent.
 - **Python** — `sdks/python/tests/_conformance_report.py`, the same shape, flushed by an
-  `atexit` hook. The suite uses no `pytest-xdist`, so a single interpreter owns every
-  record.
+  `atexit` hook. The suite uses no `pytest-xdist` and spawns no threads, so a single
+  interpreter on a single thread owns every record; the recorder takes no lock, because
+  `list.append` is atomic under the GIL and there is no second thread to contend with it
+  either way.
 - **Go** — one recorder in the test-only `conformance` package, flushed from a single
   `TestMain`. `TestMain` is per-package and all four conformance tests share that package,
   so one flush covers all four corpora.
+
+  **Its map is guarded by a `sync.Mutex`, which the other two recorders do not need.** No
+  test in `sdks/go/conformance/` calls `t.Parallel()` today, so nothing contends — but Go is
+  the only one of the three where the *next* person to add it gets `fatal error: concurrent
+  map writes`, a process-level panic that takes the whole package down and reads as
+  unrelated to the change that caused it. No workflow runs `go test -race`, so nothing else
+  would catch it first. Three lines to make a future `t.Parallel()` a non-event.
 
 ## The coverage manifest
 
@@ -240,6 +286,25 @@ Two new jobs in `.github/workflows/ci.yml`:
 
 Both join `ci-complete`'s `needs` list and its error message.
 
+### A leg that produces nothing
+
+`actions/upload-artifact` defaults `if-no-files-found` to `warn`, which is precisely wrong
+here: a leg whose test command matched no test files, or wrote its reports to the wrong
+directory, would go green and upload an empty artifact. **Every upload step sets
+`if-no-files-found: error`**, so that failure is attributed to the leg that caused it rather
+than surfacing three jobs later as a puzzling reconciliation failure.
+
+Note the narrower-than-it-looks scope of the surrounding case. A leg that *fails* does not
+reach `conformance-report` at all — `needs:` requires success, so the job is skipped, and
+`ci-complete`'s `contains(needs.*.result, 'skipped')` fails the run. The only gap is a leg
+that **succeeds while producing nothing**, which is what the setting above closes.
+
+The reconciler still checks that each of the three languages has at least one report file
+and names the missing one — `conformance report for language "go" is missing; the go leg
+uploaded no files` — rather than dying on an `ENOENT` for a path the reader has to decode.
+It is a backstop for a mistake in the *job wiring* (an artifact name typo, a download path
+that does not match the upload path), which `if-no-files-found` cannot see.
+
 **Linux only, three legs.** Cross-OS behaviour is already covered: `build-test`, `python`
 and `go` each run their full suite — corpora included — on `ubuntu-24.04`, `macos-15` and
 `windows-2025`. This job's axis is *language*; adding an OS axis would re-run per-OS coverage
@@ -272,15 +337,17 @@ where they are, since those are arguments rather than numbers.
 
 - **The reconciler** gets unit tests over synthetic report sets: each of its assertions made
   to fail for its own reason, and a passing set. Table-driven, no fixtures on disk beyond
-  what the test writes to a temporary directory.
+  what the test writes to a temporary directory. Three of those cases are the ones that only
+  exist because of the review — two producers for one corpus unioning correctly rather than
+  the second truncating the first, a language with no report file at all producing the named
+  error, and a report naming a corpus the manifest does not claim.
 - **The rewritten `corpus-parity.test.ts`** keeps its own anti-vacuity tests — both sides
   non-empty, floors raised to cover the two fixture-set corpora — so a broken derivation
   cannot compare `[]` against `[]` forever.
 - **The generator** gets the golden test described above.
 - **The recorders** are proven by the `conformance` job itself. A recorder that silently
-  wrote nothing fails the executed-set-equals-index assertion — which is the whole reason that
-  assertion compares sets
-  rather than counting files.
+  wrote nothing fails the executed-set-equals-index assertion — which is the whole reason
+  that assertion compares sets rather than counting files.
 
 ## Files
 
@@ -300,7 +367,9 @@ Modified:
 
 - `sdks/typescript/scripts/corpus-parity.test.ts` — rewritten against the manifest: the
   Python-source regex scan goes, Go and the two fixture-set corpora come in
-- the eight `sdks/typescript/scripts/*-guard.test.ts` — record per case
+- seven of the eight `sdks/typescript/scripts/*-guard.test.ts` — record per case;
+  `rules-guard` is deliberately untouched (it executes no cases)
+- `sdks/typescript/scripts/framing-node.mjs` — record per case, as `framing`'s second producer
 - `sdks/python/tests/test_{negotiation,framing,diagnostics,url_resolution}_corpus.py` — record per case
 - `sdks/go/conformance/{negotiation,framing,diagnostics,urlresolution}_test.go` — record per case
 - `.github/workflows/ci.yml` — two jobs, plus `ci-complete`
@@ -309,9 +378,10 @@ Modified:
 
 ## Open risk
 
-The eight TypeScript guards are not uniformly shaped — `framing-guard` reads its corpus
+The TypeScript guards are not uniformly shaped — `framing-guard` reads its corpus
 differently from `url-resolution-guard`, and `schema-guard` walks shape directories rather
-than a `cases/` list. The recorder call therefore lands in eight slightly different places.
+than a `cases/` list. The recorder call therefore lands in eight slightly different places
+across seven files.
 The mitigation is the executed-set-equals-index assertion: a guard where the call went in the
 wrong place records a set
 that does not equal the index, and the job fails loudly rather than under-reporting.

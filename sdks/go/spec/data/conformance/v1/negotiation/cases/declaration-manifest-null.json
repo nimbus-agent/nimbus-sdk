@@ -1,0 +1,7 @@
+{
+  "description": "The manifest declares contractVersions as an explicit JSON null — the field present, its value null. §4's default is keyed on absence, not on the value, so the default does not apply: manifestContractVersions wraps the null into a one-element array holding it, and declaredVersionsMatch refuses, because null is not a §3 major. This sits between the two neighbouring cases — the field absent, and the field a non-array scalar — and a binding that reaches the default by testing the value rather than the key answers [\"1\"] here, matches, and passes both of them.",
+  "kind": "declaration",
+  "manifest": null,
+  "hello": ["1"],
+  "expect": { "ok": false, "reason": "declaration-mismatch", "exit": 20 }
+}

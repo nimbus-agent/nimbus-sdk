@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Protocol
 
 from nimbus_sdk.connector_kit.env import require_env
@@ -30,11 +31,23 @@ from nimbus_sdk.connector_kit.urls import resolve_url_with_base
 
 @dataclass(frozen=True)
 class RestFetcherConfig:
-    """Base URL, bearer token, and headers sent on every request."""
+    """Base URL, bearer token, and headers sent on every request.
+
+    ``default_headers`` is copied behind a read-only proxy for the same reason
+    :class:`~nimbus_sdk.connector_kit.HttpRequest` copies its own: ``frozen=True`` stops
+    the field being rebound, not the mapping being edited. A retained caller dict would
+    be worse here than there — this config outlives a single request, so a mutation
+    after construction would silently change *every* later one.
+    """
 
     api_base: str
     token: str
     default_headers: Mapping[str, str] = field(default_factory=_no_headers)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "default_headers", MappingProxyType(dict(self.default_headers))
+        )
 
 
 class RestFetcher(Protocol):

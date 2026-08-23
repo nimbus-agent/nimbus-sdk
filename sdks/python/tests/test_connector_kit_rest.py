@@ -93,6 +93,24 @@ def test_per_call_headers_override_the_defaults_but_not_the_token() -> None:
     assert transport.seen[0].headers["Authorization"] == "Bearer TOK"
 
 
+def test_config_default_headers_are_copied_behind_a_read_only_proxy() -> None:
+    # The config outlives a single request, so retaining the caller's dict would let a
+    # mutation after construction silently change every later request — worse than the
+    # same slip on HttpRequest, which is scoped to one call.
+    supplied = {"Accept": "a"}
+    config = RestFetcherConfig(
+        api_base="https://api.example.com", token="TOK", default_headers=supplied
+    )
+    with pytest.raises(TypeError):
+        config.default_headers["Accept"] = "clobbered"  # type: ignore[index]
+
+    transport = FakeTransport()
+    fetch = make_rest_fetcher(config, transport)
+    supplied["Accept"] = "changed after construction"
+    fetch("/repos")
+    assert transport.seen[0].headers["Accept"] == "a"
+
+
 def test_a_lower_case_authorization_header_cannot_smuggle_a_second_credential() -> None:
     # HTTP header names are case-insensitive, so leaving the caller's `authorization`
     # beside our `Authorization` would hand the transport two credentials and let it

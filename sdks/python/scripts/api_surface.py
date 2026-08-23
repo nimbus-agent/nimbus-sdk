@@ -75,7 +75,11 @@ _ALIAS_TYPES = (types.UnionType, types.GenericAlias)
 def _classify(obj: object) -> Kind:
     if inspect.isclass(obj):
         return Kind.CLASS
-    if inspect.isfunction(obj) or inspect.isbuiltin(obj):
+    if inspect.isroutine(obj):
+        # isroutine, not isfunction/isbuiltin: `nimbus_sdk.spec_root` is @lru_cache-
+        # decorated, so its runtime type is `functools._lru_cache_wrapper` — neither a
+        # function nor a builtin. Under the narrower checks a published function fell
+        # through to DATA and would have rendered as `spec_root: _lru_cache_wrapper`.
         return Kind.FUNCTION
     if isinstance(obj, _ALIAS_TYPES):
         return Kind.ALIAS

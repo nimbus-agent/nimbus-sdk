@@ -8,6 +8,8 @@ package.
 
 from __future__ import annotations
 
+import inspect
+
 from api_surface import IMPORT_ROOTS, Kind, collect
 
 
@@ -53,3 +55,18 @@ def test_known_names_are_classified_correctly() -> None:
     contract = {export.name: export.kind for export in collect("nimbus_sdk")}
     assert contract["CONTRACT_VERSIONS"] is Kind.DATA
     assert contract["NegotiationOk"] is Kind.CLASS
+
+    # spec_root is @lru_cache-decorated, so it is a functools._lru_cache_wrapper rather
+    # than a function. inspect.isfunction and isbuiltin are both False for it; only
+    # isroutine catches it. Without this it classified as DATA and would have rendered
+    # as `spec_root: _lru_cache_wrapper` in the committed snapshot.
+    assert contract["spec_root"] is Kind.FUNCTION
+
+
+def test_every_callable_export_classifies_as_a_function() -> None:
+    # The general form of the spec_root bug: any decorated callable whose wrapper is
+    # not a plain function. Nothing exported may render as data while being callable.
+    for root in IMPORT_ROOTS:
+        for export in collect(root):
+            if inspect.isroutine(export.obj):
+                assert export.kind is Kind.FUNCTION, f"{root}.{export.name}"

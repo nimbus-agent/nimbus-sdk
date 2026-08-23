@@ -140,17 +140,21 @@ since `1.15.0`. Shipment 1 ships the pure core, six modules: `errors.py` (the
 kit runs, executed by both bindings), `env.py` (`require_env`), `types.py`
 (the `McpTextContent` / `McpToolResult` wire shapes), `results.py` (`json_result` and
 its `*_if_ok` variants, plus `error_result`), and `search_filter.py` (the port of
-`connector-kit/search-filter` above). The transport, the tool router, and `rest.py`'s
-REST factories — this module's `mcp-tool-kit` registration path and `rest-tool-kit` —
-are Shipment 2; see the Phase 3 box in [`ROADMAP.md`](../ROADMAP.md).
+`connector-kit/search-filter` above). Shipment 2 added the rest — `transport.py`
+(`HttpRequest` / `HttpResponse`, the `Transport` Protocol, `UrllibTransport`),
+`router.py` (`ToolRouter`) and `rest.py` (`make_rest_fetcher`, `make_rest_tool`) —
+so the binding now covers this module's `mcp-tool-kit` registration path and its
+`rest-tool-kit`, at **42** exported names.
 
 ### Three exports with no Python counterpart
 
 Stated so they read as decisions, not gaps:
 
 - **`createRegisterSimpleTool` / `registerZodTool` / `ZodObjectSchema`** — superseded by
-  the Shipment 2 router. Python's `mcp.Server` exposes no `.tool` method, so a
-  duck-typed registrar built on top of it would match nothing that exists.
+  `ToolRouter`. Python's `mcp.Server` exposes no `.tool` method, so a duck-typed
+  registrar built on top of it would match nothing that exists; the router registers
+  tools itself and hands back wire shapes, and the generated connector adapts those into
+  pydantic in two generic functions.
 - **`fetchWithTimeout`** — `AbortSignal.any`'s signal-composition has no Python
   analogue; there is no stdlib or `asyncio` primitive that merges two cancellation
   sources into one the way `AbortSignal.any` does.
@@ -172,9 +176,9 @@ Stated so they read as decisions, not gaps:
   `HttpStatusError` carries the three parts as attributes as well, so a caller can
   branch on `.status` without re-parsing the message string.
 - **`error_result`.** TypeScript's kit has no counterpart, because its tool registrar
-  turns a thrown error into the `{ content, isError }` shape itself. Python's
-  Shipment 2 `ToolRouter` needs the builder directly, so it ships now with the rest of
-  `results.py`.
+  turns a thrown error into the `{ content, isError }` shape itself. `ToolRouter` needs
+  the builder directly — it is what the unknown-tool, failed-validation and
+  handler-exception paths return rather than letting any of them escape.
 
 ### Divergences
 
@@ -226,16 +230,31 @@ module names one-for-one so the two read side by side. It ships Python's Shipmen
 and nothing beyond it: `ResolveURLWithBase` (binding
 [`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md), whose 28-case corpus all
 three bindings now execute), `RequireEnv`, the `MCPTextContent` / `MCPToolResult` wire
-shapes, the result builders, and the search filter. The transport, the tool router and the
-REST factories are out here for exactly the reason they are out of Python — see the Phase 3
-box in [`ROADMAP.md`](../ROADMAP.md).
+shapes, the result builders, and the search filter. Shipment 2 added the transport
+(`Transport`, `HTTPTransport`, `NewHTTPTransport`), `ToolRouter`, and the REST factories
+(`MakeRESTFetcher`, `MakeRESTTool`), so the two bindings cover the same ground.
 
-Python's **27** exported names map to **28** Go names. The one that splits is
-`ConnectorKitError`: Go has no exception hierarchy, so the `except` target becomes the
-sentinel `ErrConnectorKit`, reachable with `errors.Is`, and the concrete carrier for the
-one site that raises the base class directly becomes `connectorkit.Error` — the shape
-`url.Error` and `net.Error` already have. Initialisms follow Go's convention:
-`ResolveURLWithBase`, `JSONResult`, `MCPToolResult`, `HTTPStatusError`.
+Python's **42** exported names map to **76** Go ones. Most of that gap is accounting
+rather than surface: a Python class with methods is one name in `__all__` and several in
+Go's walker, which lists each exported method separately. Three additions are real, and
+every one exists because Go lacks something Python has.
+
+`ConnectorKitError` splits: Go has no exception hierarchy, so the `except` target becomes
+the sentinel `ErrConnectorKit`, reachable with `errors.Is`, and the concrete carrier for
+the one site that raises the base class directly becomes `connectorkit.Error` — the shape
+`url.Error` and `net.Error` already have. `ErrTransport` is the same split a second time,
+standing in for the subclassing that makes Python's `except TransportError` catch a
+timeout too; both transport errors list it from a multi-error `Unwrap`, alongside the
+cause, so `errors.Is` answers for the taxonomy and the original failure at once.
+
+`RedactedURL` is exported for a blunter reason: Python redacts a credential inside
+`TransportError.__init__`, where no raise site can forget, and Go has no constructor to
+put that in. Exporting the helper makes it one call at each construction site instead of
+a habit — and it is a call a custom transport needs too, since `TransportError.URL` is a
+field a caller may well log.
+
+Initialisms follow Go's convention: `ResolveURLWithBase`, `JSONResult`, `MCPToolResult`,
+`HTTPStatusError`, `NewHTTPTransport`.
 
 ### Asymmetries in Go's favour
 
@@ -249,6 +268,15 @@ one site that raises the base class directly becomes `connectorkit.Error` — th
 - **Every kit error answers `errors.Is` and `errors.As`.** Python's taxonomy is catchable
   as a group, but its parts are reachable only on `HttpStatusError`; in Go all four types
   carry their parts as exported fields.
+- **`Transport.Send` takes a `context.Context`**, where Python's `send` takes the request
+  alone. `ToolRouter.CallTool` already takes one and hands it to the `Handler`, so without
+  it the context would stop at the handler and a cancelled tool call could not cancel the
+  HTTP request under it. Go has a cancellation primitive worth binding to and Python has
+  none — the reasoning that put `io.Reader` in `ipc.PerformHandshake`. Two deadlines then
+  exist, the caller's and `HTTPRequest.Timeout`, and the shorter wins. Cancellation and
+  expiry stay distinct: `context.DeadlineExceeded` is a `*TransportTimeoutError`,
+  `context.Canceled` a plain `*TransportError`, because a retry loop that read the second
+  as the first would retry work the caller had just abandoned.
 
 ### Divergences
 

@@ -9,6 +9,8 @@ package.
 from __future__ import annotations
 
 import inspect
+from dataclasses import dataclass
+from typing import Protocol
 
 import pytest
 from api_surface import (
@@ -189,3 +191,164 @@ def test_an_alias_missing_from_the_map_fails_loudly() -> None:
     export = Export(name="Nowhere", kind=Kind.ALIAS, obj=int | str)
     with pytest.raises(RuntimeError, match="Nowhere"):
         render_export(export, {}, {})
+
+
+def test_renders_dataclass_fields_not_a_synthesized_init() -> None:
+    export = next(e for e in collect("nimbus_sdk") if e.name == "NegotiationOk")
+    lines = render_export(export, alias_sources(), annotation_sources())
+    assert lines[0] == "- `class NegotiationOk`"
+    assert "  - `version: str`" in lines
+    # The synthesized __init__ is derived from the fields; recording both would be
+    # redundant and would churn whenever dataclasses changes how it builds one.
+    assert not any("__init__" in line for line in lines)
+
+
+def test_renders_protocol_properties_as_attributes() -> None:
+    # TextResponse's entire contract is properties. Rendering it with nothing beneath
+    # would record a class and none of its surface.
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "TextResponse"
+    )
+    lines = render_export(export, alias_sources(), annotation_sources())
+    # TextResponse is declared `class TextResponse(Protocol)`; the class bullet names
+    # its bases, so `Protocol` — admitted because declaring it says "structural, not
+    # nominal" — appears here too.
+    assert lines[0] == "- `class TextResponse(Protocol)`"
+    assert "  - `ok: bool`" in lines
+    assert "  - `status: int`" in lines
+    assert "  - `text: str`" in lines
+
+
+def test_renders_a_hand_written_init() -> None:
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "HttpStatusError"
+    )
+    lines = render_export(export, alias_sources(), annotation_sources())
+    # HttpStatusError subclasses ConnectorKitError; the class bullet names its bases.
+    assert lines[0] == "- `class HttpStatusError(ConnectorKitError)`"
+    assert any(
+        line.startswith("  - `def __init__(self, service: str") for line in lines
+    )
+
+
+def test_omits_underscore_prefixed_members() -> None:
+    class Sample:
+        def public(self) -> None: ...
+        def _private(self) -> None: ...
+
+    lines = render_export(Export(name="Sample", kind=Kind.CLASS, obj=Sample), {}, {})
+    assert any("public" in line for line in lines)
+    assert not any("_private" in line for line in lines)
+
+
+def test_inherited_members_are_recorded() -> None:
+    # JsonBodyResponse defines ONLY `json`; ok/status/text come from TextResponse.
+    # Reading vars(cls) would record one of its four members and drop three quarters
+    # of an exported Protocol's contract — and a "renders at least one member"
+    # assertion would not notice, because one is not zero. This is that assertion
+    # done properly.
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "JsonBodyResponse"
+    )
+    lines = render_export(export, alias_sources(), annotation_sources())
+    for member in ("ok: bool", "status: int", "text: str", "json: object"):
+        assert f"  - `{member}`" in lines, member
+
+
+def test_class_bullets_name_their_bases() -> None:
+    # UrlResolutionError and MissingEnvError have empty bodies — a docstring and nothing
+    # else. Which exception they subclass IS their whole surface, and it is what a
+    # consumer writing `except ConnectorKitError` needs to know.
+    exports = {e.name: e for e in collect("nimbus_sdk.connector_kit")}
+    for name in ("UrlResolutionError", "MissingEnvError", "HttpStatusError"):
+        lines = render_export(exports[name], alias_sources(), annotation_sources())
+        assert lines[0] == f"- `class {name}(ConnectorKitError)`", name
+
+    protocol = render_export(
+        exports["JsonBodyResponse"], alias_sources(), annotation_sources()
+    )
+    assert protocol[0] == "- `class JsonBodyResponse(TextResponse, Protocol)`"
+
+
+def test_no_exported_class_is_described_by_name_alone() -> None:
+    # The property across the whole real surface: a bullet that is just `class Name`
+    # with nothing beneath it and no bases records a name and none of its contract.
+    # Bases satisfy this for the empty exception subclasses; members satisfy it for
+    # the rest.
+    for root in IMPORT_ROOTS:
+        for export in collect(root):
+            if export.kind is not Kind.CLASS:
+                continue
+            lines = render_export(export, alias_sources(), annotation_sources())
+            described = len(lines) > 1 or lines[0].rstrip("`").endswith(")")
+            assert described, f"{export.name} rendered with no members and no bases"
+
+
+def test_object_and_exception_internals_are_not_recorded() -> None:
+    # The MRO walk stops at the package boundary. Without that cutoff, HttpStatusError
+    # would pull in BaseException.args and with_traceback, which are not this package's
+    # surface and would churn whenever CPython changed them.
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "HttpStatusError"
+    )
+    rendered = "\n".join(render_export(export, alias_sources(), annotation_sources()))
+    for leaked in ("with_traceback", "args", "add_note"):
+        assert leaked not in rendered, leaked
+
+
+@dataclass(frozen=True, slots=True)
+class _SyntheticRecord:
+    """Stands in for contract.py's frozen dataclasses."""
+
+    version: str
+    count: int
+
+
+class _SyntheticProtocol(Protocol):
+    """Stands in for TextResponse — contract is entirely properties."""
+
+    @property
+    def ok(self) -> bool: ...
+
+
+class _SyntheticError(Exception):
+    """Stands in for HttpStatusError — a hand-written __init__."""
+
+    def __init__(self, service: str, status: int) -> None:
+        super().__init__(f"{service} {status}")
+
+    def detail(self) -> str:
+        return "detail"
+
+    def _hidden(self) -> None: ...
+
+
+def test_format_dataclass_fields() -> None:
+    lines = render_export(
+        Export(name="Record", kind=Kind.CLASS, obj=_SyntheticRecord), {}, {}
+    )
+    assert lines[0] == "- `class Record`"
+    assert "  - `version: str`" in lines
+    assert "  - `count: int`" in lines
+
+
+def test_format_protocol_property() -> None:
+    lines = render_export(
+        Export(name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol), {}, {}
+    )
+    # _SyntheticProtocol is declared `class _SyntheticProtocol(Protocol)`; the class
+    # bullet names its bases, so `Protocol` appears here too.
+    assert lines == ["- `class Proto(Protocol)`", "  - `ok: bool`"]
+
+
+def test_format_hand_written_init_and_method_and_omitted_private() -> None:
+    lines = render_export(
+        Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError), {}, {}
+    )
+    # _SyntheticError subclasses Exception directly, with an empty-bodied ancestor
+    # (like FrameTooLongError and ConnectorKitError in the real surface) that the
+    # class bullet still names — see _NAMED_EVEN_UNOWNED_BASES.
+    assert lines[0] == "- `class Err(Exception)`"
+    assert "  - `def __init__(self, service: str, status: int) -> None`" in lines
+    assert "  - `def detail(self) -> str`" in lines
+    assert not any("_hidden" in line for line in lines)

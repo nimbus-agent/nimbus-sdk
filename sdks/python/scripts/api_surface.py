@@ -18,6 +18,7 @@ from `sdks/python/` first — the same standing instruction `spec_root()` alread
 from __future__ import annotations
 
 import ast
+import dataclasses
 import importlib
 import inspect
 import types
@@ -279,5 +280,142 @@ def render_export(
     return [f"- `{export.name}: {declared or type(export.obj).__name__}`"]
 
 
+def _is_ours(klass: type) -> bool:
+    """Whether ``klass`` is part of this package's surface, for the MRO member walk.
+
+    `Protocol` is admitted because a class declaring it is declaring something a
+    consumer reads — `class JsonBodyResponse(TextResponse, Protocol)` says structural,
+    not nominal. Everything else outside `nimbus_sdk` is excluded: `object`,
+    `Exception`, `Generic` and friends are not this package's contract, and their
+    members would churn the snapshot whenever CPython changed them.
+    """
+    module = getattr(klass, "__module__", "")
+    if klass.__name__ == "Protocol" and module == "typing":
+        return True
+    return module.startswith("nimbus_sdk")
+
+
+#: `Exception`/`BaseException` are admitted to the class HEADER'S base list — but not
+#: to `_is_ours`, so the MRO member walk still stops before them. Naming them is safe
+#: because `cls.__bases__` is a single level, never walked further: `FrameTooLongError`
+#: and `ConnectorKitError` both have an empty body and subclass `Exception` directly,
+#: so "which exception it subclasses" is their entire surface — exactly the reasoning
+#: the brief already applies to `UrlResolutionError(ConnectorKitError)`, one exception
+#: class further up. Admitting them to `_is_ours` instead would pull `args`,
+#: `with_traceback` and `add_note` into every exception's member list, which is the
+#: leak `_is_ours` exists to prevent.
+_NAMED_EVEN_UNOWNED_BASES = (Exception, BaseException)
+
+
+def _is_named_base(base: type) -> bool:
+    return _is_ours(base) or base in _NAMED_EVEN_UNOWNED_BASES
+
+
+def _is_typed_dict(cls: type) -> bool:
+    """Whether ``cls`` is a ``TypedDict`` — a fourth member shape the real surface
+    contains: ``McpTextContent`` and ``McpToolResult`` subclass ``dict`` at runtime but
+    carry no dataclass fields, properties or methods of their own; their whole public
+    shape is their declared keys.
+
+    ``__required_keys__`` is the duck-typed marker every ``TypedDict`` carries; it
+    predates ``typing.is_typeddict`` (3.13), which this can't rely on under this
+    package's ``>=3.11`` floor.
+    """
+    return hasattr(cls, "__required_keys__")
+
+
+def _annotation(obj: object, default: str) -> str:
+    """A member's annotation as written, falling back to ``default``.
+
+    Under `from __future__ import annotations` a dataclass field's `.type` is already
+    the source string, so this returns it untouched. A `TypedDict`'s `__annotations__`
+    values are `ForwardRef` objects instead (measured on 3.14.6, via `annotationlib`),
+    so `_typed_dict_annotation` unwraps `.__forward_arg__` before falling back here.
+    """
+    return obj if isinstance(obj, str) else default
+
+
+def _typed_dict_annotation(obj: object) -> str:
+    """A `TypedDict` field's annotation as written. See `_annotation`."""
+    forward_arg = getattr(obj, "__forward_arg__", None)
+    if isinstance(forward_arg, str):
+        return forward_arg
+    return _annotation(obj, "object")
+
+
 def _render_class(export: Export) -> list[str]:
-    return [f"- `class {export.name}`"]
+    """A class bullet plus one indented bullet per public member.
+
+    Four member shapes, each present in the real surface:
+
+    * **Dataclass fields.** `contract.py` and `diagnostics/event.py` export
+      `@dataclass(frozen=True, slots=True)` types whose fields ARE their public shape.
+      Fields are the source of truth and the synthesized `__init__` is derived from
+      them, so the fields render and that `__init__` does not.
+    * **`TypedDict` keys.** `McpTextContent` and `McpToolResult` subclass `dict` at
+      runtime and define no property, method or dataclass field of their own — their
+      declared keys ARE their public shape, so they render the same way fields do.
+    * **Properties.** `TextResponse` and `JsonBodyResponse` are exported Protocols
+      whose entire contract is `@property`. They render as attributes, because
+      `ok: bool` is how a consumer uses one — `def ok(self) -> bool` would describe
+      the implementation.
+    * **A hand-written `__init__`.** `HttpStatusError` defines one; that is a public
+      signature and renders as itself. No other dunder is recorded — in particular not
+      `Protocol`'s synthesized `_no_init_or_replace_init`, which every `Protocol`
+      subclass without its own `__init__` carries in `vars()` — and the rest are
+      synthesized or conventional besides, so a whitelist of "interesting" ones is a
+      list nobody maintains.
+    """
+    cls = export.obj
+    if not inspect.isclass(cls):  # pragma: no cover — kind is CLASS by construction
+        raise RuntimeError(f"{export.name} is not a class")
+
+    bases = ", ".join(base.__name__ for base in cls.__bases__ if _is_named_base(base))
+    header = (
+        f"- `class {export.name}({bases})`" if bases else f"- `class {export.name}`"
+    )
+    members: list[str] = []
+
+    if dataclasses.is_dataclass(cls):
+        for field in dataclasses.fields(cls):
+            members.append(f"  - `{field.name}: {_annotation(field.type, 'object')}`")
+    elif _is_typed_dict(cls):
+        for name, annotation in cls.__annotations__.items():
+            members.append(f"  - `{name}: {_typed_dict_annotation(annotation)}`")
+
+    # Across the MRO, not vars(cls): JsonBodyResponse defines only `json` and inherits
+    # `ok`, `status` and `text` from TextResponse, so reading its own namespace would
+    # record one of its four members. Stopping at the package boundary keeps
+    # BaseException.args and Protocol/Generic internals out — except `cls` itself,
+    # which is always scanned regardless of where it is defined: it IS the export
+    # being rendered, and a class assembled outside `nimbus_sdk` (as every test here
+    # that builds one inline does) would otherwise be filtered from its own render.
+    seen: set[str] = set()
+    for klass in cls.__mro__:
+        if klass is not cls and not _is_ours(klass):
+            continue
+        for name, member in sorted(vars(klass).items()):
+            if name in seen or (name.startswith("_") and name != "__init__"):
+                continue
+            if isinstance(member, property):
+                seen.add(name)
+                getter = member.fget
+                returns = "object"
+                if getter is not None:
+                    annotation = getattr(getter, "__annotations__", {}).get("return")
+                    returns = _annotation(annotation, "object")
+                members.append(f"  - `{name}: {returns}`")
+            elif inspect.isfunction(member):
+                # A dataclass's __init__ is synthesized from its fields, already
+                # rendered above. A Protocol's is `typing`'s own
+                # `_no_init_or_replace_init`, never a real signature. Only a
+                # hand-written one is surface of its own.
+                if name == "__init__" and (
+                    dataclasses.is_dataclass(cls)
+                    or getattr(member, "__module__", "") == "typing"
+                ):
+                    continue
+                seen.add(name)
+                members.append(f"  - `{_signature(name, member)}`")
+
+    return [header, *members]

@@ -47,12 +47,15 @@ from nimbus_sdk.connector_kit.search_filter import (
     tag_names_from_objects,
     tag_text,
 )
+from nimbus_sdk.connector_kit.transport import HttpRequest, HttpResponse, Transport
 from nimbus_sdk.connector_kit.types import McpTextContent, McpToolResult
 from nimbus_sdk.connector_kit.urls import resolve_url_with_base, should_strip_auth
 
 __all__ = [
     "ConnectorKitError",
     "FieldExtractor",
+    "HttpRequest",
+    "HttpResponse",
     "HttpStatusError",
     "JsonBodyResponse",
     "McpTextContent",
@@ -60,6 +63,7 @@ __all__ = [
     "MissingEnvError",
     "SearchFilter",
     "TextResponse",
+    "Transport",
     "TransportError",
     "TransportTimeoutError",
     "UrlResolutionError",

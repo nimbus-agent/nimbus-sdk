@@ -110,10 +110,21 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.connector_kit`
 
-30 exports.
+33 exports.
 
 - `class ConnectorKitError(Exception)`
 - `FieldExtractor = Callable[[object], Sequence[str | None] | None]`
+- `class HttpRequest`
+  - `url: str`
+  - `method: str`
+  - `headers: Mapping[str, str]`
+  - `body: bytes | None`
+  - `timeout_s: float`
+- `class HttpResponse`
+  - `status: int`
+  - `text: str`
+  - `json: object`
+  - `ok: bool`
 - `class HttpStatusError(ConnectorKitError)`
   - `def __init__(self, service: str, status: int, snippet: str) -> None`
 - `class JsonBodyResponse(TextResponse, Protocol)`
@@ -133,6 +144,8 @@ reworded docstring is not a change to the surface.
   - `ok: bool`
   - `status: int`
   - `text: str`
+- `class Transport(Protocol)`
+  - `def send(self, request: HttpRequest) -> HttpResponse`
 - `class TransportError(ConnectorKitError)`
   - `def __init__(self, method: str, url: str, reason: str) -> None`
 - `class TransportTimeoutError(TransportError)`

@@ -486,7 +486,15 @@ def _has_future_annotations_import(path: Path) -> bool:
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     body = list(tree.body)
     first = body[0] if body else None
-    if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+    # A docstring is a STRING constant specifically. `ast.Constant` alone also
+    # matches a bare `1`, `None` or `b""` opening a module — none of which is a
+    # docstring, and each of which already ends the future-directive region. Skipping
+    # one would let a following future import count when the compiler would reject it.
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+    ):
         body = body[1:]  # module docstring
     for node in body:
         if not (isinstance(node, ast.ImportFrom) and node.module == "__future__"):

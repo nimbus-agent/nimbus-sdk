@@ -364,9 +364,19 @@ by Go interfaces being method sets, with nothing observable differing.
 - Consumes: `TextResponse` / `JSONBodyResponse` (existing, `results.go`);
   `ShouldStripAuth` (Task 1); `TransportError` / `TransportTimeoutError` (Task 2).
 - Produces: `HTTPRequest`; `HTTPResponse` with `Ok/Status/Text/JSON` and
-  `NewHTTPResponse(status int, raw []byte) HTTPResponse`; `Transport` interface;
+  `NewHTTPResponse(status int, raw []byte) HTTPResponse`; `Transport` — one method,
+  `Send(context.Context, HTTPRequest) (HTTPResponse, error)`;
   `NewHTTPTransport(opts ...HTTPTransportOption) *HTTPTransport` and
   `WithHTTPClient(*http.Client) HTTPTransportOption`. Task 5 uses `Transport`.
+
+**`Send` takes a `context.Context`, where Python's `send` takes the request alone.**
+That asymmetry is deliberate and has to be decided now, not later: `ToolRouter.CallTool`
+already takes a context and hands it to the `Handler`, and without one here the context
+would stop at the handler — a cancelled tool call could not cancel the HTTP request it
+is blocked on. Go has a cancellation primitive worth binding to and Python has no
+equivalent, the same reasoning that put `io.Reader` in `ipc.PerformHandshake`. Adding a
+parameter to an exported interface later is a breaking change, and an `sdks/go` tag is
+permanent.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -376,7 +386,9 @@ Create `sdks/go/connectorkit/transport_test.go`:
 package connectorkit
 
 import (
+	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -442,7 +454,7 @@ func TestSendReturnsANon2xxAsAResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	res, err := NewHTTPTransport().Send(HTTPRequest{URL: srv.URL})
+	res, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{URL: srv.URL})
 	if err != nil {
 		t.Fatalf("Send returned an error for a 500: %v", err)
 	}
@@ -459,7 +471,7 @@ func TestSendAttachesRequestHeaders(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := NewHTTPTransport().Send(HTTPRequest{
+	if _, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
 		URL:     srv.URL,
 		Headers: map[string]string{"Authorization": "Bearer TOK"},
 	}); err != nil {
@@ -485,7 +497,7 @@ func TestTheCredentialIsDroppedAcrossAnOriginChange(t *testing.T) {
 	}))
 	defer start.Close()
 
-	if _, err := NewHTTPTransport().Send(HTTPRequest{
+	if _, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
 		URL:     start.URL,
 		Headers: map[string]string{"Authorization": "Bearer SECRET"},
 	}); err != nil {
@@ -512,7 +524,7 @@ func TestTheCredentialSurvivesASameOriginRedirect(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	if _, err := NewHTTPTransport().Send(HTTPRequest{
+	if _, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
 		URL:     srv.URL + "/start",
 		Headers: map[string]string{"Authorization": "Bearer SECRET"},
 	}); err != nil {
@@ -528,7 +540,7 @@ func TestAConnectionFailureIsATransportError(t *testing.T) {
 	url := srv.URL
 	srv.Close() // nothing is listening now
 
-	_, err := NewHTTPTransport().Send(HTTPRequest{URL: url})
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{URL: url})
 	if err == nil {
 		t.Fatal("want an error")
 	}
@@ -548,7 +560,7 @@ func TestATimeoutIsATransportTimeoutError(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, err := NewHTTPTransport().Send(HTTPRequest{URL: srv.URL, Timeout: 10 * time.Millisecond})
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{URL: srv.URL, Timeout: 10 * time.Millisecond})
 	var timeout *TransportTimeoutError
 	if !errors.As(err, &timeout) {
 		t.Fatalf("want *TransportTimeoutError, got %#v", err)
@@ -558,8 +570,83 @@ func TestATimeoutIsATransportTimeoutError(t *testing.T) {
 	}
 }
 
+func TestCallerCancellationIsATransportErrorNotATimeout(t *testing.T) {
+	// A caller cancelling is not the request timing out, and the two must not be
+	// conflated: a retry loop that treats cancellation as a timeout retries work the
+	// caller just asked it to abandon. The cause stays reachable, so a caller can
+	// still ask errors.Is(err, context.Canceled).
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(10 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := NewHTTPTransport().Send(ctx, HTTPRequest{URL: srv.URL})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	var timeout *TransportTimeoutError
+	if errors.As(err, &timeout) {
+		t.Error("cancellation was reported as a timeout")
+	}
+	if !errors.Is(err, ErrTransport) {
+		t.Error("want ErrTransport")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Error("want the cancellation to stay reachable through the chain")
+	}
+}
+
+func TestARequestTimeoutDoesNotOutliveACallersShorterDeadline(t *testing.T) {
+	// Two deadlines are in play: the caller's context and HTTPRequest.Timeout. The
+	// caller's must win when it is shorter, or a context is decorative.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := NewHTTPTransport().Send(ctx, HTTPRequest{URL: srv.URL, Timeout: time.Minute})
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Errorf("the caller's deadline was ignored: waited %v", elapsed)
+	}
+}
+
+func TestAnEmptyBodySlicePostsAZeroLengthBody(t *testing.T) {
+	// []byte{} is not nil, so it must produce a body of length zero rather than no
+	// body — which is what Python's b"" and TypeScript's "" both do.
+	var length int64 = -1
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		length = r.ContentLength
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	if _, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
+		URL: srv.URL, Method: "POST", Body: []byte{},
+	}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if length != 0 {
+		t.Errorf("ContentLength = %d, want 0", length)
+	}
+}
+
 func TestATransportErrorCarriesNoCredential(t *testing.T) {
-	_, err := NewHTTPTransport().Send(HTTPRequest{URL: "http://user:sekrit@127.0.0.1:1/x"})
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{URL: "http://user:sekrit@127.0.0.1:1/x"})
 	if err == nil {
 		t.Fatal("want an error")
 	}
@@ -576,7 +663,7 @@ func TestAPostBodyReachesTheServer(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := NewHTTPTransport().Send(HTTPRequest{
+	if _, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
 		URL: srv.URL, Method: "POST", Body: []byte(`{"a":1}`),
 	}); err != nil {
 		t.Fatalf("Send: %v", err)
@@ -608,6 +695,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -656,6 +744,15 @@ func (r HTTPResponse) JSON() any    { return r.parsed }
 
 // Transport sends an HTTPRequest and returns an HTTPResponse.
 //
+// The context is Go's, and has no counterpart in Python's Transport Protocol, whose
+// send takes the request alone. It is here because ToolRouter.CallTool already takes
+// one and hands it to the Handler: without it the context would stop at the handler
+// and a cancelled tool call could not cancel the HTTP request it is waiting on. Go has
+// a cancellation primitive worth binding to and Python does not — the same reason
+// ipc.PerformHandshake takes io.Reader where the other bindings inject a two-method
+// object. Adding a parameter to an exported interface later would be breaking, and an
+// sdks/go tag is permanent, so it is here from the first version.
+//
 // Three obligations bind every implementation, not only the default one, because a
 // caller who substitutes their own transport is bound by all three:
 //
@@ -668,10 +765,13 @@ func (r HTTPResponse) JSON() any    { return r.parsed }
 //     same-origin redirect must keep the credential, so dropping it unconditionally is
 //     not compliance, it is a 401.
 //  3. Anything that is not an HTTP response is a *TransportError, or a
-//     *TransportTimeoutError for a timeout. Without this a caller handles a different
-//     error set per transport, which defeats the seam.
+//     *TransportTimeoutError for a timeout — and a timeout means the deadline expired,
+//     not that the caller cancelled. Cancellation is a *TransportError wrapping
+//     context.Canceled: a retry loop that read it as a timeout would retry work the
+//     caller just abandoned. Without a closed error set a caller handles a different
+//     one per transport, which defeats the seam.
 type Transport interface {
-	Send(HTTPRequest) (HTTPResponse, error)
+	Send(context.Context, HTTPRequest) (HTTPResponse, error)
 }
 
 // HTTPTransport is the default Transport, over net/http.
@@ -718,7 +818,11 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 }
 
 // Send implements Transport.
-func (t *HTTPTransport) Send(request HTTPRequest) (HTTPResponse, error) {
+//
+// Two deadlines are in play and the shorter wins: the caller's ctx, and
+// HTTPRequest.Timeout, which is applied on top of it with context.WithTimeout. A
+// caller who already carries a deadline therefore keeps it.
+func (t *HTTPTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResponse, error) {
 	method := request.Method
 	if method == "" {
 		method = http.MethodGet
@@ -727,11 +831,13 @@ func (t *HTTPTransport) Send(request HTTPRequest) (HTTPResponse, error) {
 	if timeout == 0 {
 		timeout = DefaultTimeout
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	var body io.Reader
 	if request.Body != nil {
+		// Non-nil but empty stays a zero-length body rather than becoming no body,
+		// matching Python's b"" and TypeScript's "".
 		body = bytes.NewReader(request.Body)
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, method, request.URL, body)
@@ -744,21 +850,27 @@ func (t *HTTPTransport) Send(request HTTPRequest) (HTTPResponse, error) {
 
 	res, err := t.client.Do(httpReq)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return HTTPResponse{}, &TransportTimeoutError{Op: method, URL: request.URL, Err: err}
-		}
-		return HTTPResponse{}, &TransportError{Op: method, URL: request.URL, Err: err}
+		return HTTPResponse{}, t.fail(method, request.URL, err)
 	}
 	defer func() { _ = res.Body.Close() }()
 
 	raw, err := io.ReadAll(res.Body)
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return HTTPResponse{}, &TransportTimeoutError{Op: method, URL: request.URL, Err: err}
-		}
-		return HTTPResponse{}, &TransportError{Op: method, URL: request.URL, Err: err}
+		return HTTPResponse{}, t.fail(method, request.URL, err)
 	}
 	return NewHTTPResponse(res.StatusCode, raw), nil
+}
+
+// fail classifies a non-response failure into the Protocol's closed error set.
+//
+// A deadline is a timeout; a cancellation is not. Conflating them would let a retry
+// loop retry work the caller just asked it to abandon. Both keep the cause reachable
+// through Unwrap, so errors.Is(err, context.Canceled) still answers.
+func (t *HTTPTransport) fail(method, url string, err error) error {
+	if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
+		return &TransportTimeoutError{Op: method, URL: url, Err: err}
+	}
+	return &TransportError{Op: method, URL: url, Err: err}
 }
 ```
 
@@ -767,10 +879,11 @@ func (t *HTTPTransport) Send(request HTTPRequest) (HTTPResponse, error) {
 Run: `go -C sdks/go test ./connectorkit`
 Expected: PASS
 
-If `TestATimeoutIsATransportTimeoutError` reports a plain `*TransportError`, the cause
-chain from `client.Do` did not carry `context.DeadlineExceeded` — widen the check with
-`os.IsTimeout(err)` **in addition to**, not instead of, the `errors.Is`, and leave the
-test as it is.
+`fail` already checks `os.IsTimeout` alongside `errors.Is(err, context.DeadlineExceeded)`
+because `client.Do` does not always wrap the sentinel. If the timeout test still reports
+a plain `*TransportError`, print `%#v` of the error chain and widen `fail` — do **not**
+relax the test, and do **not** widen it to catch `context.Canceled`, which
+`TestCallerCancellationIsATransportErrorNotATimeout` exists to keep out.
 
 - [ ] **Step 5: Commit**
 
@@ -1128,8 +1241,9 @@ Same two shapes as Python and TypeScript: `MakeRESTFetcher` binds a token,
 - Consumes: `HTTPRequest`, `HTTPResponse`, `Transport`, `NewHTTPTransport` (Task 3);
   `ResolveURLWithBase`, `RequireEnv`, `JSONResultIfOk` (existing); `Handler` (Task 4).
 - Produces: `RESTFetcherConfig{APIBase, Token string; DefaultHeaders map[string]string}`;
-  `RESTFetcher func(pathOrURL string, opts ...RESTOption) (HTTPResponse, error)`;
+  `RESTFetcher func(ctx context.Context, pathOrURL string, opts ...RESTOption) (HTTPResponse, error)`;
   `MakeRESTFetcher(cfg, t Transport) RESTFetcher`; `MakeRESTTool(cfg RESTToolConfig) Handler`.
+  `RESTToolConfig.Fetch` is `func(ctx context.Context, token, pathOrURL string) (HTTPResponse, error)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1147,11 +1261,13 @@ import (
 
 type fakeTransport struct {
 	seen     []HTTPRequest
+	ctxs     []context.Context
 	response HTTPResponse
 	err      error
 }
 
-func (f *fakeTransport) Send(request HTTPRequest) (HTTPResponse, error) {
+func (f *fakeTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResponse, error) {
+	f.ctxs = append(f.ctxs, ctx)
 	f.seen = append(f.seen, request)
 	return f.response, f.err
 }
@@ -1163,7 +1279,7 @@ func newFake() *fakeTransport {
 func TestARelativePathIsJoinedOntoTheAPIBase(t *testing.T) {
 	fake := newFake()
 	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
-	if _, err := fetch("/repos"); err != nil {
+	if _, err := fetch(context.Background(), "/repos"); err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 	if fake.seen[0].URL != "https://api.example.com/repos" {
@@ -1174,7 +1290,7 @@ func TestARelativePathIsJoinedOntoTheAPIBase(t *testing.T) {
 func TestTheBearerTokenIsAttached(t *testing.T) {
 	fake := newFake()
 	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
-	_, _ = fetch("/repos")
+	_, _ = fetch(context.Background(), "/repos")
 	if fake.seen[0].Headers["Authorization"] != "Bearer TOK" {
 		t.Errorf("Headers = %v", fake.seen[0].Headers)
 	}
@@ -1186,7 +1302,7 @@ func TestDefaultHeadersAreMergedIn(t *testing.T) {
 		APIBase: "https://api.example.com", Token: "TOK",
 		DefaultHeaders: map[string]string{"Accept": "application/vnd.github+json"},
 	}, fake)
-	_, _ = fetch("/repos")
+	_, _ = fetch(context.Background(), "/repos")
 	if fake.seen[0].Headers["Accept"] != "application/vnd.github+json" {
 		t.Errorf("Headers = %v", fake.seen[0].Headers)
 	}
@@ -1195,7 +1311,7 @@ func TestDefaultHeadersAreMergedIn(t *testing.T) {
 func TestAPerCallHeaderCannotReplaceTheCredential(t *testing.T) {
 	fake := newFake()
 	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
-	_, _ = fetch("/repos", WithHeader("Authorization", "Bearer ATTACKER"))
+	_, _ = fetch(context.Background(), "/repos", WithHeader("Authorization", "Bearer ATTACKER"))
 	if fake.seen[0].Headers["Authorization"] != "Bearer TOK" {
 		t.Errorf("credential was overridden: %v", fake.seen[0].Headers)
 	}
@@ -1206,7 +1322,7 @@ func TestACrossOriginAbsoluteURLIsRefusedBeforeAnySend(t *testing.T) {
 	// credential-bearing fetch at an attacker-controlled host.
 	fake := newFake()
 	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
-	_, err := fetch("https://evil.com/steal")
+	_, err := fetch(context.Background(), "https://evil.com/steal")
 	var refusal *URLResolutionError
 	if !errors.As(err, &refusal) {
 		t.Fatalf("want *URLResolutionError, got %#v", err)
@@ -1219,7 +1335,7 @@ func TestACrossOriginAbsoluteURLIsRefusedBeforeAnySend(t *testing.T) {
 func TestASameOriginAbsoluteURLPassesThrough(t *testing.T) {
 	fake := newFake()
 	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
-	if _, err := fetch("https://api.example.com/page/2"); err != nil {
+	if _, err := fetch(context.Background(), "https://api.example.com/page/2"); err != nil {
 		t.Fatalf("fetch: %v", err)
 	}
 	if fake.seen[0].URL != "https://api.example.com/page/2" {
@@ -1230,9 +1346,40 @@ func TestASameOriginAbsoluteURLPassesThrough(t *testing.T) {
 func TestTheMethodAndBodyReachTheTransport(t *testing.T) {
 	fake := newFake()
 	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
-	_, _ = fetch("/issues", WithMethod("POST"), WithBody([]byte(`{"title":"x"}`)))
+	_, _ = fetch(context.Background(), "/issues", WithMethod("POST"), WithBody([]byte(`{"title":"x"}`)))
 	if fake.seen[0].Method != "POST" || string(fake.seen[0].Body) != `{"title":"x"}` {
 		t.Errorf("request = %#v", fake.seen[0])
+	}
+}
+
+func TestTheContextReachesTheTransport(t *testing.T) {
+	// The whole reason Transport.Send takes one: without this the ctx stops at the
+	// handler and a cancelled tool call cannot cancel its HTTP request.
+	type key struct{}
+	fake := newFake()
+	fetch := MakeRESTFetcher(RESTFetcherConfig{APIBase: "https://api.example.com", Token: "TOK"}, fake)
+	_, _ = fetch(context.WithValue(context.Background(), key{}, "v"), "/repos")
+	if len(fake.ctxs) != 1 || fake.ctxs[0].Value(key{}) != "v" {
+		t.Errorf("transport saw ctxs = %v", fake.ctxs)
+	}
+}
+
+func TestMakeRESTToolPassesItsContextToFetch(t *testing.T) {
+	type key struct{}
+	var seen any
+	handler := MakeRESTTool(RESTToolConfig{
+		TokenEnv:     "GH_TOKEN",
+		ServiceLabel: "github",
+		Fetch: func(ctx context.Context, _, _ string) (HTTPResponse, error) {
+			seen = ctx.Value(key{})
+			return NewHTTPResponse(200, []byte("{}")), nil
+		},
+		BuildPath: func(map[string]any) string { return "/x" },
+		Env:       func(string) string { return "TOK" },
+	})
+	_, _ = handler(context.WithValue(context.Background(), key{}, "v"), nil)
+	if seen != "v" {
+		t.Errorf("fetch saw context value %v", seen)
 	}
 }
 
@@ -1250,7 +1397,7 @@ func TestMakeRESTToolBuildsTheStandardBody(t *testing.T) {
 	handler := MakeRESTTool(RESTToolConfig{
 		TokenEnv:     "GH_TOKEN",
 		ServiceLabel: "github",
-		Fetch: func(token, pathOrURL string) (HTTPResponse, error) {
+		Fetch: func(_ context.Context, token, pathOrURL string) (HTTPResponse, error) {
 			seenToken, seenPath = token, pathOrURL
 			return NewHTTPResponse(200, []byte(`{"n":1}`)), nil
 		},
@@ -1275,7 +1422,7 @@ func TestMakeRESTToolErrorsWhenTheTokenEnvIsUnset(t *testing.T) {
 	handler := MakeRESTTool(RESTToolConfig{
 		TokenEnv:     "GH_TOKEN",
 		ServiceLabel: "github",
-		Fetch: func(string, string) (HTTPResponse, error) {
+		Fetch: func(context.Context, string, string) (HTTPResponse, error) {
 			t.Fatal("must not be reached")
 			return HTTPResponse{}, nil
 		},
@@ -1293,7 +1440,7 @@ func TestMakeRESTToolReportsANon2xxWithStatusAndSnippet(t *testing.T) {
 	handler := MakeRESTTool(RESTToolConfig{
 		TokenEnv:     "GH_TOKEN",
 		ServiceLabel: "github",
-		Fetch: func(string, string) (HTTPResponse, error) {
+		Fetch: func(context.Context, string, string) (HTTPResponse, error) {
 			return NewHTTPResponse(404, []byte("not found")), nil
 		},
 		BuildPath: func(map[string]any) string { return "/x" },
@@ -1317,7 +1464,7 @@ func TestMakeRESTToolReadsTheEnvOnEveryCall(t *testing.T) {
 	handler := MakeRESTTool(RESTToolConfig{
 		TokenEnv:     "GH_TOKEN",
 		ServiceLabel: "github",
-		Fetch: func(token, _ string) (HTTPResponse, error) {
+		Fetch: func(_ context.Context, token, _ string) (HTTPResponse, error) {
 			seen = append(seen, token)
 			return NewHTTPResponse(200, []byte("{}")), nil
 		},
@@ -1384,7 +1531,10 @@ func WithHeader(name, value string) RESTOption {
 }
 
 // RESTFetcher is what MakeRESTFetcher returns.
-type RESTFetcher func(pathOrURL string, opts ...RESTOption) (HTTPResponse, error)
+//
+// The context is threaded to Transport.Send, so a cancelled tool call cancels the HTTP
+// request it is waiting on.
+type RESTFetcher func(ctx context.Context, pathOrURL string, opts ...RESTOption) (HTTPResponse, error)
 
 // MakeRESTFetcher returns a fetcher bound to cfg's base URL, token and transport.
 //
@@ -1397,7 +1547,7 @@ func MakeRESTFetcher(cfg RESTFetcherConfig, transport Transport) RESTFetcher {
 	if transport == nil {
 		transport = NewHTTPTransport()
 	}
-	return func(pathOrURL string, opts ...RESTOption) (HTTPResponse, error) {
+	return func(ctx context.Context, pathOrURL string, opts ...RESTOption) (HTTPResponse, error) {
 		url, err := ResolveURLWithBase(cfg.APIBase, pathOrURL)
 		if err != nil {
 			return HTTPResponse{}, err
@@ -1412,7 +1562,7 @@ func MakeRESTFetcher(cfg RESTFetcherConfig, transport Transport) RESTFetcher {
 		}
 		// Set last, so a caller-supplied header cannot replace the credential.
 		request.Headers["Authorization"] = "Bearer " + cfg.Token
-		return transport.Send(request)
+		return transport.Send(ctx, request)
 	}
 }
 
@@ -1420,11 +1570,12 @@ func MakeRESTFetcher(cfg RESTFetcherConfig, transport Transport) RESTFetcher {
 type RESTToolConfig struct {
 	TokenEnv     string
 	ServiceLabel string
-	// Fetch takes the token explicitly, mirroring TypeScript's makeRestToolRegistrar.
-	Fetch      func(token, pathOrURL string) (HTTPResponse, error)
+	// Fetch takes the token explicitly, mirroring TypeScript's makeRestToolRegistrar,
+	// and the context so the tool call's cancellation reaches the request.
+	Fetch      func(ctx context.Context, token, pathOrURL string) (HTTPResponse, error)
 	BuildPath  func(args map[string]any) string
-	SnippetMax int                    // zero means 300, matching JSONResultIfOk
-	Env        func(string) string    // nil means os.Getenv, via RequireEnv
+	SnippetMax int                 // zero means 300, matching JSONResultIfOk
+	Env        func(string) string // nil means os.Getenv, via RequireEnv
 }
 
 // MakeRESTTool builds the repeated REST tool body as a Handler for ToolRouter.Add.
@@ -1440,12 +1591,12 @@ func MakeRESTTool(cfg RESTToolConfig) Handler {
 	if snippetMax == 0 {
 		snippetMax = 300
 	}
-	return func(_ context.Context, args map[string]any) (MCPToolResult, error) {
+	return func(ctx context.Context, args map[string]any) (MCPToolResult, error) {
 		token, err := RequireEnv(cfg.TokenEnv, cfg.Env)
 		if err != nil {
 			return MCPToolResult{}, err
 		}
-		response, err := cfg.Fetch(token, cfg.BuildPath(args))
+		response, err := cfg.Fetch(ctx, token, cfg.BuildPath(args))
 		if err != nil {
 			return MCPToolResult{}, err
 		}
@@ -1554,6 +1705,12 @@ component path. Nothing under `sdks/python/`, `sdks/typescript/` or `tools/` may
   `docs/api-surface-go.md` diff, because the tag is permanent.
 - §8 has **two** passing tests: a cross-origin redirect drops the credential, a
   same-origin redirect keeps it. Only the pair distinguishes §8 from over-stripping.
+- Cancellation and expiry are distinguished: `context.DeadlineExceeded` is a
+  `*TransportTimeoutError`, `context.Canceled` is a plain `*TransportError`, and both
+  keep the cause reachable through `errors.Is`.
+- The context is plumbed end to end — `CallTool` → `Handler` → `MakeRESTTool`'s `Fetch`
+  → `RESTFetcher` → `Transport.Send` — with a test at each hand-off, so the parameter is
+  not merely present.
 - `go build`, `go vet`, `gofmt -l` (empty) and `go test` with
   `NIMBUS_SPEC_DRIFT=required` all pass.
 - `docs/api-surface-go.md` is regenerated and committed.

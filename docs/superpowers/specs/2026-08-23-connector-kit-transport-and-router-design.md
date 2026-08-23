@@ -295,9 +295,26 @@ a Python Protocol is not, and nothing observable differs between the bindings.
 
 ### `Transport`
 
-`Transport` is the kit's own interface, `Send(HTTPRequest) (HTTPResponse, error)`, per
-D3. `HTTPRequest` mirrors Python's field for field, with `Timeout time.Duration` where
-Python spells `timeout_s: float`.
+`Transport` is the kit's own interface, `Send(context.Context, HTTPRequest)
+(HTTPResponse, error)`, per D3. `HTTPRequest` mirrors Python's field for field, with
+`Timeout time.Duration` where Python spells `timeout_s: float`.
+
+**The `context.Context` is a fourth Go-shaped difference on this surface, and it is
+load-bearing rather than decorative.** Python's `send` takes the request alone.
+`ToolRouter.CallTool` takes a context and hands it to the `Handler`; without one on
+`Send` the context would stop there, and a cancelled tool call could not cancel the HTTP
+request it is blocked on. Go has a cancellation primitive worth binding to and Python
+has none — the reasoning that put `io.Reader` in `ipc.PerformHandshake`. It also has to
+be decided now: adding a parameter to an exported interface is breaking, and the tag is
+permanent.
+
+Two deadlines then exist — the caller's context and `HTTPRequest.Timeout` — and the
+shorter wins, because `Send` applies the timeout *on top of* the supplied context rather
+than replacing it. Cancellation and expiry are **not** the same outcome:
+`context.DeadlineExceeded` is a `*TransportTimeoutError`, `context.Canceled` is a plain
+`*TransportError`, and conflating them would let a retry loop retry work the caller had
+just abandoned. Both keep the cause reachable through `Unwrap`, so
+`errors.Is(err, context.Canceled)` still answers.
 
 The default constructor is **`NewHTTPTransport(...)`**, not a name-for-name port of
 `UrllibTransport`: that name identifies a library Go does not have, the same reason

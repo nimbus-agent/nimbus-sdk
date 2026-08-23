@@ -225,9 +225,28 @@ def test_userinfo_stripping_keeps_the_port_query_and_fragment() -> None:
     assert err.url == "https://h.example:8443/a?b=1#c"
 
 
-def test_an_unparseable_url_still_produces_a_message_and_leaks_nothing() -> None:
+def test_an_unparseable_url_falls_back_to_a_placeholder() -> None:
+    # Measured: urlsplit("https://u:p@[oops") raises ValueError("Invalid IPv6 URL"),
+    # so this input really does exercise the except branch rather than passing by
+    # accident through the ordinary rsplit path. Asserted as an exact message so the
+    # branch stays pinned if the fallback string is ever changed.
     err = TransportError("GET", "https://u:p@[oops", "boom")
-    assert "p@" not in str(err)
+    assert str(err) == "GET <unparseable url> failed: boom"
+    assert err.url == "<unparseable url>"
+
+
+def test_an_at_sign_inside_the_password_does_not_defeat_redaction() -> None:
+    # rsplit, not split: the last @ separates userinfo from host, and a password may
+    # legally contain one.
+    err = TransportError("GET", "https://user:p@ss@h.example/x", "boom")
+    assert err.url == "https://h.example/x"
+    assert "p@ss" not in str(err)
+
+
+def test_a_url_with_an_at_sign_only_in_the_path_is_left_alone() -> None:
+    # There is no userinfo here, so nothing should be cut.
+    err = TransportError("GET", "https://h.example/users/@me", "boom")
+    assert err.url == "https://h.example/users/@me"
 
 
 def test_a_timeout_is_a_transport_error() -> None:
@@ -904,17 +923,36 @@ Create `sdks/python/tests/test_connector_kit_router.py`:
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 
 import pytest
 
 from nimbus_sdk.connector_kit import McpToolResult, ToolRouter, json_result
+
+T = TypeVar("T")
 
 SCHEMA: dict[str, Any] = {
     "type": "object",
     "properties": {"text": {"type": "string"}},
     "required": ["text"],
 }
+
+
+def run(coro: Coroutine[Any, Any, T]) -> T:
+    """Drive one coroutine to completion.
+
+    ``Coroutine``, not ``Awaitable``: ``asyncio.run`` accepts only the former, and
+    widening the annotation here would need a ``type: ignore`` that this strict-mypy
+    package does not otherwise carry.
+
+    ``call_tool`` is the only async thing in this package, and this repository
+    configures no async pytest plugin — measured: ``sdks/python/pyproject.toml`` has
+    neither ``anyio`` nor ``asyncio_mode`` nor any ``[project.optional-dependencies]``.
+    Adding one would be a dependency decision, and it would buy exactly this helper.
+    """
+    return asyncio.run(coro)
 
 
 def _echo(args: dict[str, Any]) -> McpToolResult:
@@ -936,41 +974,41 @@ def test_list_tools_preserves_registration_order() -> None:
     assert [t["name"] for t in router.list_tools()] == ["b", "a"]
 
 
-async def test_call_tool_dispatches_to_a_sync_handler() -> None:
+def test_call_tool_dispatches_to_a_sync_handler() -> None:
     router = ToolRouter()
     router.add("echo", "", SCHEMA, _echo)
-    assert await router.call_tool("echo", {"text": "hi"}) == json_result({"text": "hi"})
+    assert run(router.call_tool("echo", {"text": "hi"})) == json_result({"text": "hi"})
 
 
-async def test_call_tool_awaits_an_async_handler() -> None:
+def test_call_tool_awaits_an_async_handler() -> None:
     async def handler(args: dict[str, Any]) -> McpToolResult:
         return json_result({"text": args["text"].upper()})
 
     router = ToolRouter()
     router.add("echo", "", SCHEMA, handler)
-    assert await router.call_tool("echo", {"text": "hi"}) == json_result({"text": "HI"})
+    assert run(router.call_tool("echo", {"text": "hi"})) == json_result({"text": "HI"})
 
 
-async def test_an_unknown_tool_is_an_error_result_not_an_exception() -> None:
+def test_an_unknown_tool_is_an_error_result_not_an_exception() -> None:
     # A bad tool call must not kill the session.
     router = ToolRouter()
-    result = await router.call_tool("nope", {})
+    result = run(router.call_tool("nope", {}))
     assert result["isError"] is True
     assert "nope" in result["content"][0]["text"]
 
 
-async def test_a_handler_exception_becomes_an_error_result() -> None:
+def test_a_handler_exception_becomes_an_error_result() -> None:
     def boom(_args: dict[str, Any]) -> McpToolResult:
         raise RuntimeError("handler exploded")
 
     router = ToolRouter()
     router.add("boom", "", SCHEMA, boom)
-    result = await router.call_tool("boom", {})
+    result = run(router.call_tool("boom", {}))
     assert result["isError"] is True
     assert result["content"][0]["text"] == "handler exploded"
 
 
-async def test_an_exception_with_an_empty_message_still_names_its_class() -> None:
+def test_an_exception_with_an_empty_message_still_names_its_class() -> None:
     class Silent(RuntimeError):
         pass
 
@@ -979,11 +1017,11 @@ async def test_an_exception_with_an_empty_message_still_names_its_class() -> Non
 
     router = ToolRouter()
     router.add("boom", "", SCHEMA, boom)
-    result = await router.call_tool("boom", {})
+    result = run(router.call_tool("boom", {}))
     assert result["content"][0]["text"] == "Silent"
 
 
-async def test_keyboardinterrupt_is_not_swallowed() -> None:
+def test_keyboardinterrupt_is_not_swallowed() -> None:
     # Exception, deliberately, not BaseException: a shutdown signal must propagate.
     def boom(_args: dict[str, Any]) -> McpToolResult:
         raise KeyboardInterrupt
@@ -991,31 +1029,31 @@ async def test_keyboardinterrupt_is_not_swallowed() -> None:
     router = ToolRouter()
     router.add("boom", "", SCHEMA, boom)
     with pytest.raises(KeyboardInterrupt):
-        await router.call_tool("boom", {})
+        run(router.call_tool("boom", {}))
 
 
-async def test_a_validator_that_raises_becomes_an_error_result() -> None:
+def test_a_validator_that_raises_becomes_an_error_result() -> None:
     def validate(args: dict[str, Any]) -> None:
         if not isinstance(args.get("text"), str):
             raise ValueError("text must be a string")
 
     router = ToolRouter()
     router.add("echo", "", SCHEMA, _echo, validate=validate)
-    result = await router.call_tool("echo", {"text": 7})
+    result = run(router.call_tool("echo", {"text": 7}))
     assert result["isError"] is True
     assert result["content"][0]["text"] == "text must be a string"
 
 
-async def test_a_validator_that_returns_lets_the_handler_run() -> None:
+def test_a_validator_that_returns_lets_the_handler_run() -> None:
     def validate(_args: dict[str, Any]) -> None:
         return
 
     router = ToolRouter()
     router.add("echo", "", SCHEMA, _echo, validate=validate)
-    assert await router.call_tool("echo", {"text": "hi"}) == json_result({"text": "hi"})
+    assert run(router.call_tool("echo", {"text": "hi"})) == json_result({"text": "hi"})
 
 
-async def test_no_validator_means_no_validation_at_all() -> None:
+def test_no_validator_means_no_validation_at_all() -> None:
     # D10: input_schema is advertised, never enforced. The kit is dependency-free and
     # cannot validate JSON Schema, and pretending otherwise would be worse than
     # saying so — an author would trust a check that was not happening.
@@ -1024,20 +1062,20 @@ async def test_no_validator_means_no_validation_at_all() -> None:
 
     router = ToolRouter()
     router.add("echo", "", SCHEMA, handler)  # SCHEMA requires "text"
-    result = await router.call_tool("echo", {"unexpected": 1})
+    result = run(router.call_tool("echo", {"unexpected": 1}))
     assert result.get("isError") is None
 
 
-async def test_none_arguments_are_coerced_to_an_empty_mapping() -> None:
+def test_none_arguments_are_coerced_to_an_empty_mapping() -> None:
     def handler(args: dict[str, Any]) -> McpToolResult:
         return json_result({"n": len(args)})
 
     router = ToolRouter()
     router.add("echo", "", SCHEMA, handler)
-    assert await router.call_tool("echo", None) == json_result({"n": 0})
+    assert run(router.call_tool("echo", None)) == json_result({"n": 0})
 
 
-async def test_the_handler_cannot_mutate_the_callers_arguments() -> None:
+def test_the_handler_cannot_mutate_the_callers_arguments() -> None:
     supplied: dict[str, Any] = {"text": "hi"}
 
     def handler(args: dict[str, Any]) -> McpToolResult:
@@ -1046,7 +1084,7 @@ async def test_the_handler_cannot_mutate_the_callers_arguments() -> None:
 
     router = ToolRouter()
     router.add("echo", "", SCHEMA, handler)
-    await router.call_tool("echo", supplied)
+    run(router.call_tool("echo", supplied))
     assert supplied == {"text": "hi"}
 
 
@@ -1060,7 +1098,7 @@ def test_the_decorator_registers_the_same_way_add_does() -> None:
     assert [t["name"] for t in router.list_tools()] == ["echo"]
 
 
-async def test_the_decorator_takes_validate_too() -> None:
+def test_the_decorator_takes_validate_too() -> None:
     # The decorator is a decorator over the same registration, not a reduced form.
     router = ToolRouter()
 
@@ -1071,7 +1109,7 @@ async def test_the_decorator_takes_validate_too() -> None:
     def _handler(args: dict[str, Any]) -> McpToolResult:
         return json_result(args)
 
-    result = await router.call_tool("echo", {})
+    result = run(router.call_tool("echo", {}))
     assert result["content"][0]["text"] == "always invalid"
 
 
@@ -1094,14 +1132,12 @@ def test_a_duplicate_name_raises_at_registration() -> None:
         router.add("echo", "", SCHEMA, _echo)
 ```
 
-Async tests need an anyio/asyncio pytest plugin. Check `sdks/python/pyproject.toml`
-first: if no async plugin is configured, **do not add a dependency** — instead drive
-each coroutine with `asyncio.run(...)` inside a synchronous test, e.g.
-`assert asyncio.run(router.call_tool("echo", {"text": "hi"})) == ...`, and drop the
-`async def` from the test signatures. The dependency-free rule covers dev dependencies
-here only insofar as `[project].dependencies` must stay empty; adding a *test* plugin is
-a `[project.optional-dependencies].dev` change and needs a deliberate call, so default to
-`asyncio.run`.
+**Every test above is synchronous on purpose** — the `run()` helper drives the one
+coroutine. **Measured:** `sdks/python/pyproject.toml` configures no `anyio` plugin, no
+`asyncio_mode`, and has no `[project.optional-dependencies]` section at all, so an
+`async def` test would be collected and silently skipped or errored rather than run.
+Adding a plugin would be a dependency decision that buys exactly this three-line
+helper, so do not make it here. Write the tests as they are written.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 

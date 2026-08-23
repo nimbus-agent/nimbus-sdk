@@ -81,6 +81,8 @@ package.
 
 from __future__ import annotations
 
+import inspect
+
 from api_surface import IMPORT_ROOTS, Kind, collect
 
 
@@ -123,6 +125,20 @@ def test_known_names_are_classified_correctly() -> None:
     contract = {export.name: export.kind for export in collect("nimbus_sdk")}
     assert contract["CONTRACT_VERSIONS"] is Kind.DATA
     assert contract["NegotiationOk"] is Kind.CLASS
+    # spec_root is @lru_cache-decorated, so it is a functools._lru_cache_wrapper rather
+    # than a function. inspect.isfunction and isbuiltin are both False for it; only
+    # isroutine catches it. Without this it classified as DATA and would have rendered as
+    # `spec_root: _lru_cache_wrapper` in the committed snapshot.
+    assert contract["spec_root"] is Kind.FUNCTION
+
+
+def test_every_callable_export_classifies_as_a_function() -> None:
+    # The general form of the spec_root bug: any decorated callable whose wrapper is not
+    # a plain function. Nothing exported may render as data while being callable.
+    for root in IMPORT_ROOTS:
+        for export in collect(root):
+            if inspect.isroutine(export.obj):
+                assert export.kind is Kind.FUNCTION, f"{root}.{export.name}"
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -211,7 +227,11 @@ _ALIAS_TYPES = (types.UnionType, types.GenericAlias)
 def _classify(obj: object) -> Kind:
     if inspect.isclass(obj):
         return Kind.CLASS
-    if inspect.isfunction(obj) or inspect.isbuiltin(obj):
+    if inspect.isroutine(obj):
+        # isroutine, not isfunction/isbuiltin: `nimbus_sdk.spec_root` is @lru_cache-
+        # decorated, so its runtime type is `functools._lru_cache_wrapper` — neither a
+        # function nor a builtin. Under the narrower checks a published function fell
+        # through to DATA and would have rendered as `spec_root: _lru_cache_wrapper`.
         return Kind.FUNCTION
     if isinstance(obj, _ALIAS_TYPES):
         return Kind.ALIAS
@@ -444,14 +464,48 @@ Append to `sdks/python/tests/test_api_surface.py`:
 
 ```python
 def test_renders_a_function_signature_as_written() -> None:
-    export = next(e for e in collect("nimbus_sdk.connector_kit") if e.name == "require_env")
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "resolve_url_with_base"
+    )
     lines = render_export(export, alias_sources(), annotation_sources())
-    # Annotations render as the literal source strings, because every module under
-    # src/nimbus_sdk/ has `from __future__ import annotations`. That is what makes this
-    # identical on 3.11 and 3.14.
-    assert len(lines) == 1
-    assert lines[0].startswith("- `def require_env(")
-    assert lines[0].endswith("`")
+    # Annotations render UNQUOTED, as the literal source strings. Every module under
+    # src/nimbus_sdk/ has `from __future__ import annotations`, so each annotation is a
+    # `str` at runtime and inspect would otherwise repr it as `base_url: 'str'`.
+    assert lines == [
+        "- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str`"
+    ]
+
+
+def test_a_default_is_elided_and_never_rendered() -> None:
+    # SECURITY CONTROL, not cosmetics. `require_env(name, env=os.environ)` declares
+    # os.environ as its default, and repr(os.environ) is the whole process environment —
+    # on the machine this was written that included a real ANTHROPIC_API_KEY, a GitHub
+    # PAT, a Sonar token and OAuth client secrets. Rendering defaults by repr would write
+    # every one of them into a committed, published Markdown file. `...` records that the
+    # parameter is optional, which is surface, without its value, which is not.
+    export = next(e for e in collect("nimbus_sdk.connector_kit") if e.name == "require_env")
+    rendered = render_export(export, alias_sources(), annotation_sources())[0]
+    assert rendered == "- `def require_env(name: str, env: Mapping[str, str] = ...) -> str`"
+
+
+def test_no_rendered_export_leaks_an_environment_default() -> None:
+    # The same control across the WHOLE surface, so a future export with an environment
+    # or credential default cannot slip past the one hand-written case above.
+    aliases, annotations = alias_sources(), annotation_sources()
+    for root in IMPORT_ROOTS:
+        for export in collect(root):
+            for line in render_export(export, aliases, annotations):
+                for marker in ("ANTHROPIC", "TOKEN", "SECRET", "environ("):
+                    assert marker not in line, f"{export.name} leaks {marker}"
+
+
+def test_a_decorated_function_still_renders_its_real_signature() -> None:
+    # spec_root is @lru_cache-decorated: its wrapper carries no signature of its own, so
+    # _signature has to unwrap before inspecting.
+    export = next(e for e in collect("nimbus_sdk") if e.name == "spec_root")
+    assert render_export(export, alias_sources(), annotation_sources()) == [
+        "- `def spec_root() -> Path`"
+    ]
 
 
 def test_renders_an_alias_from_its_source_text() -> None:
@@ -486,13 +540,51 @@ Expected: FAIL — `ImportError: cannot import name 'render_export'`
 Add to `sdks/python/scripts/api_surface.py`:
 
 ```python
-def _signature(name: str, obj: object) -> str:
-    """``def name(params) -> return``, with annotations exactly as written in the source.
+class _Verbatim:
+    """Renders as its text, unquoted, wherever `inspect` would call `repr` on it.
 
-    `inspect.unwrap` first, so a `functools.wraps` chain resolves to the real callable if
-    one ever appears. NEVER pass `eval_str=True`: it resolves the source strings that
+    Two jobs, both of which `str(inspect.Signature)` gets wrong for this package:
+
+    **Annotations.** Under `from __future__ import annotations` every annotation is a
+    `str`, and `inspect.formatannotation` falls through to `repr()` for anything that is
+    not a type — so `name: str` renders as `name: 'str'`, quoted. Wrapping the text makes
+    it render as written, which is what the spec asks for.
+
+    **Defaults — and this one is a security control, not a cosmetic one.**
+    `require_env(name, env=os.environ)` declares `os.environ` as its default, and
+    `repr(os.environ)` is *the entire process environment*: on the machine this was
+    written, that included a real `ANTHROPIC_API_KEY`, a GitHub PAT, a Sonar token and
+    OAuth client secrets. Rendering defaults by `repr` would have written every one of
+    them into a committed, published Markdown file. Defaults are therefore always elided
+    to `...`, which is exactly how a `.pyi` stub spells "has a default, value not shown" —
+    it records the fact a parameter is optional, which is surface, without recording the
+    value, which is not.
+    """
+
+    __slots__ = ("_text",)
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def __repr__(self) -> str:
+        return self._text
+
+
+_ELIDED = _Verbatim("...")
+
+
+def _signature(name: str, obj: object) -> str:
+    """``def name(params) -> return``, with annotations as written and defaults elided.
+
+    `inspect.unwrap` first, so a decorator chain resolves to the real callable —
+    `nimbus_sdk.spec_root` is `@lru_cache`-decorated and its wrapper carries no signature
+    of its own. NEVER pass `eval_str=True`: it resolves the source strings that
     `from __future__ import annotations` preserves into runtime objects whose repr differs
     between Python versions, which would turn this gate red on most of the twelve CI legs.
+
+    The signature is rebuilt through `Signature.replace` rather than string-processed, so
+    positional-only `/`, keyword-only `*`, `*args` and `**kwargs` keep rendering the way
+    `inspect` renders them — only the annotation and default TEXT changes.
     """
     try:
         signature = inspect.signature(inspect.unwrap(obj))  # type: ignore[arg-type]
@@ -502,7 +594,24 @@ def _signature(name: str, obj: object) -> str:
         # later change to the real signature would pass silently — the gate would report
         # a coverage it no longer has.
         raise RuntimeError(f"no signature for {name}: {error}") from error
-    return f"def {name}{signature}"
+
+    def rewrite(parameter: inspect.Parameter) -> inspect.Parameter:
+        annotation = parameter.annotation
+        if annotation is not inspect.Parameter.empty:
+            annotation = _Verbatim(str(annotation))
+        default = parameter.default
+        if default is not inspect.Parameter.empty:
+            default = _ELIDED
+        return parameter.replace(annotation=annotation, default=default)
+
+    returns = signature.return_annotation
+    if returns is not inspect.Signature.empty:
+        returns = _Verbatim(str(returns))
+    rebuilt = signature.replace(
+        parameters=[rewrite(p) for p in signature.parameters.values()],
+        return_annotation=returns,
+    )
+    return f"def {name}{rebuilt}"
 
 
 def render_export(

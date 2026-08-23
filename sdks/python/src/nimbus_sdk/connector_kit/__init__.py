@@ -20,6 +20,8 @@ from nimbus_sdk.connector_kit.errors import (
     ConnectorKitError,
     HttpStatusError,
     MissingEnvError,
+    TransportError,
+    TransportTimeoutError,
     UrlResolutionError,
 )
 from nimbus_sdk.connector_kit.results import (
@@ -58,6 +60,8 @@ __all__ = [
     "MissingEnvError",
     "SearchFilter",
     "TextResponse",
+    "TransportError",
+    "TransportTimeoutError",
     "UrlResolutionError",
     "as_objectish",
     "as_record",

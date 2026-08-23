@@ -110,7 +110,7 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.connector_kit`
 
-27 exports.
+30 exports.
 
 - `class ConnectorKitError(Exception)`
 - `FieldExtractor = Callable[[object], Sequence[str | None] | None]`
@@ -133,6 +133,10 @@ reworded docstring is not a change to the surface.
   - `ok: bool`
   - `status: int`
   - `text: str`
+- `class TransportError(ConnectorKitError)`
+  - `def __init__(self, method: str, url: str, reason: str) -> None`
+- `class TransportTimeoutError(TransportError)`
+  - `def __init__(self, method: str, url: str, reason: str) -> None`
 - `class UrlResolutionError(ConnectorKitError)`
 - `def as_objectish(value: object) -> dict[str, object] | None`
 - `def as_record(value: object) -> dict[str, object] | None`
@@ -148,6 +152,7 @@ reworded docstring is not a change to the surface.
 - `def parse_json_text_if_ok(service_label: str, res: TextResponse, max_snippet: int = ...) -> object`
 - `def require_env(name: str, env: Mapping[str, str] = ...) -> str`
 - `def resolve_url_with_base(base_url: str, path_or_url: str) -> str`
+- `def should_strip_auth(from_url: str, to_url: str) -> bool`
 - `def string_field(row: dict[str, object], key: str) -> str`
 - `def tag_names_from_objects(row: dict[str, object]) -> str`
 - `def tag_text(row: dict[str, object]) -> str`

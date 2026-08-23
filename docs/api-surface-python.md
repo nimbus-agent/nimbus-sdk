@@ -110,7 +110,7 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.connector_kit`
 
-34 exports.
+38 exports.
 
 - `class ConnectorKitError(Exception)`
 - `FieldExtractor = Callable[[object], Sequence[str | None] | None]`
@@ -135,6 +135,10 @@ reworded docstring is not a change to the surface.
 - `class McpTextContent`
   - `type: Literal['text']`
   - `text: str`
+- `class McpToolDescriptor`
+  - `name: str`
+  - `description: str`
+  - `inputSchema: dict[str, Any]`
 - `class McpToolResult`
   - `content: list[McpTextContent]`
   - `isError: NotRequired[bool]`
@@ -144,6 +148,14 @@ reworded docstring is not a change to the surface.
   - `ok: bool`
   - `status: int`
   - `text: str`
+- `ToolHandler = Callable[[dict[str, Any]], 'McpToolResult | Awaitable[McpToolResult]']`
+- `class ToolRouter`
+  - `def __init__(self) -> None`
+  - `def add(self, name: str, description: str, input_schema: dict[str, Any], handler: ToolHandler, validate: ToolValidator | None = ...) -> None`
+  - `def call_tool(self, name: str, arguments: Mapping[str, Any] | None) -> McpToolResult`
+  - `def list_tools(self) -> list[McpToolDescriptor]`
+  - `def tool(self, name: str, description: str, input_schema: dict[str, Any], validate: ToolValidator | None = ...) -> Callable[[ToolHandler], ToolHandler]`
+- `ToolValidator = Callable[[dict[str, Any]], None]`
 - `class Transport(Protocol)`
   - `def send(self, request: HttpRequest) -> HttpResponse`
 - `class TransportError(ConnectorKitError)`

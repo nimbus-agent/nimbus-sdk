@@ -33,6 +33,7 @@ from nimbus_sdk.connector_kit.results import (
     json_result_if_ok,
     parse_json_text_if_ok,
 )
+from nimbus_sdk.connector_kit.router import ToolHandler, ToolRouter, ToolValidator
 from nimbus_sdk.connector_kit.search_filter import (
     FieldExtractor,
     SearchFilter,
@@ -53,7 +54,11 @@ from nimbus_sdk.connector_kit.transport import (
     Transport,
     UrllibTransport,
 )
-from nimbus_sdk.connector_kit.types import McpTextContent, McpToolResult
+from nimbus_sdk.connector_kit.types import (
+    McpTextContent,
+    McpToolDescriptor,
+    McpToolResult,
+)
 from nimbus_sdk.connector_kit.urls import resolve_url_with_base, should_strip_auth
 
 __all__ = [
@@ -64,10 +69,14 @@ __all__ = [
     "HttpStatusError",
     "JsonBodyResponse",
     "McpTextContent",
+    "McpToolDescriptor",
     "McpToolResult",
     "MissingEnvError",
     "SearchFilter",
     "TextResponse",
+    "ToolHandler",
+    "ToolRouter",
+    "ToolValidator",
     "Transport",
     "TransportError",
     "TransportTimeoutError",

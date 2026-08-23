@@ -110,7 +110,7 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.connector_kit`
 
-38 exports.
+42 exports.
 
 - `class ConnectorKitError(Exception)`
 - `FieldExtractor = Callable[[object], Sequence[str | None] | None]`
@@ -143,6 +143,11 @@ reworded docstring is not a change to the surface.
   - `content: list[McpTextContent]`
   - `isError: NotRequired[bool]`
 - `class MissingEnvError(ConnectorKitError)`
+- `class RestFetcher(Protocol)`
+- `class RestFetcherConfig`
+  - `api_base: str`
+  - `token: str`
+  - `default_headers: Mapping[str, str]`
 - `SearchFilter = Callable[..., list[object]]`
 - `class TextResponse(Protocol)`
   - `ok: bool`
@@ -175,6 +180,8 @@ reworded docstring is not a change to the surface.
 - `def json_result_from_text_if_ok(service_label: str, res: TextResponse, *, max_snippet: int = ..., json_parse_error_message: str | None = ...) -> McpToolResult`
 - `def json_result_if_ok(service_label: str, res: JsonBodyResponse, snippet_max: int = ...) -> McpToolResult`
 - `def make_query_filter(fields: FieldExtractor) -> SearchFilter`
+- `def make_rest_fetcher(config: RestFetcherConfig, transport: Transport | None = ...) -> RestFetcher`
+- `def make_rest_tool(*, token_env: str, service_label: str, fetch: Callable[[str, str], HttpResponse], build_path: Callable[[dict[str, Any]], str], snippet_max: int = ..., env: Mapping[str, str] | None = ...) -> ToolHandler`
 - `def matches_result(rows: object, search: SearchFilter, *, query: str, limit: float | None = ...) -> McpToolResult`
 - `def nested_string(root: dict[str, object], path: Sequence[str]) -> str`
 - `def parse_json_text_if_ok(service_label: str, res: TextResponse, max_snippet: int = ...) -> object`

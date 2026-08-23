@@ -24,6 +24,12 @@ from nimbus_sdk.connector_kit.errors import (
     TransportTimeoutError,
     UrlResolutionError,
 )
+from nimbus_sdk.connector_kit.rest import (
+    RestFetcher,
+    RestFetcherConfig,
+    make_rest_fetcher,
+    make_rest_tool,
+)
 from nimbus_sdk.connector_kit.results import (
     JsonBodyResponse,
     TextResponse,
@@ -72,6 +78,8 @@ __all__ = [
     "McpToolDescriptor",
     "McpToolResult",
     "MissingEnvError",
+    "RestFetcher",
+    "RestFetcherConfig",
     "SearchFilter",
     "TextResponse",
     "ToolHandler",
@@ -91,6 +99,8 @@ __all__ = [
     "json_result_from_text_if_ok",
     "json_result_if_ok",
     "make_query_filter",
+    "make_rest_fetcher",
+    "make_rest_tool",
     "matches_result",
     "nested_string",
     "parse_json_text_if_ok",

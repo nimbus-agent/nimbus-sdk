@@ -16,6 +16,7 @@ from nimbus_sdk.connector_kit import (
     ConnectorKitError,
     UrlResolutionError,
     resolve_url_with_base,
+    should_strip_auth,
 )
 
 BASE = "https://api.example.com"
@@ -124,3 +125,84 @@ def test_undefined_host_is_refused_by_this_binding_and_that_is_not_pinned() -> N
     # either answer, and neither binding may invent one.
     with pytest.raises(UrlResolutionError):
         resolve_url_with_base("https://пример.рф", "https://пример.рф/x")
+
+
+def test_should_strip_auth_is_false_for_the_same_origin() -> None:
+    assert (
+        should_strip_auth("https://api.example.com/a", "https://api.example.com/b")
+        is False
+    )
+
+
+def test_should_strip_auth_is_true_when_the_host_changes() -> None:
+    assert should_strip_auth("https://api.example.com/a", "https://evil.com/a") is True
+
+
+def test_should_strip_auth_is_true_when_the_scheme_changes() -> None:
+    # A downgrade to http is an origin change, and would put the token on the wire in
+    # clear text even if the host matched.
+    assert (
+        should_strip_auth("https://api.example.com/a", "http://api.example.com/a")
+        is True
+    )
+
+
+def test_should_strip_auth_is_true_when_the_port_changes() -> None:
+    assert (
+        should_strip_auth("https://h.example:8443/a", "https://h.example:9443/a")
+        is True
+    )
+
+
+def test_should_strip_auth_treats_a_default_port_as_equal_to_no_port() -> None:
+    # §6: http's default is 80, https's is 443, so these are the same origin and a
+    # same-origin redirect must keep the credential.
+    assert should_strip_auth("https://h.example/a", "https://h.example:443/b") is False
+    assert should_strip_auth("http://h.example:80/a", "http://h.example/b") is False
+
+
+def test_should_strip_auth_is_case_insensitive_in_scheme_and_host() -> None:
+    assert (
+        should_strip_auth("HTTPS://API.Example.com/a", "https://api.example.com/b")
+        is False
+    )
+
+
+def test_should_strip_auth_fails_closed_when_urlsplit_itself_raises() -> None:
+    # urlsplit raises ValueError("Invalid IPv6 URL") on this, rather than returning a
+    # hostname-less result. The redirect handler calls this with a SERVER-supplied
+    # Location header, so an exception escaping here would leave the documented
+    # contract — "returns True when either origin cannot be computed" — untrue on
+    # exactly the input an attacker controls.
+    assert should_strip_auth("https://api.example.com/a", "https://[oops") is True
+    assert should_strip_auth("https://[oops", "https://api.example.com/a") is True
+
+
+def test_a_url_urlsplit_refuses_is_a_kit_error_not_a_bare_value_error() -> None:
+    # §7 says a malformed absolute URL raises UrlResolutionError. Before _origin
+    # guarded urlsplit this escaped as ValueError, which `except ConnectorKitError`
+    # does not catch — the one thing the taxonomy exists to prevent, on the SSRF
+    # chokepoint of all places.
+    with pytest.raises(UrlResolutionError) as excinfo:
+        resolve_url_with_base(BASE, "https://[oops")
+    assert str(excinfo.value) == (
+        "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+    )
+
+
+def test_should_strip_auth_fails_closed_on_an_unparseable_url() -> None:
+    # An origin that cannot be computed is not an origin that can be shown equal.
+    # Stripping is the only safe answer.
+    assert should_strip_auth("https://api.example.com/a", "not a url") is True
+    assert should_strip_auth("not a url", "https://api.example.com/a") is True
+
+
+def test_should_strip_auth_fails_closed_on_a_userinfo_lookalike_host() -> None:
+    # The attack _origin already defends against, reachable through this door too:
+    # urlsplit().hostname drops the userinfo, so the origin here is evil.com.
+    assert (
+        should_strip_auth(
+            "https://api.example.com/a", "https://api.example.com@evil.com/a"
+        )
+        is True
+    )

@@ -25,8 +25,8 @@ from nimbus_sdk.connector_kit import (
 
 @dataclass(frozen=True)
 class FakeResponse:
-    """Structurally satisfies both response Protocols. Shipment 2's HttpResponse is the
-    same shape, which is what makes these helpers transport-agnostic."""
+    """Structurally satisfies both response Protocols. ``HttpResponse`` is the same
+    shape, which is what makes these helpers transport-agnostic."""
 
     ok: bool
     status: int

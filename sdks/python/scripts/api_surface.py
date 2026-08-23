@@ -250,7 +250,13 @@ def _signature(name: str, obj: object) -> str:
         parameters=[rewrite(p) for p in signature.parameters.values()],
         return_annotation=returns,
     )
-    return f"def {name}{rebuilt}"
+    # `async` is part of the contract, not decoration: a reader of the snapshot has to
+    # be able to tell that the value must be awaited. Without this prefix
+    # `ToolRouter.call_tool` records as an ordinary `def` returning `McpToolResult`,
+    # which is what a caller would then write against. Checked on the unwrapped
+    # callable, the same object the signature came from.
+    prefix = "async " if inspect.iscoroutinefunction(inspect.unwrap(obj)) else ""  # type: ignore[arg-type]
+    return f"{prefix}def {name}{rebuilt}"
 
 
 def render_export(

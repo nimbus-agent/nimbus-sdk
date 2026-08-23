@@ -48,8 +48,19 @@ def _origin(url: str) -> str | None:
     userinfo, and strips the IPv6 brackets, where the latter does none of those.
     Without it ``https://api.example.com@evil.com`` compares as ``api.example.com``
     and the bearer token goes to the attacker.
+
+    ``urlsplit`` itself raises on some inputs — ``https://[oops`` gives
+    ``ValueError: Invalid IPv6 URL`` — and that has to be caught here rather than left
+    to propagate. Uncaught it escapes :func:`resolve_url_with_base` as a bare
+    ``ValueError`` where §7 requires :class:`UrlResolutionError`, so a caller writing
+    ``except ConnectorKitError`` around a fetch would miss it, which is the one thing
+    the taxonomy exists to prevent. A URL whose origin cannot be computed is exactly
+    what ``None`` already means.
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
     scheme = parts.scheme.lower()
     if not scheme:
         return None
@@ -124,3 +135,30 @@ def resolve_url_with_base(base_url: str, path_or_url: str) -> str:
             f"(got {target}, expected {base})"
         )
     return path_or_url
+
+
+def should_strip_auth(from_url: str, to_url: str) -> bool:
+    """Whether a credential attached for ``from_url`` must not travel to ``to_url``.
+
+    The §8 predicate, exported because §8 binds **every** transport a binding accepts
+    as a seam, not only the one this package defaults to. A custom transport calls this
+    rather than hand-rolling origin comparison; hand-rolled origin comparison is the bug
+    class §6 exists to prevent, and a second copy of it could drift from
+    :func:`resolve_url_with_base`, which is the copy the conformance corpus pins.
+
+    Returns ``True`` when the two §6 origins differ, **and when either cannot be
+    computed**. An origin that cannot be computed is not an origin that can be shown
+    equal, so the only safe answer is to strip.
+
+    Note the requirement is an origin *change*: a same-origin redirect must keep the
+    credential. Dropping it unconditionally is not compliance, it is a 401.
+
+    TypeScript publishes no counterpart — ``fetch`` already drops ``Authorization`` on a
+    cross-origin redirect, per the Fetch standard, so there is nothing for a TypeScript
+    caller to opt into.
+    """
+    from_origin = _origin(from_url)
+    to_origin = _origin(to_url)
+    if from_origin is None or to_origin is None:
+        return True
+    return from_origin != to_origin

@@ -8,9 +8,10 @@ contract — it has no conformance corpus of its own beyond ``url-resolution`` �
 hoisting its names to the top level would erase a boundary the TypeScript package
 states.
 
-Shipment 1 is the pure core: URL resolution, the environment seam, the MCP result
-builders, and the search helpers. The transport, the tool router and the REST factories
-arrive in shipment 2.
+The kit now covers the whole path a hand-rolled connector walks: URL resolution and the
+§8 credential-redirect predicate, the environment seam, the MCP result builders, the
+search helpers, an HTTP transport behind a replaceable Protocol, a tool router, and the
+two REST factories.
 """
 
 from __future__ import annotations
@@ -20,7 +21,15 @@ from nimbus_sdk.connector_kit.errors import (
     ConnectorKitError,
     HttpStatusError,
     MissingEnvError,
+    TransportError,
+    TransportTimeoutError,
     UrlResolutionError,
+)
+from nimbus_sdk.connector_kit.rest import (
+    RestFetcher,
+    RestFetcherConfig,
+    make_rest_fetcher,
+    make_rest_tool,
 )
 from nimbus_sdk.connector_kit.results import (
     JsonBodyResponse,
@@ -31,6 +40,7 @@ from nimbus_sdk.connector_kit.results import (
     json_result_if_ok,
     parse_json_text_if_ok,
 )
+from nimbus_sdk.connector_kit.router import ToolHandler, ToolRouter, ToolValidator
 from nimbus_sdk.connector_kit.search_filter import (
     FieldExtractor,
     SearchFilter,
@@ -45,20 +55,42 @@ from nimbus_sdk.connector_kit.search_filter import (
     tag_names_from_objects,
     tag_text,
 )
-from nimbus_sdk.connector_kit.types import McpTextContent, McpToolResult
-from nimbus_sdk.connector_kit.urls import resolve_url_with_base
+from nimbus_sdk.connector_kit.transport import (
+    HttpRequest,
+    HttpResponse,
+    Transport,
+    UrllibTransport,
+)
+from nimbus_sdk.connector_kit.types import (
+    McpTextContent,
+    McpToolDescriptor,
+    McpToolResult,
+)
+from nimbus_sdk.connector_kit.urls import resolve_url_with_base, should_strip_auth
 
 __all__ = [
     "ConnectorKitError",
     "FieldExtractor",
+    "HttpRequest",
+    "HttpResponse",
     "HttpStatusError",
     "JsonBodyResponse",
     "McpTextContent",
+    "McpToolDescriptor",
     "McpToolResult",
     "MissingEnvError",
+    "RestFetcher",
+    "RestFetcherConfig",
     "SearchFilter",
     "TextResponse",
+    "ToolHandler",
+    "ToolRouter",
+    "ToolValidator",
+    "Transport",
+    "TransportError",
+    "TransportTimeoutError",
     "UrlResolutionError",
+    "UrllibTransport",
     "as_objectish",
     "as_record",
     "error_result",
@@ -68,11 +100,14 @@ __all__ = [
     "json_result_from_text_if_ok",
     "json_result_if_ok",
     "make_query_filter",
+    "make_rest_fetcher",
+    "make_rest_tool",
     "matches_result",
     "nested_string",
     "parse_json_text_if_ok",
     "require_env",
     "resolve_url_with_base",
+    "should_strip_auth",
     "string_field",
     "tag_names_from_objects",
     "tag_text",

@@ -11,7 +11,7 @@ than left to a comment:
 * **The cap.** ``math.isfinite`` for the ``nan`` / ``inf`` guard, ``max(0, floor(n))``
   for the rest. TypeScript's docstring argues no generated connector can observe this
   because its Zod schema constrains ``limit`` before the handler runs. That claim is
-  **weaker** here: shipment 2's router takes validation as an optional seam, so a
+  **weaker** here: ``ToolRouter`` takes validation as an optional seam, so a
   connector that omits it passes a raw ``limit`` straight through. These edges are more
   reachable in Python, not less.
 * **Array rows.** ``as_objectish`` normalises a list to the empty mapping — see its

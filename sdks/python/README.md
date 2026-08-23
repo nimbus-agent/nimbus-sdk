@@ -64,11 +64,14 @@ emitter — there is no Python counterpart to TypeScript's `createEmitter` — s
 writing an encoded line to a sink is left to the caller. It now also carries the
 `connector_kit` batteries for hand-rolled MCP connectors — `from nimbus_sdk.connector_kit
 import resolve_url_with_base, json_result, require_env` — a fourth, likewise separate
-import root. This shipment carries the pure core: URL resolution (the kit's SSRF
-chokepoint), the environment seam, the MCP result builders, and the search helpers; the
-transport and the tool router follow in a later shipment. It is not yet the full
-connector-authoring surface — see the
-[roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
+import root. It carries URL resolution (the kit's SSRF chokepoint) and the
+`should_strip_auth` predicate that goes with it, the environment seam, the MCP result
+builders, the search helpers, an HTTP transport behind a replaceable `Transport`
+Protocol, a `ToolRouter`, and the two REST factories. `UrllibTransport` enforces
+[`url-resolution.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/spec/connector-kit/v1/url-resolution.md)
+§8 itself — `urllib` carries `Authorization` across a cross-origin redirect where
+`fetch` strips it, so the kit installs a redirect handler that drops the credential on
+an origin change, and only on an origin change.
 
 `perform_handshake` is the one exchange this package performs end to end: write our
 hello, read the peer's, agree on a contract major or refuse. The stream is **injected**,

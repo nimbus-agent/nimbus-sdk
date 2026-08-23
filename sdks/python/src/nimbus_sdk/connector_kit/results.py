@@ -1,9 +1,17 @@
 """Building MCP tool results, and turning a fetched response into one.
 
 Every function here is pure and transport-agnostic: the two ``Protocol``s below are the
-only thing it knows about a response, and shipment 2's ``HttpResponse`` satisfies them
-structurally. That is what lets an author using an async client such as ``httpx`` skip
-the kit's transport entirely and still use these helpers — see the design's D6.
+only thing it knows about a response, and ``transport.py``'s ``HttpResponse`` satisfies
+them structurally. That is what lets an author skip the kit's transport entirely and
+still use these helpers — see the design's D6.
+
+**A third-party response object will not usually satisfy them as-is.**
+``httpx.Response`` is the obvious candidate and does not: it spells the status
+``status_code`` rather than ``status``, exposes ``json`` as a *method* where these
+Protocols want a property, and has ``is_success`` rather than ``ok``. The seam is small
+enough that a four-attribute adapter closes the gap, which is rather the point — the
+adapter is a handful of lines, where matching one particular client's shape would have
+made this module depend on it.
 """
 
 from __future__ import annotations
@@ -54,8 +62,8 @@ def error_result(message: str) -> McpToolResult:
     """An MCP tool result carrying ``message`` and the ``isError`` flag.
 
     Python-only: TypeScript's kit has no counterpart, because its tool registrar turns a
-    thrown error into this shape itself. Shipment 2's ``ToolRouter`` is what needs it
-    here.
+    thrown error into this shape itself. ``ToolRouter`` is what needs it here, for the
+    unknown-tool, failed-validation and handler-exception paths it must not let escape.
     """
     content: McpTextContent = {"type": "text", "text": message}
     return {"content": [content], "isError": True}

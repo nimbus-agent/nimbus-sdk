@@ -110,10 +110,21 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.connector_kit`
 
-27 exports.
+42 exports.
 
 - `class ConnectorKitError(Exception)`
 - `FieldExtractor = Callable[[object], Sequence[str | None] | None]`
+- `class HttpRequest`
+  - `url: str`
+  - `method: str`
+  - `headers: Mapping[str, str]`
+  - `body: bytes | None`
+  - `timeout_s: float`
+- `class HttpResponse`
+  - `status: int`
+  - `text: str`
+  - `json: object`
+  - `ok: bool`
 - `class HttpStatusError(ConnectorKitError)`
   - `def __init__(self, service: str, status: int, snippet: str) -> None`
 - `class JsonBodyResponse(TextResponse, Protocol)`
@@ -124,16 +135,42 @@ reworded docstring is not a change to the surface.
 - `class McpTextContent`
   - `type: Literal['text']`
   - `text: str`
+- `class McpToolDescriptor`
+  - `name: str`
+  - `description: str`
+  - `inputSchema: dict[str, Any]`
 - `class McpToolResult`
   - `content: list[McpTextContent]`
   - `isError: NotRequired[bool]`
 - `class MissingEnvError(ConnectorKitError)`
+- `class RestFetcher(Protocol)`
+- `class RestFetcherConfig`
+  - `api_base: str`
+  - `token: str`
+  - `default_headers: Mapping[str, str]`
 - `SearchFilter = Callable[..., list[object]]`
 - `class TextResponse(Protocol)`
   - `ok: bool`
   - `status: int`
   - `text: str`
+- `ToolHandler = Callable[[dict[str, Any]], 'McpToolResult | Awaitable[McpToolResult]']`
+- `class ToolRouter`
+  - `def __init__(self) -> None`
+  - `def add(self, name: str, description: str, input_schema: dict[str, Any], handler: ToolHandler, validate: ToolValidator | None = ...) -> None`
+  - `async def call_tool(self, name: str, arguments: Mapping[str, Any] | None) -> McpToolResult`
+  - `def list_tools(self) -> list[McpToolDescriptor]`
+  - `def tool(self, name: str, description: str, input_schema: dict[str, Any], validate: ToolValidator | None = ...) -> Callable[[ToolHandler], ToolHandler]`
+- `ToolValidator = Callable[[dict[str, Any]], None]`
+- `class Transport(Protocol)`
+  - `def send(self, request: HttpRequest) -> HttpResponse`
+- `class TransportError(ConnectorKitError)`
+  - `def __init__(self, method: str, url: str, reason: str) -> None`
+- `class TransportTimeoutError(TransportError)`
+  - `def __init__(self, method: str, url: str, reason: str) -> None`
 - `class UrlResolutionError(ConnectorKitError)`
+- `class UrllibTransport`
+  - `def __init__(self) -> None`
+  - `def send(self, request: HttpRequest) -> HttpResponse`
 - `def as_objectish(value: object) -> dict[str, object] | None`
 - `def as_record(value: object) -> dict[str, object] | None`
 - `def error_result(message: str) -> McpToolResult`
@@ -143,11 +180,14 @@ reworded docstring is not a change to the surface.
 - `def json_result_from_text_if_ok(service_label: str, res: TextResponse, *, max_snippet: int = ..., json_parse_error_message: str | None = ...) -> McpToolResult`
 - `def json_result_if_ok(service_label: str, res: JsonBodyResponse, snippet_max: int = ...) -> McpToolResult`
 - `def make_query_filter(fields: FieldExtractor) -> SearchFilter`
+- `def make_rest_fetcher(config: RestFetcherConfig, transport: Transport | None = ...) -> RestFetcher`
+- `def make_rest_tool(*, token_env: str, service_label: str, fetch: Callable[[str, str], HttpResponse], build_path: Callable[[dict[str, Any]], str], snippet_max: int = ..., env: Mapping[str, str] | None = ...) -> ToolHandler`
 - `def matches_result(rows: object, search: SearchFilter, *, query: str, limit: float | None = ...) -> McpToolResult`
 - `def nested_string(root: dict[str, object], path: Sequence[str]) -> str`
 - `def parse_json_text_if_ok(service_label: str, res: TextResponse, max_snippet: int = ...) -> object`
 - `def require_env(name: str, env: Mapping[str, str] = ...) -> str`
 - `def resolve_url_with_base(base_url: str, path_or_url: str) -> str`
+- `def should_strip_auth(from_url: str, to_url: str) -> bool`
 - `def string_field(row: dict[str, object], key: str) -> str`
 - `def tag_names_from_objects(row: dict[str, object]) -> str`
 - `def tag_text(row: dict[str, object]) -> str`

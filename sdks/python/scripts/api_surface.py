@@ -419,3 +419,49 @@ def _render_class(export: Export) -> list[str]:
                 members.append(f"  - `{_signature(name, member)}`")
 
     return [header, *members]
+
+
+#: Where the snapshot lives, beside `api-surface.md` and `api-surface-go.md`.
+OUTPUT_PATH = REPO_ROOT / "docs" / "api-surface-python.md"
+
+_HEADER = """# Python public API surface
+
+<!-- GENERATED FILE — do not edit by hand.
+     Regenerate with `python scripts/api_surface.py` from `sdks/python/`,
+     after `python -m pip install -e .`.
+     A diff in this file is a change to the published contract and
+     must carry the matching semver bump — see
+     docs/ROADMAP.md#7-versioning--compatibility. -->
+
+Every name in the `__all__` of every published import root of `nimbus-dev-sdk`, as the
+installed package exposes it.
+
+Annotations appear exactly as written in the source: every module under
+`src/nimbus_sdk/` carries `from __future__ import annotations`, so they are never
+evaluated, and this file renders identically on every supported Python version. Type
+aliases are recorded from their source text for the same reason — their runtime `repr`
+is both verbose and version-dependent.
+
+Docstrings are not recorded, matching `api-surface.md` and `api-surface-go.md`: a
+reworded docstring is not a change to the surface.
+"""
+
+
+def render() -> str:
+    """The whole document."""
+    aliases = alias_sources()
+    annotations = annotation_sources()
+    parts = [_HEADER]
+    for root in IMPORT_ROOTS:
+        exports = collect(root)
+        parts.append(f"\n## `{root}`\n\n{len(exports)} exports.\n\n")
+        lines: list[str] = []
+        for export in exports:
+            lines.extend(render_export(export, aliases, annotations))
+        parts.append("\n".join(lines) + "\n")
+    return "".join(parts)
+
+
+if __name__ == "__main__":
+    OUTPUT_PATH.write_text(render(), encoding="utf-8")
+    print(f"wrote {OUTPUT_PATH.relative_to(REPO_ROOT)}")

@@ -20,6 +20,7 @@ from api_surface import (
     alias_sources,
     annotation_sources,
     collect,
+    render,
     render_export,
 )
 
@@ -352,3 +353,25 @@ def test_format_hand_written_init_and_method_and_omitted_private() -> None:
     assert "  - `def __init__(self, service: str, status: int) -> None`" in lines
     assert "  - `def detail(self) -> str`" in lines
     assert not any("_hidden" in line for line in lines)
+
+
+def test_document_has_the_generated_file_header() -> None:
+    text = render()
+    assert text.startswith("# Python public API surface\n")
+    assert "GENERATED FILE — do not edit by hand." in text
+    assert "python scripts/api_surface.py" in text
+    # The sentence that gives the file its purpose, shared with its two siblings.
+    assert "must carry the matching semver bump" in text
+
+
+def test_document_has_a_section_per_root_with_a_count() -> None:
+    text = render()
+    for root in IMPORT_ROOTS:
+        assert f"## `{root}`\n" in text
+    assert "exports." in text
+
+
+def test_document_ends_with_exactly_one_newline() -> None:
+    text = render()
+    assert text.endswith("\n")
+    assert not text.endswith("\n\n")

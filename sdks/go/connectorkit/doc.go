@@ -22,8 +22,9 @@
 // It is the only place a caller-supplied string decides where a credential-bearing
 // request goes, and the only corpus-gated code in this package. It lives in its own
 // file for that reason. url-resolution.md §8 additionally forbids carrying credentials
-// across an origin change; that obligation binds this module's future transport and
-// every transport a caller substitutes for it, not only the default one.
+// across an origin change; that obligation binds HTTPTransport and every transport a
+// caller substitutes for it, not only the default one. ShouldStripAuth is the exported
+// predicate for deciding it, so a substitute need not re-derive origin comparison.
 //
 // # Three divergences this package carries
 //

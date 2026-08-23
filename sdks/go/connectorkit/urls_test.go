@@ -81,3 +81,35 @@ func TestUndefinedInV1MatchesPython(t *testing.T) {
 		}
 	}
 }
+
+// ShouldStripAuth is exported because url-resolution.md §8 binds every Transport this
+// package accepts as a seam, not only the one it defaults to.
+func TestShouldStripAuth(t *testing.T) {
+	cases := []struct {
+		name string
+		from string
+		to   string
+		want bool
+	}{
+		{"same origin", "https://api.example.com/a", "https://api.example.com/b", false},
+		{"host changes", "https://api.example.com/a", "https://evil.com/a", true},
+		{"scheme changes", "https://api.example.com/a", "http://api.example.com/a", true},
+		{"port changes", "https://h.example:8443/a", "https://h.example:9443/a", true},
+		{"https default port equals no port", "https://h.example/a", "https://h.example:443/b", false},
+		{"http default port equals no port", "http://h.example:80/a", "http://h.example/b", false},
+		{"case insensitive", "HTTPS://API.Example.com/a", "https://api.example.com/b", false},
+		// An origin that cannot be computed is not an origin that can be shown equal,
+		// so the only safe answer is to strip.
+		{"unparseable target fails closed", "https://api.example.com/a", "not a url", true},
+		{"unparseable source fails closed", "not a url", "https://api.example.com/a", true},
+		// Parsing drops userinfo, so this origin is evil.com.
+		{"userinfo lookalike host", "https://api.example.com/a", "https://api.example.com@evil.com/a", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ShouldStripAuth(tc.from, tc.to); got != tc.want {
+				t.Errorf("ShouldStripAuth(%q, %q) = %v, want %v", tc.from, tc.to, got, tc.want)
+			}
+		})
+	}
+}

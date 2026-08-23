@@ -8,9 +8,10 @@ contract — it has no conformance corpus of its own beyond ``url-resolution`` �
 hoisting its names to the top level would erase a boundary the TypeScript package
 states.
 
-Shipment 1 is the pure core: URL resolution, the environment seam, the MCP result
-builders, and the search helpers. The transport, the tool router and the REST factories
-arrive in shipment 2.
+The kit now covers the whole path a hand-rolled connector walks: URL resolution and the
+§8 credential-redirect predicate, the environment seam, the MCP result builders, the
+search helpers, an HTTP transport behind a replaceable Protocol, a tool router, and the
+two REST factories.
 """
 
 from __future__ import annotations

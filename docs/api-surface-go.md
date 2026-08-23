@@ -17,7 +17,7 @@ not even another package inside this module.
 
 ## `connectorkit`
 
-36 exports.
+37 exports.
 
 - `func (e *Error) Error() string`
 - `func (e *Error) Unwrap() error`
@@ -41,6 +41,7 @@ not even another package inside this module.
 - `func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)`
 - `func RequireEnv(name string, env func(string) string) (string, error)`
 - `func ResolveURLWithBase(baseURL, pathOrURL string) (string, error)`
+- `func ShouldStripAuth(fromURL, toURL string) bool`
 - `func StringField(row map[string]any, key string) string`
 - `func TagNamesFromObjects(row map[string]any) string`
 - `func TagText(row map[string]any) string`

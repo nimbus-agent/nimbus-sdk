@@ -10,6 +10,13 @@
   `results.py` (`json_result` and its `*_if_ok` variants), and `search_filter.py`. The
   transport, the tool router, and `rest.py` follow in a later release.
 
+## [0.9.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.8.1...python-v0.9.0) (2026-08-23)
+
+
+### Features
+
+* **spec:** a cross-language conformance matrix that proves per-case coverage ([#159](https://github.com/nimbus-agent/nimbus-sdk/issues/159)) ([21c46a6](https://github.com/nimbus-agent/nimbus-sdk/commit/21c46a648c4221b23994d5ce7fb4e580ad2499b6))
+
 ## [0.8.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.8.0...python-v0.8.1) (2026-08-22)
 
 

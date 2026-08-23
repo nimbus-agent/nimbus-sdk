@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import inspect
 
-from api_surface import IMPORT_ROOTS, Kind, collect
+from api_surface import IMPORT_ROOTS, Kind, alias_sources, annotation_sources, collect
 
 
 def test_every_import_root_is_collected() -> None:
@@ -70,3 +70,34 @@ def test_every_callable_export_classifies_as_a_function() -> None:
         for export in collect(root):
             if inspect.isroutine(export.obj):
                 assert export.kind is Kind.FUNCTION, f"{root}.{export.name}"
+
+
+def test_alias_sources_records_the_written_text() -> None:
+    sources = alias_sources()
+    # Exactly as written in connector_kit/search_filter.py — not the runtime repr,
+    # which on 3.14 is `collections.abc.Callable[[object],
+    # collections.abc.Sequence[...]]` and is not guaranteed identical on 3.11.
+    assert sources["FieldExtractor"] == (
+        "Callable[[object], Sequence[str | None] | None]"
+    )
+    assert sources["SearchFilter"] == "Callable[..., list[object]]"
+    assert sources["HelloResult"] == "HelloOk | HelloRefused"
+
+
+def test_annotation_sources_records_the_written_annotation() -> None:
+    # CONTRACT_VERSIONS is declared `tuple[str, ...]`; its runtime type is merely
+    # `tuple`. The annotation is the surface a consumer reads.
+    assert annotation_sources()["CONTRACT_VERSIONS"] == "tuple[str, ...]"
+
+
+def test_alias_sources_covers_every_alias_in_the_surface() -> None:
+    # An alias the map misses would render with no definition at all, which is worse
+    # than rendering it verbosely.
+    sources = alias_sources()
+    missing = [
+        export.name
+        for root in IMPORT_ROOTS
+        for export in collect(root)
+        if export.kind is Kind.ALIAS and export.name not in sources
+    ]
+    assert missing == []

@@ -17,6 +17,7 @@ from `sdks/python/` first — the same standing instruction `spec_root()` alread
 
 from __future__ import annotations
 
+import ast
 import importlib
 import inspect
 import types
@@ -107,3 +108,70 @@ def collect(root: str) -> list[Export]:
         for name in names
     ]
     return sorted(exports, key=lambda export: export.name)
+
+
+#: Where the package's source lives, for the alias scan below.
+_SRC = REPO_ROOT / "sdks" / "python" / "src" / "nimbus_sdk"
+
+
+def alias_sources() -> dict[str, str]:
+    """Map every module-level ``NAME = <expr>`` under ``src/nimbus_sdk/`` to its source
+    text.
+
+    Read from the SOURCE rather than from the runtime object, and this is the one place
+    that departs from the import-don't-parse rule in the module docstring. It has to:
+
+    `from __future__ import annotations` keeps *annotations* as written, which is what
+    makes function signatures render identically on 3.11 and 3.14. It does nothing for a
+    module-level assignment like ``HelloResult = HelloOk | HelloRefused``, which IS
+    evaluated — and the resulting object's repr is both verbose and version-dependent.
+    Measured on 3.14.6, ``Callable[[object], Sequence[str | None] | None]`` reprs as
+    ``collections.abc.Callable[[object], collections.abc.Sequence[str | None] | None]``,
+    and a union alias reprs with fully-qualified module paths.
+
+    Recording the written text keeps the snapshot stable by construction and keeps the
+    file readable. `ast.unparse` normalises whitespace, so a reformatting of the source
+    does not churn the snapshot either.
+
+    PEP 695 (``type HelloResult = HelloOk | HelloRefused``) produces an
+    ``ast.TypeAlias`` node rather than an ``ast.Assign``, and would need a second
+    branch here. It cannot appear yet: ``requires-python = ">=3.11"`` and ruff's
+    ``target-version = "py311"``, while PEP 695 is 3.12 syntax — a SyntaxError on the
+    supported floor. Recorded so whoever raises that floor knows this is one of the
+    places that has to move.
+    """
+    sources: dict[str, str] = {}
+    for path in sorted(_SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:  # module level only — nested assignments are not surface
+            if not isinstance(node, ast.Assign) or len(node.targets) != 1:
+                continue
+            target = node.targets[0]
+            if not isinstance(target, ast.Name):
+                continue
+            sources[target.id] = ast.unparse(node.value)
+    return sources
+
+
+def annotation_sources() -> dict[str, str]:
+    """Map every module-level ``NAME: <annotation>`` under ``src/nimbus_sdk/`` to its
+    text.
+
+    The spec renders data as "the annotation where one exists, otherwise the runtime
+    type", and this supplies the first half. It matters: ``CONTRACT_VERSIONS`` is
+    declared ``tuple[str, ...]`` and its runtime type is merely ``tuple`` — the
+    annotation is the surface a consumer reads, and the bare type is what a snapshot
+    would record if it asked the object instead of the source.
+
+    Read from source for the same reason ``alias_sources`` is: an ``ast.AnnAssign`` is
+    not an annotation the ``from __future__`` pragma preserves for us at the module
+    level in any form we can reach from the re-exporting root, and the written text is
+    stable.
+    """
+    sources: dict[str, str] = {}
+    for path in sorted(_SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                sources[node.target.id] = ast.unparse(node.annotation)
+    return sources

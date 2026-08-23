@@ -8,8 +8,10 @@ package.
 
 from __future__ import annotations
 
+import ast
 import inspect
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Protocol
 
 import pytest
@@ -460,6 +462,23 @@ def test_the_snapshot_cannot_pass_vacuously() -> None:
     assert total >= 60
 
 
+def _has_future_annotations_import(path: Path) -> bool:
+    """True iff `path` contains a real `from __future__ import annotations`.
+
+    Structural, not textual: a docstring or comment that merely mentions the
+    string must not count. Parses with `ast` and requires an
+    `ast.ImportFrom` whose `module == "__future__"` and whose `names`
+    include an alias named `annotations`.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    return any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in ast.walk(tree)
+    )
+
+
 def test_every_module_keeps_the_future_annotations_pragma() -> None:
     """The whole cross-version stability argument rests on this pragma.
 
@@ -472,6 +491,6 @@ def test_every_module_keeps_the_future_annotations_pragma() -> None:
     missing = [
         str(path.relative_to(src))
         for path in sorted(src.rglob("*.py"))
-        if "from __future__ import annotations" not in path.read_text(encoding="utf-8")
+        if not _has_future_annotations_import(path)
     ]
     assert missing == [], f"missing `from __future__ import annotations`: {missing}"

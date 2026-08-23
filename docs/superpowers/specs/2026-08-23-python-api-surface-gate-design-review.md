@@ -1,7 +1,7 @@
 # Review & Feedback: Python API-surface Gate Design
 
 **Date:** 2026-08-23  
-**Design Reference:** [2026-08-23-python-api-surface-gate-design.md](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/python-api-surface/docs/superpowers/specs/2026-08-23-python-api-surface-gate-design.md)
+**Design Reference:** [2026-08-23-python-api-surface-gate-design.md](./2026-08-23-python-api-surface-gate-design.md)
 
 ---
 

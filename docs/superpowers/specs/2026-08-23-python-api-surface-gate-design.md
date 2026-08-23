@@ -246,10 +246,15 @@ Modified:
 - **Introspection reports the installed copy.** Covered above; mitigated by the standing
   editable-install instruction, and by CI installing from the checkout.
 - **`inspect.signature` on a C-implemented or decorated object can raise `ValueError`.**
-  Nothing in `nimbus_sdk` is either — it is pure Python, and the only decorators on exported
-  objects are `@dataclass` and `@property`, both handled explicitly above. The generator
-  calls `inspect.unwrap` first, which costs nothing and resolves a `functools.wraps` chain if
-  one ever appears.
+  Nothing in `nimbus_sdk` is C-implemented, but it is not decorator-free either:
+  `nimbus_sdk.spec_root` is `@lru_cache`-decorated, and its wrapper carries no signature
+  of its own — under a naive `inspect.isfunction`/`inspect.isbuiltin` check it would fall
+  through `_classify` to `Kind.DATA` and render as `spec_root: _lru_cache_wrapper`. This is
+  why `_classify` tests `inspect.isroutine` rather than `inspect.isfunction`, and why
+  `_signature` calls `inspect.unwrap` first — both are load-bearing for this one export, not
+  defensive slack, and both are pinned by tests in `test_api_surface.py`. `@dataclass` and
+  `@property` are handled explicitly above for the same reason; `spec_root` is the case that
+  proves the unwrap step earns its place.
 
   If a signature is still unavailable, **the generator fails, naming the export.** It does
   not emit a fallback bullet such as `def name(*args, **kwargs)  # signature unavailable`.

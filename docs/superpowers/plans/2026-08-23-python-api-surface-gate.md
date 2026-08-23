@@ -268,7 +268,7 @@ python -m pip install -e .
 python -m pytest tests/test_api_surface.py -q
 ```
 
-Expected: PASS, 4 tests.
+Expected: PASS, 5 tests.
 
 If `test_each_kind_is_represented_in_the_real_surface` fails, print the classification of every name (`for r in IMPORT_ROOTS: print([(e.name, e.kind) for e in collect(r)])`) and report which kind is missing — do NOT relax the assertion. It exists because a classifier that collapsed every name into one kind would still satisfy the synthetic-module tests in later tasks.
 
@@ -421,7 +421,7 @@ def annotation_sources() -> dict[str, str]:
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 6 tests.
+Expected: PASS, 8 tests.
 
 If an assertion fails on exact text, print the value (`python -c "import sys; sys.path.insert(0,'scripts'); from api_surface import alias_sources; print(alias_sources()['FieldExtractor'])"`) and compare against the source line — `ast.unparse` normalises spacing, so update the expected string to `unparse`'s output rather than the raw source if they differ in whitespace only.
 
@@ -517,7 +517,9 @@ def test_renders_an_alias_from_its_source_text() -> None:
 
 def test_renders_data_as_name_and_type() -> None:
     export = next(e for e in collect("nimbus_sdk") if e.name == "CONTRACT_VERSIONS")
-    assert render_export(export, alias_sources(), annotation_sources()) == ["- `CONTRACT_VERSIONS: tuple`"]
+    assert render_export(export, alias_sources(), annotation_sources()) == [
+        "- `CONTRACT_VERSIONS: tuple[str, ...]`"
+    ]
 
 
 def test_an_alias_missing_from_the_map_fails_loudly() -> None:
@@ -650,7 +652,7 @@ def _render_class(export: Export) -> list[str]:
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 10 tests.
+Expected: PASS, 15 tests.
 
 - [ ] **Step 5: Lint and typecheck**
 
@@ -783,10 +785,12 @@ def test_class_bullets_name_their_bases() -> None:
     # consumer writing `except ConnectorKitError` needs to know.
     exports = {e.name: e for e in collect("nimbus_sdk.connector_kit")}
     for name in ("UrlResolutionError", "MissingEnvError", "HttpStatusError"):
-        lines = render_export(exports[name], alias_sources())
+        lines = render_export(exports[name], alias_sources(), annotation_sources())
         assert lines[0] == f"- `class {name}(ConnectorKitError)`", name
 
-    protocol = render_export(exports["JsonBodyResponse"], alias_sources())
+    protocol = render_export(
+        exports["JsonBodyResponse"], alias_sources(), annotation_sources()
+    )
     assert protocol[0] == "- `class JsonBodyResponse(TextResponse, Protocol)`"
 
 
@@ -911,7 +915,7 @@ def _render_class(export: Export) -> list[str]:
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 18 tests.
+Expected: PASS, 26 tests.
 
 If `test_no_exported_class_renders_empty` fails, it has found a real gap — a class whose members are none of the three shapes above. Report the class name and what its members are; do NOT weaken the assertion to `>= 1`.
 
@@ -921,6 +925,17 @@ Every test so far reads the real package, which proves the renderer handles the 
 surface but ties the *format* to whatever `nimbus_sdk` currently contains — so a
 formatting regression would only show up as churn in the golden file, and a shape the
 package loses would stop being covered at all. These tests own the format itself.
+
+These synthetic classes are defined in the test module, so `__module__` on each of
+them is `test_api_surface`, not `nimbus_sdk...` — they sit outside `_is_ours`'s package
+boundary the same way a class from `typing` or `builtins` does. That boundary matters
+here in two directions at once: `cls` itself is always scanned regardless of where it
+is defined (otherwise a synthetic class would be filtered out of its own render), but
+its *bases* are named in the header only when `_is_named_base` admits them — which
+`Protocol` and `Exception` are, by an explicit carve-out, while an arbitrary unowned
+base would not be. That is why `_SyntheticProtocol(Protocol)` and
+`_SyntheticError(Exception)` render with their base named, and the expected strings
+below say so.
 
 Append to `sdks/python/tests/test_api_surface.py`:
 
@@ -965,12 +980,19 @@ def test_format_protocol_property() -> None:
     lines = render_export(
         Export(name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol), {}, {}
     )
-    assert lines == ["- `class Proto`", "  - `ok: bool`"]
+    # _SyntheticProtocol is declared `class _SyntheticProtocol(Protocol)`; the class
+    # bullet names its bases, so `Protocol` appears here too.
+    assert lines == ["- `class Proto(Protocol)`", "  - `ok: bool`"]
 
 
 def test_format_hand_written_init_and_method_and_omitted_private() -> None:
-    lines = render_export(Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError), {}, {})
-    assert lines[0] == "- `class Err`"
+    lines = render_export(
+        Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError), {}, {}
+    )
+    # _SyntheticError subclasses Exception directly, with an empty-bodied ancestor
+    # (like FrameTooLongError and ConnectorKitError in the real surface) that the
+    # class bullet still names — see _NAMED_EVEN_UNOWNED_BASES.
+    assert lines[0] == "- `class Err(Exception)`"
     assert "  - `def __init__(self, service: str, status: int) -> None`" in lines
     assert "  - `def detail(self) -> str`" in lines
     assert not any("_hidden" in line for line in lines)
@@ -987,7 +1009,7 @@ bug would hit the real surface.
 - [ ] **Step 6: Run the synthetic tests**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 21 tests.
+Expected: PASS, 29 tests.
 
 - [ ] **Step 7: Lint and typecheck**
 
@@ -1122,7 +1144,7 @@ Open it and check three things by eye: four `##` sections in the order `nimbus_s
 - [ ] **Step 5: Run the tests**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 24 tests.
+Expected: PASS, 33 tests.
 
 - [ ] **Step 6: Lint and typecheck**
 
@@ -1218,7 +1240,7 @@ def test_every_module_keeps_the_future_annotations_pragma() -> None:
 - [ ] **Step 2: Run the gate**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 28 tests.
+Expected: PASS, 36 tests.
 
 - [ ] **Step 3: Falsify the golden check**
 
@@ -1402,10 +1424,10 @@ and the last branch's CI failure was a variant of the same shape.
 
 Clone somewhere outside the repository — but **not `/tmp`**. This is a Windows host, where
 `/tmp` resolves only inside Git Bash and has already caused path trouble in this
-repository. Use the session scratchpad, which every shell here can reach:
+repository. Use a fresh temp directory instead, which every shell here can reach:
 
 ```bash
-VERIFY="C:/Users/asafg/AppData/Local/Temp/claude/C--gitrep-nimbus-sdk/e2b96edb-5de2-400a-9a5f-f9e28164e33e/scratchpad/verify-python-surface"
+VERIFY="$(mktemp -d)/nimbus-verify"
 rm -rf "$VERIFY"
 git clone --branch worktree-python-api-surface . "$VERIFY"
 cd "$VERIFY"

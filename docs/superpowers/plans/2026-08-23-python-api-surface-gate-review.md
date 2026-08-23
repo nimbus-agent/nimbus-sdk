@@ -1,7 +1,7 @@
 # Review & Feedback: Python API-Surface Gate Implementation Plan
 
 **Date:** 2026-08-23  
-**Plan Reference:** [2026-08-23-python-api-surface-gate.md](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/python-api-surface/docs/superpowers/plans/2026-08-23-python-api-surface-gate.md)
+**Plan Reference:** [2026-08-23-python-api-surface-gate.md](./2026-08-23-python-api-surface-gate.md)
 
 ---
 

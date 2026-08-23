@@ -365,6 +365,8 @@ def _render_class(export: Export) -> list[str]:
       subclass without its own `__init__` carries in `vars()` — and the rest are
       synthesized or conventional besides, so a whitelist of "interesting" ones is a
       list nobody maintains.
+
+    Anything else public raises. See the `else` arm at the end of the member walk.
     """
     cls = export.obj
     if not inspect.isclass(cls):  # pragma: no cover — kind is CLASS by construction
@@ -376,12 +378,23 @@ def _render_class(export: Export) -> list[str]:
     )
     members: list[str] = []
 
+    # Every name already accounted for: the dataclass fields and `TypedDict` keys
+    # emitted below, then each member the MRO walk renders. It doubles as the walk's
+    # dedup set, and as the "not unrecognised, just already handled" test the final
+    # `else` needs — a `@dataclass(slots=True)` puts a `member_descriptor` in
+    # `vars(cls)` for EVERY field (16 across this surface), and a `TypedDict`'s keys
+    # can reappear as class attributes; both are surface this function has already
+    # written out, not shapes it failed to recognise.
+    emitted: set[str] = set()
+
     if dataclasses.is_dataclass(cls):
         for field in dataclasses.fields(cls):
             members.append(f"  - `{field.name}: {_annotation(field.type, 'object')}`")
+            emitted.add(field.name)
     elif _is_typed_dict(cls):
         for name, annotation in cls.__annotations__.items():
             members.append(f"  - `{name}: {_typed_dict_annotation(annotation)}`")
+            emitted.add(name)
 
     # Across the MRO, not vars(cls): JsonBodyResponse defines only `json` and inherits
     # `ok`, `status` and `text` from TextResponse, so reading its own namespace would
@@ -390,15 +403,14 @@ def _render_class(export: Export) -> list[str]:
     # which is always scanned regardless of where it is defined: it IS the export
     # being rendered, and a class assembled outside `nimbus_sdk` (as every test here
     # that builds one inline does) would otherwise be filtered from its own render.
-    seen: set[str] = set()
     for klass in cls.__mro__:
         if klass is not cls and not _is_ours(klass):
             continue
         for name, member in sorted(vars(klass).items()):
-            if name in seen or (name.startswith("_") and name != "__init__"):
+            if name in emitted or (name.startswith("_") and name != "__init__"):
                 continue
             if isinstance(member, property):
-                seen.add(name)
+                emitted.add(name)
                 getter = member.fget
                 returns = "object"
                 if getter is not None:
@@ -415,8 +427,24 @@ def _render_class(export: Export) -> list[str]:
                     or getattr(member, "__module__", "") == "typing"
                 ):
                     continue
-                seen.add(name)
+                emitted.add(name)
                 members.append(f"  - `{_signature(name, member)}`")
+            else:
+                # A fifth shape — a @classmethod, a @staticmethod, a plain class
+                # constant, a bare annotated attribute on a class that is neither a
+                # dataclass nor a TypedDict. None exists today, and skipping one
+                # silently would let the published surface change with a GREEN gate:
+                # the golden file would keep matching a generator that had stopped
+                # recording part of the contract. So fail, naming the member, for the
+                # same reason `_signature` refuses to emit a degraded bullet — the
+                # first export of a new shape should be a decision someone takes, not
+                # a diff nobody sees.
+                raise RuntimeError(
+                    f"unrecognised public member {export.name}.{name} "
+                    f"({type(member).__name__}): _render_class knows dataclass "
+                    "fields, TypedDict keys, properties and functions. Teach it "
+                    "this shape rather than letting the surface go unrecorded."
+                )
 
     return [header, *members]
 
@@ -436,11 +464,24 @@ _HEADER = """# Python public API surface
 Every name in the `__all__` of every published import root of `nimbus-dev-sdk`, as the
 installed package exposes it.
 
-Annotations appear exactly as written in the source: every module under
-`src/nimbus_sdk/` carries `from __future__ import annotations`, so they are never
-evaluated, and this file renders identically on every supported Python version. Type
+Annotations appear as the compiler preserves them: every module under
+`src/nimbus_sdk/` carries `from __future__ import annotations`, so an annotation is
+stored and re-rendered as unparsed source rather than evaluated. That normalises the
+spelling — `Literal["text"]` is recorded as `Literal['text']` — and the normalisation is
+exactly why this file renders identically on every supported Python version. Type
 aliases are recorded from their source text for the same reason — their runtime `repr`
 is both verbose and version-dependent.
+
+Two things are recorded as present without being recorded as valued, and neither
+absence is an oversight:
+
+- **`= ...` means the parameter has a default whose value is not recorded** — the way a
+  `.pyi` stub spells it. A default can be a live runtime object whose `repr` carries
+  secrets: `require_env`'s `env` defaults to `os.environ`, and rendering that would
+  write the whole process environment into this published file.
+- **A constant's value is not recorded.** `CONTRACT_VERSIONS: tuple[str, ...]` renders
+  identically whether it holds `("1",)` or `("1", "2")`, so a change to what a
+  published constant holds does not diff here.
 
 Docstrings are not recorded, matching `api-surface.md` and `api-surface-go.md`: a
 reworded docstring is not a change to the surface.

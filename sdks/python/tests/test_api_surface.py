@@ -357,6 +357,44 @@ def test_format_hand_written_init_and_method_and_omitted_private() -> None:
     assert not any("_hidden" in line for line in lines)
 
 
+class _SyntheticUnknownShape:
+    """A member shape the renderer does not know: a @staticmethod."""
+
+    @staticmethod
+    def build() -> str:
+        return "built"
+
+
+def test_an_unrecognised_public_member_fails_loudly() -> None:
+    # A @staticmethod is neither a property nor an inspect.isfunction, so before the
+    # `else` arm it rendered as NOTHING — the published surface would have changed with
+    # a green gate, the golden file matching a generator that had quietly stopped
+    # recording part of the contract. Same reasoning as _signature's RuntimeError.
+    export = Export(name="Unknown", kind=Kind.CLASS, obj=_SyntheticUnknownShape)
+    with pytest.raises(RuntimeError, match="build"):
+        render_export(export, {}, {})
+
+
+def test_a_slots_dataclass_does_not_trip_the_unrecognised_member_guard() -> None:
+    # @dataclass(slots=True) puts a member_descriptor in vars(cls) for every field —
+    # 16 across the real surface — and those fields are already emitted by the
+    # dataclass branch. A naive `else: raise` would fire on every one of them.
+    lines = render_export(
+        Export(name="Record", kind=Kind.CLASS, obj=_SyntheticRecord), {}, {}
+    )
+    assert lines == [
+        "- `class Record`",
+        "  - `version: str`",
+        "  - `count: int`",
+    ]
+
+
+def test_the_whole_real_surface_still_renders() -> None:
+    # The guard is a raise, so a false positive anywhere on the real surface breaks
+    # the generator outright. render() walks every export of every root.
+    assert render()
+
+
 def test_document_has_the_generated_file_header() -> None:
     text = render()
     assert text.startswith("# Python public API surface\n")

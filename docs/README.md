@@ -124,6 +124,9 @@ contract itself — then reach for a battery as you need it. Every public export
   [Discussions](https://github.com/nimbus-agent/Nimbus/discussions), where questions are
   asked, on the Nimbus board
 - [API surface](./api-surface.md) — the generated snapshot of every public export
+- [Python API surface](./api-surface-python.md) — the same, for every name in the
+  `nimbus_sdk`, `nimbus_sdk.ipc`, `nimbus_sdk.diagnostics` and
+  `nimbus_sdk.connector_kit` import roots
 - [Go API surface](./api-surface-go.md) — the same, for every exported Go declaration
   across `connectorkit`, `contract`, `diagnostics`, `ipc`, and `spec`
 - [Contract spec](./spec/) — versioned JSON Schemas, the

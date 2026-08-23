@@ -10,11 +10,24 @@
 Every name in the `__all__` of every published import root of `nimbus-dev-sdk`, as the
 installed package exposes it.
 
-Annotations appear exactly as written in the source: every module under
-`src/nimbus_sdk/` carries `from __future__ import annotations`, so they are never
-evaluated, and this file renders identically on every supported Python version. Type
+Annotations appear as the compiler preserves them: every module under
+`src/nimbus_sdk/` carries `from __future__ import annotations`, so an annotation is
+stored and re-rendered as unparsed source rather than evaluated. That normalises the
+spelling — `Literal["text"]` is recorded as `Literal['text']` — and the normalisation is
+exactly why this file renders identically on every supported Python version. Type
 aliases are recorded from their source text for the same reason — their runtime `repr`
 is both verbose and version-dependent.
+
+Two things are recorded as present without being recorded as valued, and neither
+absence is an oversight:
+
+- **`= ...` means the parameter has a default whose value is not recorded** — the way a
+  `.pyi` stub spells it. A default can be a live runtime object whose `repr` carries
+  secrets: `require_env`'s `env` defaults to `os.environ`, and rendering that would
+  write the whole process environment into this published file.
+- **A constant's value is not recorded.** `CONTRACT_VERSIONS: tuple[str, ...]` renders
+  identically whether it holds `("1",)` or `("1", "2")`, so a change to what a
+  published constant holds does not diff here.
 
 Docstrings are not recorded, matching `api-surface.md` and `api-surface-go.md`: a
 reworded docstring is not a change to the surface.

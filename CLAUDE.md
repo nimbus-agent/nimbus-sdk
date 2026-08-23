@@ -88,11 +88,12 @@ The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 `connector-kit` its own entry point alongside the contract-bearing `./ipc` and
 `./diagnostics`. Python has no bundling reason to need a second, third, or fourth entry
 point, so the boundary is documentation — and hoisting the names to the top level as a
-convenience would erase it. The four roots are now **enforced**, not merely documented:
-[`docs/api-surface-python.md`](./docs/api-surface-python.md) is a generated snapshot of
-all four, and `sdks/python/tests/test_api_surface.py` asserts the import roots found on
-disk are exactly these four, so a fifth root cannot appear without either being claimed
-in the snapshot or failing the gate.
+convenience would erase it. **The SET of roots is now gated by a test; the no-re-export
+rule above still is not.** [`docs/api-surface-python.md`](./docs/api-surface-python.md)
+is a generated snapshot of all four, and `sdks/python/tests/test_api_surface.py` asserts
+the import roots found on disk are exactly these four — so a fifth root fails CI until
+someone adds it here and to `IMPORT_ROOTS`. Whether a name stays out of the wrong root
+is checked by review alone, as it always was.
 
 TypeScript and Python both execute `negotiation` (all three kinds), `framing`,
 `diagnostics`, and — since `connector_kit`'s `urls.py` — `url-resolution`. Nothing is

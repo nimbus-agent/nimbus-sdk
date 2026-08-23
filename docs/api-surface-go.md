@@ -17,8 +17,9 @@ not even another package inside this module.
 
 ## `connectorkit`
 
-44 exports.
+58 exports.
 
+- `const DefaultTimeout = 15 * time.Second`
 - `func (e *Error) Error() string`
 - `func (e *Error) Unwrap() error`
 - `func (e *HTTPStatusError) Error() string`
@@ -31,6 +32,11 @@ not even another package inside this module.
 - `func (e *TransportTimeoutError) Unwrap() []error`
 - `func (e *URLResolutionError) Error() string`
 - `func (e *URLResolutionError) Unwrap() error`
+- `func (r HTTPResponse) JSON() any`
+- `func (r HTTPResponse) Ok() bool`
+- `func (r HTTPResponse) Status() int`
+- `func (r HTTPResponse) Text() string`
+- `func (t *HTTPTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResponse, error)`
 - `func AsObjectish(value any) (map[string]any, bool)`
 - `func AsRecord(value any) (map[string]any, bool)`
 - `func ErrorResult(message string) MCPToolResult`
@@ -42,6 +48,8 @@ not even another package inside this module.
 - `func MakeQueryFilter(fields FieldExtractor) SearchFilter`
 - `func MatchesResult(rows any, search SearchFilter, query string, limit *float64) (MCPToolResult, error)`
 - `func NestedString(root map[string]any, path []string) string`
+- `func NewHTTPResponse(status int, raw []byte) HTTPResponse`
+- `func NewHTTPTransport(opts ...HTTPTransportOption) *HTTPTransport`
 - `func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)`
 - `func RequireEnv(name string, env func(string) string) (string, error)`
 - `func ResolveURLWithBase(baseURL, pathOrURL string) (string, error)`
@@ -49,15 +57,21 @@ not even another package inside this module.
 - `func StringField(row map[string]any, key string) string`
 - `func TagNamesFromObjects(row map[string]any) string`
 - `func TagText(row map[string]any) string`
+- `func WithHTTPClient(client *http.Client) HTTPTransportOption`
 - `type Error struct { Message string }`
 - `type FieldExtractor func(item any) ([]string, bool)`
+- `type HTTPRequest struct { Body []byte; Headers map[string]string; Method string; Timeout time.Duration; URL string }`
+- `type HTTPResponse struct {}`
 - `type HTTPStatusError struct { Service string; Snippet string; Status int }`
+- `type HTTPTransport struct {}`
+- `type HTTPTransportOption func(*HTTPTransport)`
 - `type JSONBodyResponse interface { JSON() any; TextResponse }`
 - `` type MCPTextContent struct { Text string `json:"text"`; Type string `json:"type"` } ``
 - `` type MCPToolResult struct { Content []MCPTextContent `json:"content"`; IsError bool `json:"isError,omitempty"` } ``
 - `type MissingEnvError struct { Name string }`
 - `type SearchFilter func(items []any, query string, limit *float64) []any`
 - `type TextResponse interface { Ok() bool; Status() int; Text() string }`
+- `type Transport interface { Send(context.Context, HTTPRequest) (HTTPResponse, error) }`
 - `type TransportError struct { Err error; Op string; URL string }`
 - `type TransportTimeoutError struct { Err error; Op string; URL string }`
 - `type URLResolutionError struct { Message string }`

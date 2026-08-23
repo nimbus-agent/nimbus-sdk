@@ -463,20 +463,37 @@ def test_the_snapshot_cannot_pass_vacuously() -> None:
 
 
 def _has_future_annotations_import(path: Path) -> bool:
-    """True iff `path` contains a real `from __future__ import annotations`.
+    """True iff `path` opens with a real `from __future__ import annotations`.
 
-    Structural, not textual: a docstring or comment that merely mentions the
-    string must not count. Parses with `ast` and requires an
-    `ast.ImportFrom` whose `module == "__future__"` and whose `names`
-    include an alias named `annotations`.
+    Structural and **module-level**, in that order, because each half closes a
+    different hole:
+
+    * Structural, not textual — a docstring or a comment that merely mentions the
+      string must not count. That was the original bug: a substring match would
+      accept a module that talks about the pragma without importing it.
+    * Module-level, not ``ast.walk`` — a *future* import is only a directive when
+      it appears at the top of the module, before any other statement. ``ast.parse``
+      happily accepts one nested inside a function, and ``ast.walk`` would find it,
+      so scanning the whole tree reintroduces a narrower version of the same
+      false pass. ``compile()`` rejects such a module outright ("from __future__
+      imports must occur at the beginning of the file"), so it could never be
+      imported — but this guard should still say what it means.
+
+    Walks ``tree.body`` only, skipping a leading docstring, and stops at the first
+    statement that is not a ``__future__`` import — exactly the region where a
+    future directive is permitted to live.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    return any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "__future__"
-        and any(alias.name == "annotations" for alias in node.names)
-        for node in ast.walk(tree)
-    )
+    body = list(tree.body)
+    first = body[0] if body else None
+    if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant):
+        body = body[1:]  # module docstring
+    for node in body:
+        if not (isinstance(node, ast.ImportFrom) and node.module == "__future__"):
+            return False  # the future-directive region has ended
+        if any(alias.name == "annotations" for alias in node.names):
+            return True
+    return False
 
 
 def test_every_module_keeps_the_future_annotations_pragma() -> None:

@@ -1144,7 +1144,7 @@ Open it and check three things by eye: four `##` sections in the order `nimbus_s
 - [ ] **Step 5: Run the tests**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 33 tests.
+Expected: PASS, 32 tests.
 
 - [ ] **Step 6: Lint and typecheck**
 

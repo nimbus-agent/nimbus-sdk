@@ -17,7 +17,7 @@ not even another package inside this module.
 
 ## `connectorkit`
 
-58 exports.
+65 exports.
 
 - `const DefaultTimeout = 15 * time.Second`
 - `func (e *Error) Error() string`
@@ -32,6 +32,9 @@ not even another package inside this module.
 - `func (e *TransportTimeoutError) Unwrap() []error`
 - `func (e *URLResolutionError) Error() string`
 - `func (e *URLResolutionError) Unwrap() error`
+- `func (r *ToolRouter) Add(descriptor MCPToolDescriptor, handler Handler, validate Validator) error`
+- `func (r *ToolRouter) CallTool(ctx context.Context, name string, args map[string]any) MCPToolResult`
+- `func (r *ToolRouter) ListTools() []MCPToolDescriptor`
 - `func (r HTTPResponse) JSON() any`
 - `func (r HTTPResponse) Ok() bool`
 - `func (r HTTPResponse) Status() int`
@@ -65,16 +68,20 @@ not even another package inside this module.
 - `type HTTPStatusError struct { Service string; Snippet string; Status int }`
 - `type HTTPTransport struct {}`
 - `type HTTPTransportOption func(*HTTPTransport)`
+- `type Handler func(context.Context, map[string]any) (MCPToolResult, error)`
 - `type JSONBodyResponse interface { JSON() any; TextResponse }`
 - `` type MCPTextContent struct { Text string `json:"text"`; Type string `json:"type"` } ``
+- `` type MCPToolDescriptor struct { Description string `json:"description"`; InputSchema map[string]any `json:"inputSchema"`; Name string `json:"name"` } ``
 - `` type MCPToolResult struct { Content []MCPTextContent `json:"content"`; IsError bool `json:"isError,omitempty"` } ``
 - `type MissingEnvError struct { Name string }`
 - `type SearchFilter func(items []any, query string, limit *float64) []any`
 - `type TextResponse interface { Ok() bool; Status() int; Text() string }`
+- `type ToolRouter struct {}`
 - `type Transport interface { Send(context.Context, HTTPRequest) (HTTPResponse, error) }`
 - `type TransportError struct { Err error; Op string; URL string }`
 - `type TransportTimeoutError struct { Err error; Op string; URL string }`
 - `type URLResolutionError struct { Message string }`
+- `type Validator func(map[string]any) error`
 - `var ErrConnectorKit = errors.New("connectorkit")`
 - `var ErrTransport = errors.New("connectorkit: transport")`
 

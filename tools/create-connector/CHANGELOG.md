@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/create-connector-v0.2.0...create-connector-v0.3.0) (2026-08-23)
+
+
+### Features
+
+* **scaffolder:** generate a Python connector that uses ToolRouter ([#171](https://github.com/nimbus-agent/nimbus-sdk/issues/171)) ([cd36e36](https://github.com/nimbus-agent/nimbus-sdk/commit/cd36e3632d02900bed7350d48e2e131ce4cf9dc7))
+
 ## [0.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/create-connector-v0.1.0...create-connector-v0.2.0) (2026-08-18)
 
 

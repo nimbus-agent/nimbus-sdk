@@ -22,7 +22,9 @@ what protects a consumer there is `sum.golang.org`, the checksum transparency lo
 The Go binding is the newest and is narrower than the other two in its *batteries*, not in
 its contracts: it executes the same four corpora Python does — `negotiation`, `framing`,
 `diagnostics` and `url-resolution`, every case, nothing deferred — which is every published
-corpus its surface publishes, four of the eight in the tree.
+corpus its surface publishes. Which corpus each binding claims, and the case counts behind
+it, is generated into [`docs/conformance-coverage.md`](./conformance-coverage.md) rather
+than restated here.
 [RFC-0012](./rfcs/0012-go-sdk-binding.md) records its layout, tag format and release model;
 [RFC-0013](./rfcs/0013-go-sdk-official.md) promotes it to **official**, names its owner,
 and pins what "the full conformance suite" means in

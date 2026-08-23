@@ -1,62 +1,46 @@
 /**
- * `docs/spec/README.md`'s *How this stays true* names which corpora the second binding
- * executes, and that list is the whole basis of the **language-neutral** claim. It is
- * hand-written, and it has already gone stale once: `sdks/python/` gained a `diagnostics`
- * corpus runner and the paragraph still said `negotiation` and `framing`, while the
- * TypeScript half of the SAME section was updated in the same change.
+ * Gate 1: the coverage declaration is COMPLETE, and `docs/spec/README.md` agrees with it.
  *
- * A hand-written list that must track a directory of test files is a list that falls behind.
- * This derives both halves — which corpora exist, and which ones Python actually loads — and
- * holds the prose to them, in both directions:
+ * This file used to derive Python's corpora by regex-scanning its test sources for
+ * `load_corpus("…")`. That had three limits, all of them structural: it knew nothing about
+ * Go, it could not see `manifest` and `item` (they have no `cases/` subdirectory), and it
+ * was static — a regex proving a source file MENTIONS a corpus is not evidence that a case
+ * ran. `docs/conformance-coverage.json` replaces the derivation, and CI's reconciler
+ * supplies the execution evidence the regex never could.
  *
- *   - Python runs a corpus the README does not name  -> the claim understates the guarantee
- *   - the README names one Python does not run       -> the claim is false
- *
- * The second is the one that matters. `predicates` and `sandbox` are TypeScript-only, and a
- * reader who takes "language-neutral" as covering the whole conformance tree is wrong about
- * 64 of its cases. The README now says so; this keeps that disclosure true.
+ * What stays here is the half that needs no CI artifacts: every published corpus is either
+ * claimed or refused with a reason, in every binding — so ADDING A CORPUS FORCES A DECISION
+ * rather than allowing an omission — and the README's language-neutrality paragraph still
+ * matches what the bindings are declared to run, in both directions.
  */
 import { describe, expect, test } from "bun:test";
-import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { joinRepo, readFromRepo } from "./paths.ts";
+import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
+import { LANGUAGES, readManifest } from "./conformance-manifest.ts";
+import { readFromRepo } from "./paths.ts";
 
-const CONFORMANCE = joinRepo("docs", "spec", "conformance", "v1");
-const PYTHON_TESTS = joinRepo("sdks", "python", "tests");
-
-/**
- * Corpora in the per-area shape: a directory with a `cases/` subdirectory.
- *
- * `manifest/` and `item/` are deliberately excluded — they are the other fixture shape,
- * indexed under the TOP-LEVEL index.json's `fixtures` key with no `cases/` subdirectory, as
- * `.claude/commands/nimbus-sdk-conformance-corpus.md` explains. Keying on the directory
- * layout rather than a hardcoded name list is what keeps that distinction derived.
- */
-function perAreaCorpora(): string[] {
-  return readdirSync(CONFORMANCE)
-    .filter((entry) => {
-      const dir = join(CONFORMANCE, entry);
-      if (!statSync(dir).isDirectory()) return false;
-      try {
-        return statSync(join(dir, "cases")).isDirectory();
-      } catch {
-        return false;
-      }
-    })
+/** The corpora more than one binding executes — the basis of the neutrality claim. */
+function dualRunCorpora(): string[] {
+  const manifest = readManifest();
+  return corpusNames()
+    .filter(
+      (corpus) =>
+        LANGUAGES.filter((language) => manifest.languages[language].claims.includes(corpus))
+          .length > 1,
+    )
     .sort();
 }
 
-/** Corpora the Python binding loads, read off its test files rather than assumed. */
-function pythonCorpora(): string[] {
-  const found = new Set<string>();
-  for (const entry of readdirSync(PYTHON_TESTS)) {
-    if (!entry.endsWith(".py")) continue;
-    const src = readFileSync(join(PYTHON_TESTS, entry), "utf8");
-    for (const m of src.matchAll(/load_corpus\(\s*["']([a-z-]+)["']\s*\)/g)) {
-      found.add(m[1] as string);
-    }
-  }
-  return [...found].sort();
+/** The corpora exactly one binding executes — which carry no language-neutrality evidence. */
+function singleBindingCorpora(): string[] {
+  const manifest = readManifest();
+  return corpusNames()
+    .filter(
+      (corpus) =>
+        LANGUAGES.filter((language) => manifest.languages[language].claims.includes(corpus))
+          .length === 1,
+    )
+    .sort();
 }
 
 /** The paragraph that makes the claim — matched by its own words, not by line number. */
@@ -67,41 +51,93 @@ function neutralityParagraph(): string {
   return readme.slice(start, readme.indexOf("\n\n", start));
 }
 
-describe("the language-neutrality claim matches what the bindings run", () => {
+describe("the coverage declaration is complete", () => {
   test("both sides are non-empty, so the comparisons below are not vacuous", () => {
-    // Each side is read off disk, so a broken scan would compare [] against [] forever.
-    expect(perAreaCorpora().length).toBeGreaterThanOrEqual(5);
-    expect(pythonCorpora().length).toBeGreaterThanOrEqual(3);
+    // Each side is read off disk; a broken scan would compare [] against [] forever.
+    expect(corpusNames().length).toBeGreaterThanOrEqual(8);
+    expect(LANGUAGES.length).toBe(3);
   });
 
-  test("Python only ever loads a corpus that exists", () => {
-    const unknown = pythonCorpora().filter((c) => !perAreaCorpora().includes(c));
-    expect(unknown, "a Python test loads a corpus with no directory").toEqual([]);
+  test("every binding either claims or refuses every published corpus", () => {
+    const manifest = readManifest();
+    for (const language of LANGUAGES) {
+      const { claims, unclaimed } = manifest.languages[language];
+      const accounted = [...claims, ...Object.keys(unclaimed)].sort();
+      expect(accounted, `${language}'s coverage does not account for every corpus`).toEqual(
+        corpusNames(),
+      );
+    }
   });
 
-  test("the README names every corpus Python executes", () => {
+  test("no binding claims a corpus that does not exist", () => {
+    const manifest = readManifest();
+    for (const language of LANGUAGES) {
+      const unknown = manifest.languages[language].claims.filter(
+        (corpus) => !corpusNames().includes(corpus),
+      );
+      expect(unknown, `${language} claims a corpus with no directory`).toEqual([]);
+    }
+  });
+
+  test("TypeScript, the reference binding, claims every published corpus", () => {
+    // A corpus the reference implementation does not execute has no reference behaviour for
+    // a second binding to be held to.
+    expect(readManifest().languages.typescript.claims.sort()).toEqual(corpusNames());
+  });
+
+  test("every deferred case belongs to a corpus that language claims", () => {
+    const manifest = readManifest();
+    for (const language of LANGUAGES) {
+      const { claims, deferred } = manifest.languages[language];
+      const orphaned = Object.keys(deferred).filter((corpus) => !claims.includes(corpus));
+      expect(orphaned, `${language} defers cases in a corpus it does not claim`).toEqual([]);
+    }
+  });
+
+  test("every deferred case names a real case in that corpus, exactly once", () => {
+    // A deferral is the one way a binding is allowed to skip a case, so a MALFORMED deferral
+    // is the one way it could skip one unnoticed. Two shapes are rejected here because the
+    // two consumers of this data used to disagree about them: `expectedCases` subtracts by
+    // set membership, while the coverage page subtracted a raw array length — so a duplicate
+    // or an unknown file shrank the rendered total without shrinking the expected set. The
+    // generator now derives from `expectedCases`, and this keeps the declaration itself sane.
+    const manifest = readManifest();
+    const corpora = publishedCorpora();
+    for (const language of LANGUAGES) {
+      for (const [corpus, files] of Object.entries(manifest.languages[language].deferred)) {
+        const known = corpora.get(corpus) ?? [];
+        const unknown = files.filter((file) => !known.includes(file));
+        expect(unknown, `${language} defers ${corpus} cases that no index lists`).toEqual([]);
+
+        const duplicated = files.filter((file, i) => files.indexOf(file) !== i);
+        expect(duplicated, `${language} lists a ${corpus} deferral more than once`).toEqual([]);
+      }
+    }
+  });
+});
+
+describe("the language-neutrality claim matches the declaration", () => {
+  test("the README names every corpus more than one binding executes", () => {
     const paragraph = neutralityParagraph();
-    const unnamed = pythonCorpora().filter((c) => !paragraph.includes(`\`${c}\``));
-    expect(unnamed, "Python runs a corpus the neutrality claim omits").toEqual([]);
+    const unnamed = dualRunCorpora().filter((c) => !paragraph.includes(`\`${c}\``));
+    expect(unnamed, "a corpus two bindings run is omitted from the neutrality claim").toEqual([]);
   });
 
-  test("the README does not claim a corpus Python never runs", () => {
-    // The false-claim direction. `predicates` and `sandbox` are TypeScript-only; naming
-    // either here would assert a parity that does not exist.
+  test("the README does not claim a corpus only one binding runs", () => {
+    // The false-claim direction, and the one that matters: naming a single-binding corpus
+    // here asserts a parity that does not exist.
     const paragraph = neutralityParagraph();
-    const overclaimed = perAreaCorpora()
-      .filter((c) => !pythonCorpora().includes(c))
-      .filter((c) => paragraph.includes(`\`${c}\``));
-    expect(overclaimed, "the neutrality claim names a TypeScript-only corpus").toEqual([]);
+    const overclaimed = singleBindingCorpora().filter((c) => paragraph.includes(`\`${c}\``));
+    expect(overclaimed, "the neutrality claim names a single-binding corpus").toEqual([]);
   });
 
-  test("the TypeScript-only corpora are disclosed somewhere in the document", () => {
+  test("every single-binding corpus is disclosed as such somewhere in the document", () => {
     // Naming only the dual-run corpora is true but incomplete: a reader takes
-    // "language-neutral" as covering the conformance tree. Every corpus one binding runs
-    // alone has to be visible as such.
+    // "language-neutral" as covering the whole conformance tree.
     const readme = readFromRepo(join("docs", "spec", "README.md"));
-    const tsOnly = perAreaCorpora().filter((c) => !pythonCorpora().includes(c));
-    const undisclosed = tsOnly.filter((c) => !new RegExp(`\`${c}\`[^\\n]*TypeScript`).test(readme));
-    expect(undisclosed, "a TypeScript-only corpus is never disclosed as such").toEqual([]);
+    const undisclosed = singleBindingCorpora().filter(
+      (c) => !new RegExp(`\`${c}\`[^\\n]*TypeScript`).test(readme),
+    );
+    expect(undisclosed, "a single-binding corpus is never disclosed as such").toEqual([]);
   });
 });

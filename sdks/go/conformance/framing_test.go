@@ -9,16 +9,11 @@ import (
 	"unicode/utf8"
 
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/ipc"
-	"github.com/nimbus-agent/nimbus-sdk/sdks/go/spec"
 )
 
-func framingCases(t *testing.T) []map[string]any {
+func framingCases(t *testing.T) []indexedCase {
 	t.Helper()
-	cases, err := spec.LoadCorpus("framing")
-	if err != nil {
-		t.Fatalf("LoadCorpus: %v", err)
-	}
-	return cases
+	return corpusCases(t, "framing")
 }
 
 // octets builds a chunk's exact bytes from a case-schema descriptor.
@@ -103,7 +98,12 @@ func TestFramingCorpus(t *testing.T) {
 	executed := 0
 	for _, c := range cases {
 		c := c
-		t.Run(describe(c), func(t *testing.T) {
+		t.Run(describe(c.Body), func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("framing", c.File)
+				}
+			})
 			executed++
 			// Checked rather than comma-ok'd away: a case with a mistyped "chunks" or
 			// "expect" key would otherwise run vacuously — both assertions yield nil,
@@ -113,13 +113,13 @@ func TestFramingCorpus(t *testing.T) {
 			// Go has no equivalent, so the runner names the two keys it cannot work
 			// without. An empty "chunks": [] is a real case (empty-stream.json) and
 			// unmarshals to a non-nil []any, so it still passes.
-			chunks, ok := c["chunks"].([]any)
+			chunks, ok := c.Body["chunks"].([]any)
 			if !ok {
-				t.Fatalf("case is malformed: no \"chunks\" array (got %#v)", c["chunks"])
+				t.Fatalf("case is malformed: no \"chunks\" array (got %#v)", c.Body["chunks"])
 			}
-			expect, ok := c["expect"].(map[string]any)
+			expect, ok := c.Body["expect"].(map[string]any)
 			if !ok {
-				t.Fatalf("case is malformed: no \"expect\" object (got %#v)", c["expect"])
+				t.Fatalf("case is malformed: no \"expect\" object (got %#v)", c.Body["expect"])
 			}
 			pushExpect, _ := expect["push"].([]any)
 			if len(pushExpect) != len(chunks) {

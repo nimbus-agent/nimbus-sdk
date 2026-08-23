@@ -5,16 +5,11 @@ import (
 
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/contract"
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/ipc"
-	"github.com/nimbus-agent/nimbus-sdk/sdks/go/spec"
 )
 
-func negotiationCases(t *testing.T) []map[string]any {
+func negotiationCases(t *testing.T) []indexedCase {
 	t.Helper()
-	cases, err := spec.LoadCorpus("negotiation")
-	if err != nil {
-		t.Fatalf("LoadCorpus: %v", err)
-	}
-	return cases
+	return corpusCases(t, "negotiation")
 }
 
 func describe(c map[string]any) string {
@@ -33,9 +28,9 @@ var deferredKinds = map[string]bool{}
 
 func TestEveryCorpusKindIsAccountedFor(t *testing.T) {
 	for _, c := range negotiationCases(t) {
-		kind, _ := c["kind"].(string)
+		kind, _ := c.Body["kind"].(string)
 		if !implementedKinds[kind] && !deferredKinds[kind] {
-			t.Errorf("corpus case %q has unhandled kind %q", describe(c), kind)
+			t.Errorf("corpus case %q has unhandled kind %q", describe(c.Body), kind)
 		}
 	}
 }
@@ -61,11 +56,18 @@ func runKind(t *testing.T, kind string, run func(*testing.T, map[string]any)) {
 	t.Helper()
 	executed := 0
 	for _, c := range negotiationCases(t) {
-		if k, _ := c["kind"].(string); k != kind {
+		if k, _ := c.Body["kind"].(string); k != kind {
 			continue
 		}
 		executed++
-		t.Run(describe(c), func(t *testing.T) { run(t, c) })
+		t.Run(describe(c.Body), func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("negotiation", c.File)
+				}
+			})
+			run(t, c.Body)
+		})
 	}
 	if executed == 0 {
 		t.Fatalf("executed no %q cases — either the corpus has none or this filter is misspelled", kind)
@@ -188,12 +190,12 @@ func TestCorpusRefusesABindingThatShortCircuitsOnAnEmptySet(t *testing.T) {
 	// and a non-conformant binding passes CI.
 	caught := 0
 	for _, c := range negotiationCases(t) {
-		if kind, _ := c["kind"].(string); kind != "negotiate" {
+		if kind, _ := c.Body["kind"].(string); kind != "negotiate" {
 			continue
 		}
-		local, _ := c["local"].([]any)
-		remote, _ := c["remote"].([]any)
-		expect, _ := c["expect"].(map[string]any)
+		local, _ := c.Body["local"].([]any)
+		remote, _ := c.Body["remote"].([]any)
+		expect, _ := c.Body["expect"].(map[string]any)
 		actual := shortCircuitOnEmpty(local, remote)
 
 		agreed := false

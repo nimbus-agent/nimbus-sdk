@@ -90,14 +90,17 @@ The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 point, so the boundary is documentation — and hoisting the names to the top level as a
 convenience would erase it.
 
-TypeScript and Python both execute four of the eight published conformance corpora:
-`negotiation` (all three kinds), `framing`, `diagnostics`, and — since `connector_kit`'s
-`urls.py` — `url-resolution`. Nothing is deferred, so a new case in any of the four runs in
-both languages the moment it is indexed. TypeScript additionally executes the other four —
-`predicates`, `sandbox`, `manifest`, `item` — which no second binding runs, so those carry
-no language-neutrality evidence; `docs/spec/README.md` says so, and the count is broken
-down in the Go section below. **Go is narrower still, in its batteries rather than its
-corpora** — it runs the same four Python does.
+TypeScript and Python both execute `negotiation` (all three kinds), `framing`,
+`diagnostics`, and — since `connector_kit`'s `urls.py` — `url-resolution`. Nothing is
+deferred, so a new case in any of the four runs in both languages the moment it is indexed.
+TypeScript additionally executes `predicates`, `sandbox`, `manifest` and `item`, which no
+second binding runs, so those carry no language-neutrality evidence; `docs/spec/README.md`
+says so. Which binding claims which corpus, and the case counts behind every one of these
+numbers, is declared in
+[`docs/conformance-coverage.json`](./docs/conformance-coverage.json) and rendered into
+[`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
+home for what used to be restated by hand here. **Go is narrower still, in its batteries
+rather than its corpora** — it runs the same four Python does.
 
 ## Go surface (five packages, and nothing at the module root)
 
@@ -186,20 +189,23 @@ on-disk layout of `docs/spec` part of Go's public API, so moving `conformance/v1
 would become a Go breaking change while staying invisible to the other two bindings.
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
-Go executes **four of the eight published conformance corpora**, nothing deferred in
-any: `negotiation` — all 38 cases across all three kinds (`negotiate` 16, `hello` 15,
-`declaration` 7) — `framing` — all 33 cases, run against `LineReader` — `diagnostics` —
-all 75, across `encode` (64), `parse` (6) and `level` (5) — and `url-resolution` — all 28,
-run against `connectorkit.ResolveURLWithBase`. That is the same four Python executes.
+Go executes `negotiation` (all three kinds — `negotiate`, `hello`, `declaration`), `framing`
+(run against `LineReader`), `diagnostics` (`encode`, `parse`, `level`), and `url-resolution`
+(run against `connectorkit.ResolveURLWithBase`), nothing deferred in any. That is the same
+four Python executes.
 
-**Eight are published, not four**, and the phrase "all four" — which this file and both
-READMEs used to carry — read as though only four existed. Six carry their own `index.json`
-(the four above plus `predicates` 33 and `sandbox` 31); two are fixture sets in the
-*top-level* `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` 31 and
-`item` 6), with their case files sitting directly in the corpus directory and no `cases/`
-subdirectory. 275 cases in total; Go and Python execute 174 of them, TypeScript all 275.
-The other four bind surfaces neither Go nor Python publishes, and `manifest` / `item` need
-a JSON Schema validator the dependency-free rule would make hand-written.
+**Eight corpora are published, not four**, and the phrase "all four" — which this file and
+both READMEs used to carry — read as though only four existed. Six carry their own
+`index.json` (the four above plus `predicates` and `sandbox`); two are fixture sets in the
+*top-level* `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and
+`item`), with their case files sitting directly in the corpus directory and no `cases/`
+subdirectory. The other four bind surfaces neither Go nor Python publishes, and
+`manifest` / `item` need a JSON Schema validator the dependency-free rule would make
+hand-written. Every case count behind these claims — the total across all eight corpora,
+and how many of them each binding executes — lives in
+[`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into
+[`docs/conformance-coverage.md`](./docs/conformance-coverage.md), rather than restated
+here.
 
 Four is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
 [RFC-0013](./docs/rfcs/0013-go-sdk-official.md) pins "the full conformance suite" to
@@ -397,6 +403,7 @@ bun run lint        # biome check src/ scripts/ examples/
 bun run test        # bun test
 bun run build       # tsc → dist/ (JS + .d.ts + declaration maps)
 bun run api:surface # regenerate docs/api-surface.md after any exports change
+bun run conformance:coverage # regenerate docs/conformance-coverage.md from docs/conformance-coverage.json
 ```
 
 The scaffolder has its own three, from the repository root:
@@ -438,6 +445,10 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   `sdks/typescript/src/` (tests may log) — see `biome.json`.
 - **MIT license.** Do not change the license field.
 - Tests live alongside source as `*.test.ts` in `sdks/typescript/src/`.
+- **A new conformance corpus needs a `docs/conformance-coverage.json` entry for every
+  binding** — a claim or a recorded reason it does not claim the corpus —
+  `sdks/typescript/scripts/corpus-parity.test.ts` fails otherwise. Regenerate
+  `docs/conformance-coverage.md` with `bun run conformance:coverage` after editing it.
 - **Four CI gates guard the TypeScript surface, and they fire on different things.** Do
   not think of them as one checklist — a change can trip any subset:
   - **A new or changed *export*** trips one: regenerate `docs/api-surface.md` with

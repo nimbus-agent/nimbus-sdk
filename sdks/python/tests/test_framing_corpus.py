@@ -11,11 +11,15 @@ import base64
 from typing import Any
 
 import pytest
+from _conformance_report import corpus_files, recorder
 
 from nimbus_sdk import load_corpus
 from nimbus_sdk.ipc import FrameTooLongError, NdjsonLineReader
 
 CASES = load_corpus("framing")
+FILES = corpus_files("framing")
+assert len(FILES) == len(CASES), "the index and load_corpus disagree on the case count"
+_RECORDER = recorder("framing")
 
 
 def _octets(node: dict[str, Any]) -> bytes:
@@ -56,12 +60,16 @@ def _frame_text(node: object) -> str:
     return _octets(node).decode("utf-8")
 
 
+def _ids() -> list[str]:
+    return [str(case["description"])[:60] for case in CASES]
+
+
 @pytest.mark.parametrize(
-    "case",
-    CASES,
-    ids=lambda c: str(c["description"])[:60],
+    ("file", "case"),
+    list(zip(FILES, CASES, strict=True)),
+    ids=_ids(),
 )
-def test_framing_cases(case: dict[str, object]) -> None:
+def test_framing_cases(file: str, case: dict[str, object]) -> None:
     expect = case["expect"]
     assert isinstance(expect, dict)
     chunks = case["chunks"]
@@ -95,6 +103,7 @@ def test_framing_cases(case: dict[str, object]) -> None:
     # raises KeyError on exactly those. No current case omits `flush`, but the schema
     # permits it, so absence is tolerated rather than assumed.
     if "flush" not in expect:
+        _RECORDER.record(file)
         return
     wanted_flush = expect["flush"]
     assert isinstance(wanted_flush, dict)
@@ -102,9 +111,11 @@ def test_framing_cases(case: dict[str, object]) -> None:
         assert wanted_flush["error"] == "frame-too-long"
         with pytest.raises(FrameTooLongError):
             reader.flush_frames()
+        _RECORDER.record(file)
         return
     result = reader.flush_frames()
     expected_frames = wanted_flush["frames"]
     assert isinstance(expected_frames, list)
     assert result.frames == tuple(_frame_text(f) for f in expected_frames)
     assert result.truncated is wanted_flush["truncated"]
+    _RECORDER.record(file)

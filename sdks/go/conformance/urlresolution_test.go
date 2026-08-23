@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/connectorkit"
-	"github.com/nimbus-agent/nimbus-sdk/sdks/go/spec"
 )
 
 // TestURLResolutionCorpus executes docs/spec/conformance/v1/url-resolution in full.
@@ -13,10 +12,7 @@ import (
 // refuses for the right reason with different words fails — which is the point: the
 // message is contract text and one fixture holds all three bindings to it at once.
 func TestURLResolutionCorpus(t *testing.T) {
-	cases, err := spec.LoadCorpus("url-resolution")
-	if err != nil {
-		t.Fatalf("LoadCorpus: %v", err)
-	}
+	cases := corpusCases(t, "url-resolution")
 	// A floor, not an exact count. Both languages read the same index.json, so
 	// duplicating Python's exact pin would detect nothing and would make every new
 	// case a four-file edit. The floor catches the failure that matters — a corpus
@@ -31,7 +27,12 @@ func TestURLResolutionCorpus(t *testing.T) {
 	executed := 0
 	for _, c := range cases {
 		c := c
-		t.Run(describe(c), func(t *testing.T) {
+		t.Run(describe(c.Body), func(t *testing.T) {
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("url-resolution", c.File)
+				}
+			})
 			executed++
 			// Checked rather than comma-ok'd away: a case with a mistyped key would
 			// otherwise run vacuously — base and input would both be "", the
@@ -41,17 +42,17 @@ func TestURLResolutionCorpus(t *testing.T) {
 			// keys it cannot work without. "input" may legitimately be the empty
 			// string (relative-empty-input.json), so it is checked for PRESENCE and
 			// type, never for emptiness.
-			base, ok := c["base"].(string)
+			base, ok := c.Body["base"].(string)
 			if !ok {
-				t.Fatalf("case is malformed: no \"base\" string (got %#v)", c["base"])
+				t.Fatalf("case is malformed: no \"base\" string (got %#v)", c.Body["base"])
 			}
-			input, ok := c["input"].(string)
+			input, ok := c.Body["input"].(string)
 			if !ok {
-				t.Fatalf("case is malformed: no \"input\" string (got %#v)", c["input"])
+				t.Fatalf("case is malformed: no \"input\" string (got %#v)", c.Body["input"])
 			}
-			expect, ok := c["expect"].(map[string]any)
+			expect, ok := c.Body["expect"].(map[string]any)
 			if !ok {
-				t.Fatalf("case is malformed: no \"expect\" object (got %#v)", c["expect"])
+				t.Fatalf("case is malformed: no \"expect\" object (got %#v)", c.Body["expect"])
 			}
 			wantOK, ok := expect["ok"].(bool)
 			if !ok {

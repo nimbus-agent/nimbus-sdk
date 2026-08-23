@@ -264,12 +264,20 @@ same SSRF chokepoint rather than the two ends of a protocol, reach the same verd
 same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. `predicates` and `sandbox` are executed by the **TypeScript** binding only — real
-corpora with real guards, but no second implementation runs them, so they carry no
-language-neutrality evidence. Treat a passing `predicates` or `sandbox` run as "the reference
-implementation agrees with the spec", not as "the spec is implementable twice".
-`sdks/typescript/scripts/corpus-parity.test.ts` derives both lists and fails if this paragraph
-and the bindings ever disagree — in either direction.
+whole tree. Four corpora are executed by the **TypeScript** binding alone.
+`predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
+`manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
+All four are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
+`item` run as "the reference implementation agrees with the spec", not as "the spec is
+implementable twice".
+
+Which binding runs which corpus is declared in
+[`docs/conformance-coverage.json`](../conformance-coverage.json) and rendered, with the
+case counts, into [`docs/conformance-coverage.md`](../conformance-coverage.md).
+`sdks/typescript/scripts/corpus-parity.test.ts` holds that declaration complete and holds this
+paragraph to it in both directions, and CI's `conformance-report` job holds it true by
+execution — every claimed corpus run case for case, or the build fails.
 
 `sdks/typescript/scripts/schema-guard.test.ts` compares each schema's declared properties and
 optionality against the emitted TypeScript — descending into inline object types, so `oauth` is

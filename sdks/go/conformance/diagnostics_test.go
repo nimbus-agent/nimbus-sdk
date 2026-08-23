@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/nimbus-agent/nimbus-sdk/sdks/go/diagnostics"
-	"github.com/nimbus-agent/nimbus-sdk/sdks/go/spec"
 )
 
 // diagnosticsFloor is a floor, not a pin: far enough below today's 75 that ordinary
@@ -16,13 +15,9 @@ import (
 // exact pin here would detect nothing and make every new case a four-file edit.
 const diagnosticsFloor = 60
 
-func diagnosticsCases(t *testing.T) []map[string]any {
+func diagnosticsCases(t *testing.T) []indexedCase {
 	t.Helper()
-	cases, err := spec.LoadCorpus("diagnostics")
-	if err != nil {
-		t.Fatalf("LoadCorpus: %v", err)
-	}
-	return cases
+	return corpusCases(t, "diagnostics")
 }
 
 // resolveTextLike resolves a textLike node — a string, a repeat, or a concat of
@@ -95,21 +90,26 @@ func TestDiagnosticsCorpus(t *testing.T) {
 
 	executed := 0
 	for i, testCase := range cases {
-		kind, _ := testCase["kind"].(string)
+		kind, _ := testCase.Body["kind"].(string)
 		name := fmt.Sprintf("%d/%s", i, kind)
 		executed++
 		t.Run(name, func(t *testing.T) {
-			expect, _ := testCase["expect"].(map[string]any)
+			t.Cleanup(func() {
+				if !t.Failed() && !t.Skipped() {
+					recordCase("diagnostics", testCase.File)
+				}
+			})
+			expect, _ := testCase.Body["expect"].(map[string]any)
 			ok, _ := expect["ok"].(bool)
 
 			switch kind {
 			case "encode":
-				runEncodeCase(t, expand(t, testCase["event"]), expect, ok)
+				runEncodeCase(t, expand(t, testCase.Body["event"]), expect, ok)
 			case "parse":
-				line, _ := testCase["line"].(string)
+				line, _ := testCase.Body["line"].(string)
 				runParseCase(t, line, expect, ok)
 			case "level":
-				runLevelCase(t, testCase, expect)
+				runLevelCase(t, testCase.Body, expect)
 			default:
 				// A kind this runner does not know is a failure, not a skip: a silently
 				// ignored kind is a corpus that appears to run and does not.
@@ -204,7 +204,7 @@ func TestDiagnosticsCorpusCoversEveryKind(t *testing.T) {
 	// that lost a whole kind would otherwise pass with the remaining two.
 	seen := map[string]int{}
 	for _, testCase := range diagnosticsCases(t) {
-		kind, _ := testCase["kind"].(string)
+		kind, _ := testCase.Body["kind"].(string)
 		seen[kind]++
 	}
 	for _, kind := range []string{"encode", "parse", "level"} {

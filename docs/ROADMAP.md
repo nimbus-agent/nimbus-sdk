@@ -234,11 +234,12 @@ same contract.*
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 was the first
 > to ship that way, and every release since has followed it. The binding executes every
 > published corpus its surface publishes — `negotiation`, `framing`, `diagnostics` and
-> `url-resolution`, four of the eight in the tree — every case kind, with nothing
-> deferred, so **the suite is green for both languages in CI** — two clauses of the exit
-> criteria, met. ("Full", for criterion 1, is pinned to exactly that reading by
-> [RFC-0013](./rfcs/0013-go-sdk-official.md); the other four corpora bind surfaces neither
-> Python nor Go publishes.)
+> `url-resolution` — every case kind, with nothing deferred, so **the suite is green for
+> both languages in CI** — two clauses of the exit criteria, met. ("Full", for criterion 1,
+> is pinned to exactly that reading by [RFC-0013](./rfcs/0013-go-sdk-official.md); the
+> other four corpora bind surfaces neither Python nor Go publishes.) Which corpus each
+> binding claims, and the case counts behind it, is generated into
+> [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
 >
 > Promotion to **official** was a separate, governance step, and it is complete:
 > [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
@@ -271,13 +272,14 @@ maintained."*
 - [~] Official **Go** SDK, then **Rust** SDK, each passing the suite — *Pillar 2*. **Go is
   now official**; Rust is untouched, which is what keeps this box open. The binding lives
   at [`sdks/go/`](../sdks/go/) — module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero
-  dependencies — and executes **every published corpus its surface publishes**, four of
-  the eight in the tree, in full and with nothing deferred in any: `negotiation` (all 38
-  cases across all three kinds), `framing` (all 33, run against `LineReader`),
-  `diagnostics` (all 75, across `encode`, `parse` and `level`, against a `diagnostics`
-  package that ships an emitter Python does not have), and `url-resolution` (all 28,
-  against a `connectorkit` package binding Python's Shipment 1 core). That is the same four
-  Python runs. The handshake is bound too: `ipc.PerformHandshake` performs the
+  dependencies — and executes **every published corpus its surface publishes**, in full
+  and with nothing deferred in any: `negotiation` (all three kinds), `framing` (run
+  against `LineReader`), `diagnostics` (across `encode`, `parse` and `level`, against a
+  `diagnostics` package that ships an emitter Python does not have), and `url-resolution`
+  (against a `connectorkit` package binding Python's Shipment 1 core). That is the same
+  four Python runs — the case counts behind every one of these corpora are generated into
+  [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
+  The handshake is bound too: `ipc.PerformHandshake` performs the
   read-hello/write-hello/negotiate exchange, synchronously over `io.Reader` / `io.Writer`.
   Promotion to **official** was a separate, governance step, and it is complete:
   [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official)'s four criteria are
@@ -350,8 +352,19 @@ maintained."*
 - [ ] A **reusable release workflow** (harden-runner → build/test → publish →
   post-publish verify) that each language's release job calls, so the hardened
   pipeline is defined once and every SDK inherits it — *Pillar 5*
-- [ ] A **cross-language CI matrix** running the conformance suite against every
-  SDK — *Pillar 5*
+- [x] A **cross-language CI matrix** running the conformance suite against every
+  SDK — *Pillar 5*. `ci.yml`'s `conformance` job takes **language** as its matrix axis and
+  runs each binding's corpus suite with `NIMBUS_CONFORMANCE_REPORT` set; `conformance-report`
+  unions the three legs' per-case reports and reconciles them against
+  [`docs/conformance-coverage.json`](./conformance-coverage.json). The counts that used to
+  be restated as prose in four places are now generated into
+  [`docs/conformance-coverage.md`](./conformance-coverage.md).
+
+  **What this changed is the standard of evidence, not the coverage.** No binding executes a
+  corpus it did not execute before. What is new is that a corpus a binding claims must be
+  executed case for case or CI fails, and that adding a corpus forces every binding to claim
+  it or record why not — the failure mode no per-language guard could catch, because no
+  per-language guard knows the corpus exists.
 - [ ] **Tiered stability** markers separating battle-tested helpers from the frozen
   core — *Pillars 3, 7*
 - [x] The written process for **how a language becomes "official"** — *Pillar 9*.

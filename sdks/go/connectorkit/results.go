@@ -16,8 +16,9 @@ const (
 // TextResponse is a response whose body has been read as text.
 //
 // An interface rather than a struct so an author using their own HTTP client satisfies it
-// structurally and can use these helpers without adopting this kit's future transport —
-// which is Python's D6 reason, unchanged.
+// structurally and can use these helpers without adopting this kit's Transport — which is
+// Python's D6 reason, unchanged. HTTPResponse satisfies it, so the kit's own transport
+// needs no adapter either.
 type TextResponse interface {
 	Ok() bool
 	Status() int
@@ -72,8 +73,9 @@ func JSONResult(data any) (MCPToolResult, error) {
 // ErrorResult is an MCP tool result carrying message and the isError flag.
 //
 // Go-and-Python-only: TypeScript's kit has no counterpart, because its tool registrar
-// turns a thrown error into this shape itself. The Shipment 2 router is what needs the
-// builder directly.
+// turns a thrown error into this shape itself. ToolRouter is what needs the builder
+// directly, for the unknown-tool, failed-validation and handler-error paths it must not
+// let escape.
 func ErrorResult(message string) MCPToolResult {
 	return MCPToolResult{
 		Content: []MCPTextContent{{Type: "text", Text: message}},

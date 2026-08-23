@@ -376,10 +376,20 @@ which records the four criteria as met, names the SDK owner, and pins that readi
 
 **Not here yet:**
 
-- **The kit's transport, tool router and REST factories.** Out of Python's shipment 1 too;
-  a binding follows the kit rather than leading it.
+- **A Go connector template.** `connectorkit.ToolRouter` is wire-shaped and imports no
+  MCP package, so it has no caller in this repository — the scaffolder generates
+  TypeScript and Python only. A Go template, or a real Go connector, is what would give
+  it one.
 
-Track it in the
+The kit's transport, tool router and REST factories **are** here now, alongside Python's.
+`HTTPTransport` enforces
+[`url-resolution.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/spec/connector-kit/v1/url-resolution.md)
+§8 itself rather than relying on the standard library: measured on Go 1.26.7, a bare
+`http.Client` compares by host name alone, so it drops `Authorization` when the host
+changes but keeps it when only the port or scheme does — weaker than §6's origin, which
+is scheme, host and port together.
+
+Track the rest in the
 [roadmap](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ROADMAP.md).
 
 ## Supported Go versions

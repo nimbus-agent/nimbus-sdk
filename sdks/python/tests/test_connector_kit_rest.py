@@ -7,6 +7,8 @@ needs an event loop.
 
 from __future__ import annotations
 
+import dataclasses
+
 import pytest
 
 from nimbus_sdk.connector_kit import (
@@ -32,6 +34,16 @@ class FakeTransport:
     def send(self, request: HttpRequest) -> HttpResponse:
         self.seen.append(request)
         return self._response
+
+
+def test_the_default_headers_default_is_a_factory_not_a_bare_default() -> None:
+    # Same 3.11 dataclasses trap as HttpRequest.headers — see the sibling test in
+    # test_connector_kit_transport.py for the mechanism.
+    (headers,) = [
+        f for f in dataclasses.fields(RestFetcherConfig) if f.name == "default_headers"
+    ]
+    assert headers.default is dataclasses.MISSING
+    assert headers.default_factory is not dataclasses.MISSING
 
 
 def test_a_relative_path_is_joined_onto_the_api_base() -> None:

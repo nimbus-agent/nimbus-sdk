@@ -26,6 +26,20 @@ def test_a_request_is_frozen() -> None:
         req.url = "https://evil.com"  # type: ignore[misc]
 
 
+def test_the_headers_default_is_a_factory_not_a_bare_default() -> None:
+    # Python 3.11's dataclasses rejects any default whose class has __hash__ is None,
+    # and mappingproxy only became hashable in 3.12 — so passing NO_HEADERS directly
+    # raises "ValueError: mutable default" at import time on the oldest interpreter
+    # this package supports, while working fine on newer ones. Pinned here rather than
+    # left to the 3.11 CI leg, so a "simplification" back to a bare default fails on
+    # every version instead of only that one.
+    (headers,) = [f for f in dataclasses.fields(HttpRequest) if f.name == "headers"]
+    assert headers.default is dataclasses.MISSING
+    assert headers.default_factory is not dataclasses.MISSING
+    # And the factory still hands back the one shared read-only object.
+    assert headers.default_factory() is HttpRequest(url="x").headers
+
+
 def test_the_default_headers_mapping_cannot_be_mutated_by_one_caller_for_all() -> None:
     # The default is a shared module-level object, so it has to be read-only or one
     # request would poison every later one.

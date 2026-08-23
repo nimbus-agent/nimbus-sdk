@@ -11,7 +11,7 @@ import json as _json
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Protocol
 
@@ -26,6 +26,23 @@ from nimbus_sdk.connector_kit.urls import should_strip_auth
 #: same — it is not in ``__all__``.
 NO_HEADERS: Mapping[str, str] = MappingProxyType({})
 
+
+def _no_headers() -> Mapping[str, str]:
+    """Return the shared empty header mapping, for use as a ``default_factory``.
+
+    A factory rather than passing :data:`NO_HEADERS` as a bare dataclass default,
+    because ``dataclasses`` on Python 3.11 rejects any default whose class has
+    ``__hash__ is None`` — and ``mappingproxy`` only became hashable in 3.12. The bare
+    default therefore works on 3.12+ and raises ``ValueError: mutable default`` at
+    import time on 3.11, which is the floor this package supports.
+
+    It returns the same object every call, so the sharing and the read-only guarantee
+    both survive; only the check is sidestepped. Do not "simplify" this back to a plain
+    default.
+    """
+    return NO_HEADERS
+
+
 #: Matching TypeScript's ``fetchWithTimeout`` default. Imported by ``rest.py``; not
 #: exported from the package.
 DEFAULT_TIMEOUT_S = 15.0
@@ -37,7 +54,7 @@ class HttpRequest:
 
     url: str
     method: str = "GET"
-    headers: Mapping[str, str] = NO_HEADERS
+    headers: Mapping[str, str] = field(default_factory=_no_headers)
     body: bytes | None = None
     timeout_s: float = DEFAULT_TIMEOUT_S
 

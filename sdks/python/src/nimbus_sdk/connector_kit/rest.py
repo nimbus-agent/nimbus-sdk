@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 from nimbus_sdk.connector_kit.env import require_env
@@ -18,11 +18,11 @@ from nimbus_sdk.connector_kit.results import json_result_if_ok
 from nimbus_sdk.connector_kit.router import ToolHandler
 from nimbus_sdk.connector_kit.transport import (
     DEFAULT_TIMEOUT_S,
-    NO_HEADERS,
     HttpRequest,
     HttpResponse,
     Transport,
     UrllibTransport,
+    _no_headers,
 )
 from nimbus_sdk.connector_kit.types import McpToolResult
 from nimbus_sdk.connector_kit.urls import resolve_url_with_base
@@ -34,7 +34,7 @@ class RestFetcherConfig:
 
     api_base: str
     token: str
-    default_headers: Mapping[str, str] = NO_HEADERS
+    default_headers: Mapping[str, str] = field(default_factory=_no_headers)
 
 
 class RestFetcher(Protocol):

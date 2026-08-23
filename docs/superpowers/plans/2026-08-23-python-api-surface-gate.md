@@ -16,7 +16,7 @@
 - **`mypy --strict` covers `src`, `tests`, `scripts` and `hatch_build.py`.** Every function in the new script and its tests needs full annotations, including `-> None` on tests.
 - **ruff:** `line-length = 88`, `target-version = "py311"`, lint rules `["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "RUF"]`. Note `UP` forbids `typing.Callable`/`typing.Sequence` — import those from `collections.abc`. Note `PT` enforces pytest style. `python -m ruff check .` and `python -m ruff format --check .` must both pass.
 - **`eval_str=True` and `typing.get_type_hints` are FORBIDDEN.** Every module under `src/nimbus_sdk/` carries `from __future__ import annotations`, so annotations are retained as the literal source strings and render identically on 3.11 through 3.14. Resolving them produces runtime objects whose `repr` is exactly what differs between versions. This is the single most important constraint in this plan: violating it turns the gate red on most of the twelve CI legs.
-- **Do NOT modify anything under `sdks/python/src/`.** This work observes the surface; it does not change it. A diff there is a bug in the implementation.
+- **No COMMITTED change under `sdks/python/src/`.** This work observes the surface; it does not change it, and a diff there in any commit is a bug in the implementation. Task 6's falsification steps deliberately edit it *temporarily* to prove the gate can fail, then restore with `git checkout` and confirm `git status --porcelain` is clean before committing — that is the one sanctioned exception, and it leaves no trace.
 - **`python -m pip install -e .` from `sdks/python/` before running anything**, because the generator imports the installed package.
 - **Commit style:** Conventional Commits, every message ending with:
   `Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>`
@@ -283,7 +283,9 @@ Type aliases are the one shape whose runtime form is **not** stable across Pytho
 
 **Interfaces:**
 - Consumes: `REPO_ROOT` from Task 1.
-- Produces: `def alias_sources() -> dict[str, str]` — every module-level `NAME = <type expression>` under `src/nimbus_sdk/`, mapped to the **source text** of its right-hand side.
+- Produces:
+  - `def alias_sources() -> dict[str, str]` — every module-level `NAME = <type expression>` under `src/nimbus_sdk/`, mapped to the **source text** of its right-hand side.
+  - `def annotation_sources() -> dict[str, str]` — every module-level `NAME: <annotation> = …` under `src/nimbus_sdk/`, mapped to the **source text** of its annotation. The spec requires data to render "the annotation where one exists, otherwise the runtime type"; this is where the annotation comes from, and it is the same AST pass.
 
 **Why source text and not `repr`.** Measured on Python 3.14.6: `Callable[[object], Sequence[str | None] | None]` reprs as `collections.abc.Callable[[object], collections.abc.Sequence[str | None] | None]`, and `A | B` reprs with fully-qualified module paths — `nimbus_sdk.ipc.hello.HelloOk | nimbus_sdk.ipc.hello.HelloRefused`. Both are verbose, and neither is guaranteed identical on 3.11. The design's whole stability argument is *record what is written, not what CPython prints*; annotations get that for free from `from __future__ import annotations`, and aliases need this map to get it too.
 
@@ -302,6 +304,12 @@ def test_alias_sources_records_the_written_text() -> None:
     assert sources["HelloResult"] == "HelloOk | HelloRefused"
 
 
+def test_annotation_sources_records_the_written_annotation() -> None:
+    # CONTRACT_VERSIONS is declared `tuple[str, ...]`; its runtime type is merely `tuple`.
+    # The annotation is the surface a consumer reads.
+    assert annotation_sources()["CONTRACT_VERSIONS"] == "tuple[str, ...]"
+
+
 def test_alias_sources_covers_every_alias_in_the_surface() -> None:
     # An alias the map misses would render with no definition at all, which is worse than
     # rendering it verbosely.
@@ -315,7 +323,7 @@ def test_alias_sources_covers_every_alias_in_the_surface() -> None:
     assert missing == []
 ```
 
-Add `alias_sources` to the import at the top of the file.
+Add `alias_sources` and `annotation_sources` to the import at the top of the file.
 
 - [ ] **Step 2: Run the test to verify it fails**
 
@@ -366,6 +374,28 @@ def alias_sources() -> dict[str, str]:
                 continue
             sources[target.id] = ast.unparse(node.value)
     return sources
+
+
+def annotation_sources() -> dict[str, str]:
+    """Map every module-level ``NAME: <annotation>`` under ``src/nimbus_sdk/`` to its text.
+
+    The spec renders data as "the annotation where one exists, otherwise the runtime
+    type", and this supplies the first half. It matters: ``CONTRACT_VERSIONS`` is declared
+    ``tuple[str, ...]`` and its runtime type is merely ``tuple`` — the annotation is the
+    surface a consumer reads, and the bare type is what a snapshot would record if it
+    asked the object instead of the source.
+
+    Read from source for the same reason ``alias_sources`` is: an ``ast.AnnAssign`` is not
+    an annotation the ``from __future__`` pragma preserves for us at the module level in
+    any form we can reach from the re-exporting root, and the written text is stable.
+    """
+    sources: dict[str, str] = {}
+    for path in sorted(_SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in tree.body:
+            if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+                sources[node.target.id] = ast.unparse(node.annotation)
+    return sources
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
@@ -406,7 +436,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `Export`, `Kind`, `alias_sources()`.
-- Produces: `def render_export(export: Export, aliases: dict[str, str]) -> list[str]` — the Markdown bullet lines for one export. A list because a class renders as several lines; Task 4 fills that branch in.
+- Produces: `def render_export(export: Export, aliases: dict[str, str], annotations: dict[str, str]) -> list[str]` — the Markdown bullet lines for one export. A list because a class renders as several lines; Task 4 fills that branch in.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -415,7 +445,7 @@ Append to `sdks/python/tests/test_api_surface.py`:
 ```python
 def test_renders_a_function_signature_as_written() -> None:
     export = next(e for e in collect("nimbus_sdk.connector_kit") if e.name == "require_env")
-    lines = render_export(export, alias_sources())
+    lines = render_export(export, alias_sources(), annotation_sources())
     # Annotations render as the literal source strings, because every module under
     # src/nimbus_sdk/ has `from __future__ import annotations`. That is what makes this
     # identical on 3.11 and 3.14.
@@ -426,14 +456,14 @@ def test_renders_a_function_signature_as_written() -> None:
 
 def test_renders_an_alias_from_its_source_text() -> None:
     export = next(e for e in collect("nimbus_sdk.connector_kit") if e.name == "FieldExtractor")
-    assert render_export(export, alias_sources()) == [
+    assert render_export(export, alias_sources(), annotation_sources()) == [
         "- `FieldExtractor = Callable[[object], Sequence[str | None] | None]`",
     ]
 
 
 def test_renders_data_as_name_and_type() -> None:
     export = next(e for e in collect("nimbus_sdk") if e.name == "CONTRACT_VERSIONS")
-    assert render_export(export, alias_sources()) == ["- `CONTRACT_VERSIONS: tuple`"]
+    assert render_export(export, alias_sources(), annotation_sources()) == ["- `CONTRACT_VERSIONS: tuple`"]
 
 
 def test_an_alias_missing_from_the_map_fails_loudly() -> None:
@@ -441,7 +471,7 @@ def test_an_alias_missing_from_the_map_fails_loudly() -> None:
     # hide surface. Neither is acceptable, so this raises.
     export = Export(name="Nowhere", kind=Kind.ALIAS, obj=int | str)
     with pytest.raises(RuntimeError, match="Nowhere"):
-        render_export(export, {})
+        render_export(export, {}, {})
 ```
 
 Add `Export`, `alias_sources`, `render_export` to the imports, and `import pytest`.
@@ -475,7 +505,9 @@ def _signature(name: str, obj: object) -> str:
     return f"def {name}{signature}"
 
 
-def render_export(export: Export, aliases: dict[str, str]) -> list[str]:
+def render_export(
+    export: Export, aliases: dict[str, str], annotations: dict[str, str]
+) -> list[str]:
     """The Markdown bullet lines for one export.
 
     A list because a class renders as several lines — its own bullet plus one per member.
@@ -492,7 +524,11 @@ def render_export(export: Export, aliases: dict[str, str]) -> list[str]:
         return [f"- `{export.name} = {source}`"]
     if export.kind is Kind.CLASS:
         return _render_class(export)
-    return [f"- `{export.name}: {type(export.obj).__name__}`"]
+    # The annotation where one exists, otherwise the runtime type. CONTRACT_VERSIONS is
+    # declared `tuple[str, ...]` and its runtime type is merely `tuple`; the declaration
+    # is what a consumer reads.
+    declared = annotations.get(export.name)
+    return [f"- `{export.name}: {declared or type(export.obj).__name__}`"]
 ```
 
 Add a placeholder `_render_class` that Task 4 replaces:
@@ -581,7 +617,7 @@ Append to `sdks/python/tests/test_api_surface.py`:
 ```python
 def test_renders_dataclass_fields_not_a_synthesized_init() -> None:
     export = next(e for e in collect("nimbus_sdk") if e.name == "NegotiationOk")
-    lines = render_export(export, alias_sources())
+    lines = render_export(export, alias_sources(), annotation_sources())
     assert lines[0] == "- `class NegotiationOk`"
     assert "  - `version: str`" in lines
     # The synthesized __init__ is derived from the fields; recording both would be
@@ -593,7 +629,7 @@ def test_renders_protocol_properties_as_attributes() -> None:
     # TextResponse's entire contract is properties. Rendering it with nothing beneath
     # would record a class and none of its surface.
     export = next(e for e in collect("nimbus_sdk.connector_kit") if e.name == "TextResponse")
-    lines = render_export(export, alias_sources())
+    lines = render_export(export, alias_sources(), annotation_sources())
     assert lines[0] == "- `class TextResponse`"
     assert "  - `ok: bool`" in lines
     assert "  - `status: int`" in lines
@@ -604,7 +640,7 @@ def test_renders_a_hand_written_init() -> None:
     export = next(
         e for e in collect("nimbus_sdk.connector_kit") if e.name == "HttpStatusError"
     )
-    lines = render_export(export, alias_sources())
+    lines = render_export(export, alias_sources(), annotation_sources())
     assert lines[0] == "- `class HttpStatusError`"
     assert any(line.startswith("  - `def __init__(self, service: str") for line in lines)
 
@@ -614,7 +650,7 @@ def test_omits_underscore_prefixed_members() -> None:
         def public(self) -> None: ...
         def _private(self) -> None: ...
 
-    lines = render_export(Export(name="Sample", kind=Kind.CLASS, obj=Sample), {})
+    lines = render_export(Export(name="Sample", kind=Kind.CLASS, obj=Sample), {}, {})
     assert any("public" in line for line in lines)
     assert not any("_private" in line for line in lines)
 
@@ -627,7 +663,7 @@ def test_inherited_members_are_recorded() -> None:
     export = next(
         e for e in collect("nimbus_sdk.connector_kit") if e.name == "JsonBodyResponse"
     )
-    lines = render_export(export, alias_sources())
+    lines = render_export(export, alias_sources(), annotation_sources())
     for member in ("ok: bool", "status: int", "text: str", "json: object"):
         assert f"  - `{member}`" in lines, member
 
@@ -653,7 +689,7 @@ def test_no_exported_class_is_described_by_name_alone() -> None:
         for export in collect(root):
             if export.kind is not Kind.CLASS:
                 continue
-            lines = render_export(export, alias_sources())
+            lines = render_export(export, alias_sources(), annotation_sources())
             described = len(lines) > 1 or lines[0].rstrip("`").endswith(")")
             assert described, f"{export.name} rendered with no members and no bases"
 
@@ -665,7 +701,7 @@ def test_object_and_exception_internals_are_not_recorded() -> None:
     export = next(
         e for e in collect("nimbus_sdk.connector_kit") if e.name == "HttpStatusError"
     )
-    rendered = "\n".join(render_export(export, alias_sources()))
+    rendered = "\n".join(render_export(export, alias_sources(), annotation_sources()))
     for leaked in ("with_traceback", "args", "add_note"):
         assert leaked not in rendered, leaked
 ```
@@ -809,7 +845,7 @@ class _SyntheticError(Exception):
 
 def test_format_dataclass_fields() -> None:
     lines = render_export(
-        Export(name="Record", kind=Kind.CLASS, obj=_SyntheticRecord), {}
+        Export(name="Record", kind=Kind.CLASS, obj=_SyntheticRecord), {}, {}
     )
     assert lines[0] == "- `class Record`"
     assert "  - `version: str`" in lines
@@ -818,13 +854,13 @@ def test_format_dataclass_fields() -> None:
 
 def test_format_protocol_property() -> None:
     lines = render_export(
-        Export(name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol), {}
+        Export(name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol), {}, {}
     )
     assert lines == ["- `class Proto`", "  - `ok: bool`"]
 
 
 def test_format_hand_written_init_and_method_and_omitted_private() -> None:
-    lines = render_export(Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError), {})
+    lines = render_export(Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError), {}, {})
     assert lines[0] == "- `class Err`"
     assert "  - `def __init__(self, service: str, status: int) -> None`" in lines
     assert "  - `def detail(self) -> str`" in lines
@@ -948,13 +984,14 @@ reworded docstring is not a change to the surface.
 def render() -> str:
     """The whole document."""
     aliases = alias_sources()
+    annotations = annotation_sources()
     parts = [_HEADER]
     for root in IMPORT_ROOTS:
         exports = collect(root)
         parts.append(f"\n## `{root}`\n\n{len(exports)} exports.\n\n")
         lines: list[str] = []
         for export in exports:
-            lines.extend(render_export(export, aliases))
+            lines.extend(render_export(export, aliases, annotations))
         parts.append("\n".join(lines) + "\n")
     return "".join(parts)
 

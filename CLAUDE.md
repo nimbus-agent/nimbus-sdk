@@ -73,10 +73,21 @@ the release-please bump.
   (the `McpTextContent` / `McpToolResult` wire shapes), `results.py` (`json_result` and
   its `*_if_ok` variants, plus `error_result`), and `search_filter.py`
   (`filter_by_query`, `make_query_filter`, `matches_result` and the field-extractor
-  helpers). The transport, the tool router, and `rest.py`'s REST factories are
-  Shipment 2 — see the Phase 3 box in `docs/ROADMAP.md`. `docs/modules/connector-kit.md`
-  carries the Python-binding section: the exports with no Python counterpart, the
-  asymmetries, and the kit's own divergence.
+  helpers). Shipment 2 added the rest: `transport.py` (`HttpRequest` / `HttpResponse`,
+  the `Transport` Protocol, and `UrllibTransport`), `router.py` (`ToolRouter`), and
+  `rest.py` (`make_rest_fetcher`, `make_rest_tool`) — **42 exported names** in all.
+  `docs/modules/connector-kit.md` carries the Python-binding section: the exports with no
+  Python counterpart, the asymmetries, and the kit's own divergence.
+
+  **`UrllibTransport` enforces `url-resolution.md` §8 itself, and had to.** Measured on
+  CPython 3.14.6: a header set through `Request(headers=...)` is carried across a
+  cross-origin redirect, which is the bearer-token exfiltration `resolve_url_with_base`
+  exists to prevent, reappearing one layer below where the corpus can see it. The
+  tempting one-line alternative is wrong in the other direction —
+  `add_unredirected_header` drops the credential on *every* redirect, same-origin
+  included, turning an ordinary `/api/x` → `/api/x/` into a 401 — so the transport
+  installs a redirect handler that strips only on an origin change. That is why §8 has
+  **two** tests in each binding rather than one.
 
 **The IPC, diagnostics, and connector-kit names are NOT re-exported from `nimbus_sdk`,
 and must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
@@ -124,9 +135,14 @@ surface is shaped this way, which the generated file, by design, does not:
   `MCPToolResult`, `JSONResult` and the `*IfOk` builders, and the search filter. **One
   package where Python has six modules**, with the file names matching Python's module
   names — Python's `__all__` already flattens that boundary for a caller, and splitting a
-  Go package later is breaking where merging one is not. Python's 27 exported names become
-  28: `ConnectorKitError` splits into the `errors.Is` sentinel `ErrConnectorKit` and the
-  concrete `connectorkit.Error`. Batteries, not contract — its divergence list lives in
+  Go package later is breaking where merging one is not. Python's **42** exported names
+  become **76**, and the gap is mostly Go spelling one thing as several: a Python class
+  with methods becomes a type plus its exported methods, which the surface walker counts
+  separately. Three additions are real rather than accounting, and all three exist
+  because Go lacks something Python has — `ErrConnectorKit` and `ErrTransport`, sentinels
+  standing in for a base class Go cannot subclass; and `RedactedURL`, exported because Go
+  has no constructor to redact a credential inside, so every site that builds a
+  `TransportError` has to call it. Batteries, not contract — the divergence list lives in
   [`docs/modules/connector-kit.md`](./docs/modules/connector-kit.md), not here.
 - `contract` (`sdks/go/contract/`) — `ContractVersions`, `HandshakeExit`,
   `IsContractVersion`, `Negotiate`, `NegotiationResult`, `NegotiationOk`,

@@ -20,3 +20,14 @@ type MCPToolResult struct {
 	Content []MCPTextContent `json:"content"`
 	IsError bool             `json:"isError,omitempty"`
 }
+
+// MCPToolDescriptor is one tool, as tools/list returns it.
+//
+// InputSchema is JSON Schema this package ADVERTISES and never enforces: validating it
+// would need a JSON Schema implementation, which the zero-dependency rule forbids. Pass
+// a Validator to ToolRouter.Add if a tool needs its arguments checked.
+type MCPToolDescriptor struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	InputSchema map[string]any `json:"inputSchema"`
+}

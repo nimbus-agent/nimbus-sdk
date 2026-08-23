@@ -141,3 +141,30 @@ func ResolveURLWithBase(baseURL, pathOrURL string) (string, error) {
 	}
 	return pathOrURL, nil
 }
+
+// ShouldStripAuth reports whether a credential attached for fromURL must not travel to
+// toURL.
+//
+// The §8 predicate of docs/spec/connector-kit/v1/url-resolution.md, exported because §8
+// binds every Transport this package accepts as a seam, not only the one it defaults
+// to. A custom Transport calls this rather than hand-rolling origin comparison; a
+// second, hand-rolled copy could drift from ResolveURLWithBase, which is the copy the
+// conformance corpus pins.
+//
+// It reports true when the two §6 origins differ, and when either cannot be computed:
+// an origin that cannot be computed is not an origin that can be shown equal.
+//
+// Note the rule is an origin CHANGE. A same-origin redirect must keep the credential,
+// so dropping it unconditionally is not compliance, it is a 401.
+//
+// TypeScript publishes no counterpart — fetch already drops Authorization on a
+// cross-origin redirect, per the Fetch standard, so there is nothing for a TypeScript
+// caller to opt into.
+func ShouldStripAuth(fromURL, toURL string) bool {
+	from, fromOK := origin(fromURL)
+	to, toOK := origin(toURL)
+	if !fromOK || !toOK {
+		return true
+	}
+	return from != to
+}

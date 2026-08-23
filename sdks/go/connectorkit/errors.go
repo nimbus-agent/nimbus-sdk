@@ -3,6 +3,8 @@ package connectorkit
 import (
 	"errors"
 	"fmt"
+	"net/url"
+	"strings"
 )
 
 // ErrConnectorKit is the sentinel every error in this package wraps.
@@ -57,3 +59,80 @@ func (e *HTTPStatusError) Error() string {
 	return fmt.Sprintf("%s %d: %s", e.Service, e.Status, e.Snippet)
 }
 func (e *HTTPStatusError) Unwrap() error { return ErrConnectorKit }
+
+// ErrTransport is the sentinel every transport failure wraps, alongside ErrConnectorKit.
+//
+// It exists because Python's TransportTimeoutError subclasses TransportError, so one
+// `except TransportError` catches both, and Go has no subclassing to express that. This
+// is the same split ConnectorKitError already took when it became the ErrConnectorKit
+// sentinel plus the concrete Error — applied a second time, so it is precedent rather
+// than novelty.
+var ErrTransport = errors.New("connectorkit: transport")
+
+// TransportError reports that a Transport did not produce an HTTP response at all.
+//
+// It has no TypeScript counterpart, because TypeScript inherits its failure taxonomy
+// from fetch. It exists so that swapping a Transport does not change which errors a
+// caller has to handle — see the Transport interface, which makes that an obligation on
+// every implementation rather than an accident of the default one.
+//
+// URL is rendered with any userinfo removed: a credential must not reach a log line.
+type TransportError struct {
+	Op  string // the HTTP method
+	URL string // as supplied; rendered redacted
+	Err error  // the underlying failure, or nil
+}
+
+func (e *TransportError) Error() string { return transportMessage(e.Op, e.URL, e.Err) }
+
+// Unwrap lists the cause alongside both sentinels, so errors.Is answers for the kit's
+// taxonomy and for the original failure on the same value.
+func (e *TransportError) Unwrap() []error { return transportChain(e.Err) }
+
+// TransportTimeoutError reports that a Transport timed out.
+//
+// A distinct type rather than a field, so errors.As can select it, while ErrTransport
+// keeps it reachable as an ordinary transport failure. A timeout means the deadline
+// expired; a caller cancelling is a plain TransportError, because a retry loop that
+// read cancellation as a timeout would retry work the caller just abandoned.
+type TransportTimeoutError struct {
+	Op  string
+	URL string
+	Err error
+}
+
+func (e *TransportTimeoutError) Error() string   { return transportMessage(e.Op, e.URL, e.Err) }
+func (e *TransportTimeoutError) Unwrap() []error { return transportChain(e.Err) }
+
+func transportChain(cause error) []error {
+	if cause == nil {
+		return []error{ErrConnectorKit, ErrTransport}
+	}
+	return []error{ErrConnectorKit, ErrTransport, cause}
+}
+
+func transportMessage(op, rawURL string, cause error) string {
+	reason := "no response"
+	if cause != nil {
+		reason = cause.Error()
+	}
+	return op + " " + redactUserinfo(rawURL) + " failed: " + reason
+}
+
+// redactUserinfo returns rawURL with any user:password@ removed.
+func redactUserinfo(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		// Fall back to a coarse cut rather than echoing a string that may hold a
+		// credential in a shape url.Parse could not read.
+		if at := strings.LastIndex(rawURL, "@"); at >= 0 {
+			return "<redacted>" + rawURL[at+1:]
+		}
+		return rawURL
+	}
+	if parsed.User == nil {
+		return rawURL
+	}
+	parsed.User = nil
+	return parsed.String()
+}

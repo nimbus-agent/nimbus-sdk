@@ -17,7 +17,7 @@ not even another package inside this module.
 
 ## `connectorkit`
 
-75 exports.
+76 exports.
 
 - `const DefaultTimeout = 15 * time.Second`
 - `func (e *Error) Error() string`
@@ -56,6 +56,7 @@ not even another package inside this module.
 - `func NewHTTPResponse(status int, raw []byte) HTTPResponse`
 - `func NewHTTPTransport(opts ...HTTPTransportOption) *HTTPTransport`
 - `func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)`
+- `func RedactedURL(rawURL string) string`
 - `func RequireEnv(name string, env func(string) string) (string, error)`
 - `func ResolveURLWithBase(baseURL, pathOrURL string) (string, error)`
 - `func ShouldStripAuth(fromURL, toURL string) bool`

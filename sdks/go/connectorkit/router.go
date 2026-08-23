@@ -52,6 +52,13 @@ func (r *ToolRouter) Add(descriptor MCPToolDescriptor, handler Handler, validate
 	if _, exists := r.byName[descriptor.Name]; exists {
 		return &Error{Message: "connectorkit: tool " + descriptor.Name + " is already registered"}
 	}
+	// Handler is a function type, so nil is a value a caller can pass. Stored
+	// unchecked it panics inside CallTool — the one outcome the router promises not to
+	// produce, and one that takes the session down rather than returning an error
+	// result. A wiring mistake belongs here, at registration, where it is loud.
+	if handler == nil {
+		return &Error{Message: "connectorkit: tool " + descriptor.Name + " has a nil handler"}
+	}
 	r.byName[descriptor.Name] = registration{descriptor, handler, validate}
 	r.order = append(r.order, descriptor.Name)
 	return nil

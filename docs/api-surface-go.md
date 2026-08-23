@@ -17,7 +17,7 @@ not even another package inside this module.
 
 ## `connectorkit`
 
-37 exports.
+44 exports.
 
 - `func (e *Error) Error() string`
 - `func (e *Error) Unwrap() error`
@@ -25,6 +25,10 @@ not even another package inside this module.
 - `func (e *HTTPStatusError) Unwrap() error`
 - `func (e *MissingEnvError) Error() string`
 - `func (e *MissingEnvError) Unwrap() error`
+- `func (e *TransportError) Error() string`
+- `func (e *TransportError) Unwrap() []error`
+- `func (e *TransportTimeoutError) Error() string`
+- `func (e *TransportTimeoutError) Unwrap() []error`
 - `func (e *URLResolutionError) Error() string`
 - `func (e *URLResolutionError) Unwrap() error`
 - `func AsObjectish(value any) (map[string]any, bool)`
@@ -54,8 +58,11 @@ not even another package inside this module.
 - `type MissingEnvError struct { Name string }`
 - `type SearchFilter func(items []any, query string, limit *float64) []any`
 - `type TextResponse interface { Ok() bool; Status() int; Text() string }`
+- `type TransportError struct { Err error; Op string; URL string }`
+- `type TransportTimeoutError struct { Err error; Op string; URL string }`
 - `type URLResolutionError struct { Message string }`
 - `var ErrConnectorKit = errors.New("connectorkit")`
+- `var ErrTransport = errors.New("connectorkit: transport")`
 
 ## `contract`
 

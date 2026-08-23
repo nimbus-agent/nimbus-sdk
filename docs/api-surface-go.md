@@ -17,7 +17,7 @@ not even another package inside this module.
 
 ## `connectorkit`
 
-65 exports.
+75 exports.
 
 - `const DefaultTimeout = 15 * time.Second`
 - `func (e *Error) Error() string`
@@ -49,6 +49,8 @@ not even another package inside this module.
 - `func JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet int, jsonParseErrorMessage string) (MCPToolResult, error)`
 - `func JSONResultIfOk(serviceLabel string, res JSONBodyResponse, snippetMax int) (MCPToolResult, error)`
 - `func MakeQueryFilter(fields FieldExtractor) SearchFilter`
+- `func MakeRESTFetcher(cfg RESTFetcherConfig, transport Transport) RESTFetcher`
+- `func MakeRESTTool(cfg RESTToolConfig) Handler`
 - `func MatchesResult(rows any, search SearchFilter, query string, limit *float64) (MCPToolResult, error)`
 - `func NestedString(root map[string]any, path []string) string`
 - `func NewHTTPResponse(status int, raw []byte) HTTPResponse`
@@ -60,7 +62,11 @@ not even another package inside this module.
 - `func StringField(row map[string]any, key string) string`
 - `func TagNamesFromObjects(row map[string]any) string`
 - `func TagText(row map[string]any) string`
+- `func WithBody(body []byte) RESTOption`
 - `func WithHTTPClient(client *http.Client) HTTPTransportOption`
+- `func WithHeader(name, value string) RESTOption`
+- `func WithMethod(method string) RESTOption`
+- `func WithTimeout(d time.Duration) RESTOption`
 - `type Error struct { Message string }`
 - `type FieldExtractor func(item any) ([]string, bool)`
 - `type HTTPRequest struct { Body []byte; Headers map[string]string; Method string; Timeout time.Duration; URL string }`
@@ -74,6 +80,10 @@ not even another package inside this module.
 - `` type MCPToolDescriptor struct { Description string `json:"description"`; InputSchema map[string]any `json:"inputSchema"`; Name string `json:"name"` } ``
 - `` type MCPToolResult struct { Content []MCPTextContent `json:"content"`; IsError bool `json:"isError,omitempty"` } ``
 - `type MissingEnvError struct { Name string }`
+- `type RESTFetcher func(ctx context.Context, pathOrURL string, opts ...RESTOption) (HTTPResponse, error)`
+- `type RESTFetcherConfig struct { APIBase string; DefaultHeaders map[string]string; Token string }`
+- `type RESTOption func(*HTTPRequest)`
+- `type RESTToolConfig struct { BuildPath func(args map[string]any) string; Env func(string) string; Fetch func(ctx context.Context, token, pathOrURL string) (HTTPResponse, error); ServiceLabel string; SnippetMax int; TokenEnv string }`
 - `type SearchFilter func(items []any, query string, limit *float64) []any`
 - `type TextResponse interface { Ok() bool; Status() int; Text() string }`
 - `type ToolRouter struct {}`

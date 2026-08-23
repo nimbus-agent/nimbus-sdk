@@ -1,7 +1,12 @@
 # The Python API-surface gate — design
 
 **Date:** 2026-08-23
-**Status:** approved, not yet implemented
+**Status:** implemented in [#163](https://github.com/nimbus-agent/nimbus-sdk/pull/163). Three
+things this document specified turned out to be wrong and were corrected during
+implementation, each recorded where it was specified: the decorator inventory below
+(`spec_root` is `@lru_cache`-decorated), the class-member rules (which missed `Exception`
+bases and `TypedDict` keys), and the omission of any control over how parameter **defaults**
+render — `inspect.signature` reprs them, and `require_env` defaults to `os.environ`.
 **Closes:** Follow-up 2 of
 [the Python connector-kit design](./2026-08-17-python-connector-kit-design.md#follow-ups) —
 "**No Python surface-snapshot gate.** This kit roughly doubles Python's public surface with

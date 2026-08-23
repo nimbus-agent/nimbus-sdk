@@ -10,7 +10,16 @@ from __future__ import annotations
 
 import inspect
 
-from api_surface import IMPORT_ROOTS, Kind, alias_sources, annotation_sources, collect
+import pytest
+from api_surface import (
+    IMPORT_ROOTS,
+    Export,
+    Kind,
+    alias_sources,
+    annotation_sources,
+    collect,
+    render_export,
+)
 
 
 def test_every_import_root_is_collected() -> None:
@@ -101,3 +110,82 @@ def test_alias_sources_covers_every_alias_in_the_surface() -> None:
         if export.kind is Kind.ALIAS and export.name not in sources
     ]
     assert missing == []
+
+
+def test_renders_a_function_signature_as_written() -> None:
+    export = next(
+        e
+        for e in collect("nimbus_sdk.connector_kit")
+        if e.name == "resolve_url_with_base"
+    )
+    lines = render_export(export, alias_sources(), annotation_sources())
+    # Annotations render UNQUOTED, as the literal source strings. Every module under
+    # src/nimbus_sdk/ has `from __future__ import annotations`, so each annotation is a
+    # `str` at runtime and inspect would otherwise repr it as `base_url: 'str'`.
+    assert lines == [
+        "- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str`"
+    ]
+
+
+def test_a_default_is_elided_and_never_rendered() -> None:
+    # SECURITY CONTROL, not cosmetics. `require_env(name, env=os.environ)` declares
+    # os.environ as its default, and repr(os.environ) is the whole process
+    # environment — on the machine this was written that included a real
+    # ANTHROPIC_API_KEY, a GitHub PAT, a Sonar token and OAuth client secrets.
+    # Rendering defaults by repr would write every one of them into a committed,
+    # published Markdown file. `...` records that the parameter is optional, which is
+    # surface, without its value, which is not.
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "require_env"
+    )
+    rendered = render_export(export, alias_sources(), annotation_sources())[0]
+    assert rendered == (
+        "- `def require_env(name: str, env: Mapping[str, str] = ...) -> str`"
+    )
+
+
+def test_no_rendered_export_leaks_an_environment_default() -> None:
+    # The same control across the WHOLE surface, so a future export with an environment
+    # or credential default cannot slip past the one hand-written case above.
+    aliases, annotations = alias_sources(), annotation_sources()
+    for root in IMPORT_ROOTS:
+        for export in collect(root):
+            for line in render_export(export, aliases, annotations):
+                for marker in ("ANTHROPIC", "TOKEN", "SECRET", "environ("):
+                    assert marker not in line, f"{export.name} leaks {marker}"
+
+
+def test_a_decorated_function_still_renders_its_real_signature() -> None:
+    # spec_root is @lru_cache-decorated: its wrapper carries no signature of its own, so
+    # _signature has to unwrap before inspecting.
+    export = next(e for e in collect("nimbus_sdk") if e.name == "spec_root")
+    assert render_export(export, alias_sources(), annotation_sources()) == [
+        "- `def spec_root() -> Path`"
+    ]
+
+
+def test_renders_an_alias_from_its_source_text() -> None:
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "FieldExtractor"
+    )
+    assert render_export(export, alias_sources(), annotation_sources()) == [
+        "- `FieldExtractor = Callable[[object], Sequence[str | None] | None]`",
+    ]
+
+
+def test_renders_data_as_name_and_type() -> None:
+    # CONTRACT_VERSIONS is declared `tuple[str, ...]` in source; that declared
+    # annotation is what render_export prefers over the bare runtime type `tuple` — the
+    # same distinction annotation_sources() itself is tested on above.
+    export = next(e for e in collect("nimbus_sdk") if e.name == "CONTRACT_VERSIONS")
+    assert render_export(export, alias_sources(), annotation_sources()) == [
+        "- `CONTRACT_VERSIONS: tuple[str, ...]`"
+    ]
+
+
+def test_an_alias_missing_from_the_map_fails_loudly() -> None:
+    # Rendering it as its repr would be version-dependent; rendering it as nothing would
+    # hide surface. Neither is acceptable, so this raises.
+    export = Export(name="Nowhere", kind=Kind.ALIAS, obj=int | str)
+    with pytest.raises(RuntimeError, match="Nowhere"):
+        render_export(export, {}, {})

@@ -175,3 +175,109 @@ def annotation_sources() -> dict[str, str]:
             if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
                 sources[node.target.id] = ast.unparse(node.annotation)
     return sources
+
+
+class _Verbatim:
+    """Renders as its text, unquoted, wherever `inspect` would call `repr` on it.
+
+    Two jobs, both of which `str(inspect.Signature)` gets wrong for this package:
+
+    **Annotations.** Under `from __future__ import annotations` every annotation is a
+    `str`, and `inspect.formatannotation` falls through to `repr()` for anything that
+    is not a type — so `name: str` renders as `name: 'str'`, quoted. Wrapping the text
+    makes it render as written, which is what the spec asks for.
+
+    **Defaults — and this one is a security control, not a cosmetic one.**
+    `require_env(name, env=os.environ)` declares `os.environ` as its default, and
+    `repr(os.environ)` is *the entire process environment*: on the machine this was
+    written, that included a real `ANTHROPIC_API_KEY`, a GitHub PAT, a Sonar token and
+    OAuth client secrets. Rendering defaults by `repr` would have written every one of
+    them into a committed, published Markdown file. Defaults are therefore always
+    elided to `...`, which is exactly how a `.pyi` stub spells "has a default, value
+    not shown" — it records the fact a parameter is optional, which is surface,
+    without recording the value, which is not.
+    """
+
+    __slots__ = ("_text",)
+
+    def __init__(self, text: str) -> None:
+        self._text = text
+
+    def __repr__(self) -> str:
+        return self._text
+
+
+_ELIDED = _Verbatim("...")
+
+
+def _signature(name: str, obj: object) -> str:
+    """``def name(params) -> return``, with annotations as written and defaults elided.
+
+    `inspect.unwrap` first, so a decorator chain resolves to the real callable —
+    `nimbus_sdk.spec_root` is `@lru_cache`-decorated and its wrapper carries no
+    signature of its own. NEVER pass `eval_str=True`: it resolves the source strings
+    that `from __future__ import annotations` preserves into runtime objects whose
+    repr differs between Python versions, which would turn this gate red on most of
+    the twelve CI legs.
+
+    The signature is rebuilt through `Signature.replace` rather than string-processed,
+    so positional-only `/`, keyword-only `*`, `*args` and `**kwargs` keep rendering the
+    way `inspect` renders them — only the annotation and default TEXT changes.
+    """
+    try:
+        signature = inspect.signature(inspect.unwrap(obj))  # type: ignore[arg-type]
+    except (TypeError, ValueError) as error:
+        # Fail, naming the export. A fallback bullet such as `def name(*args, **kwargs)`
+        # would record LESS surface while still matching a committed golden, so every
+        # later change to the real signature would pass silently — the gate would report
+        # a coverage it no longer has.
+        raise RuntimeError(f"no signature for {name}: {error}") from error
+
+    def rewrite(parameter: inspect.Parameter) -> inspect.Parameter:
+        annotation = parameter.annotation
+        if annotation is not inspect.Parameter.empty:
+            annotation = _Verbatim(str(annotation))
+        default = parameter.default
+        if default is not inspect.Parameter.empty:
+            default = _ELIDED
+        return parameter.replace(annotation=annotation, default=default)
+
+    returns = signature.return_annotation
+    if returns is not inspect.Signature.empty:
+        returns = _Verbatim(str(returns))
+    rebuilt = signature.replace(
+        parameters=[rewrite(p) for p in signature.parameters.values()],
+        return_annotation=returns,
+    )
+    return f"def {name}{rebuilt}"
+
+
+def render_export(
+    export: Export, aliases: dict[str, str], annotations: dict[str, str]
+) -> list[str]:
+    """The Markdown bullet lines for one export.
+
+    A list because a class renders as several lines — its own bullet plus one per
+    member.
+    """
+    if export.kind is Kind.FUNCTION:
+        return [f"- `{_signature(export.name, export.obj)}`"]
+    if export.kind is Kind.ALIAS:
+        source = aliases.get(export.name)
+        if source is None:
+            raise RuntimeError(
+                f"no source text for alias {export.name}; "
+                "it is not a module-level assignment under src/nimbus_sdk/"
+            )
+        return [f"- `{export.name} = {source}`"]
+    if export.kind is Kind.CLASS:
+        return _render_class(export)
+    # The annotation where one exists, otherwise the runtime type. CONTRACT_VERSIONS is
+    # declared `tuple[str, ...]` and its runtime type is merely `tuple`; the declaration
+    # is what a consumer reads.
+    declared = annotations.get(export.name)
+    return [f"- `{export.name}: {declared or type(export.obj).__name__}`"]
+
+
+def _render_class(export: Export) -> list[str]:
+    return [f"- `class {export.name}`"]

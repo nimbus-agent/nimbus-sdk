@@ -12,7 +12,7 @@ dependencies = [
   # The distribution is `nimbus-dev-sdk`; the import is `nimbus_sdk`. PyPI's namespace is
   # flat and `nimbus-sdk` belongs to an unrelated project, so `pip install nimbus-sdk`
   # installs the wrong package rather than failing.
-  "nimbus-dev-sdk>=0.3.0",
+  "nimbus-dev-sdk>=0.11.0",
   # Ceilinged at the next major: `mcp` 2.0 renamed `FastMCP` to `MCPServer` and moved the
   # module, so a major bump is not a drop-in for `main.py`.
   "mcp>=2.0.0,<3",

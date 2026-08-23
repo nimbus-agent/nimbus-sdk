@@ -341,6 +341,17 @@ jobs:
       #
       # rules-guard is absent on purpose. It guards the rule REGISTRY and executes no manifest
       # case, so it records nothing.
+      #
+      # Build FIRST. schema-guard compares the emitted dist/index.d.ts against the published
+      # JSON Schemas and fails outright without it ("dist/ has been built"), and
+      # framing-node.mjs imports @nimbus-dev/sdk/ipc. This is its own step so a build failure
+      # is not misread as a conformance failure — and it is a separate concern from the three
+      # gates left out of the guard list below, which is why listing those out was not enough.
+      - name: Build
+        if: matrix.language == 'typescript'
+        working-directory: sdks/typescript
+        run: bun run build
+
       - name: Run the TypeScript corpus guards
         if: matrix.language == 'typescript'
         working-directory: sdks/typescript
@@ -355,14 +366,11 @@ jobs:
             scripts/url-resolution-guard.test.ts
 
       # framing's SECOND producer, under plain Node rather than Bun — the whole point of it,
-      # since TextDecoder's edge behaviour differs. It imports @nimbus-dev/sdk/ipc, so dist/
-      # has to exist first.
+      # since TextDecoder's edge behaviour differs.
       - name: Run the framing corpus under plain Node
         if: matrix.language == 'typescript'
         working-directory: sdks/typescript
-        run: |
-          bun run build
-          node scripts/framing-node.mjs
+        run: node scripts/framing-node.mjs
 
       - name: Setup Python
         if: matrix.language == 'python'

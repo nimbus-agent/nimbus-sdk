@@ -2166,6 +2166,14 @@ every action in this file is pinned and the comment carries the version.
       # The TypeScript leg runs the guards under Bun AND framing-node.mjs under plain Node.
       # framing is deliberately driven twice — TextDecoder's edge behaviour differs between
       # the runtimes — so it reports two producers the reconciler unions.
+      # CORRECTION, from the first real CI run (PR #159): this step must be preceded by its
+      # own `bun run build`. The reasoning below is right but incomplete — `schema-guard`
+      # is a FOURTH dist/ consumer, comparing the emitted dist/index.d.ts against the
+      # published JSON Schemas, so leaving the other three out of the list was not enough.
+      # It passed locally only because dist/ already existed from an earlier build; on a
+      # clean checkout it fails 5 tests with "dist/ has been built". The shipped ci.yml has
+      # a separate Build step before the guards.
+      #
       # The guards are listed one by one rather than as `bun test scripts/`, which would also
       # pull in api-surface / smoke-calls / docs-snippets — three gates that execute dist/ and
       # belong to build-test, not here. A NEW guard added later is not listed, its corpus goes

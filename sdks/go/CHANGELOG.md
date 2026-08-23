@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.7.0...sdks/go/v0.8.0) (2026-08-23)
+
+
+### Features
+
+* **go:** connector-kit transport, tool router and REST factories ([#166](https://github.com/nimbus-agent/nimbus-sdk/issues/166)) ([2517a98](https://github.com/nimbus-agent/nimbus-sdk/commit/2517a98ba3e880c56fb3bda5f3d43e6f2a74fd7b))
+
 ## [0.7.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.6.1...sdks/go/v0.7.0) (2026-08-23)
 
 

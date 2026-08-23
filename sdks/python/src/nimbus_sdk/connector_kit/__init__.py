@@ -46,7 +46,7 @@ from nimbus_sdk.connector_kit.search_filter import (
     tag_text,
 )
 from nimbus_sdk.connector_kit.types import McpTextContent, McpToolResult
-from nimbus_sdk.connector_kit.urls import resolve_url_with_base
+from nimbus_sdk.connector_kit.urls import resolve_url_with_base, should_strip_auth
 
 __all__ = [
     "ConnectorKitError",
@@ -73,6 +73,7 @@ __all__ = [
     "parse_json_text_if_ok",
     "require_env",
     "resolve_url_with_base",
+    "should_strip_auth",
     "string_field",
     "tag_names_from_objects",
     "tag_text",

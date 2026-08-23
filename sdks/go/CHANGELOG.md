@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.8.0...sdks/go/v0.8.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **go:** redact the URL error fields, and reject a nil tool handler ([#169](https://github.com/nimbus-agent/nimbus-sdk/issues/169)) ([16563c8](https://github.com/nimbus-agent/nimbus-sdk/commit/16563c875fce38b40bd34991be22ef78c67cd80a))
+
 ## [0.8.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.7.0...sdks/go/v0.8.0) (2026-08-23)
 
 

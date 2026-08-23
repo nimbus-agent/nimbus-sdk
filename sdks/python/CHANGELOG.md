@@ -10,6 +10,13 @@
   `results.py` (`json_result` and its `*_if_ok` variants), and `search_filter.py`. The
   transport, the tool router, and `rest.py` follow in a later release.
 
+## [0.10.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.9.0...python-v0.10.0) (2026-08-23)
+
+
+### Features
+
+* **python:** gate the published surface with a committed snapshot ([#163](https://github.com/nimbus-agent/nimbus-sdk/issues/163)) ([b820ba2](https://github.com/nimbus-agent/nimbus-sdk/commit/b820ba2913a79230be30ae75d4f2ec5071addc98))
+
 ## [0.9.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.8.1...python-v0.9.0) (2026-08-23)
 
 

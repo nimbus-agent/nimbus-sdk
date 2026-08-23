@@ -75,9 +75,16 @@ def make_rest_fetcher(
         timeout_s: float | None = None,
     ) -> HttpResponse:
         url = resolve_url_with_base(config.api_base, path_or_url)
-        merged: dict[str, str] = {**config.default_headers, **(headers or {})}
-        # Set last, so a caller-supplied header cannot replace the credential with one
-        # of its own.
+        # Dropped case-insensitively, then set: HTTP header names are case-insensitive,
+        # so a caller passing ``authorization`` (lower case) would otherwise leave the
+        # mapping holding *both* keys. Setting ``Authorization`` last would not save it
+        # — a transport is free to send both, or to pick the caller's — so the only
+        # safe merge removes every spelling before adding ours.
+        merged: dict[str, str] = {
+            key: value
+            for key, value in {**config.default_headers, **(headers or {})}.items()
+            if key.lower() != "authorization"
+        }
         merged["Authorization"] = f"Bearer {config.token}"
         return resolved.send(
             HttpRequest(

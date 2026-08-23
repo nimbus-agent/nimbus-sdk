@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-23
 **Status:** Review Comments
-**Target Design:** [2026-08-23-connector-kit-transport-and-router-design.md](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/connector-kit-shipment-2/docs/superpowers/specs/2026-08-23-connector-kit-transport-and-router-design.md)
+**Target Design:** [2026-08-23-connector-kit-transport-and-router-design.md](2026-08-23-connector-kit-transport-and-router-design.md)
 
 ---
 

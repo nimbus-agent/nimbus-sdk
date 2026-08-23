@@ -18,7 +18,8 @@ already promise in their docstrings. Nothing is re-exported from `nimbus_sdk`.
 
 **Spec:** [`docs/superpowers/specs/2026-08-23-connector-kit-transport-and-router-design.md`](../specs/2026-08-23-connector-kit-transport-and-router-design.md)
 
-This plan is **PR A** of the four the spec decomposes. It touches `sdks/python/` only.
+This plan is **PR A** of the four the spec decomposes. It touches `sdks/python/` and
+the generated `docs/api-surface-python.md`, and nothing else.
 Do not edit anything under `sdks/go/`, `tools/create-connector/`, `docs/ROADMAP.md`,
 `docs/modules/`, or `CLAUDE.md` — release-please assigns a commit to a component by the
 paths it touches, and a stray edit cuts an unrelated release.

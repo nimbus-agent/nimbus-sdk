@@ -48,8 +48,19 @@ def _origin(url: str) -> str | None:
     userinfo, and strips the IPv6 brackets, where the latter does none of those.
     Without it ``https://api.example.com@evil.com`` compares as ``api.example.com``
     and the bearer token goes to the attacker.
+
+    ``urlsplit`` itself raises on some inputs — ``https://[oops`` gives
+    ``ValueError: Invalid IPv6 URL`` — and that has to be caught here rather than left
+    to propagate. Uncaught it escapes :func:`resolve_url_with_base` as a bare
+    ``ValueError`` where §7 requires :class:`UrlResolutionError`, so a caller writing
+    ``except ConnectorKitError`` around a fetch would miss it, which is the one thing
+    the taxonomy exists to prevent. A URL whose origin cannot be computed is exactly
+    what ``None`` already means.
     """
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
     scheme = parts.scheme.lower()
     if not scheme:
         return None

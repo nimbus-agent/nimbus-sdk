@@ -156,6 +156,16 @@ def test_a_connection_failure_raises_transport_error() -> None:
     assert excinfo.value.__cause__ is not None
 
 
+def test_a_url_urllib_cannot_read_is_a_transport_error() -> None:
+    # `urllib.request.Request` raises ValueError("unknown url type: ...") before any
+    # I/O. Obligation 3 of the Transport Protocol makes every non-response failure a
+    # TransportError, so a caller's `except ConnectorKitError` has to cover this too.
+    with pytest.raises(TransportError) as excinfo:
+        UrllibTransport().send(HttpRequest(url="notascheme"))
+    assert excinfo.value.method == "GET"
+    assert excinfo.value.__cause__ is not None
+
+
 def test_a_transport_error_message_carries_no_credential() -> None:
     with pytest.raises(TransportError) as excinfo:
         UrllibTransport().send(HttpRequest(url="http://user:sekrit@127.0.0.1:1/x"))

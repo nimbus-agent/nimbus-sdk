@@ -93,6 +93,30 @@ def test_per_call_headers_override_the_defaults_but_not_the_token() -> None:
     assert transport.seen[0].headers["Authorization"] == "Bearer TOK"
 
 
+def test_a_lower_case_authorization_header_cannot_smuggle_a_second_credential() -> None:
+    # HTTP header names are case-insensitive, so leaving the caller's `authorization`
+    # beside our `Authorization` would hand the transport two credentials and let it
+    # choose. Setting ours last does not help — the other key is still in the mapping.
+    transport = FakeTransport()
+    fetch = make_rest_fetcher(
+        RestFetcherConfig(api_base="https://api.example.com", token="TOK"), transport
+    )
+    fetch("/repos", headers={"authorization": "Bearer ATTACKER"})
+    assert dict(transport.seen[0].headers) == {"Authorization": "Bearer TOK"}
+
+
+@pytest.mark.parametrize(
+    "spelling", ["authorization", "AUTHORIZATION", "AuThOrIzAtIoN"]
+)
+def test_every_spelling_of_authorization_is_dropped(spelling: str) -> None:
+    transport = FakeTransport()
+    fetch = make_rest_fetcher(
+        RestFetcherConfig(api_base="https://api.example.com", token="TOK"), transport
+    )
+    fetch("/repos", headers={spelling: "Bearer ATTACKER"})
+    assert dict(transport.seen[0].headers) == {"Authorization": "Bearer TOK"}
+
+
 def test_a_cross_origin_absolute_url_is_refused_before_any_send() -> None:
     # The SSRF chokepoint. A caller-supplied pagination link must not redirect a
     # credential-bearing fetch at an attacker-controlled host.

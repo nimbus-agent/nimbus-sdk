@@ -157,7 +157,7 @@ reworded docstring is not a change to the surface.
 - `class ToolRouter`
   - `def __init__(self) -> None`
   - `def add(self, name: str, description: str, input_schema: dict[str, Any], handler: ToolHandler, validate: ToolValidator | None = ...) -> None`
-  - `def call_tool(self, name: str, arguments: Mapping[str, Any] | None) -> McpToolResult`
+  - `async def call_tool(self, name: str, arguments: Mapping[str, Any] | None) -> McpToolResult`
   - `def list_tools(self) -> list[McpToolDescriptor]`
   - `def tool(self, name: str, description: str, input_schema: dict[str, Any], validate: ToolValidator | None = ...) -> Callable[[ToolHandler], ToolHandler]`
 - `ToolValidator = Callable[[dict[str, Any]], None]`

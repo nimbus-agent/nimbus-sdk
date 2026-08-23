@@ -11,7 +11,7 @@ import dataclasses
 import pytest
 
 from nimbus_sdk.connector_kit import HttpRequest, HttpResponse, json_result_if_ok
-from nimbus_sdk.connector_kit.transport import response_from_bytes
+from nimbus_sdk.connector_kit.transport import NO_HEADERS, response_from_bytes
 
 
 def test_a_request_defaults_to_a_get_with_no_body() -> None:
@@ -36,8 +36,11 @@ def test_the_headers_default_is_a_factory_not_a_bare_default() -> None:
     (headers,) = [f for f in dataclasses.fields(HttpRequest) if f.name == "headers"]
     assert headers.default is dataclasses.MISSING
     assert headers.default_factory is not dataclasses.MISSING
-    # And the factory still hands back the one shared read-only object.
-    assert headers.default_factory() is HttpRequest(url="x").headers
+    # The factory still hands back the one shared read-only object. `__post_init__`
+    # then copies it behind a fresh proxy, so an instance's mapping is not that object
+    # — both are read-only, which is what the guarantee actually rests on.
+    assert headers.default_factory() is NO_HEADERS
+    assert dict(HttpRequest(url="x").headers) == {}
 
 
 def test_the_default_headers_mapping_cannot_be_mutated_by_one_caller_for_all() -> None:
@@ -46,6 +49,18 @@ def test_the_default_headers_mapping_cannot_be_mutated_by_one_caller_for_all() -
     req = HttpRequest(url="https://api.example.com/x")
     with pytest.raises(TypeError):
         req.headers["Authorization"] = "Bearer leaked"  # type: ignore[index]
+
+
+def test_caller_supplied_headers_are_copied_behind_a_read_only_proxy() -> None:
+    # `frozen=True` stops `req.headers = {...}` but not `req.headers["X"] = ...`, so
+    # without the copy a transport could edit the caller's own dict — and the class
+    # docstring's "a transport cannot mutate its caller's" would be false.
+    supplied = {"X-Trace": "1"}
+    req = HttpRequest(url="https://api.example.com/x", headers=supplied)
+    with pytest.raises(TypeError):
+        req.headers["X-Trace"] = "clobbered"  # type: ignore[index]
+    supplied["X-Trace"] = "changed after construction"
+    assert req.headers["X-Trace"] == "1"
 
 
 @pytest.mark.parametrize(

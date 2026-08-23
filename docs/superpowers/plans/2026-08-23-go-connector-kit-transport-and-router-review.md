@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-23
 **Status:** Review Comments
-**Target Plan:** [2026-08-23-go-connector-kit-transport-and-router.md](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/connector-kit-shipment-2/docs/superpowers/plans/2026-08-23-go-connector-kit-transport-and-router.md)
+**Target Plan:** [2026-08-23-go-connector-kit-transport-and-router.md](2026-08-23-go-connector-kit-transport-and-router.md)
 
 ---
 

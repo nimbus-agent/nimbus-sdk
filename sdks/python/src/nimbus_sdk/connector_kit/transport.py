@@ -50,13 +50,25 @@ DEFAULT_TIMEOUT_S = 15.0
 
 @dataclass(frozen=True)
 class HttpRequest:
-    """One HTTP request, as data. Frozen, so a transport cannot mutate its caller's."""
+    """One HTTP request, as data. Frozen, so a transport cannot mutate its caller's.
+
+    ``frozen=True`` alone would not make that true of ``headers``: it stops
+    ``request.headers = {...}`` but not ``request.headers["X"] = ...``, and a caller who
+    passed a plain dict would watch a transport edit it. ``__post_init__`` therefore
+    copies the mapping behind a read-only proxy, so the sentence above is a guarantee
+    rather than a hope.
+    """
 
     url: str
     method: str = "GET"
     headers: Mapping[str, str] = field(default_factory=_no_headers)
     body: bytes | None = None
     timeout_s: float = DEFAULT_TIMEOUT_S
+
+    def __post_init__(self) -> None:
+        # object.__setattr__ because the dataclass is frozen; this is the sanctioned
+        # way to normalise a field during construction.
+        object.__setattr__(self, "headers", MappingProxyType(dict(self.headers)))
 
 
 @dataclass(frozen=True)
@@ -163,12 +175,19 @@ class UrllibTransport:
         self._opener = urllib.request.build_opener(_AuthStrippingRedirectHandler())
 
     def send(self, request: HttpRequest) -> HttpResponse:
-        urllib_request = urllib.request.Request(
-            request.url,
-            data=request.body,
-            headers=dict(request.headers),
-            method=request.method,
-        )
+        try:
+            urllib_request = urllib.request.Request(
+                request.url,
+                data=request.body,
+                headers=dict(request.headers),
+                method=request.method,
+            )
+        except ValueError as exc:
+            # `Request` raises ValueError for a URL it cannot read at all — "unknown
+            # url type: 'notascheme'". Obligation 3 of the Protocol makes every
+            # non-response failure a TransportError, so a caller's `except
+            # ConnectorKitError` has to cover this one too.
+            raise TransportError(request.method, request.url, str(exc)) from exc
         try:
             with self._opener.open(urllib_request, timeout=request.timeout_s) as res:
                 return response_from_bytes(res.status, res.read())

@@ -119,8 +119,8 @@ TypeScript caller to opt into. That is a new documented asymmetry, in the same c
 
 | PR | Touches | Releases | Gated on |
 |---|---|---|---|
-| **A** | `sdks/python/` and its own docstrings | `nimbus-dev-sdk` minor | — |
-| **B** | `sdks/go/` and its own doc comments | an `sdks/go` tag — **permanent** | — |
+| **A** | `sdks/python/`, its own docstrings, and `docs/api-surface-python.md` | `nimbus-dev-sdk` minor | — |
+| **B** | `sdks/go/`, its own doc comments, and `docs/api-surface-go.md` | an `sdks/go` tag — **permanent** | — |
 | **C** | `tools/create-connector/`, `docs/quickstart-python.md` | `@nimbus-dev/create-connector` | **A published to PyPI** |
 | **D** | `CLAUDE.md`, `docs/modules/connector-kit.md`, `docs/ROADMAP.md` | nothing | B and C merged |
 

@@ -168,6 +168,28 @@ def test_should_strip_auth_is_case_insensitive_in_scheme_and_host() -> None:
     )
 
 
+def test_should_strip_auth_fails_closed_when_urlsplit_itself_raises() -> None:
+    # urlsplit raises ValueError("Invalid IPv6 URL") on this, rather than returning a
+    # hostname-less result. The redirect handler calls this with a SERVER-supplied
+    # Location header, so an exception escaping here would leave the documented
+    # contract — "returns True when either origin cannot be computed" — untrue on
+    # exactly the input an attacker controls.
+    assert should_strip_auth("https://api.example.com/a", "https://[oops") is True
+    assert should_strip_auth("https://[oops", "https://api.example.com/a") is True
+
+
+def test_a_url_urlsplit_refuses_is_a_kit_error_not_a_bare_value_error() -> None:
+    # §7 says a malformed absolute URL raises UrlResolutionError. Before _origin
+    # guarded urlsplit this escaped as ValueError, which `except ConnectorKitError`
+    # does not catch — the one thing the taxonomy exists to prevent, on the SSRF
+    # chokepoint of all places.
+    with pytest.raises(UrlResolutionError) as excinfo:
+        resolve_url_with_base(BASE, "https://[oops")
+    assert str(excinfo.value) == (
+        "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+    )
+
+
 def test_should_strip_auth_fails_closed_on_an_unparseable_url() -> None:
     # An origin that cannot be computed is not an origin that can be shown equal.
     # Stripping is the only safe answer.

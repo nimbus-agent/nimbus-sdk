@@ -2,8 +2,16 @@
 
 Every function here is pure and transport-agnostic: the two ``Protocol``s below are the
 only thing it knows about a response, and ``transport.py``'s ``HttpResponse`` satisfies
-them structurally. That is what lets an author using an async client such as ``httpx``
-skip the kit's transport entirely and still use these helpers — see the design's D6.
+them structurally. That is what lets an author skip the kit's transport entirely and
+still use these helpers — see the design's D6.
+
+**A third-party response object will not usually satisfy them as-is.**
+``httpx.Response`` is the obvious candidate and does not: it spells the status
+``status_code`` rather than ``status``, exposes ``json`` as a *method* where these
+Protocols want a property, and has ``is_success`` rather than ``ok``. The seam is small
+enough that a four-attribute adapter closes the gap, which is rather the point — the
+adapter is a handful of lines, where matching one particular client's shape would have
+made this module depend on it.
 """
 
 from __future__ import annotations

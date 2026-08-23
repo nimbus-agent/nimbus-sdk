@@ -430,8 +430,10 @@ Recorded, not done here:
 
 1. **`requireProcessEnv` fails `INCLUSION-POLICY.md` §2** in TypeScript — no `env` seam.
    Fix to match D5.
-2. **No Python surface-snapshot gate.** This kit roughly doubles Python's public surface
-   with nothing equivalent to `api-surface.md` guarding it.
+2. ~~**No Python surface-snapshot gate.**~~ **Closed** by
+   [the Python API-surface gate](./2026-08-23-python-api-surface-gate-design.md):
+   `docs/api-surface-python.md` is generated and gated, so all three bindings now publish
+   a committed snapshot.
 3. **No Python diagnostics emitter**, so the router's swallowed-exception detail has
    nowhere structured to go. Already-tracked asymmetry; this design adds a consumer for it.
 4. **`AsyncTransport`.** Deferred per D6, with an explicit trigger: a real connector whose

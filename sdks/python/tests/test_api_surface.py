@@ -15,6 +15,8 @@ from typing import Protocol
 import pytest
 from api_surface import (
     IMPORT_ROOTS,
+    OUTPUT_PATH,
+    REPO_ROOT,
     Export,
     Kind,
     alias_sources,
@@ -375,3 +377,63 @@ def test_document_ends_with_exactly_one_newline() -> None:
     text = render()
     assert text.endswith("\n")
     assert not text.endswith("\n\n")
+
+
+def test_the_committed_snapshot_matches_the_generator() -> None:
+    """The golden check, in the pattern both sibling gates already use."""
+    committed = OUTPUT_PATH.read_text(encoding="utf-8")
+    assert committed == render(), (
+        "docs/api-surface-python.md is stale — regenerate with "
+        "`python scripts/api_surface.py` from sdks/python/ after "
+        "`python -m pip install -e .`"
+    )
+
+
+def test_the_import_roots_on_disk_are_the_ones_documented() -> None:
+    """The check the golden comparison cannot make.
+
+    A FIFTH import root added under src/nimbus_sdk/ and never documented would
+    leave the golden file matching perfectly while a whole surface went
+    unrecorded. CLAUDE.md is explicit that the four roots are a deliberate
+    boundary — this is the Python counterpart of Go's hand-maintained
+    `packages` list assertion.
+    """
+    src = REPO_ROOT / "sdks" / "python" / "src" / "nimbus_sdk"
+    on_disk = {"nimbus_sdk"} | {
+        f"nimbus_sdk.{child.name}"
+        for child in src.iterdir()
+        if child.is_dir()
+        and (child / "__init__.py").is_file()
+        and child.name != "_data"
+    }
+    assert on_disk == set(IMPORT_ROOTS), (
+        "the import roots under src/nimbus_sdk/ no longer match IMPORT_ROOTS "
+        "in scripts/api_surface.py — a new root is a surface decision, not a "
+        "detail"
+    )
+
+
+def test_the_snapshot_cannot_pass_vacuously() -> None:
+    """A generator that silently produced nothing would match an empty golden
+    forever."""
+    text = OUTPUT_PATH.read_text(encoding="utf-8")
+    assert len(text.splitlines()) > 100
+    total = sum(len(collect(root)) for root in IMPORT_ROOTS)
+    assert total >= 60
+
+
+def test_every_module_keeps_the_future_annotations_pragma() -> None:
+    """The whole cross-version stability argument rests on this pragma.
+
+    Without it a module's annotations are evaluated at definition time and
+    render as runtime objects whose repr differs between Python versions —
+    which would fail the golden check on some CI legs and not others, with
+    nothing pointing at the cause. Failing here names the cause.
+    """
+    src = REPO_ROOT / "sdks" / "python" / "src" / "nimbus_sdk"
+    missing = [
+        str(path.relative_to(src))
+        for path in sorted(src.rglob("*.py"))
+        if "from __future__ import annotations" not in path.read_text(encoding="utf-8")
+    ]
+    assert missing == [], f"missing `from __future__ import annotations`: {missing}"

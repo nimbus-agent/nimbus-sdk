@@ -348,6 +348,12 @@ def alias_sources() -> dict[str, str]:
     Recording the written text keeps the snapshot stable by construction and keeps the
     file readable. `ast.unparse` normalises whitespace, so a reformatting of the source
     does not churn the snapshot either.
+
+    PEP 695 (``type HelloResult = HelloOk | HelloRefused``) produces an ``ast.TypeAlias``
+    node rather than an ``ast.Assign``, and would need a second branch here. It cannot
+    appear yet: ``requires-python = ">=3.11"`` and ruff's ``target-version = "py311"``,
+    while PEP 695 is 3.12 syntax — a SyntaxError on the supported floor. Recorded so
+    whoever raises that floor knows this is one of the places that has to move.
     """
     sources: dict[str, str] = {}
     for path in sorted(_SRC.rglob("*.py")):
@@ -546,6 +552,28 @@ Rules, each grounded in something the package actually contains:
 | `_`-prefixed member | omitted | not surface |
 | Any other dunder | omitted | synthesized or conventional; a whitelist is a list nobody maintains |
 
+**Members are collected across the MRO, not from `vars(cls)`, and the class bullet names
+its bases.** Both halves are required, and each fixes a case the package actually contains:
+
+- **`JsonBodyResponse(TextResponse, Protocol)` defines only `json`.** Its `ok`, `status` and
+  `text` are inherited from `TextResponse`. Reading `vars(cls)` would record **one of its
+  four members** and silently drop three quarters of an exported Protocol's contract — and
+  a "renders at least one member" assertion would not notice, because one is not zero.
+- **`UrlResolutionError` and `MissingEnvError` have empty bodies** — a docstring and
+  nothing else. Their whole surface is *which exception they subclass*, which is exactly
+  what a consumer writing `except ConnectorKitError` needs. Recording the bases is what
+  makes them describable at all.
+
+**The MRO walk stops at the package boundary:** a member is collected only if the class
+that defines it has a `__module__` starting with `nimbus_sdk`. Without that cutoff, walking
+`HttpStatusError`'s MRO would drag in `BaseException.args` and `with_traceback`, and
+`JsonBodyResponse`'s would drag in `Protocol` and `Generic` internals — noise that is not
+this package's surface and would churn whenever CPython changed it.
+
+Bases render the same way, filtered to the package plus `Protocol`: `class
+JsonBodyResponse(TextResponse, Protocol)`, `class UrlResolutionError(ConnectorKitError)`.
+`object` is never listed.
+
 - [ ] **Step 1: Write the failing test**
 
 Append to `sdks/python/tests/test_api_surface.py`:
@@ -591,15 +619,55 @@ def test_omits_underscore_prefixed_members() -> None:
     assert not any("_private" in line for line in lines)
 
 
-def test_no_exported_class_renders_empty() -> None:
-    # The property that matters across the whole real surface: a class bullet with
-    # nothing beneath it records a name and none of its contract.
+def test_inherited_members_are_recorded() -> None:
+    # JsonBodyResponse defines ONLY `json`; ok/status/text come from TextResponse. Reading
+    # vars(cls) would record one of its four members and drop three quarters of an
+    # exported Protocol's contract — and a "renders at least one member" assertion would
+    # not notice, because one is not zero. This is that assertion done properly.
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "JsonBodyResponse"
+    )
+    lines = render_export(export, alias_sources())
+    for member in ("ok: bool", "status: int", "text: str", "json: object"):
+        assert f"  - `{member}`" in lines, member
+
+
+def test_class_bullets_name_their_bases() -> None:
+    # UrlResolutionError and MissingEnvError have empty bodies — a docstring and nothing
+    # else. Which exception they subclass IS their whole surface, and it is what a
+    # consumer writing `except ConnectorKitError` needs to know.
+    exports = {e.name: e for e in collect("nimbus_sdk.connector_kit")}
+    for name in ("UrlResolutionError", "MissingEnvError", "HttpStatusError"):
+        lines = render_export(exports[name], alias_sources())
+        assert lines[0] == f"- `class {name}(ConnectorKitError)`", name
+
+    protocol = render_export(exports["JsonBodyResponse"], alias_sources())
+    assert protocol[0] == "- `class JsonBodyResponse(TextResponse, Protocol)`"
+
+
+def test_no_exported_class_is_described_by_name_alone() -> None:
+    # The property across the whole real surface: a bullet that is just `class Name` with
+    # nothing beneath it and no bases records a name and none of its contract. Bases
+    # satisfy this for the empty exception subclasses; members satisfy it for the rest.
     for root in IMPORT_ROOTS:
         for export in collect(root):
             if export.kind is not Kind.CLASS:
                 continue
             lines = render_export(export, alias_sources())
-            assert len(lines) > 1, f"{export.name} rendered with no members"
+            described = len(lines) > 1 or lines[0].rstrip("`").endswith(")")
+            assert described, f"{export.name} rendered with no members and no bases"
+
+
+def test_object_and_exception_internals_are_not_recorded() -> None:
+    # The MRO walk stops at the package boundary. Without that cutoff, HttpStatusError
+    # would pull in BaseException.args and with_traceback, which are not this package's
+    # surface and would churn whenever CPython changed them.
+    export = next(
+        e for e in collect("nimbus_sdk.connector_kit") if e.name == "HttpStatusError"
+    )
+    rendered = "\n".join(render_export(export, alias_sources()))
+    for leaked in ("with_traceback", "args", "add_note"):
+        assert leaked not in rendered, leaked
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -612,6 +680,21 @@ Expected: FAIL — the placeholder `_render_class` returns one line, so the data
 Replace `_render_class` in `sdks/python/scripts/api_surface.py` (and add `import dataclasses` to the imports):
 
 ```python
+def _is_ours(klass: type) -> bool:
+    """Whether ``klass`` is part of this package's surface, for MRO and base filtering.
+
+    `Protocol` is admitted because a class declaring it is declaring something a consumer
+    reads — `class JsonBodyResponse(TextResponse, Protocol)` says structural, not nominal.
+    Everything else outside `nimbus_sdk` is excluded: `object`, `Exception`, `Generic` and
+    friends are not this package's contract, and their members would churn the snapshot
+    whenever CPython changed them.
+    """
+    module = getattr(klass, "__module__", "")
+    if klass.__name__ == "Protocol" and module == "typing":
+        return True
+    return module.startswith("nimbus_sdk")
+
+
 def _annotation(obj: object, default: str) -> str:
     """A member's annotation as written, falling back to ``default``.
 
@@ -642,37 +725,48 @@ def _render_class(export: Export) -> list[str]:
     if not inspect.isclass(cls):  # pragma: no cover — kind is CLASS by construction
         raise RuntimeError(f"{export.name} is not a class")
 
-    lines = [f"- `class {export.name}`"]
+    bases = ", ".join(base.__name__ for base in cls.__bases__ if _is_ours(base))
+    header = f"- `class {export.name}({bases})`" if bases else f"- `class {export.name}`"
     members: list[str] = []
 
     if dataclasses.is_dataclass(cls):
         for field in dataclasses.fields(cls):
             members.append(f"  - `{field.name}: {_annotation(field.type, 'object')}`")
 
-    for name, member in sorted(vars(cls).items()):
-        if name.startswith("_") and name != "__init__":
+    # Across the MRO, not vars(cls): JsonBodyResponse defines only `json` and inherits
+    # `ok`, `status` and `text` from TextResponse, so reading its own namespace would
+    # record one of its four members. Stopping at the package boundary keeps
+    # BaseException.args and Protocol/Generic internals out.
+    seen: set[str] = set()
+    for klass in cls.__mro__:
+        if not _is_ours(klass):
             continue
-        if isinstance(member, property):
-            getter = member.fget
-            returns = "object"
-            if getter is not None:
-                annotation = getattr(getter, "__annotations__", {}).get("return")
-                returns = _annotation(annotation, "object")
-            members.append(f"  - `{name}: {returns}`")
-        elif inspect.isfunction(member):
-            # A dataclass's __init__ is synthesized from its fields, which are already
-            # rendered above; only a hand-written one is surface of its own.
-            if name == "__init__" and dataclasses.is_dataclass(cls):
+        for name, member in sorted(vars(klass).items()):
+            if name in seen or (name.startswith("_") and name != "__init__"):
                 continue
-            members.append(f"  - `{_signature(name, member)}`")
+            if isinstance(member, property):
+                seen.add(name)
+                getter = member.fget
+                returns = "object"
+                if getter is not None:
+                    annotation = getattr(getter, "__annotations__", {}).get("return")
+                    returns = _annotation(annotation, "object")
+                members.append(f"  - `{name}: {returns}`")
+            elif inspect.isfunction(member):
+                # A dataclass's __init__ is synthesized from its fields, which are already
+                # rendered above; only a hand-written one is surface of its own.
+                if name == "__init__" and dataclasses.is_dataclass(cls):
+                    continue
+                seen.add(name)
+                members.append(f"  - `{_signature(name, member)}`")
 
-    return lines + members
+    return [header] + members
 ```
 
 - [ ] **Step 4: Run the test to verify it passes**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 15 tests.
+Expected: PASS, 18 tests.
 
 If `test_no_exported_class_renders_empty` fails, it has found a real gap — a class whose members are none of the three shapes above. Report the class name and what its members are; do NOT weaken the assertion to `>= 1`.
 
@@ -748,7 +842,7 @@ bug would hit the real surface.
 - [ ] **Step 6: Run the synthetic tests**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 18 tests.
+Expected: PASS, 21 tests.
 
 - [ ] **Step 7: Lint and typecheck**
 
@@ -882,7 +976,7 @@ Open it and check three things by eye: four `##` sections in the order `nimbus_s
 - [ ] **Step 5: Run the tests**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 21 tests.
+Expected: PASS, 24 tests.
 
 - [ ] **Step 6: Lint and typecheck**
 
@@ -978,7 +1072,7 @@ def test_every_module_keeps_the_future_annotations_pragma() -> None:
 - [ ] **Step 2: Run the gate**
 
 Run from `sdks/python/`: `python -m pytest tests/test_api_surface.py -q`
-Expected: PASS, 25 tests.
+Expected: PASS, 28 tests.
 
 - [ ] **Step 3: Falsify the golden check**
 
@@ -1019,7 +1113,7 @@ python -m pytest tests/test_api_surface.py -q
 
 Expected: the golden test FAILS. Note that the `>= 13` floor still passes — which is the point of having both.
 
-Restore: `git checkout src/nimbus_sdk/`, `python -m pip install -e .`, re-run, expect 25 pass, `git status --porcelain` clean.
+Restore: `git checkout src/nimbus_sdk/`, `python -m pip install -e .`, re-run, expect 28 pass, `git status --porcelain` clean.
 
 - [ ] **Step 6: Run the whole Python suite**
 
@@ -1029,7 +1123,7 @@ Run from `sdks/python/`:
 python -m ruff check . && python -m ruff format --check . && python -m mypy && python -m pytest -q
 ```
 
-Expected: all clean; the suite grows by 25 tests over its previous count.
+Expected: all clean; the suite grows by 28 tests over its previous count.
 
 - [ ] **Step 7: Commit**
 
@@ -1160,9 +1254,15 @@ resolves `node_modules` from the parent checkout, so a green run here does not p
 run in CI — this repository has taken down `build-test` on all three OSes exactly that way,
 and the last branch's CI failure was a variant of the same shape.
 
+Clone somewhere outside the repository — but **not `/tmp`**. This is a Windows host, where
+`/tmp` resolves only inside Git Bash and has already caused path trouble in this
+repository. Use the session scratchpad, which every shell here can reach:
+
 ```bash
-git clone --branch worktree-python-api-surface . /tmp/nimbus-verify
-cd /tmp/nimbus-verify
+VERIFY="C:/Users/asafg/AppData/Local/Temp/claude/C--gitrep-nimbus-sdk/e2b96edb-5de2-400a-9a5f-f9e28164e33e/scratchpad/verify-python-surface"
+rm -rf "$VERIFY"
+git clone --branch worktree-python-api-surface . "$VERIFY"
+cd "$VERIFY"
 bun install --frozen-lockfile
 bun run build && bun run lint && bun run typecheck && bun run test
 cd sdks/python && python -m pip install -e . && python -m pytest -q

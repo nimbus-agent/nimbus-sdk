@@ -120,14 +120,27 @@ gateway depends on these; changing them breaks your connector.
 no opinion. It ships no server: `nimbus-dev-sdk` is a dependency-free authoring contract,
 so the template brings its own `mcp` and `anyio`.
 
-### There is no Python `connector-kit`
+### Where dispatch comes from
 
 The TypeScript template imports `createRegisterSimpleTool` and `mcpJsonResult` from
-[`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md). `nimbus-dev-sdk` publishes
-no equivalent, so the few lines that kit would absorb — `_on_list_tools`, `_on_call_tool`
-and the JSON result helper — sit inline in `main.py`. That is deliberate: a scaffold is
-not where a new published surface gets designed. The gap is tracked on the
-[roadmap](./ROADMAP.md) under Phase 3.
+[`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md). Python's equivalent is
+[`nimbus_sdk.connector_kit`](./modules/connector-kit.md#python-binding), and the template
+takes two things from it: `ToolRouter`, which owns tool registration and dispatch, and
+`json_result`, which builds the MCP result shape.
+
+What stays in `main.py` is two adapters — `_on_list_tools` and `_on_call_tool` — that
+turn the router's wire-shaped `dict`s into `mcp`'s pydantic models. They are the only
+place pydantic appears, and they are generic: register a second tool and neither
+changes. The SDK cannot build `types.CallToolResult` for you, because it is
+dependency-free and pydantic is a dependency; that boundary is why the adapters exist at
+all rather than being an oversight.
+
+One thing the router deliberately does **not** do: enforce `inputSchema`. It is
+advertised to the client and never checked, because validating JSON Schema needs an
+implementation the SDK does not carry. `ROUTER.add` takes a `validate=` callable for
+that, and the template passes `_validate_echo`. Raise from it to reject a call — the
+router turns anything you raise into an error result rather than letting it kill the
+session.
 
 ## 4. What to edit first
 
@@ -136,8 +149,9 @@ not where a new published surface gets designed. The gap is tracked on the
 2. **`handlers.py`** — delete `echo`, write your function, test it in
    `tests/test_handlers.py`.
 3. **`manifest.py` again** — add the tool's name and description to `TOOLS`.
-4. **`main.py`** — give it a JSON Schema next to `ECHO_INPUT_SCHEMA` and dispatch to it
-   in `_on_call_tool`.
+4. **`main.py`** — give it a JSON Schema next to `ECHO_INPUT_SCHEMA` and register it with
+   a second `ROUTER.add(...)` call beside the first. The two adapters below are generic;
+   neither needs touching.
 
 Keep tool names free of row-data segments. A connector indexes metadata; record bodies
 stay on the system they came from.

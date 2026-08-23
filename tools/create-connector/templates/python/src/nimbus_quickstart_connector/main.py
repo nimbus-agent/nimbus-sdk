@@ -12,16 +12,16 @@ That is why the transport is *not* pointed at raw stdin. ``stdio_server`` takes 
 explicit ``stdin``, so it is given one we build: ``pending`` first, then every frame the
 same reader completes from the rest of stdin.
 
-TypeScript wraps the tool registration below in ``connector-kit``'s
-``createRegisterSimpleTool`` and ``mcpJsonResult``. ``nimbus-dev-sdk`` publishes no
-Python equivalent, so ``_on_list_tools`` / ``_on_call_tool`` / ``_json_result`` — the
-few lines that kit would absorb — sit inline. That is deliberate: a scaffold is not
-where a new published surface gets designed.
+Dispatch is not this file's own: ``ToolRouter``, from ``nimbus_sdk.connector_kit``, owns
+it — the way the TypeScript template leans on ``createRegisterSimpleTool``. What is left
+here is the handshake machinery above and two adapters below, which turn the router's
+wire shapes into ``mcp``'s pydantic models. Those adapters are the only place pydantic
+appears, and they are generic: adding a tool means one more ``ROUTER.add`` call and no
+change to either.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from collections import deque
@@ -34,6 +34,7 @@ from anyio import AsyncFile, to_thread
 from mcp.server import Server, ServerRequestContext
 from mcp.server.stdio import stdio_server
 from nimbus_sdk import CONTRACT_HANDSHAKE_EXIT
+from nimbus_sdk.connector_kit import McpToolResult, ToolRouter, json_result
 from nimbus_sdk.ipc import HandshakeOk, NdjsonLineReader, perform_handshake
 
 from .handlers import echo
@@ -120,29 +121,50 @@ class _ReplayStdin(AsyncFile[str]):
         return await to_thread.run_sync(self._next_line)
 
 
-def _json_result(payload: dict[str, str]) -> types.CallToolResult:
-    return types.CallToolResult(
-        content=[types.TextContent(type="text", text=json.dumps(payload, indent=2))]
-    )
+ROUTER = ToolRouter()
 
 
-def _error_result(message: str) -> types.CallToolResult:
-    return types.CallToolResult(
-        content=[types.TextContent(type="text", text=message)], is_error=True
-    )
+def _validate_echo(args: dict[str, Any]) -> None:
+    """Check what ``ECHO_INPUT_SCHEMA`` advertises but nothing enforces.
+
+    ``inputSchema`` is sent to the client and never checked against an actual call: a
+    dependency-free SDK carries no JSON Schema implementation, and pretending otherwise
+    would be worse than saying so. ``validate`` is the seam that closes the gap — raise
+    to reject, and the router turns whatever you raise into an error result.
+    """
+    if not isinstance(args.get("text"), str):
+        raise ValueError("text must be a string")
+
+
+def _echo_tool(args: dict[str, Any]) -> McpToolResult:
+    return json_result(echo(args["text"]))
+
+
+ROUTER.add(
+    TOOLS[0]["name"],
+    TOOLS[0]["description"],
+    ECHO_INPUT_SCHEMA,
+    _echo_tool,
+    validate=_validate_echo,
+)
 
 
 async def _on_list_tools(
     _context: ServerRequestContext[dict[str, Any]],
     _params: types.PaginatedRequestParams | None,
 ) -> types.ListToolsResult:
+    """Adapter: the router's wire shapes into pydantic.
+
+    Generic on purpose — register another tool above and this does not change.
+    """
     return types.ListToolsResult(
         tools=[
             types.Tool(
-                name=TOOLS[0]["name"],
-                description=TOOLS[0]["description"],
-                input_schema=ECHO_INPUT_SCHEMA,
+                name=tool["name"],
+                description=tool["description"],
+                input_schema=tool["inputSchema"],
             )
+            for tool in ROUTER.list_tools()
         ]
     )
 
@@ -151,12 +173,20 @@ async def _on_call_tool(
     _context: ServerRequestContext[dict[str, Any]],
     params: types.CallToolRequestParams,
 ) -> types.CallToolResult:
-    if params.name != TOOLS[0]["name"]:
-        return _error_result(f"unknown tool {params.name}")
-    text = (params.arguments or {}).get("text")
-    if not isinstance(text, str):
-        return _error_result("text must be a string")
-    return _json_result(echo(text))
+    """The other adapter.
+
+    ``call_tool`` never raises for a bad call — an unknown tool, a failed validation and
+    a handler exception all come back as an error result — so there is no error handling
+    here to get wrong.
+    """
+    result = await ROUTER.call_tool(params.name, params.arguments)
+    return types.CallToolResult(
+        content=[
+            types.TextContent(type="text", text=block["text"])
+            for block in result["content"]
+        ],
+        is_error=result.get("isError", False),
+    )
 
 
 def create_server() -> Server[dict[str, Any]]:

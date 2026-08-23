@@ -110,7 +110,7 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.connector_kit`
 
-33 exports.
+34 exports.
 
 - `class ConnectorKitError(Exception)`
 - `FieldExtractor = Callable[[object], Sequence[str | None] | None]`
@@ -151,6 +151,9 @@ reworded docstring is not a change to the surface.
 - `class TransportTimeoutError(TransportError)`
   - `def __init__(self, method: str, url: str, reason: str) -> None`
 - `class UrlResolutionError(ConnectorKitError)`
+- `class UrllibTransport`
+  - `def __init__(self) -> None`
+  - `def send(self, request: HttpRequest) -> HttpResponse`
 - `def as_objectish(value: object) -> dict[str, object] | None`
 - `def as_record(value: object) -> dict[str, object] | None`
 - `def error_result(message: str) -> McpToolResult`

@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.20.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.19.0...typescript-v1.20.0) (2026-08-23)
+
+
+### Features
+
+* **spec:** a cross-language conformance matrix that proves per-case coverage ([#159](https://github.com/nimbus-agent/nimbus-sdk/issues/159)) ([21c46a6](https://github.com/nimbus-agent/nimbus-sdk/commit/21c46a648c4221b23994d5ce7fb4e580ad2499b6))
+
 ## [1.19.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.18.0...typescript-v1.19.0) (2026-08-20)
 
 

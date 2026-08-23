@@ -287,21 +287,24 @@ maintained."*
   and pins what "the full conformance suite" means — every corpus whose surface the
   binding publishes, the reading RFC-0008 promoted Python under without writing it down.
 - [ ] The hottest batteries ported to the additional languages — *Pillar 3*
-- [~] A **Python `connector-kit`** — *Pillar 3*. TypeScript publishes
-  [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md)
-  (`createRegisterSimpleTool`, `mcpJsonResult`); `nimbus-dev-sdk` now carries part of the
-  equivalent, as `nimbus_sdk.connector_kit` — a fourth Python import root shipping the
-  pure core: `resolve_url_with_base` (the SSRF chokepoint, binding a new
-  [`url-resolution`](./spec/connector-kit/v1/url-resolution.md) corpus, both
-  bindings execute), `require_env`, the `json_result` / `error_result` MCP result
-  builders, and the `search_filter` port. Still missing: the transport, the tool router,
-  and the `rest.py` REST factories — and Go's `connectorkit` now carries the same pure
-  core with the same three deferrals, so the gap is identical in both bindings rather than
-  Python-shaped. Until those land, the generated Python connector
-  still inlines what the full kit would absorb — `_on_list_tools`, `_on_call_tool` and a
-  JSON result helper — in its `main.py`. The scaffold works around the asymmetry
-  deliberately (a scaffold is not where a published surface gets designed), but every
-  Python connector re-derives those lines until the router and REST factories exist.
+- [x] A **Python `connector-kit`** — *Pillar 3*, and a Go one alongside it. TypeScript
+  publishes [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md); Shipment 1 gave
+  Python the pure core, and Shipment 2 closed the rest in both bindings — the transport,
+  the tool router and the REST factories. `nimbus_sdk.connector_kit` exports **42** names
+  and `connectorkit` **76**, and the generated Python connector now registers its tool on
+  a `ToolRouter` instead of hand-rolling `_on_list_tools` / `_on_call_tool` / a JSON
+  result helper.
+
+  **The transport turned out to carry a security obligation neither runtime satisfies on
+  its own**, which is why `url-resolution.md` §8 says a binding MUST NOT carry credentials
+  across an origin change. Measured: CPython's `urllib` sends `Authorization` to the new
+  host after a cross-origin redirect, and Go's `net/http` compares by host name alone, so
+  it keeps the header when only the port or scheme changes — narrower than §6's origin.
+  Each binding enforces the rule itself, and each does it differently: a
+  `HTTPRedirectHandler` subclass in Python, `http.Client.CheckRedirect` in Go. Both are
+  held to it by a *pair* of tests, because dropping the credential on every redirect
+  passes a cross-origin test while turning an ordinary same-origin `/api/x` → `/api/x/`
+  into a 401.
 - [x] **Go release model (tag-based, not a registry push)** — decide the module
   layout (root vs. `sdks/go/` and its tag prefix), cut releases as **semver git
   tags** + GitHub Releases via release-please's `go` component, and confirm the

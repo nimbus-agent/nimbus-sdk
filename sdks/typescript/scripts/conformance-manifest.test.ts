@@ -11,9 +11,15 @@ describe("readManifest", () => {
     for (const language of LANGUAGES) {
       const { unclaimed } = readManifest().languages[language];
       for (const [corpus, reason] of Object.entries(unclaimed)) {
-        expect(reason.length, `${language} gives no reason for skipping ${corpus}`).toBeGreaterThan(
-          10,
+        // Trimmed, and typed at runtime: the manifest is JSON.parse'd behind a cast, so
+        // nothing structural stops a reason being a number, or eleven spaces.
+        expect(typeof reason, `${language}'s reason for skipping ${corpus} is not a string`).toBe(
+          "string",
         );
+        expect(
+          reason.trim().length,
+          `${language} gives no reason for skipping ${corpus}`,
+        ).toBeGreaterThan(10);
       }
     }
   });

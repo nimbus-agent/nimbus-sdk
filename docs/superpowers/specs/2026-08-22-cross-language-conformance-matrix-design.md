@@ -1,7 +1,10 @@
 # The cross-language conformance matrix — design
 
 **Date:** 2026-08-22
-**Status:** approved, not yet implemented
+**Status:** implemented in [#159](https://github.com/nimbus-agent/nimbus-sdk/pull/159). Two
+things this document specified turned out to be wrong and were corrected during
+implementation, both recorded below: the Go recorder's `t.Run`-boolean rule (§ *Getting that
+identity into the recorder*), and the count of prose tests Task 4 was expected to leave failing.
 **Roadmap box:** Phase 3, "A **cross-language CI matrix** running the conformance suite
 against every SDK — *Pillar 5*"
 **Predecessors:** [RFC-0008](../../rfcs/0008-python-sdk-official.md) and
@@ -142,9 +145,19 @@ package gains `type indexedCase struct { File string; Body map[string]any }` and
 `corpusCases(t, name) []indexedCase` helper; `runKind` iterates those.
 
 **A case is recorded only once it has passed.** In TypeScript and Python the call sits at
-the end of the test body, after the assertions, so a throw skips it; in Go it is guarded on
-`t.Run`'s boolean return. "Executed" therefore means executed-and-agreed, which is the only
-reading under which a full executed set is evidence of conformance.
+the end of the test body, after the assertions, so a throw skips it. "Executed" therefore
+means executed-and-agreed, which is the only reading under which a full executed set is
+evidence of conformance.
+
+> **Correction, from the final review of [#159](https://github.com/nimbus-agent/nimbus-sdk/pull/159).**
+> This section originally said Go guards the record call on **`t.Run`'s boolean return**.
+> That was wrong, and it was the only false-pass vector in the branch: `t.Run` reports
+> whether the subtest failed *before calling `t.Parallel`*, not whether it passed. Measured
+> on go1.27, a subtest calling `t.Skip` returns `true` — the case is recorded though nothing
+> ran — and one calling `t.Parallel()` returns `true` **immediately**, so a *failing* case is
+> recorded as executed. Go now registers `t.Cleanup` inside the subtest and records only when
+> `!t.Failed() && !t.Skipped()`, which is correct under both hazards. Proven by probe:
+> skipping one url-resolution case yields 27 recorded entries, not 28.
 
 ## The report format
 

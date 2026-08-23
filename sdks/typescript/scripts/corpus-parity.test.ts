@@ -15,7 +15,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { corpusNames } from "./conformance-corpora.ts";
+import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 import { LANGUAGES, readManifest } from "./conformance-manifest.ts";
 import { readFromRepo } from "./paths.ts";
 
@@ -91,6 +91,27 @@ describe("the coverage declaration is complete", () => {
       const { claims, deferred } = manifest.languages[language];
       const orphaned = Object.keys(deferred).filter((corpus) => !claims.includes(corpus));
       expect(orphaned, `${language} defers cases in a corpus it does not claim`).toEqual([]);
+    }
+  });
+
+  test("every deferred case names a real case in that corpus, exactly once", () => {
+    // A deferral is the one way a binding is allowed to skip a case, so a MALFORMED deferral
+    // is the one way it could skip one unnoticed. Two shapes are rejected here because the
+    // two consumers of this data used to disagree about them: `expectedCases` subtracts by
+    // set membership, while the coverage page subtracted a raw array length — so a duplicate
+    // or an unknown file shrank the rendered total without shrinking the expected set. The
+    // generator now derives from `expectedCases`, and this keeps the declaration itself sane.
+    const manifest = readManifest();
+    const corpora = publishedCorpora();
+    for (const language of LANGUAGES) {
+      for (const [corpus, files] of Object.entries(manifest.languages[language].deferred)) {
+        const known = corpora.get(corpus) ?? [];
+        const unknown = files.filter((file) => !known.includes(file));
+        expect(unknown, `${language} defers ${corpus} cases that no index lists`).toEqual([]);
+
+        const duplicated = files.filter((file, i) => files.indexOf(file) !== i);
+        expect(duplicated, `${language} lists a ${corpus} deferral more than once`).toEqual([]);
+      }
     }
   });
 });

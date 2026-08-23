@@ -12,7 +12,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { publishedCorpora } from "./conformance-corpora.ts";
-import { LANGUAGES, MANIFEST_PATH, readManifest } from "./conformance-manifest.ts";
+import { expectedCases, LANGUAGES, MANIFEST_PATH, readManifest } from "./conformance-manifest.ts";
 import { joinRepo } from "./paths.ts";
 
 const OUTPUT_PATH = "docs/conformance-coverage.md";
@@ -52,9 +52,16 @@ export function renderCoverage(): string {
     grandTotal += count;
     const cells = LANGUAGES.map((language) => {
       if (!manifest.languages[language].claims.includes(name)) return "—";
-      const deferred = (manifest.languages[language].deferred[name] ?? []).length;
-      totals.set(language, (totals.get(language) ?? 0) + count - deferred);
-      return deferred === 0 ? `${count}` : `${count - deferred} of ${count}`;
+      // Derived from expectedCases rather than from `deferred.length`, so this page and the
+      // reconciler cannot disagree. They did: expectedCases subtracts by SET membership, so a
+      // duplicated or unknown deferred entry removed fewer cases there than a raw array
+      // length removed here — the rendered total would drop while the expected set did not.
+      // `corpus-parity.test.ts` rejects both malformed shapes; this makes the arithmetic
+      // agree by construction even so.
+      const expected = expectedCases(language, name).length;
+      const deferred = count - expected;
+      totals.set(language, (totals.get(language) ?? 0) + expected);
+      return deferred === 0 ? `${count}` : `${expected} of ${count}`;
     });
     lines.push(`| \`${name}\` | ${count} | ${cells.join(" | ")} |`);
   }

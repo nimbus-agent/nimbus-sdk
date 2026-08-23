@@ -286,3 +286,58 @@ func TestAPostBodyReachesTheServer(t *testing.T) {
 		t.Errorf("server saw %q", body)
 	}
 }
+
+// The message was already clean; the FIELD was not. A caller doing
+// slog.Error("fetch failed", "url", err.URL) got the credential back.
+func TestATransportErrorFieldCarriesNoCredential(t *testing.T) {
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
+		URL: "http://user:sekrit@127.0.0.1:1/x",
+	})
+	var transportErr *TransportError
+	if !errors.As(err, &transportErr) {
+		t.Fatalf("want *TransportError, got %#v", err)
+	}
+	if strings.Contains(transportErr.URL, "sekrit") {
+		t.Errorf("URL field leaked a credential: %q", transportErr.URL)
+	}
+	if transportErr.URL != "http://127.0.0.1:1/x" {
+		t.Errorf("URL = %q, want the redacted form", transportErr.URL)
+	}
+}
+
+func TestATimeoutErrorFieldCarriesNoCredential(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		time.Sleep(500 * time.Millisecond)
+		_, _ = w.Write([]byte("{}"))
+	}))
+	defer srv.Close()
+
+	// Same host and port as the live server, but with userinfo bolted on, so the
+	// request really reaches it and really times out.
+	withCreds := "http://user:sekrit@" + strings.TrimPrefix(srv.URL, "http://")
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
+		URL: withCreds, Timeout: 10 * time.Millisecond,
+	})
+	var timeout *TransportTimeoutError
+	if !errors.As(err, &timeout) {
+		t.Fatalf("want *TransportTimeoutError, got %#v", err)
+	}
+	if strings.Contains(timeout.URL, "sekrit") {
+		t.Errorf("URL field leaked a credential: %q", timeout.URL)
+	}
+}
+
+// A URL the Request constructor rejects takes a different path out of Send, so it
+// needs its own assertion rather than riding on the one above.
+func TestAnUnreadableURLErrorFieldCarriesNoCredential(t *testing.T) {
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
+		URL: "notascheme://user:sekrit@h/x",
+	})
+	var transportErr *TransportError
+	if !errors.As(err, &transportErr) {
+		t.Fatalf("want *TransportError, got %#v", err)
+	}
+	if strings.Contains(transportErr.URL, "sekrit") {
+		t.Errorf("URL field leaked a credential: %q", transportErr.URL)
+	}
+}

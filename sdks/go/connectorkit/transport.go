@@ -168,7 +168,9 @@ func (t *HTTPTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResp
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, method, request.URL, body)
 	if err != nil {
-		return HTTPResponse{}, &TransportError{Op: method, URL: request.URL, Err: err}
+		// Redacted at construction, not only when formatted: URL is an exported field
+		// and structured logging reads fields.
+		return HTTPResponse{}, &TransportError{Op: method, URL: RedactedURL(request.URL), Err: err}
 	}
 	for name, value := range request.Headers {
 		httpReq.Header.Set(name, value)
@@ -194,7 +196,7 @@ func (t *HTTPTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResp
 // Unwrap, so errors.Is(err, context.Canceled) still answers.
 func (t *HTTPTransport) fail(method, url string, err error) error {
 	if errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) {
-		return &TransportTimeoutError{Op: method, URL: url, Err: err}
+		return &TransportTimeoutError{Op: method, URL: RedactedURL(url), Err: err}
 	}
-	return &TransportError{Op: method, URL: url, Err: err}
+	return &TransportError{Op: method, URL: RedactedURL(url), Err: err}
 }

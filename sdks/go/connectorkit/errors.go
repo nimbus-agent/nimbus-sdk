@@ -119,6 +119,20 @@ func transportMessage(op, rawURL string, cause error) string {
 	return op + " " + redactUserinfo(rawURL) + " failed: " + reason
 }
 
+// RedactedURL returns rawURL with any user:password@ removed.
+//
+// Exported because TransportError.URL and TransportTimeoutError.URL are exported
+// fields, and Go has no constructor to redact inside the way Python's TransportError
+// does. Every site in this package that builds one passes the value through here, and a
+// caller building one by hand — or putting a URL into a log line for any other reason —
+// should do the same. Redacting only in Error() was not enough: structured logging
+// reads fields, not messages.
+//
+// Idempotent, so applying it to an already-redacted URL is safe. A URL that will not
+// parse is cut coarsely at the last "@" rather than echoed back, because the shape of
+// any credential inside a string this function could not read is unknown.
+func RedactedURL(rawURL string) string { return redactUserinfo(rawURL) }
+
 // redactUserinfo returns rawURL with any user:password@ removed.
 func redactUserinfo(rawURL string) string {
 	parsed, err := url.Parse(rawURL)

@@ -122,3 +122,38 @@ func TestUserinfoStrippingKeepsPortQueryAndFragment(t *testing.T) {
 		t.Errorf("Error() = %q", err.Error())
 	}
 }
+
+// Redacting only in Error() is not enough: URL is an exported field, so a caller that
+// logs or serialises err.URL — structured logging does exactly that — gets the
+// credential back. Python redacts inside the constructor, where no raise site can
+// forget; Go has no constructor, so every site that builds one must pass a redacted
+// value, and RedactedURL is what makes that a one-call obligation rather than a habit.
+func TestRedactedURLStripsUserinfo(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"https://user:sekrit@api.example.com/x", "https://api.example.com/x"},
+		{"https://u:p@h.example:8443/a?b=1#c", "https://h.example:8443/a?b=1#c"},
+		{"https://h.example/users/@me", "https://h.example/users/@me"},
+		{"https://api.example.com/x", "https://api.example.com/x"},
+	}
+	for _, tc := range cases {
+		if got := RedactedURL(tc.in); got != tc.want {
+			t.Errorf("RedactedURL(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestRedactedURLIsIdempotent(t *testing.T) {
+	// Applied twice by a caller who is unsure whether the kit already did it, the
+	// result must not change.
+	once := RedactedURL("https://user:sekrit@api.example.com/x")
+	if twice := RedactedURL(once); twice != once {
+		t.Errorf("not idempotent: %q then %q", once, twice)
+	}
+}
+
+func TestRedactedURLNeverEchoesAnUnparseableCredential(t *testing.T) {
+	got := RedactedURL("https://u:p@[oops")
+	if strings.Contains(got, "p@") || strings.Contains(got, "u:p") {
+		t.Errorf("leaked through the unparseable path: %q", got)
+	}
+}

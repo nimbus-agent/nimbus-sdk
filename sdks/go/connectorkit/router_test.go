@@ -175,3 +175,37 @@ func TestTheZeroToolRouterIsUsable(t *testing.T) {
 		t.Error("want an error result from an empty router")
 	}
 }
+
+// Handler is a function type, so nil is a value a caller can pass. Stored unchecked it
+// panics inside CallTool — which is the one thing the router promises not to do, and it
+// takes the session down with it rather than returning the documented error result.
+// Rejected at registration instead, where a wiring mistake belongs.
+func TestANilHandlerIsRejectedAtRegistration(t *testing.T) {
+	var r ToolRouter
+	err := r.Add(MCPToolDescriptor{Name: "echo", InputSchema: schema}, nil, nil)
+	if err == nil {
+		t.Fatal("want an error for a nil handler")
+	}
+	if !errors.Is(err, ErrConnectorKit) {
+		t.Errorf("want a kit error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), "echo") {
+		t.Errorf("the error should name the tool: %q", err.Error())
+	}
+}
+
+func TestANilHandlerLeavesTheRouterUnchanged(t *testing.T) {
+	// A rejected registration must not half-land: no descriptor in ListTools, and the
+	// name still free for a later, valid Add.
+	var r ToolRouter
+	_ = r.Add(MCPToolDescriptor{Name: "echo", InputSchema: schema}, nil, nil)
+	if got := r.ListTools(); len(got) != 0 {
+		t.Fatalf("ListTools() = %#v after a rejected Add", got)
+	}
+	if err := r.Add(MCPToolDescriptor{Name: "echo", InputSchema: schema}, echoHandler, nil); err != nil {
+		t.Fatalf("the name should still be free: %v", err)
+	}
+	if out := r.CallTool(context.Background(), "echo", nil); out.IsError {
+		t.Errorf("out = %#v", out)
+	}
+}

@@ -131,9 +131,16 @@ rather than its corpora** — it runs the same four Python does.
 **Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
 declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`
 attribute, overridable per export with a `__stability_overrides__: dict[str, str]`
-attribute mapping an export name to its own tier (used by `connector_kit/urls.py`'s
-`resolve_url_with_base` and the same `contract.py` override Go's `IsContractVersion`
-mirrors). Resolving it needs two passes — an AST walk to find which module actually
+attribute mapping an export name to its own tier. The mechanism is real and supported,
+but **no shipped module uses it today** — every published Python module takes its
+module-level tier as-is (`connector_kit/urls.py`'s `resolve_url_with_base` is `frozen`
+on the module's own merits, not an override; Python has no counterpart to Go's
+`IsContractVersion` demotion, since Python's own equivalent, `_is_contract_version`, is
+underscore-private and so needs no tier at all — see the Go surface section below). The
+override-wins-over-default precedence path is exercised only by
+`sdks/python/tests/test_stability.py` monkeypatching a real module in place, precisely
+because no production module exercises it. Resolving it needs two passes — an AST walk
+to find which module actually
 *defines* each published name, then a runtime read of that module's `__stability__` /
 `__stability_overrides__` — because a name's defining scope is not always the module
 whose `__all__` the surface generator reads. There is no default: `api_surface.py`

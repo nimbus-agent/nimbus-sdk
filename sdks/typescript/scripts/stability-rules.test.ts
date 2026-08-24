@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { requiredFor, type SurfaceChange } from "./stability-rules.ts";
+import { diffSurfaces, parseSurface, requiredFor, type SurfaceChange } from "./stability-rules.ts";
 
 const change = (over: Partial<SurfaceChange>): SurfaceChange => ({
   name: "x",
@@ -60,5 +60,124 @@ describe("requiredFor", () => {
 
   test("no changes means no requirement", () => {
     expect(requiredFor([]).impact).toBe("none");
+  });
+});
+
+const surface = (name: string, tier: string, decl: string, deprecated = false): string =>
+  [
+    `### \`${name}\``,
+    "",
+    ...(deprecated ? ["**Deprecated:** gone soon", ""] : []),
+    `**Stability:** ${tier}`,
+    "",
+    "From `./m.js`.",
+    "",
+    "```ts",
+    decl,
+    "```",
+    "",
+  ].join("\n");
+
+describe("parseSurface / diffSurfaces", () => {
+  test("parses name, tier, declaration and deprecation", () => {
+    const entry = parseSurface(surface("a", "stable", "declare const a: number;", true)).get("a");
+    expect(entry?.tier).toBe("stable");
+    expect(entry?.deprecated).toBe(true);
+    expect(entry?.declaration).toContain("const a");
+  });
+
+  test("detects an addition", () => {
+    const base = parseSurface("");
+    const head = parseSurface(surface("a", "experimental", "declare const a: number;"));
+    expect(diffSurfaces(base, head, "typescript")).toEqual([
+      {
+        name: "a",
+        kind: "added",
+        tier: "experimental",
+        binding: "typescript",
+        wasDeprecated: false,
+      },
+    ]);
+  });
+
+  test("a removal carries the BASE tier and the BASE deprecation state", () => {
+    const base = parseSurface(surface("a", "stable", "declare const a: number;", true));
+    const [change] = diffSurfaces(base, parseSurface(""), "typescript");
+    expect(change?.kind).toBe("removed");
+    expect(change?.tier).toBe("stable");
+    expect(change?.wasDeprecated).toBe(true);
+  });
+
+  test("detects a signature change", () => {
+    const base = parseSurface(surface("a", "stable", "declare const a: number;"));
+    const head = parseSurface(surface("a", "stable", "declare const a: string;"));
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  test("detects a demotion and a promotion", () => {
+    const base = parseSurface(surface("a", "frozen", "declare const a: number;"));
+    const head = parseSurface(surface("a", "stable", "declare const a: number;"));
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("demoted");
+    expect(diffSurfaces(head, base, "typescript")[0]?.kind).toBe("promoted");
+  });
+
+  test("an unchanged export produces no change", () => {
+    const only = surface("a", "stable", "declare const a: number;");
+    expect(diffSurfaces(parseSurface(only), parseSurface(only), "typescript")).toEqual([]);
+  });
+
+  // CORRECTION 1: a Python/Go bullet's indented sub-bullets (class members, Protocol
+  // methods) are not separate entries — they must be absorbed into the enclosing
+  // bullet's declaration, or a member-only change on a frozen class is invisible.
+  test("a class member change is detected as a signature change on the class", () => {
+    const pythonSurface = (memberType: string): string =>
+      [
+        "## `nimbus_sdk`",
+        "",
+        "1 exports.",
+        "",
+        "- `class NegotiationOk` — **frozen**",
+        `  - \`version: ${memberType}\``,
+        "- `CONTRACT_VERSIONS: tuple[str, ...]` — **frozen**",
+        "",
+      ].join("\n");
+
+    const base = parseSurface(pythonSurface("str"));
+    const head = parseSurface(pythonSurface("int"));
+
+    const changes = diffSurfaces(base, head, "python");
+    expect(changes).toEqual([
+      {
+        name: "class NegotiationOk",
+        kind: "signature",
+        tier: "frozen",
+        binding: "python",
+        wasDeprecated: false,
+      },
+    ]);
+  });
+
+  // CORRECTION 2: a Go bullet whose declaration itself contains a backtick (a struct
+  // tag) is fenced with doubled backticks and padding spaces. The greedy BULLET regex
+  // still matches it; the resulting key is uglier than a normal bullet's but it must
+  // stay stable and unique so these three struct types never silently drop out of the
+  // surface.
+  test("a doubled-backtick struct-tag bullet parses to a stable, unique key", () => {
+    const goSurface = [
+      "## `connectorkit`",
+      "",
+      "1 exports.",
+      "",
+      '- `` type MCPTextContent struct { Text string `json:"text"`; Type string `json:"type"` } `` — **experimental**',
+      "",
+    ].join("\n");
+
+    const entries = parseSurface(goSurface);
+    expect(entries.size).toBe(1);
+    const [key, entry] = [...entries][0] ?? ["", undefined];
+    expect(key).toContain("MCPTextContent");
+    expect(entry?.tier).toBe("experimental");
+
+    expect(diffSurfaces(parseSurface(goSurface), parseSurface(goSurface), "go")).toEqual([]);
   });
 });

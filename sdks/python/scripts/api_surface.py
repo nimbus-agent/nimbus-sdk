@@ -22,6 +22,7 @@ import dataclasses
 import importlib
 import inspect
 import types
+from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -152,6 +153,119 @@ def alias_sources() -> dict[str, str]:
                 continue
             sources[target.id] = ast.unparse(node.value)
     return sources
+
+
+#: The three tiers. No other value is valid, and there is no default.
+_TIERS = frozenset({"frozen", "stable", "experimental"})
+
+#: AST nodes that DEFINE a name at module level. `ast.ImportFrom` is deliberately
+#: absent: an import is a re-export, and every published root is a re-export barrel.
+_DEFINITION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
+
+#: Blocks whose bodies are still module scope. A name bound inside one is as published
+#: as any other — `nimbus_sdk/__init__.py` defines `__version__`, which IS in `__all__`,
+#: inside a try/except that falls back to "0.0.0+unknown" for an uninstalled source
+#: tree. Walking only `tree.body` misses it and reports it as having no defining module.
+_SCOPED_BLOCKS = (ast.If, ast.Try, ast.With)
+
+
+def _dotted(path: Path) -> str:
+    """`src/nimbus_sdk/ipc/hello.py` -> `nimbus_sdk.ipc.hello`; a package -> its dir."""
+    relative = path.relative_to(_SRC.parent).with_suffix("")
+    parts = list(relative.parts)
+    if parts[-1] == "__init__":
+        parts.pop()
+    return ".".join(parts)
+
+
+def _module_scope(body: list[ast.stmt]) -> Iterator[ast.stmt]:
+    """Every definition node at module scope, descending through conditional blocks.
+
+    A definition inside ``if``/``try``/``with`` at module level is still module scope —
+    it binds a name the module exports. It is NOT nested scope: a ``def`` or ``class``
+    body introduces its own scope and is deliberately not descended into, so a method
+    named like an export cannot shadow it.
+
+    Binding the same name twice in one module is fine and expected: the try/except that
+    defines ``__version__`` binds it in both arms. The caller's collision check only
+    fires across DIFFERENT modules.
+    """
+    for node in body:
+        if isinstance(node, _DEFINITION_NODES):
+            yield node
+        elif isinstance(node, _SCOPED_BLOCKS):
+            yield from _module_scope(node.body)
+            yield from _module_scope(getattr(node, "orelse", []))
+            yield from _module_scope(getattr(node, "finalbody", []))
+            for handler in getattr(node, "handlers", []):
+                yield from _module_scope(handler.body)
+
+
+def _bound_names(node: ast.stmt) -> list[str]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        return [node.target.id]
+    if isinstance(node, ast.Assign):
+        return [t.id for t in node.targets if isinstance(t, ast.Name)]
+    return []
+
+
+def defining_modules() -> dict[str, str]:
+    """Map each module-level name under ``src/nimbus_sdk/`` to the module DEFINING it.
+
+    The second departure from this module's import-don't-parse rule, and narrower than
+    the first. That rule exists so rendered *signatures* match what a consumer imports.
+    Where a name is defined is not a signature — it is a static fact about the source,
+    and the source is the only place it is written down.
+
+    It cannot be answered at runtime. Only classes and functions carry ``__module__``;
+    four of the thirteen names in ``nimbus_sdk.__all__`` are plain values that do not
+    (``CONTRACT_HANDSHAKE_EXIT``, ``CONTRACT_VERSIONS``, ``CONTRACT_VERSION_PATTERN``,
+    ``__version__``), and constants are a deliberate part of this surface. Searching
+    submodules' ``__all__`` fails too: only 5 of the 20 files declare one, and four of
+    those five are re-export barrels.
+    """
+    found: dict[str, str] = {}
+    for path in sorted(_SRC.rglob("*.py")):
+        module = _dotted(path)
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in _module_scope(tree.body):
+            for name in _bound_names(node):
+                if name.startswith("_") and not name.startswith("__"):
+                    continue
+                if name == "__all__":
+                    # Meta, not an export: every barrel and `transport.py` declares its
+                    # own `__all__`, so treating it like any other dunder binding would
+                    # raise a cross-module collision on a name `stability_of` never
+                    # looks up in the first place — `__all__` never appears in anyone's
+                    # `__all__`. `__version__` needs no equivalent guard: it is bound
+                    # twice, but both bindings are in the SAME module (a try/except),
+                    # which the collision check already tolerates.
+                    continue
+                previous = found.get(name)
+                if previous is not None and previous != module:
+                    raise RuntimeError(
+                        f'"{name}" is defined in both {previous} and {module}; '
+                        "the tier resolver cannot say which module's tier applies"
+                    )
+                found[name] = module
+    return found
+
+
+def stability_of(name: str, defining: dict[str, str]) -> str:
+    """The tier for ``name``: its defining module's default, or that module's override."""
+    module_path = defining.get(name)
+    if module_path is None:
+        raise RuntimeError(f'"{name}" has no defining module under src/nimbus_sdk/')
+    module = importlib.import_module(module_path)
+    overrides = getattr(module, "__stability_overrides__", {})
+    tier = overrides.get(name, getattr(module, "__stability__", None))
+    if tier is None:
+        raise RuntimeError(f"{module_path} declares no __stability__ (needed for {name})")
+    if tier not in _TIERS:
+        raise RuntimeError(f'{module_path} declares unknown tier "{tier}"')
+    return tier
 
 
 def annotation_sources() -> dict[str, str]:

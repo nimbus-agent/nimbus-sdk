@@ -92,3 +92,40 @@ def test_an_override_wins_over_the_module_default(
 def test_an_unresolvable_name_is_an_error() -> None:
     with pytest.raises(RuntimeError, match="no defining module"):
         stability_of("not_a_real_export", {})
+
+
+def test_a_module_with_no_dunder_stability_is_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The no-default rule, Python's half: a module reachable from the published
+    surface that declares no ``__stability__`` (and no matching
+    ``__stability_overrides__`` entry) must fail loudly rather than resolve to some
+    implicit default. Every shipped module is tagged, so this deletes the real
+    ``connector_kit.urls`` module's tag rather than relying on a fixture — otherwise
+    the ``if tier is None: raise`` branch could be replaced by a silent default and
+    every other test in this file would stay green.
+    """
+    import nimbus_sdk.connector_kit.urls as urls_module
+
+    defining = defining_modules()
+    assert urls_module.__stability__ == "frozen"
+
+    monkeypatch.delattr(urls_module, "__stability__")
+    with pytest.raises(RuntimeError, match="declares no __stability__"):
+        stability_of("resolve_url_with_base", defining)
+
+
+def test_a_module_with_an_unknown_tier_is_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A ``__stability__`` value outside ``{"frozen", "stable", "experimental"}``
+    must fail loudly rather than pass an unvalidated string through to the golden.
+    """
+    import nimbus_sdk.connector_kit.urls as urls_module
+
+    defining = defining_modules()
+    assert urls_module.__stability__ == "frozen"
+
+    monkeypatch.setattr(urls_module, "__stability__", "sortof")
+    with pytest.raises(RuntimeError, match='unknown tier "sortof"'):
+        stability_of("resolve_url_with_base", defining)

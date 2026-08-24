@@ -59,6 +59,26 @@ describe("stability in the surface", () => {
     expect(surface?.exports[0]?.stability).toBe("stable");
   });
 
+  // The no-default rule is the design's central safety property: a module reachable
+  // from the published surface MUST declare a tier, or resolveStability throws. Every
+  // other fixture in this file tags its module, so without this test the throw could be
+  // replaced by `?? "stable"` and every other test here — plus the golden — would stay
+  // green. See Finding 3.
+  test("buildSurface throws when a module has no @moduleStability tag", () => {
+    const untagged: Record<string, string> = {
+      "package.json": JSON.stringify({ exports: { ".": { types: "./dist/untagged.d.ts" } } }),
+      "dist/untagged.d.ts": "export declare const a: number;\n",
+    };
+    const readUntagged = (path: string): string => {
+      const text = untagged[path];
+      if (text === undefined) throw new Error(`no such file: ${path}`);
+      return text;
+    };
+    expect(() => buildSurface([{ label: ".", file: "dist/untagged.d.ts" }], readUntagged)).toThrow(
+      /no @moduleStability tag/,
+    );
+  });
+
   test("renderSurface emits the tier line", () => {
     const markdown = renderSurface([
       {

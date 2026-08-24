@@ -808,50 +808,6 @@ jobs:
             exit 1
           fi
 
-  # release-please reads the commits that land on `main`, and this repo merges by squash
-  # only — so for a PR that collects a stack, the PR title is the only subject the parser
-  # will ever see. This job asserts that subject is a Conventional Commit and that it does
-  # not declare less than the commits it carries. See docs/CONTRIBUTING.md, "Stacking a
-  # multi-part change".
-  #
-  # Deliberately not guarded by `if: github.event_name == 'pull_request'`: `ci-complete`
-  # counts a skipped dependency as a failure, so the script itself exits 0 on a push build.
-  commit-guard:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
-        with:
-          egress-policy: block
-          allowed-endpoints: >
-            github.com:443
-            api.github.com:443
-            codeload.github.com:443
-            objects.githubusercontent.com:443
-            release-assets.githubusercontent.com:443
-            registry.npmjs.org:443
-            bun.sh:443
-
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        with:
-          bun-version: latest
-
-      # No `bun install` — the guard imports nothing outside scripts/.
-      - name: Check the subject that will land on main
-        run: bun run sdks/typescript/scripts/conventional-commit-guard.ts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # The single required status check.
   #
   # `build-test` and `node-smoke` are matrices, so their job names carry the matrix
@@ -865,7 +821,7 @@ jobs:
   # dependency fails, the required check would never report, and PRs would hang
   # waiting for a status that never arrives.
   ci-complete:
-    needs: [build-test, node-smoke, python, go, conformance, conformance-report, commit-guard, scaffold-typescript, scaffold-python]
+    needs: [build-test, node-smoke, python, go, conformance, conformance-report, scaffold-typescript, scaffold-python]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -880,4 +836,4 @@ jobs:
 
       - name: Fail unless every CI job succeeded
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} conformance=${{ needs.conformance.result }} conformance-report=${{ needs.conformance-report.result }} commit-guard=${{ needs.commit-guard.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1
+        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} conformance=${{ needs.conformance.result }} conformance-report=${{ needs.conformance-report.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1

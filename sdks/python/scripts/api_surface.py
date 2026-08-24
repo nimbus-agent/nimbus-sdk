@@ -256,9 +256,11 @@ def defining_modules() -> dict[str, str]:
                 if name.startswith("_") and not name.startswith("__"):
                     continue
                 if name in _MODULE_METADATA_NAMES:
-                    # Meta, not an export: every barrel (plus `transport.py`) declares
-                    # its own `__all__`, and every tagged module its own `__stability__`
-                    # — legitimately repeated, module-local declarations, not names any
+                    # Meta, not an export: every barrel declares its own `__all__`
+                    # (the three sub-barrels plus `nimbus_sdk/__init__.py` — four
+                    # files, not `transport.py`, which only mentions `__all__` in a
+                    # comment), and every tagged module its own `__stability__` —
+                    # legitimately repeated, module-local declarations, not names any
                     # `__all__` ever lists. Treating them like ordinary bindings would
                     # raise a cross-module collision on a name `stability_of` never
                     # looks up through `found` in the first place — it reads
@@ -270,8 +272,13 @@ def defining_modules() -> dict[str, str]:
                 previous = found.get(name)
                 if previous is not None and previous != module:
                     raise RuntimeError(
-                        f'"{name}" is defined in both {previous} and {module}; '
-                        "the tier resolver cannot say which module's tier applies"
+                        f'"{name}" is defined in both {previous} and {module}.\n'
+                        "The tier resolver requires each published name to have "
+                        "exactly one defining module.\n"
+                        f"Fix: rename or remove one of the two `{name}` bindings "
+                        "so only one module defines it, then re-run "
+                        "`python scripts/api_surface.py`.\n"
+                        "See docs/rfcs/0015-tiered-stability.md."
                     )
                 found[name] = module
     return found
@@ -282,17 +289,37 @@ def stability_of(name: str, defining: dict[str, str]) -> str:
     override."""
     module_path = defining.get(name)
     if module_path is None:
-        raise RuntimeError(f'"{name}" has no defining module under src/nimbus_sdk/')
+        raise RuntimeError(
+            f'"{name}" has no defining module under src/nimbus_sdk/.\n'
+            "Fix: check for a typo in the name, or add a module-level "
+            f"definition for `{name}` under src/nimbus_sdk/, then re-run "
+            "`python scripts/api_surface.py`.\n"
+            "See docs/rfcs/0015-tiered-stability.md."
+        )
     module = importlib.import_module(module_path)
     overrides: dict[str, str] = getattr(module, "__stability_overrides__", {})
     default: str | None = getattr(module, "__stability__", None)
     tier: str | None = overrides.get(name, default)
     if tier is None:
         raise RuntimeError(
-            f"{module_path} declares no __stability__ (needed for {name})"
+            f'{module_path} declares no __stability__ (needed for "{name}").\n'
+            "Every module reachable from the published surface must declare "
+            "a tier.\n"
+            'Fix: add `__stability__ = "frozen"` (or "stable" / '
+            f'"experimental") at module level in {module_path}, then re-run '
+            "`python scripts/api_surface.py`.\n"
+            "See docs/rfcs/0015-tiered-stability.md for which tier applies."
         )
     if tier not in _TIERS:
-        raise RuntimeError(f'{module_path} declares unknown tier "{tier}"')
+        raise RuntimeError(
+            f'{module_path} declares unknown tier "{tier}" '
+            f'(needed for "{name}").\n'
+            "Fix: __stability__ (and any __stability_overrides__ entry) must "
+            'be exactly one of "frozen", "stable", "experimental" — correct '
+            f"it in {module_path}, then re-run "
+            "`python scripts/api_surface.py`.\n"
+            "See docs/rfcs/0015-tiered-stability.md for which tier applies."
+        )
     return tier
 
 

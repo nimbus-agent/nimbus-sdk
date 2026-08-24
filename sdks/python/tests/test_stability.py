@@ -57,9 +57,36 @@ def test_every_published_name_resolves_to_a_tier() -> None:
             assert stability_of(name, defining) in TIERS
 
 
-def test_an_override_wins_over_the_module_default() -> None:
+def test_an_override_wins_over_the_module_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``__stability_overrides__`` wins over ``__stability__`` for the name it names,
+    and the module default still applies to a sibling name it does not.
+
+    No shipped module currently declares ``__stability_overrides__``:
+    ``resolve_url_with_base`` resolves to ``"frozen"`` because the whole of
+    ``connector_kit/urls.py`` is tagged frozen, not because anything overrides it — so
+    asserting on that alone would pass whether or not the override branch of
+    ``stability_of`` (``overrides.get(name, default)``) actually consults the map.
+    This constructs the override directly, against the real ``urls`` module, so the
+    precedence path has real coverage.
+    """
+    import nimbus_sdk.connector_kit.urls as urls_module
+
     defining = defining_modules()
-    assert stability_of("resolve_url_with_base", defining) == "frozen"
+    assert urls_module.__stability__ == "frozen"
+
+    monkeypatch.setattr(
+        urls_module,
+        "__stability_overrides__",
+        {"resolve_url_with_base": "experimental"},
+        raising=False,
+    )
+    # The overridden name takes the override, not the module default.
+    assert stability_of("resolve_url_with_base", defining) == "experimental"
+    # A sibling name in the SAME module, absent from the overrides map, still falls
+    # through to the module default — the override is per-name, not per-module.
+    assert stability_of("should_strip_auth", defining) == "frozen"
 
 
 def test_an_unresolvable_name_is_an_error() -> None:

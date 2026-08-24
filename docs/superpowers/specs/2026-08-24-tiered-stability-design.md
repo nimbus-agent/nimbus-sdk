@@ -101,7 +101,7 @@ so a new module cannot slip in untagged and inherit a default nobody chose.
   tag-boundary problem (a following `@param` must not swallow the message). The
   `@stability` tag is that machinery a second time, and inherits its solved edge cases.
 
-- **Python** — a module attribute:
+- **Python** — a module attribute on the module that *defines* the name:
 
   ```python
   __stability__ = "frozen"
@@ -111,8 +111,52 @@ so a new module cannot slip in untagged and inherit a default nobody chose.
   `api_surface.py` states its own rule in its module docstring: it works by **importing
   each root and reading `__all__`, rather than parsing the source**, and
   `api-surface-python.md` records that docstrings are deliberately not captured. A
-  comment or docstring convention would violate both. A runtime attribute is the only
-  mechanism consistent with what that generator already promises.
+  comment or docstring convention would violate both, so the tier is a runtime attribute.
+
+  **Resolving which module that is takes a second step, and it is not `__module__`.**
+  See §2.1.1 — this is the one place where the three bindings' declaration mechanisms
+  are not symmetric, and getting it wrong silently mis-tiers every constant in the
+  surface.
+
+### 2.1.1 Python tier resolution
+
+Every published Python root is an `__init__.py` that re-exports from implementing
+submodules: `nimbus_sdk/__init__.py` pulls nine names out of `nimbus_sdk.contract` and
+three out of `nimbus_sdk.spec`, then lists them in its own `__all__`. So the module whose
+`__all__` the generator reads is never the module that defines the name, and
+`__stability__` on the root would mean the tier lives nowhere near the implementation.
+
+**Tracing `object.__module__` does not solve this.** Only classes and functions carry
+that attribute. Four of the thirteen names in `nimbus_sdk`'s own `__all__` are plain
+values with no `__module__` at all — `CONTRACT_HANDSHAKE_EXIT` (an `int`),
+`CONTRACT_VERSIONS` (a `tuple`), `CONTRACT_VERSION_PATTERN` (a compiled pattern) and
+`__version__` (a `str`) — and constants are a deliberate, documented part of this
+surface. A resolver built on `__module__` would raise or silently default on all four.
+
+**Searching submodules' `__all__` does not solve it either**: only 5 of the 20 files
+under `src/nimbus_sdk/` declare one, and four of those five are themselves `__init__.py`
+re-export barrels. The implementing modules mostly have no `__all__` to search.
+
+So resolution is a **two-step hybrid — AST for location, runtime for value**:
+
+1. **Locate.** Parse every module under `src/nimbus_sdk/` with `ast`. A name's defining
+   module is the unique one that binds it through a *definition* — `FunctionDef`,
+   `ClassDef`, `Assign` or `AnnAssign` at module level — as opposed to an `ImportFrom`,
+   which is a re-export. That distinction is exactly what the AST makes visible and the
+   runtime object does not, and it works identically for a constant and a class.
+2. **Read.** Import that module and read its `__stability__`, then apply its
+   `__stability_overrides__`.
+
+Two hard errors, no defaults: a name that resolves to **no** defining module, and a name
+that resolves to **more than one**. Both mean the surface has drifted from what this
+resolver can describe, and a guess would be worse than a red build.
+
+This is a second departure from `api_surface.py`'s import-don't-parse rule, and the
+module docstring must record it alongside the first. The justification is narrow and
+worth stating: the rule exists so that *rendered signatures* match what a consumer
+actually imports rather than what the source appears to say. **Where a name is defined is
+not a signature** — it is a static fact about the source, and the source is the only
+place it is written down.
 
 - **Go** — a `// Stability: frozen` line in the package doc comment, with a
   per-declaration override in that declaration's own doc comment. This mirrors Go's own
@@ -123,6 +167,18 @@ so a new module cannot slip in untagged and inherit a default nobody chose.
   comments at all — `api-surface-go.md` says so explicitly. The departure is narrow: the
   walker reads the `Stability:` line and nothing else from the comment, and the surface
   file continues not to record doc text.
+
+  **The walker must scan every file in the package, not a conventional one.** A Go
+  package is a directory, and its package doc comment may precede the `package` keyword
+  in any file. This module is already inconsistent about where that is: `connectorkit`
+  and `diagnostics` carry theirs in a `doc.go`, while `contract`, `ipc` and `spec` put it
+  at the top of an ordinary source file (`version.go`, `hello.go`, `spec.go`). So the
+  walker reads `ast.File.Doc` across all non-test files in the package and takes the
+  `Stability:` line from wherever it appears. **Exactly one file may carry it** — two is
+  a hard error, not a first-match win, since silently picking one of two disagreeing
+  tiers is the failure this whole design exists to prevent. Adding a `doc.go` to the
+  three packages that lack one is *not* in scope; the walker adapts to the module as it
+  is.
 
 ### 2.2 Project
 
@@ -209,6 +265,19 @@ pull request body names `RFC-NNNN` and `docs/rfcs/NNNN-*.md` exists. Citing rath
 requiring the RFC to land in the same pull request is deliberate — an RFC that merged
 earlier is the normal case, and demanding a same-PR RFC file would force the decision and
 its implementation into one review.
+
+**Existence is checked in the runner's workspace, and that is the correct ref for both
+cases.** On a `pull_request` event `actions/checkout` resolves `refs/pull/N/merge` by
+default, so the tree the guard runs against is base merged with head. An RFC that landed
+in an earlier pull request is present because it is in the base; an RFC added by this
+pull request is present because it is in the head. Checking the base alone would reject
+the second case and checking head alone is unnecessary — the merge ref already covers
+both, with no extra fetch. The guard therefore does a plain filesystem glob, not a
+`git show`.
+
+This is the one place the guard reads the workspace rather than a git revision, and the
+contrast is worth keeping straight: the surface diff in §2.3 genuinely needs the *base*
+revision of three files that also exist in the workspace, so it must `git show` them.
 
 Additions are included because adding to the narrow waist **is** contract-affecting, and
 [GOVERNANCE.md](../../GOVERNANCE.md#the-rfc-process) already requires contract-affecting
@@ -340,6 +409,20 @@ deprecations is **out of scope** here. The RFC records the asymmetry rather than
 it; until it is closed, the `+ window` half-check is a TypeScript-only enforcement and
 the Python and Go rows rely on review.
 
+**A silent gap is the failure mode to avoid, so it must not be silent.** When the guard
+sees a `stable` or `frozen` export removed from the Python or Go surface, it emits a
+GitHub `::notice::` naming the export and stating that the deprecation window could not
+be checked mechanically and needs a reviewer to confirm it. The gate still enforces
+`feat!:` for that removal — only the window half is unchecked — so the notice is a
+prompt to a human, not a substitute for a failing build. Without it, a reviewer reading a
+green run has no way to tell an unchecked window from a checked one, which is worse than
+having no check at all.
+
+Two follow-ups this leaves behind, to be recorded where they will be found rather than
+only here: teaching `api_surface.py` and the Go walker to record deprecation markers,
+which is the prerequisite, and then the full two-release window check, which is Phase 5's
+box. The first is small and unblocks the second.
+
 ## 7. Failure modes the design must survive
 
 - **A module with no tier.** CI fails. There is no default. A default of `stable` would
@@ -353,9 +436,38 @@ the Python and Go rows rely on review.
   squash merge makes the title the commit subject. `ci.yml`'s `pull_request:` trigger
   carries no `types:` key, so it uses the default set — `opened`, `synchronize`,
   `reopened` — and an `edited` event fires nothing. **Verified against the workflow as it
-  stands**, so this is a pre-existing hole in the current guard, not one this design
-  introduces; the new rule's stakes are what make it worth closing, and closing it is in
-  scope.
+  stands**, so this is a pre-existing hole, not one this design introduces; the new
+  rule's stakes are what make it worth closing. See §7.1 — closing it is less trivial
+  than adding a trigger.
+
+### 7.1 Closing the `edited` hole costs a second required check
+
+Adding `edited` to `ci.yml`'s `pull_request:` trigger would re-run the **entire**
+workflow — the cross-OS `build-test` matrix, the `node-smoke` Node-LTS matrix,
+`conformance`, both scaffold jobs — every time anyone touches a title or description.
+That is a real and recurring cost for one string comparison.
+
+The obvious mitigation is closed off by an existing decision. `ci-complete` — the single
+required status check — lists `commit-guard` in `needs` and fails on
+`contains(needs.*.result, 'skipped')`. So `if:`-skipping the heavy jobs on an `edited`
+event turns the required check red. That is deliberate: it is the same property that
+makes `conventional-commit-guard.ts` exit 0 from the inside rather than opt out with an
+`if:`.
+
+So the guard moves to its own lightweight workflow — checkout plus Bun plus one script,
+no `bun install` since it imports nothing outside `scripts/` — triggered on `opened`,
+`synchronize`, `reopened` **and** `edited`, and is removed from `ci.yml` and from
+`ci-complete`'s `needs` so it does not run or report twice.
+
+**That makes it a second required status check, which is a one-time repository-settings
+change and must be listed as a deployment step, not assumed.** Until it is marked
+required, the check runs and reports but blocks nothing.
+
+It is worth being explicit that this does not violate the reasoning `ci-complete`'s
+comment gives for existing. That comment objects to a ruleset naming *matrix legs*,
+which "has to be hand-edited every time the matrix changes shape, and it will." A commit
+subject check has exactly one permanently stable name and no matrix. The aversion is to
+churn, not to count, so it does not apply here.
 - **A pull request spanning two packages.** `CLAUDE.md` records PR #155: release-please
   assigns a commit to a component by the **paths** it touches, so one pull request
   touching `sdks/python/` and `sdks/go/` releases both under one subject. The gate
@@ -374,16 +486,26 @@ the Python and Go rows rely on review.
 2. **TypeScript** — the `@stability` tag, `api-surface.ts` emitting the resolved tier, 35
    modules tagged, the golden regenerated, and a guard asserting no reachable module is
    untagged. `feat:`.
-3. **Python** — `__stability__` / `__stability_overrides__`, `api_surface.py` emitting the
-   tier, 16 modules tagged, golden regenerated, untagged-module guard. `feat:`.
-4. **Go** — the `// Stability:` doc-comment convention, the walker reading it, 5 packages
-   tagged with two per-export overrides, golden regenerated, untagged-package guard.
-   `feat:`. **Separate from shipment 3**, per §7's last bullet.
+3. **Python** — `__stability__` / `__stability_overrides__`, the §2.1.1 two-step resolver
+   and the module-docstring note recording its departure, `api_surface.py` emitting the
+   tier, 16 modules tagged, golden regenerated, untagged-module guard. `feat:`. The
+   resolver is the largest single piece of work in shipments 2–4; do not size this
+   alongside the other two.
+4. **Go** — the `// Stability:` doc-comment convention read across every file in each
+   package per §2.1, the walker change, 5 packages tagged with two per-export overrides,
+   golden regenerated, untagged-package guard. `feat:`. **Separate from shipment 3**, per
+   §7's last bullet.
 5. **The gate** — the second rule in `conventional-commit-guard.ts`, the base-golden
-   fetch, the rule table, the RFC-link check, the TypeScript window half-check, and the
-   `edited` trigger. Lands **last**, so enforcement arrives once and complete over three
-   already-tagged goldens rather than growing in place and gating bindings that have no
-   tiers yet.
+   fetch, the rule table, the RFC-link glob against the merge-ref workspace, the
+   TypeScript window half-check, the Python/Go `::notice::` from §6, and the move to a
+   standalone workflow with the `edited` trigger per §7.1. Lands **last**, so enforcement
+   arrives once and complete over three already-tagged goldens rather than growing in
+   place and gating bindings that have no tiers yet.
+
+   **Deployment step, outside the repository:** mark the new workflow's check as required
+   in branch protection, and drop nothing else — `ci-complete` stays required. Shipment 5
+   is not done when the pull request merges; it is done when that setting is changed.
+   Until then the check reports without blocking.
 
 ### Trailing edits
 
@@ -412,6 +534,16 @@ the Python and Go rows rely on review.
   several at once in different tiers, asserting the `max`.
 - **Untagged-module guards**, one per binding, asserting every module reachable from the
   published surface resolves a tier.
+- **The Python resolver (§2.1.1), tested against the cases that defeat the alternatives.**
+  A constant re-exported through a root (`CONTRACT_VERSIONS`, which has no `__module__`);
+  a class re-exported through a root (`NegotiationOk`, which has one) resolving to the
+  same module as the constant beside it; a name defined in a module with no `__all__`; a
+  per-export override winning over its module default; and both hard errors — a name
+  bound in no module and a name defined in two.
+- **The Go multi-file package doc scan**, against both real layouts in this module: a
+  package whose `Stability:` line sits in `doc.go` (`connectorkit`) and one where it sits
+  in an ordinary source file (`contract`), plus a synthetic two-file conflict asserting a
+  hard error rather than a first-match win.
 - **End-to-end**, against this repository's own history: the guard run against the merged
   pull requests that removed or changed an export must report the impact those changes
   actually declared. `conventional-commit-guard.ts` already supports `--pr N` locally for

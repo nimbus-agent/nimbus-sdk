@@ -79,7 +79,11 @@ func RenderPackage(dir string) (string, error) {
 
 	var lines []declEntry
 	for _, file := range files {
-		lines = append(lines, declarations(fset, file, pkgTier)...)
+		entries, err := declarations(fset, file, pkgTier)
+		if err != nil {
+			return "", fmt.Errorf("apisurface: %s: %w", dir, err)
+		}
+		lines = append(lines, entries...)
 	}
 
 	sort.Slice(lines, func(i, j int) bool { return lines[i].line < lines[j].line })
@@ -116,13 +120,29 @@ type declEntry struct {
 // resolveTier returns the first non-empty DeclStability found among docs, in order,
 // falling back to pkgTier when none carries an override. docs is ordered
 // most-specific-first: a ValueSpec/TypeSpec's own doc comment before the GenDecl's.
-func resolveTier(pkgTier string, docs ...*ast.CommentGroup) string {
+//
+// An override is validated against tiers exactly like PackageStability validates the
+// package-level tag: a malformed value ("frozen.", "Frozen", "stability: frozen") must
+// fail loudly rather than be emitted verbatim into the snapshot, where the golden's own
+// parser — which requires \*\*(frozen|stable|experimental)\*\* — would silently discard
+// the whole entry and leave it undetectable by every future signature change, removal or
+// demotion. declName identifies the offending declaration in the error.
+func resolveTier(pkgTier string, declName string, docs ...*ast.CommentGroup) (string, error) {
 	for _, doc := range docs {
-		if t := DeclStability(doc); t != "" {
-			return t
+		t := DeclStability(doc)
+		if t == "" {
+			continue
 		}
+		if !tiers[t] {
+			return "", fmt.Errorf(
+				"apisurface: unknown stability tier %q on %s; use one of `// Stability: frozen|stable|experimental`, "+
+					"re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md",
+				t, declName,
+			)
+		}
+		return t, nil
 	}
-	return pkgTier
+	return pkgTier, nil
 }
 
 // specDocOf returns the doc comment attached directly to spec, if any. A spec inside a
@@ -139,7 +159,7 @@ func specDocOf(spec ast.Spec) *ast.CommentGroup {
 	}
 }
 
-func declarations(fset *token.FileSet, file *ast.File, pkgTier string) []declEntry {
+func declarations(fset *token.FileSet, file *ast.File, pkgTier string) ([]declEntry, error) {
 	var out []declEntry
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
@@ -147,7 +167,11 @@ func declarations(fset *token.FileSet, file *ast.File, pkgTier string) []declEnt
 			if !d.Name.IsExported() || !receiverIsExported(d.Recv) {
 				continue
 			}
-			out = append(out, declEntry{funcSignature(fset, d), resolveTier(pkgTier, d.Doc)})
+			tier, err := resolveTier(pkgTier, d.Name.Name, d.Doc)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, declEntry{funcSignature(fset, d), tier})
 		case *ast.GenDecl:
 			// groupType carries a const group's implicitly repeated type across
 			// its specs: in "const ( A Kind = iota; B )", B has neither a type
@@ -165,12 +189,29 @@ func declarations(fset *token.FileSet, file *ast.File, pkgTier string) []declEnt
 						groupType = nil
 					}
 				}
-				tier := resolveTier(pkgTier, specDocOf(spec), d.Doc)
+				tier, err := resolveTier(pkgTier, specName(spec), specDocOf(spec), d.Doc)
+				if err != nil {
+					return nil, err
+				}
 				out = append(out, specDeclarations(fset, d.Tok, spec, groupType, tier)...)
 			}
 		}
 	}
-	return out
+	return out, nil
+}
+
+// specName names spec for resolveTier's error message: a ValueSpec's first name, or a
+// TypeSpec's own name.
+func specName(spec ast.Spec) string {
+	switch s := spec.(type) {
+	case *ast.ValueSpec:
+		if len(s.Names) > 0 {
+			return s.Names[0].Name
+		}
+	case *ast.TypeSpec:
+		return s.Name.Name
+	}
+	return "?"
 }
 
 func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec, groupType ast.Expr, tier string) []declEntry {

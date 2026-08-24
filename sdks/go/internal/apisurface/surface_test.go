@@ -131,6 +131,50 @@ func TestRenderPackageRefusesADirectoryWithNoGoFiles(t *testing.T) {
 	}
 }
 
+// A per-declaration override that is not one of the three valid tiers must fail
+// RenderPackage outright, exactly like an unknown package-level tier already does in
+// PackageStability. Left unvalidated, an idiomatic full-sentence doc comment like
+// "// Stability: frozen." renders as "**frozen.**" — a value the golden's own parser
+// (which requires \*\*(frozen|stable|experimental)\*\*) silently discards, so the
+// export vanishes from every future base/head diff undetected. See Finding 1.
+func TestRenderPackageRejectsAMalformedDeclOverride(t *testing.T) {
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
+
+// A does things.
+//
+// Stability: frozen.
+func A() {}
+`)
+	_, err := RenderPackage(dir)
+	if err == nil {
+		t.Fatal("want an error for a malformed per-declaration override, got nil")
+	}
+	if !strings.Contains(err.Error(), "frozen.") || !strings.Contains(err.Error(), "A") {
+		t.Errorf("error does not name the bad value or the declaration: %v", err)
+	}
+}
+
+// A correctly-cased, correctly-punctuated per-declaration override still works and wins
+// over the package tier.
+func TestRenderPackageAcceptsAValidDeclOverride(t *testing.T) {
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
+
+// B does things.
+//
+// Stability: frozen
+func B() {}
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	if !strings.Contains(got, "- `func B()` — **frozen**") {
+		t.Errorf("override did not apply:\n%s", got)
+	}
+}
+
 func TestRenderPackageRendersMethodWithReceiver(t *testing.T) {
 	// The brief's own rendering rule: "A method renders with its receiver:
 	// func (T) Name()." Nothing above exercised this — the sealed-interface

@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { generate, NotUtf8Error, TargetNotEmptyError, TEMPLATE_FILE_RENAMES } from "./generate.ts";
 import { parseName, TEMPLATE_NAME } from "./names.ts";
+import { walk } from "./test-support/walk.ts";
 
 const FIXTURE = join(import.meta.dir, "__fixtures__", "mini");
 
@@ -26,20 +27,6 @@ beforeEach(async () => {
 afterEach(async () => {
   await rm(target, { recursive: true, force: true });
 });
-
-/** Every file in `dir`, as target-relative POSIX paths, sorted. */
-async function walk(dir: string, prefix = ""): Promise<string[]> {
-  const out: string[] = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const rel = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) {
-      out.push(...(await walk(join(dir, entry.name), rel)));
-    } else {
-      out.push(rel);
-    }
-  }
-  return out.sort();
-}
 
 describe("generate", () => {
   test("rewrites the name in file contents", async () => {

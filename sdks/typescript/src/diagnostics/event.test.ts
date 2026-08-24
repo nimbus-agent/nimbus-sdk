@@ -179,6 +179,37 @@ describe("encodeDiagnostic — member validation", () => {
     ).toBe("/error/stack");
   });
 
+  // §5: `invalid-error` covers "has a `retriable` that is not a boolean". Nothing else in
+  // this suite, and no case in the shared conformance corpus, touches `retriable` at all —
+  // so both halves of the optional member are asserted here: the accepted boolean, and the
+  // rejection with the pointer that names the offending member rather than `/error`.
+  // `0` / `1` are the values that matter: a binding whose language has no distinct boolean
+  // on the wire sends those, and coercing them here would let two implementations of the
+  // same spec disagree about a field that decides whether a caller retries.
+  test("accepts a boolean error.retriable and rejects any other type at /error/retriable", () => {
+    expect(
+      line(encodeDiagnostic({ ...BASE, error: { code: "rate.limited", retriable: true } })),
+    ).toContain('"error":{"code":"rate.limited","retriable":true}');
+    expect(
+      line(encodeDiagnostic({ ...BASE, error: { code: "rate.limited", retriable: false } })),
+    ).toContain('"error":{"code":"rate.limited","retriable":false}');
+
+    for (const bad of [1, 0, "true", null, {}]) {
+      expect(
+        rejection(encodeDiagnostic({ ...BASE, error: { code: "rate.limited", retriable: bad } })),
+      ).toEqual({ reason: "invalid-error", path: "/error/retriable" });
+    }
+  });
+
+  test("rejects a non-boolean error.retriable arriving off the wire", () => {
+    const wire =
+      '{"nimbus":"diag","ts":"2026-08-01T12:00:00.000Z","level":"error","extensionId":"acme-gcal","event":"sync.page","error":{"code":"rate.limited","retriable":1}}';
+    expect(parseRejection(parseDiagnostic(wire))).toEqual({
+      reason: "invalid-error",
+      path: "/error/retriable",
+    });
+  });
+
   test("rejects a line over the framing limit", () => {
     // IPC_MAX_LINE_BYTES is 1 MiB. Repeating it exactly puts the extensionId alone at
     // the limit, so the surrounding envelope carries the line over it. Driving this off

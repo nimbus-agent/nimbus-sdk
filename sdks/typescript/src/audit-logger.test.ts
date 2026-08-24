@@ -24,6 +24,20 @@ describe("createScopedAuditLogger", () => {
     await expect(logger.log("", {})).rejects.toThrow(/empty/);
   });
 
+  // Rejected at CONSTRUCTION, not at the first log() call. The scoped id is the whole point
+  // of this wrapper: with a blank one every row it writes is prefixed ":" or "   :", which
+  // still parses as a scoped action and still reaches the sink — an audit trail attributed
+  // to nobody, produced without an error anywhere. Whitespace is the case a bare falsy check
+  // misses, and the case a caller reading an id out of a config file actually hits.
+  test("refuses an empty or all-whitespace extension id at construction", () => {
+    expect(() => createScopedAuditLogger("", async () => {})).toThrow(
+      "extensionId must be non-empty",
+    );
+    expect(() => createScopedAuditLogger("   \t\n", async () => {})).toThrow(
+      "extensionId must be non-empty",
+    );
+  });
+
   test("propagates emit errors unchanged", async () => {
     const logger = createScopedAuditLogger("ext.foo", async () => {
       throw new Error("downstream");

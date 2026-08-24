@@ -304,6 +304,17 @@ describe("parseICalendar", () => {
     expect(e?.summary).toBe("LF only");
   });
 
+  // parseICalendar's documented contract is "Never throws; malformed input is handled
+  // best-effort", and the realistic call site is `parseICalendar(await res.text())` — a
+  // boundary where the value is untyped in practice however it is declared here. The
+  // per-block try/catch above only covers malformed *strings*; the outer one covers a
+  // caller that never had a string, which is what an absent body or a JS consumer produces.
+  it("returns [] rather than throwing when the input is not a string at all", () => {
+    expect(parseICalendar(undefined as unknown as string)).toEqual([]);
+    expect(parseICalendar(null as unknown as string)).toEqual([]);
+    expect(parseICalendar(42 as unknown as string)).toEqual([]);
+  });
+
   // Tab-based fold continuation
   it("unfolds a line continued with a TAB", () => {
     const src =

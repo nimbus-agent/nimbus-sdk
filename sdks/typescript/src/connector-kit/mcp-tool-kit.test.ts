@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { restoreGlobalFetch, stubGlobalFetch } from "../test-support/global-fetch-stub.js";
 import {
   createRegisterSimpleTool,
   createZodToolRegistrar,
@@ -302,21 +303,31 @@ describe("requireProcessEnv", () => {
 // ─── fetchWithTimeout ────────────────────────────────────────────────────────────
 
 describe("fetchWithTimeout", () => {
-  const originalFetch = globalThis.fetch;
+  afterEach(restoreGlobalFetch);
 
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
+  /**
+   * A request that never settles on its own and rejects only when the signal it was handed
+   * aborts — the shape both the timeout test and the caller-signal test need, and the one
+   * thing that distinguishes them from a stub that resolves. Written once because the two
+   * copies had to stay identical for the pair to prove what it claims: that the SAME hanging
+   * request is aborted by the timer in one case and by the caller in the other.
+   */
+  const hangsUntilAborted = (_url: string, init?: RequestInit): Promise<Response> =>
+    new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener("abort", () => {
+        reject(new DOMException("The operation was aborted.", "AbortError"));
+      });
+    });
 
   test("resolves with the underlying Response and forwards url/init", async () => {
     const response = new Response("ok", { status: 201 });
     let seenUrl: string | undefined;
     let seenInit: RequestInit | undefined;
-    globalThis.fetch = (async (url: string, init?: RequestInit) => {
+    stubGlobalFetch((url, init) => {
       seenUrl = url;
       seenInit = init;
       return response;
-    }) as typeof fetch;
+    });
 
     const result = await fetchWithTimeout("https://x.example/y", { method: "POST" });
 
@@ -326,27 +337,13 @@ describe("fetchWithTimeout", () => {
   });
 
   test("aborts via its own timeout when the request hangs past timeoutMs", async () => {
-    globalThis.fetch = ((_url: string, init?: RequestInit) => {
-      const signal = init?.signal;
-      return new Promise((_resolve, reject) => {
-        signal?.addEventListener("abort", () => {
-          reject(new DOMException("The operation was aborted.", "AbortError"));
-        });
-      });
-    }) as typeof fetch;
+    stubGlobalFetch(hangsUntilAborted);
 
     await expect(fetchWithTimeout("https://x.example", {}, 10)).rejects.toThrow();
   });
 
   test("composes a caller-supplied signal with the timeout's own", async () => {
-    globalThis.fetch = ((_url: string, init?: RequestInit) => {
-      const signal = init?.signal;
-      return new Promise((_resolve, reject) => {
-        signal?.addEventListener("abort", () => {
-          reject(new DOMException("The operation was aborted.", "AbortError"));
-        });
-      });
-    }) as typeof fetch;
+    stubGlobalFetch(hangsUntilAborted);
 
     const callerController = new AbortController();
     // A generous timeout: this must reject because the CALLER aborted, not the timer.
@@ -361,9 +358,9 @@ describe("fetchWithTimeout", () => {
   });
 
   test("does not swallow a fetch rejection unrelated to the timeout", async () => {
-    globalThis.fetch = (async (_url: string, _init?: RequestInit): Promise<Response> => {
+    stubGlobalFetch(() => {
       throw new Error("network down");
-    }) as typeof fetch;
+    });
 
     await expect(fetchWithTimeout("https://x.example")).rejects.toThrow("network down");
   });

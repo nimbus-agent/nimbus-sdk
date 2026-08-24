@@ -52,8 +52,10 @@ that export's own JSDoc (used by exactly one export today: `resolveUrlWithBase`,
 `frozen` inside the otherwise-`experimental` `connector-kit/fetch-bearer-json.js`).
 There is **no default tier** — `api-surface.ts` throws, naming the module, if a reachable
 module has neither tag, which is what makes the rule load-bearing rather than aspirational.
-`bun run api:surface` projects the resolved tier into `docs/api-surface.md` as a trailing
-`— **tier**` on each export's line.
+`bun run api:surface` projects the resolved tier into `docs/api-surface.md` as its own
+`**Stability:** <tier>` line under each export's heading — not the trailing `— **tier**`
+form Python's and Go's goldens use (see below); the guard's parser has two different code
+paths keyed on exactly this distinction.
 
 ## Python surface (four import roots, deliberately)
 
@@ -312,7 +314,7 @@ walker errors out naming the package, there is no default.
 `go -C sdks/go run ./internal/apisurface/cmd` projects the resolved tier into
 `docs/api-surface-go.md` as a trailing `— **tier**` on each declaration's line.
 
-**None of the five TypeScript CI checks above apply to Go**, but Go now has an
+**None of the five TypeScript CI checks below apply to Go**, but Go now has an
 export-granularity gate of its own, shipped separately from them: the generated
 `docs/api-surface-go.md`, gated by
 `sdks/go/internal/apisurface/cmd/golden_test.go`, which fails the pull request when the

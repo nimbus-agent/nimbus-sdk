@@ -16,9 +16,8 @@ Please report security issues **privately** rather than opening a public issue:
 - Follow the disclosure process in the main
   [Nimbus security policy](https://github.com/nimbus-agent/Nimbus/security/policy).
 
-Please include reproduction steps and the SDK version (and, once the polyglot SDKs
-exist, **which language SDK** and its version). We aim to acknowledge reports
-within a few business days.
+Please include reproduction steps, **which language SDK** — TypeScript, Python or Go —
+and its version. We aim to acknowledge reports within a few business days.
 
 ## Scope
 

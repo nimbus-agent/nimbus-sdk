@@ -276,8 +276,11 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   its own version in `.release-please-manifest.json` and maintains its own
   `CHANGELOG`.
 - **A reusable release workflow** (harden → build/test → publish → post-publish
-  verify) is defined once and called by each language's job, so the hardened pipeline
-  isn't re-implemented three times ([roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries)).
+  verify), defined once and called by each language's job so the hardened pipeline is not
+  re-implemented three times, is **not built yet** — it is an open
+  [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries) box. Today
+  `release.yml` and `release-go.yml` spell each language's pipeline out inline; no
+  workflow in `.github/workflows/` declares `workflow_call`.
 - The conformance suite gates release: an SDK that fails it does not publish. See
   [SECURITY.md](./SECURITY.md#multi-language-supply-chain) for the supply-chain posture
   and [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official) for what makes a

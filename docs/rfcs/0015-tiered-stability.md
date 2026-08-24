@@ -157,7 +157,7 @@ not a compromise — it is what Phase 4's *"a published stability / support matr
 tier **and** language"* already presupposes, and requiring uniformity would force every
 binding down to the youngest one's tier.
 
-56 modules or packages are classified below: 35 in TypeScript, 16 in Python, 5 in Go.
+57 modules or packages are classified below: 35 in TypeScript, 17 in Python, 5 in Go.
 
 ### 3.1 TypeScript — 35 modules across five entry points
 
@@ -194,18 +194,26 @@ counterpart, which `CLAUDE.md` and `sdks/python/README.md` both record as a stan
 surface asymmetry, and no corpus executes it. It is the clearest case in the surface of
 something published ahead of its contract.
 
-### 3.2 Python — 16 modules across four roots
+### 3.2 Python — 17 modules across four roots
 
 | Tier | Modules |
 |---|---|
 | `frozen` | `contract.py`, `ipc/hello.py`, `ipc/ndjson.py`, `ipc/handshake.py`, `diagnostics/event.py`, `connector_kit/urls.py` |
-| `stable` | `spec.py`, `diagnostics/timestamp.py`, `connector_kit/errors.py`, `connector_kit/env.py`, `connector_kit/types.py`, `connector_kit/results.py`, `connector_kit/search_filter.py` |
+| `stable` | `__init__.py`, `spec.py`, `diagnostics/timestamp.py`, `connector_kit/errors.py`, `connector_kit/env.py`, `connector_kit/types.py`, `connector_kit/results.py`, `connector_kit/search_filter.py` |
 | `experimental` | `connector_kit/transport.py`, `connector_kit/router.py`, `connector_kit/rest.py` |
 
 `connector_kit/urls.py` is `frozen` on its own merits — `resolve_url_with_base` binds
 `url-resolution.md` and runs its corpus — where the Shipment 2 modules beside it have no
 corpus and are weeks old. `ipc/handshake.py` is `frozen` under the same exception as
 TypeScript's `handshake.js` — see [§4](#4-two-classification-calls-worth-recording).
+
+`__init__.py` is `stable`, and it earns its own row for a reason none of the other three
+barrels (`ipc/__init__.py`, `diagnostics/__init__.py`, `connector_kit/__init__.py`) share:
+it is the one root that *defines* a name — `__version__`, bound in both arms of a
+try/except — rather than only re-exporting names other modules define. `defining_modules`
+places `__version__` at `nimbus_sdk`, so `nimbus_sdk` needs a `__stability__` of its own to
+resolve it, and it carries `__stability__ = "stable"`. The other three barrels have no
+name of their own to tag and so carry none.
 
 ### 3.3 Go — 5 packages
 
@@ -327,7 +335,7 @@ today.
 ## Shipments
 
 1. **RFC-0015** — this document. Vocabulary, the rule table, the floor-not-certificate
-   opening, the declared-impact reasoning of §2.1, deprecation orthogonality, all 56
+   opening, the declared-impact reasoning of §2.1, deprecation orthogonality, all 57
    classification rows, the RFC-link requirement, and the §Problem scope boundary. Cuts no
    release.
 2. **TypeScript** — the `@stability` / `@moduleStability` tags, `api-surface.ts` emitting
@@ -335,7 +343,7 @@ today.
    reachable module is untagged. `feat:`.
 3. **Python** — `__stability__` / `__stability_overrides__`, the two-step AST-then-runtime
    resolver this design needs (a module's defining scope is not always the module whose
-   `__all__` the surface generator reads), `api_surface.py` emitting the tier, 16 modules
+   `__all__` the surface generator reads), `api_surface.py` emitting the tier, 17 modules
    tagged, golden regenerated, untagged-module guard. `feat:`. The resolver is the largest
    single piece of work in shipments 2–4; it is not sized alongside the other two.
 4. **Go** — the `// Stability:` doc-comment convention read across every file in each

@@ -370,12 +370,23 @@ maintained."*
   per-language guard knows the corpus exists.
 - [x] **Tiered stability** markers separating battle-tested helpers from the frozen
   core — *Pillars 3, 7*. Three tiers — `frozen`, `stable`, `experimental` — declared per
-  export in source across all three bindings (56 modules or packages: 35 TypeScript, 16
+  export in source across all three bindings (57 modules or packages: 35 TypeScript, 17
   Python, 5 Go), projected into the three generated API-surface goldens, and enforced by
   a second rule inside `conventional-commit-guard.ts` mapping a surface diff to the
   minimum Conventional Commit type it requires. The tier definitions, the rule table, and
-  the full 56-row classification are [RFC-0015](./rfcs/0015-tiered-stability.md)'s, not
+  the full 57-row classification are [RFC-0015](./rfcs/0015-tiered-stability.md)'s, not
   repeated here.
+
+  **Ticked with one step still outstanding, honestly stated rather than dropped.**
+  RFC-0015's own front matter conditions this box on Shipment 5 landing *and* its
+  deployment step — marking the guard's workflow check as required in branch protection —
+  being done. Shipment 5 has landed; the branch-protection change has not, because it is a
+  repository-settings change outside what a change in this repository can make, and this
+  box does not silently narrow that condition to only the part already true. Until that
+  setting is changed, the guard's check **reports without blocking**: a PR that fails it
+  shows a red status but can still be merged. The `[x]` reflects the guard existing,
+  running on every pull request, and computing the right answer — not that it is yet
+  enforced as a required check.
 
   **This box's own wording is imprecise, the way the Go provenance box's once was — and
   the correction is recorded the same way.** "Separating battle-tested helpers from the

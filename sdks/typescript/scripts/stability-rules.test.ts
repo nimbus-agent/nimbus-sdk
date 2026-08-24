@@ -64,9 +64,15 @@ describe("requiredFor", () => {
   });
 });
 
-const surface = (name: string, tier: string, decl: string, deprecated = false): string =>
+const surface = (
+  name: string,
+  tier: string,
+  decl: string,
+  deprecated = false,
+  typeOnly = false,
+): string =>
   [
-    `### \`${name}\``,
+    `### \`${name}\`${typeOnly ? " *(type-only)*" : ""}`,
     "",
     ...(deprecated ? ["**Deprecated:** gone soon", ""] : []),
     `**Stability:** ${tier}`,
@@ -113,6 +119,21 @@ describe("parseSurface / diffSurfaces", () => {
     const base = parseSurface(surface("a", "stable", "declare const a: number;"));
     const head = parseSurface(surface("a", "stable", "declare const a: string;"));
     expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  // Finding 6: renderSurface appends " *(type-only)*" OUTSIDE the backticks, where
+  // HEADING's capture group cannot see it. A barrel flip from `export { SomeClass }`
+  // to `export type { SomeClass }` is breaking for value consumers, so it must be
+  // detected — folded into `declaration` rather than dropped on the floor.
+  test("a type-only flip is detected as a signature change", () => {
+    const base = parseSurface(surface("A", "stable", "declare class A {}", false, false));
+    const head = parseSurface(surface("A", "stable", "declare class A {}", false, true));
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  test("an unchanged type-only marker produces no change", () => {
+    const only = surface("A", "stable", "declare class A {}", false, true);
+    expect(diffSurfaces(parseSurface(only), parseSurface(only), "typescript")).toEqual([]);
   });
 
   test("detects a demotion and a promotion", () => {

@@ -86,6 +86,13 @@ const TIER_RANK: Record<Tier, number> = { experimental: 0, stable: 1, frozen: 2 
 // Exactly two backtick-fenced hashes — `### ` (three) is an export heading, not this.
 const SECTION = /^## `([^`]+)`/;
 const HEADING = /^### `([^`]+)`/;
+// The marker `renderSurface` appends OUTSIDE the backticks on a type-only export's
+// heading line — `### \`Name\` *(type-only)*` — so HEADING's capture group never sees
+// it. Folded into `declaration` below rather than left unparsed: a barrel flip from
+// `export { SomeClass }` to `export type { SomeClass }` is breaking for value
+// consumers, and without this the flip changed the golden but produced zero detected
+// changes. See Finding 6.
+const TYPE_ONLY_SUFFIX = " *(type-only)*";
 const STABILITY_LINE = /^\*\*Stability:\*\* (frozen|stable|experimental)\b/;
 const BULLET = /^- `(.+)` — \*\*(frozen|stable|experimental)\*\*\s*$/;
 // An indented continuation of a bullet entry: a Python class's member or Protocol
@@ -199,6 +206,10 @@ export function parseSurface(markdown: string): Map<string, SurfaceEntry> {
     if (heading !== null) {
       flushHeading();
       name = heading[1] ?? null;
+      // Fold the type-only marker into `declaration` (rather than `name`, which
+      // `diffSurfaces` reports verbatim) so a flip between `export { X }` and
+      // `export type { X }` registers as a "signature" change.
+      declaration = line.trimEnd().endsWith(TYPE_ONLY_SUFFIX) ? "type-only\n" : "";
       continue;
     }
 

@@ -89,17 +89,32 @@ points, and with Python and Go that is roughly 350 hand-written annotations for 
 expressiveness that 56 module-level decisions buy. CI fails on any module with no tier,
 so a new module cannot slip in untagged and inherit a default nobody chose.
 
-- **TypeScript** — a `@stability frozen` JSDoc tag on the module's file-level doc block,
-  or on an individual export to override.
+- **TypeScript** — **two distinct tags**, not one tag in two positions:
 
   ```ts
-  /** @stability experimental */
+  /** @moduleStability experimental */   // module default, anywhere in the file, exactly once
+  /** @stability frozen */               // per-export override, on the declaration's own block
   ```
 
   `api-surface.ts` already has `collectDeprecations`, which parses **raw module text**
   before comment-stripping, maps each declared name to its tag body, and handles the
   tag-boundary problem (a following `@param` must not swallow the message). The
   `@stability` tag is that machinery a second time, and inherits its solved edge cases.
+
+  **The two tag names are load-bearing, and a single tag distinguished by position would
+  be wrong.** `api-surface.ts` reads `dist/`, not `src/`. `tsc` does preserve a
+  file-level JSDoc block into the emitted `.d.ts` — verified against
+  `dist/icalendar.d.ts`, where the module docblock survives verbatim — but it emits it
+  **immediately adjacent to the first declaration, with no blank line**: that block ends
+  at line 14 and `export interface ParsedEvent` begins at line 15. So
+  `declaredNameOf(after)` returns `ParsedEvent` for the module's own docblock, and any
+  rule of the form "a `@stability` block that annotates no declaration is the module
+  default" would silently attribute the module default to whichever export happens to be
+  declared first. Distinct tag names remove the positional inference entirely: the
+  module default is the file's unique `@moduleStability` tag wherever it sits, and every
+  `@stability` tag is an override on the name `declaredNameOf` returns.
+
+  More than one `@moduleStability` in a file is a hard error, matching the Go rule below.
 
 - **Python** — a module attribute on the module that *defines* the name:
 

@@ -24,8 +24,12 @@
  * from `ci.yml`, because this guard reads the PR *title* and must re-run on an `edited`
  * event, which `ci.yml`'s full matrix cannot afford to re-run on every retitle. On
  * anything else it exits 0 with a note rather than being skipped by an `if:` in the
- * workflow: `ci-complete` treats a skipped dependency as a failure, so a job that opts
- * out of a push build must do so from the inside.
+ * workflow: once branch protection marks `commit-guard` as a required check (RFC-0015
+ * Shipment 5's still-outstanding deployment step — see docs/ROADMAP.md), a run that
+ * never reports a check because `if:` skipped the job blocks the PR forever, since
+ * GitHub has no way to read "skipped" as "not applicable" for a required check. So the
+ * job must always report a real conclusion, and it does so by exiting 0 with an
+ * explanatory note rather than by not running at all.
  *
  * Also usable locally against any PR, which is how the carried-commits rule was checked
  * against the release this guard exists to prevent:
@@ -117,6 +121,18 @@ function ensureBaseTree(baseSha: string): void {
       `could not fetch base ${baseSha}: ${fetched.stderr.toString()}\n` +
         "Running locally against a fork or a remote not named `origin`? Fetch the base " +
         "commit yourself first, then re-run — this guard will then skip the fetch.",
+    );
+  }
+
+  // The fetch's exit code alone is not proof the tree is now readable: a `git fetch` that
+  // exits 0 without landing a readable `<sha>^{tree}` would otherwise fall through
+  // silently, and every `goldenAt` call below maps unreadable and absent to the same ""
+  // — so every export in the repository would read as newly added, and a PR deleting a
+  // frozen export would pass as `feat:`. Re-check rather than trust the exit code.
+  if (Bun.spawnSync(["git", "cat-file", "-e", `${baseSha}^{tree}`]).exitCode !== 0) {
+    throw new Error(
+      `fetched base ${baseSha} but its tree is still not readable — refusing to run the ` +
+        "surface-tier rule against an empty base, which would make every export look newly added.",
     );
   }
 }

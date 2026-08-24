@@ -60,6 +60,7 @@ class Export:
     name: str
     kind: Kind
     obj: object
+    stability: str
 
 
 #: Runtime types that mean "this name is a type alias, not data". Measured on 3.14.6
@@ -103,9 +104,13 @@ def collect(root: str) -> list[Export]:
     names = getattr(module, "__all__", None)
     if names is None:
         raise RuntimeError(f"{root} declares no __all__; it is not a published root")
+    defining = defining_modules()
     exports = [
         Export(
-            name=name, kind=_classify(getattr(module, name)), obj=getattr(module, name)
+            name=name,
+            kind=_classify(getattr(module, name)),
+            obj=getattr(module, name),
+            stability=stability_of(name, defining),
         )
         for name in names
     ]
@@ -158,9 +163,25 @@ def alias_sources() -> dict[str, str]:
 #: The three tiers. No other value is valid, and there is no default.
 _TIERS = frozenset({"frozen", "stable", "experimental"})
 
+#: Module-level names that declare metadata ABOUT a module rather than defining
+#: something the module exports. Every tagged module repeats `__stability__` and every
+#: barrel (plus `transport.py`) repeats `__all__`, so admitting either to the collision
+#: check below would make a legitimate, module-local declaration look like two modules
+#: fighting over one name. `stability_of` never reaches either through
+#: `defining_modules` — it reads both straight off the imported module object.
+_MODULE_METADATA_NAMES = frozenset(
+    {"__all__", "__stability__", "__stability_overrides__"}
+)
+
 #: AST nodes that DEFINE a name at module level. `ast.ImportFrom` is deliberately
 #: absent: an import is a re-export, and every published root is a re-export barrel.
-_DEFINITION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
+_DEFINITION_NODES = (
+    ast.FunctionDef,
+    ast.AsyncFunctionDef,
+    ast.ClassDef,
+    ast.Assign,
+    ast.AnnAssign,
+)
 
 #: Blocks whose bodies are still module scope. A name bound inside one is as published
 #: as any other — `nimbus_sdk/__init__.py` defines `__version__`, which IS in `__all__`,
@@ -234,14 +255,17 @@ def defining_modules() -> dict[str, str]:
             for name in _bound_names(node):
                 if name.startswith("_") and not name.startswith("__"):
                     continue
-                if name == "__all__":
-                    # Meta, not an export: every barrel and `transport.py` declares its
-                    # own `__all__`, so treating it like any other dunder binding would
+                if name in _MODULE_METADATA_NAMES:
+                    # Meta, not an export: every barrel (plus `transport.py`) declares
+                    # its own `__all__`, and every tagged module its own `__stability__`
+                    # — legitimately repeated, module-local declarations, not names any
+                    # `__all__` ever lists. Treating them like ordinary bindings would
                     # raise a cross-module collision on a name `stability_of` never
-                    # looks up in the first place — `__all__` never appears in anyone's
-                    # `__all__`. `__version__` needs no equivalent guard: it is bound
-                    # twice, but both bindings are in the SAME module (a try/except),
-                    # which the collision check already tolerates.
+                    # looks up through `found` in the first place — it reads
+                    # `__stability__`/`__stability_overrides__` straight off the
+                    # imported module object. `__version__` needs no equivalent guard:
+                    # it is bound twice, but both bindings are in the SAME module (a
+                    # try/except), which the collision check already tolerates.
                     continue
                 previous = found.get(name)
                 if previous is not None and previous != module:
@@ -254,15 +278,19 @@ def defining_modules() -> dict[str, str]:
 
 
 def stability_of(name: str, defining: dict[str, str]) -> str:
-    """The tier for ``name``: its defining module's default, or that module's override."""
+    """The tier for ``name``: its defining module's default, or that module's
+    override."""
     module_path = defining.get(name)
     if module_path is None:
         raise RuntimeError(f'"{name}" has no defining module under src/nimbus_sdk/')
     module = importlib.import_module(module_path)
-    overrides = getattr(module, "__stability_overrides__", {})
-    tier = overrides.get(name, getattr(module, "__stability__", None))
+    overrides: dict[str, str] = getattr(module, "__stability_overrides__", {})
+    default: str | None = getattr(module, "__stability__", None)
+    tier: str | None = overrides.get(name, default)
     if tier is None:
-        raise RuntimeError(f"{module_path} declares no __stability__ (needed for {name})")
+        raise RuntimeError(
+            f"{module_path} declares no __stability__ (needed for {name})"
+        )
     if tier not in _TIERS:
         raise RuntimeError(f'{module_path} declares unknown tier "{tier}"')
     return tier
@@ -379,25 +407,32 @@ def render_export(
     """The Markdown bullet lines for one export.
 
     A list because a class renders as several lines — its own bullet plus one per
-    member.
+    member. The tier is appended to the FIRST line only — the export's own bullet, not
+    its members' — as `` — **tier**`` (an em dash, a single space either side, the tier
+    wrapped in double asterisks). That exact shape is a hard contract: a later gate
+    parses it with a regex, and a different separator makes it parse zero entries and
+    silently pass everything.
     """
     if export.kind is Kind.FUNCTION:
-        return [f"- `{_signature(export.name, export.obj)}`"]
-    if export.kind is Kind.ALIAS:
+        lines = [f"- `{_signature(export.name, export.obj)}`"]
+    elif export.kind is Kind.ALIAS:
         source = aliases.get(export.name)
         if source is None:
             raise RuntimeError(
                 f"no source text for alias {export.name}; "
                 "it is not a module-level assignment under src/nimbus_sdk/"
             )
-        return [f"- `{export.name} = {source}`"]
-    if export.kind is Kind.CLASS:
-        return _render_class(export)
-    # The annotation where one exists, otherwise the runtime type. CONTRACT_VERSIONS is
-    # declared `tuple[str, ...]` and its runtime type is merely `tuple`; the declaration
-    # is what a consumer reads.
-    declared = annotations.get(export.name)
-    return [f"- `{export.name}: {declared or type(export.obj).__name__}`"]
+        lines = [f"- `{export.name} = {source}`"]
+    elif export.kind is Kind.CLASS:
+        lines = _render_class(export)
+    else:
+        # The annotation where one exists, otherwise the runtime type. CONTRACT_VERSIONS
+        # is declared `tuple[str, ...]` and its runtime type is merely `tuple`; the
+        # declaration is what a consumer reads.
+        declared = annotations.get(export.name)
+        lines = [f"- `{export.name}: {declared or type(export.obj).__name__}`"]
+    lines[0] = f"{lines[0]} — **{export.stability}**"
+    return lines
 
 
 def _is_ours(klass: type) -> bool:

@@ -9,6 +9,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+__stability__ = "stable"
+
 _BUNDLED = Path(__file__).resolve().parent / "_data" / "spec"
 #: nimbus_sdk -> src -> python -> sdks -> repo root
 _REPO_SPEC = Path(__file__).resolve().parents[4] / "docs" / "spec"

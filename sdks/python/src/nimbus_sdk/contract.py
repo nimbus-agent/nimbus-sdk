@@ -11,6 +11,8 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+__stability__ = "frozen"
+
 #: A contract version is a decimal major with no leading zeros. ASCII digits only.
 CONTRACT_VERSION_PATTERN = re.compile(r"^[1-9][0-9]*$")
 

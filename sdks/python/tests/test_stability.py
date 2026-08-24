@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import pytest
-
 from api_surface import defining_modules, stability_of
 
 TIERS = {"frozen", "stable", "experimental"}
@@ -23,7 +22,8 @@ def test_locates_a_class_in_the_same_module_as_that_constant() -> None:
 
 
 def test_locates_a_name_from_a_module_with_no_dunder_all() -> None:
-    """Only 5 of 20 files under src/nimbus_sdk/ declare __all__, and four are barrels."""
+    """Only 5 of 20 files under src/nimbus_sdk/ declare __all__, and four are
+    barrels."""
     assert defining_modules()["load_schema"] == "nimbus_sdk.spec"
 
 
@@ -45,7 +45,13 @@ def test_locates_a_name_defined_inside_a_try_block() -> None:
 
 def test_every_published_name_resolves_to_a_tier() -> None:
     defining = defining_modules()
-    for root in ("nimbus_sdk", "nimbus_sdk.ipc", "nimbus_sdk.diagnostics", "nimbus_sdk.connector_kit"):
+    roots = (
+        "nimbus_sdk",
+        "nimbus_sdk.ipc",
+        "nimbus_sdk.diagnostics",
+        "nimbus_sdk.connector_kit",
+    )
+    for root in roots:
         module = __import__(root, fromlist=["__all__"])
         for name in module.__all__:
             assert stability_of(name, defining) in TIERS

@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any, Literal, NotRequired, TypedDict
 
+__stability__ = "stable"
+
 
 class McpTextContent(TypedDict):
     """One text block in an MCP tool result."""

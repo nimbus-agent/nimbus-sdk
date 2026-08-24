@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+__stability__ = "stable"
+
 
 def format_timestamp(value: datetime) -> str:
     """Render a timezone-aware datetime as ``YYYY-MM-DDTHH:MM:SS.mmmZ``.

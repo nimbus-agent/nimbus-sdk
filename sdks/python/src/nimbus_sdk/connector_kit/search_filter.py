@@ -26,6 +26,8 @@ from collections.abc import Callable, Sequence
 from nimbus_sdk.connector_kit.results import json_result
 from nimbus_sdk.connector_kit.types import McpToolResult
 
+__stability__ = "stable"
+
 #: Reads the searchable string parts off one row, or ``None`` to skip the row entirely.
 FieldExtractor = Callable[[object], Sequence[str | None] | None]
 

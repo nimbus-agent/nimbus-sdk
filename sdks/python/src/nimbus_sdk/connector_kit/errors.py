@@ -16,6 +16,8 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit, urlunsplit
 
+__stability__ = "stable"
+
 
 class ConnectorKitError(Exception):
     """Base class for every error the connector kit raises."""

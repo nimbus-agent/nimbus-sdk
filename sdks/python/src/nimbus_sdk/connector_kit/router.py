@@ -15,6 +15,8 @@ from typing import Any, cast
 from nimbus_sdk.connector_kit.results import error_result
 from nimbus_sdk.connector_kit.types import McpToolDescriptor, McpToolResult
 
+__stability__ = "experimental"
+
 #: A tool implementation. May be sync or async; the router resolves which.
 ToolHandler = Callable[[dict[str, Any]], "McpToolResult | Awaitable[McpToolResult]"]
 

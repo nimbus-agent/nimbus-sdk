@@ -31,6 +31,8 @@ from nimbus_sdk.contract import (
 from nimbus_sdk.ipc.hello import HelloRefused, encode_hello, parse_hello
 from nimbus_sdk.ipc.ndjson import NdjsonLineReader
 
+__stability__ = "frozen"
+
 
 class HandshakeIO(Protocol):
     """The byte stream, supplied by the caller.

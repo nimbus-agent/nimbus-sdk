@@ -1,3 +1,5 @@
+/** @moduleStability stable */
+
 /** Shared agent-brief type building blocks — identical across gateway and CLI. */
 
 export type Evidence = {

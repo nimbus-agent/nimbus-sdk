@@ -1,6 +1,8 @@
 /**
  * Apple App Store Connect API authentication — a short-lived ES256 JWT.
  *
+ * @moduleStability stable
+ *
  * The App Store Connect API authenticates with a JWT bearer token minted from
  * the developer's EC P-256 `.p8` private key (Apple caps the lifetime at 20
  * min). Shared so the gateway sync and a connector's MCP server sign

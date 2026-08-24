@@ -656,7 +656,7 @@ function resolveStability(modulePath: string, name: string, stability: ModuleSta
     throw new Error(
       `${modulePath} has no @moduleStability tag and no @stability override for "${name}".\n` +
         "Every module reachable from the published surface must declare a tier.\n" +
-        'Fix: add `/** @moduleStability frozen|stable|experimental */` to the module in ' +
+        "Fix: add `/** @moduleStability frozen|stable|experimental */` to the module in " +
         "sdks/typescript/src/, then re-run `bun run build && bun run api:surface`.\n" +
         "See docs/rfcs/0015-tiered-stability.md for which tier applies.",
     );

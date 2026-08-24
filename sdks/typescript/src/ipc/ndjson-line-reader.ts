@@ -1,3 +1,5 @@
+/** @moduleStability frozen */
+
 /** Max bytes per NDJSON line (UTF-8), aligned with IPC protocol limits. */
 export const IPC_MAX_LINE_BYTES = 1024 * 1024;
 

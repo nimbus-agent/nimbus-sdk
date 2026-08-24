@@ -1,5 +1,7 @@
 /**
  * Shared types for Nimbus extensions
+ *
+ * @moduleStability frozen
  */
 
 import type { KnownItemType } from "./item-types.js";

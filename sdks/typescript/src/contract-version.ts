@@ -1,6 +1,8 @@
 /**
  * Contract-version negotiation — the algorithm half.
  *
+ * @moduleStability frozen
+ *
  * Normative document: `docs/spec/negotiation/v1/contract-version.md` (RFC-0005). The frame half
  * lives in `src/ipc/hello.ts`, because that export already owns frames.
  *

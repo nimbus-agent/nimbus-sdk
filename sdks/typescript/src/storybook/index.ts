@@ -3,6 +3,8 @@
  * connector (storybook-story-mapping.ts) and the MCP connector
  * (storybook/src/storybook-parse.ts).
  *
+ * @moduleStability experimental
+ *
  * PURE: no I/O, no env reads, no network. Filesystem reads stay in each caller.
  * Handles both the v7+ `{ entries: {…} }` shape and the legacy v6
  * `{ stories: {…} }` shape.

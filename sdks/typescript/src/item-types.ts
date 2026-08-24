@@ -2,6 +2,8 @@
  * The item-type vocabulary the Nimbus gateway writes to the `item` table's
  * `type` column.
  *
+ * @moduleStability frozen
+ *
  * This is an OPEN enum. There is no canonical enumeration of these values in
  * the gateway: they are bare string literals spread across ~70 connector
  * mapping modules, all funnelling through the single writer

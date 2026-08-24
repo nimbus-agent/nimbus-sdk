@@ -1,6 +1,8 @@
 /**
  * The hello frame — the one message this package specifies.
  *
+ * @moduleStability frozen
+ *
  * Normative document: `docs/spec/negotiation/v1/contract-version.md` (RFC-0005). Message
  * envelopes, correlation, method names, error objects, and liveness remain out of scope, exactly
  * as `docs/spec/wire/v1/framing.md` §1 declares; this is one self-describing frame in each

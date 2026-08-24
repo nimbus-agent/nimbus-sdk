@@ -2,6 +2,8 @@
  * `@nimbus-dev/sdk/testing` — utilities for extension authors and the
  * gateway's own connector tests.
  *
+ * @moduleStability stable
+ *
  * Exports:
  *   - `MockGateway` — mock Gateway IPC for unit tests (Phase 4).
  *   - `runSandboxContractTests(manifestPath)` — fork the probe binary and

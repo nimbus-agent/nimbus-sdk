@@ -1,6 +1,8 @@
 /**
  * The authoring ergonomics over the envelope.
  *
+ * @moduleStability experimental
+ *
  * Three properties this module must never lose:
  *   1. It never throws from a log call. Diagnostics must not be able to take down the
  *      connector they are describing. That includes an error thrown by the caller's own

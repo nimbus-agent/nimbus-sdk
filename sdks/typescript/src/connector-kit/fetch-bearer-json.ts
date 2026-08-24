@@ -1,3 +1,5 @@
+/** @moduleStability experimental */
+
 /** RFC 3986 scheme followed by its colon. The one thing that makes an input absolute. */
 const ABSOLUTE_URL = /^[A-Za-z][A-Za-z0-9+.-]*:/;
 
@@ -56,6 +58,8 @@ function originOf(url: string): string | undefined {
  * The heuristic was wrong at both edges: it rejected the legitimate relative path
  * `httpdocs/x`, and it read `ftp://evil.com` as relative and concatenated it. See
  * RFC-0011 for the semver reasoning on that correction.
+ *
+ * @stability frozen
  */
 export function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): string {
   if (!ABSOLUTE_URL.test(pathOrUrl)) {

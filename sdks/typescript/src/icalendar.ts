@@ -1,6 +1,8 @@
 /**
  * Pure, dependency-free iCalendar (RFC 5545) build/parse module.
  *
+ * @moduleStability stable
+ *
  * Lives in @nimbus-dev/sdk so both the apple connector and the gateway can
  * share one implementation without duplication (the gateway depends on the SDK
  * via workspace:*, and connectors depend on the SDK by rule).

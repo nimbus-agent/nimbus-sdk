@@ -2,6 +2,8 @@
  * Pure Flux CD registry utilities — shared between the gateway connector
  * (flux-sync.ts) and the MCP connector (flux/src/server.ts).
  *
+ * @moduleStability experimental
+ *
  * PURE: no I/O, no env reads, no network. Only kind definitions + a tiny
  * string helper. API fetch logic stays in each caller.
  */

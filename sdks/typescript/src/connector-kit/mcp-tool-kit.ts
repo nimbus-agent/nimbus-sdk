@@ -1,3 +1,5 @@
+/** @moduleStability stable */
+
 export type McpListResult = { content: Array<{ type: "text"; text: string }> };
 
 export function mcpJsonResult(data: unknown): McpListResult {

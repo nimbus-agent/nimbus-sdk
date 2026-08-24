@@ -1,3 +1,5 @@
+/** @moduleStability stable */
+
 import type { AgentName } from "./agent-names.js";
 import type {
   AgentBriefBase,

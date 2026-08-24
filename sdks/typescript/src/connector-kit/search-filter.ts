@@ -1,3 +1,5 @@
+/** @moduleStability stable */
+
 import { type McpListResult, mcpJsonResult } from "./mcp-tool-kit.js";
 
 export interface SearchMatchOptions {

@@ -1,6 +1,8 @@
 /**
  * Make dropped diagnostics loud where it is free to be loud.
  *
+ * @moduleStability stable
+ *
  * The emitter drops invalid events in production on purpose. That is the right runtime
  * behaviour and the wrong test behaviour, so a connector's own suite collects the
  * results it got and asserts none were refused. The alternative — a NODE_ENV check

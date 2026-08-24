@@ -7,6 +7,7 @@ import {
   collectEntryPoints,
   DECLARATION_NOT_FOUND,
   declaredNameOf,
+  type EntrySurface,
   GOLDEN_PATH,
   normalizeEol,
   parseBarrel,
@@ -445,7 +446,7 @@ describe("buildSurface", () => {
 });
 
 describe("renderSurface", () => {
-  const surfaces = [
+  const surfaces: EntrySurface[] = [
     {
       label: ".",
       exports: [
@@ -896,7 +897,7 @@ describe("buildSurface — a multi-name barrel clause marker is ambiguous", () =
 });
 
 describe("renderSurface — deprecations", () => {
-  const withDeprecated = [
+  const withDeprecated: EntrySurface[] = [
     {
       label: ".",
       exports: [
@@ -945,7 +946,7 @@ describe("renderSurface — deprecations", () => {
   });
 
   test("a deprecated tag with no message renders the label alone", () => {
-    const bare = [
+    const bare: EntrySurface[] = [
       {
         label: ".",
         exports: [

@@ -1,3 +1,5 @@
+/** @moduleStability stable */
+
 /** The nine built-in read-only agents exposed over `agents.*` IPC. */
 export const AGENT_NAMES = [
   "expert",

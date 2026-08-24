@@ -37,7 +37,7 @@
 **Shipment 3 — Python**
 - Modify: `sdks/python/scripts/api_surface.py` — add `defining_modules`, `stability_of`, a `stability` field on `Export`, and the rendered line.
 - Create: `sdks/python/tests/test_stability.py` — resolver unit tests.
-- Modify: 16 modules under `sdks/python/src/nimbus_sdk/` — one `__stability__` each, plus overrides.
+- Modify: 17 modules under `sdks/python/src/nimbus_sdk/` — one `__stability__` each, plus overrides. The 17th is `__init__.py`, which defines `__version__` itself; see Task 6.
 - Modify: `docs/api-surface-python.md` — regenerated.
 
 **Shipment 4 — Go**
@@ -340,12 +340,17 @@ In `SurfaceExport` (line 444):
 
 ```ts
 throw new Error(
-  `${modulePath} has no @moduleStability tag and no @stability override for "${name}" — ` +
-    "every module reachable from the published surface must declare a tier",
+  `${modulePath} has no @moduleStability tag and no @stability override for "${name}".\n` +
+    "Every module reachable from the published surface must declare a tier.\n" +
+    'Fix: add `/** @moduleStability frozen|stable|experimental */` to the module in ' +
+    "sdks/typescript/src/, then re-run `bun run build && bun run api:surface`.\n" +
+    "See docs/rfcs/0015-tiered-stability.md for which tier applies.",
 );
 ```
 
 That throw *is* the no-default guard from the global constraints; no separate test file is needed for it.
+
+**Every error this plan adds must name its remedy**, in all three bindings. These fire on a contributor who has never heard of tiers — most likely someone adding an unrelated module and hitting the gate for the first time. A message that states only what is wrong sends them to read the generator's source; one that states the tag to add, the command to re-run, and where the tiers are defined does not. Apply the same shape to the Python errors in Task 5 Step 3 (`__stability__ = "..."` plus `python scripts/api_surface.py`) and the Go error in Task 7 Step 4 (`// Stability: ...` plus `go -C sdks/go run ./internal/apisurface/cmd`).
 
 - [ ] **Step 5: Render it**
 
@@ -495,6 +500,17 @@ def test_a_reexport_does_not_count_as_a_definition() -> None:
     assert defining_modules()["CONTRACT_VERSIONS"] != "nimbus_sdk"
 
 
+def test_locates_a_name_defined_inside_a_try_block() -> None:
+    """``__version__`` is in ``nimbus_sdk.__all__`` and is bound in BOTH arms of a
+    try/except at module level. Walking only ``tree.body`` misses it entirely.
+
+    It is also the one name a published root defines itself rather than re-exporting,
+    which is why ``nimbus_sdk/__init__.py`` carries a ``__stability__`` and the other
+    three barrels do not.
+    """
+    assert defining_modules()["__version__"] == "nimbus_sdk"
+
+
 def test_every_published_name_resolves_to_a_tier() -> None:
     defining = defining_modules()
     for root in ("nimbus_sdk", "nimbus_sdk.ipc", "nimbus_sdk.diagnostics", "nimbus_sdk.connector_kit"):
@@ -532,6 +548,12 @@ _TIERS = frozenset({"frozen", "stable", "experimental"})
 #: absent: an import is a re-export, and every published root is a re-export barrel.
 _DEFINITION_NODES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Assign, ast.AnnAssign)
 
+#: Blocks whose bodies are still module scope. A name bound inside one is as published
+#: as any other — `nimbus_sdk/__init__.py` defines `__version__`, which IS in `__all__`,
+#: inside a try/except that falls back to "0.0.0+unknown" for an uninstalled source
+#: tree. Walking only `tree.body` misses it and reports it as having no defining module.
+_SCOPED_BLOCKS = (ast.If, ast.Try, ast.With)
+
 
 def _dotted(path: Path) -> str:
     """`src/nimbus_sdk/ipc/hello.py` -> `nimbus_sdk.ipc.hello`; a package -> its dir."""
@@ -540,6 +562,29 @@ def _dotted(path: Path) -> str:
     if parts[-1] == "__init__":
         parts.pop()
     return ".".join(parts)
+
+
+def _module_scope(body: list[ast.stmt]) -> Iterator[ast.stmt]:
+    """Every definition node at module scope, descending through conditional blocks.
+
+    A definition inside ``if``/``try``/``with`` at module level is still module scope —
+    it binds a name the module exports. It is NOT nested scope: a ``def`` or ``class``
+    body introduces its own scope and is deliberately not descended into, so a method
+    named like an export cannot shadow it.
+
+    Binding the same name twice in one module is fine and expected: the try/except that
+    defines ``__version__`` binds it in both arms. The caller's collision check only
+    fires across DIFFERENT modules.
+    """
+    for node in body:
+        if isinstance(node, _DEFINITION_NODES):
+            yield node
+        elif isinstance(node, _SCOPED_BLOCKS):
+            yield from _module_scope(node.body)
+            yield from _module_scope(getattr(node, "orelse", []))
+            yield from _module_scope(getattr(node, "finalbody", []))
+            for handler in getattr(node, "handlers", []):
+                yield from _module_scope(handler.body)
 
 
 def _bound_names(node: ast.stmt) -> list[str]:
@@ -571,9 +616,7 @@ def defining_modules() -> dict[str, str]:
     for path in sorted(_SRC.rglob("*.py")):
         module = _dotted(path)
         tree = ast.parse(path.read_text(encoding="utf-8"))
-        for node in tree.body:
-            if not isinstance(node, _DEFINITION_NODES):
-                continue
+        for node in _module_scope(tree.body):
             for name in _bound_names(node):
                 if name.startswith("_") and not name.startswith("__"):
                     continue
@@ -602,7 +645,7 @@ def stability_of(name: str, defining: dict[str, str]) -> str:
     return tier
 ```
 
-Confirm `Path` and `importlib` are already imported at the top of the file; both are used by existing code, but check rather than assume.
+Confirm `Path` and `importlib` are already imported at the top of the file; both are used by existing code, but check rather than assume. `Iterator` — used in `_module_scope`'s return annotation — is **not** currently imported; add `from collections.abc import Iterator`. `ruff` will fail the file otherwise, and `from __future__ import annotations` does not save you here because the name still has to resolve for `mypy`.
 
 - [ ] **Step 4: Run the tests**
 
@@ -621,7 +664,7 @@ git commit -m "feat(python): resolve each export's defining module by AST"
 ## Task 6: Tag the 16 Python modules and project the tier
 
 **Files:**
-- Modify: 16 modules under `sdks/python/src/nimbus_sdk/`
+- Modify: 17 modules under `sdks/python/src/nimbus_sdk/`
 - Modify: `sdks/python/scripts/api_surface.py` — `Export`, `collect`, `render_export`
 - Modify: `docs/api-surface-python.md`
 
@@ -641,7 +684,13 @@ Add `__stability__` at module level, after the imports, in each of:
 __stability__ = "frozen"
 ```
 
-The four `__init__.py` barrels get **no** `__stability__`: they define nothing, so the resolver never asks them.
+**Three of the four `__init__.py` barrels get no `__stability__`; `nimbus_sdk/__init__.py` does get one.** `nimbus_sdk.ipc`, `nimbus_sdk.diagnostics` and `nimbus_sdk.connector_kit` define nothing — they are pure re-export barrels, so the resolver never asks them. But `nimbus_sdk/__init__.py` defines `__version__` itself, inside the try/except that falls back to `"0.0.0+unknown"` for an uninstalled source tree, and `__version__` is in its `__all__`. Add:
+
+```python
+__stability__ = "stable"
+```
+
+`stable` rather than `frozen`: no spec or corpus pins the package version string. That makes it **17 tagged modules**, not 16.
 
 - [ ] **Step 2: Add the tier to `Export` and `collect`**
 
@@ -790,6 +839,21 @@ func TestDeclStabilityReadsAnOverride(t *testing.T) {
 		t.Fatal("expected a FuncDecl")
 	}
 	if got := DeclStability(decl.Doc); got != "frozen" {
+		t.Fatalf("got %q, want frozen", got)
+	}
+}
+
+// A CRLF checkout must not change the parsed tier. `strings.TrimSpace` in
+// `stabilityIn` already strips the trailing \r — unicode.IsSpace includes it — so this
+// test locks that in rather than driving a change. Without it, a later "simplification"
+// to TrimPrefix-only would yield the tier "frozen\r", which fails the tiers lookup with
+// a message that names a value the source does not appear to contain.
+func TestPackageStabilityToleratesCRLF(t *testing.T) {
+	got, err := PackageStability(parse(t, "// Package k does things.\r\n//\r\n// Stability: frozen\r\npackage k\r\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "frozen" {
 		t.Fatalf("got %q, want frozen", got)
 	}
 }
@@ -1411,11 +1475,30 @@ async function goldenAt(revision: string, path: string): Promise<string> {
   return shown.exitCode === 0 ? shown.stdout.toString() : "";
 }
 
-async function surfaceChanges(baseSha: string): Promise<SurfaceChange[]> {
+/**
+ * Make `baseSha`'s tree readable, fetching only if it is not already present.
+ *
+ * The test is `^{tree}`, NOT `git cat-file -t <sha>`. On the `--depth=1` merge-ref
+ * checkout CI uses, the base commit exists as a shallow boundary — `cat-file -t`
+ * happily answers "commit" — while its tree does not, so `git show <sha>:path` still
+ * fails and every golden would read as empty. Every export in the repository would then
+ * look newly added. Resolving the tree is what actually proves the read will work.
+ */
+function ensureBaseTree(baseSha: string): void {
+  if (Bun.spawnSync(["git", "cat-file", "-e", `${baseSha}^{tree}`]).exitCode === 0) return;
+
   const fetched = Bun.spawnSync(["git", "fetch", "--depth=1", "origin", baseSha]);
   if (fetched.exitCode !== 0) {
-    throw new Error(`could not fetch base ${baseSha}: ${fetched.stderr.toString()}`);
+    throw new Error(
+      `could not fetch base ${baseSha}: ${fetched.stderr.toString()}\n` +
+        "Running locally against a fork or a remote not named `origin`? Fetch the base " +
+        "commit yourself first, then re-run — this guard will then skip the fetch.",
+    );
   }
+}
+
+async function surfaceChanges(baseSha: string): Promise<SurfaceChange[]> {
+  ensureBaseTree(baseSha);
   const changes: SurfaceChange[] = [];
   for (const golden of GOLDENS) {
     const base = parseSurface(await goldenAt(baseSha, golden.path));

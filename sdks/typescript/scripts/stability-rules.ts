@@ -71,10 +71,20 @@ export function requiredFor(changes: SurfaceChange[]): Requirement {
   return { impact, breaking, needsRfc, notices };
 }
 
-export type SurfaceEntry = { tier: Tier; declaration: string; deprecated: boolean };
+/**
+ * `name` is the bare, human-readable label — an export name for the heading form, or
+ * the unabsorbed top-level bullet line for the bullet form — used for display in a
+ * `SurfaceChange`. It is NOT what `parseSurface` keys its returned map by; see the key
+ * qualification note below. Two entries may legitimately share a `name`.
+ */
+export type SurfaceEntry = { tier: Tier; declaration: string; deprecated: boolean; name: string };
 
 const TIER_RANK: Record<Tier, number> = { experimental: 0, stable: 1, frozen: 2 };
 
+// The enclosing `## \`label\`` section a TypeScript entry-point (`. `, `./testing`, …)
+// or a Python/Go package (`nimbus_sdk.ipc`, `connectorkit`, …) is published under.
+// Exactly two backtick-fenced hashes — `### ` (three) is an export heading, not this.
+const SECTION = /^## `([^`]+)`/;
 const HEADING = /^### `([^`]+)`/;
 const STABILITY_LINE = /^\*\*Stability:\*\* (frozen|stable|experimental)\b/;
 const BULLET = /^- `(.+)` — \*\*(frozen|stable|experimental)\*\*\s*$/;
@@ -99,6 +109,17 @@ const SUB_BULLET = /^\s+- /;
  * and the added row is a minor that the max absorbs. It costs one extra `::notice::`
  * on such a change, which is noise, not a false gate.
  *
+ * EVERY KEY IS ALSO QUALIFIED BY ITS ENCLOSING `## \`section\`` LABEL, for both shapes.
+ * A bare name or bare declaration is not unique across sections: `docs/api-surface.md`
+ * publishes `asRecord` from both `.` (returns `Record<string, unknown> | null`) and
+ * `./connector-kit` (returns `Record<string, unknown> | undefined`) — two unrelated
+ * functions. Keying by name alone collapses them into one map entry, and a real
+ * signature change to either can be masked by the other depending on parse order. The
+ * qualified key is opaque — `${section}::${rawKey}`, or just `rawKey` when no section
+ * heading precedes it — and nothing downstream parses it; only `SurfaceEntry.name`
+ * (the bare label) is surfaced in a `SurfaceChange`, so error output still reads
+ * "asRecord", not "./connector-kit::asRecord".
+ *
  * A bullet's indented sub-bullets (a Python class's members, a Protocol's methods) are
  * NOT separate entries — they are absorbed into the enclosing bullet's `declaration`
  * text, keyed by the bullet's own (unabsorbed) declaration line. Without this, a
@@ -110,6 +131,9 @@ const SUB_BULLET = /^\s+- /;
 export function parseSurface(markdown: string): Map<string, SurfaceEntry> {
   const entries = new Map<string, SurfaceEntry>();
   const lines = markdown.split("\n");
+
+  let section = "";
+  const keyFor = (raw: string): string => (section === "" ? raw : `${section}::${raw}`);
 
   let name: string | null = null;
   let tier: Tier | null = null;
@@ -123,7 +147,7 @@ export function parseSurface(markdown: string): Map<string, SurfaceEntry> {
 
   const flushHeading = (): void => {
     if (name !== null && tier !== null) {
-      entries.set(name, { tier, declaration: declaration.trim(), deprecated });
+      entries.set(keyFor(name), { tier, declaration: declaration.trim(), deprecated, name });
     }
     name = null;
     tier = null;
@@ -133,10 +157,11 @@ export function parseSurface(markdown: string): Map<string, SurfaceEntry> {
 
   const flushBullet = (): void => {
     if (bulletKey !== null && bulletTier !== null) {
-      entries.set(bulletKey, {
+      entries.set(keyFor(bulletKey), {
         tier: bulletTier,
         declaration: bulletDeclaration.trim(),
         deprecated: false,
+        name: bulletKey,
       });
     }
     bulletKey = null;
@@ -161,6 +186,13 @@ export function parseSurface(markdown: string): Map<string, SurfaceEntry> {
       }
 
       if (bulletKey !== null) flushBullet();
+
+      const sectionHeading = SECTION.exec(line);
+      if (sectionHeading !== null) {
+        flushHeading();
+        section = sectionHeading[1] ?? "";
+        continue;
+      }
     }
 
     const heading = HEADING.exec(line);
@@ -209,16 +241,26 @@ export function diffSurfaces(
 ): SurfaceChange[] {
   const changes: SurfaceChange[] = [];
 
-  for (const [name, headEntry] of head) {
-    const baseEntry = base.get(name);
+  // Both maps use the same qualified-key scheme (see `parseSurface`), so lookups by
+  // `key` compare like entries across sections correctly. The `name` field on each
+  // `SurfaceEntry` — not the key — is what a `SurfaceChange` reports, so display stays
+  // the bare label even though dedup and comparison run on the qualified key.
+  for (const [key, headEntry] of head) {
+    const baseEntry = base.get(key);
     if (baseEntry === undefined) {
-      changes.push({ name, kind: "added", tier: headEntry.tier, binding, wasDeprecated: false });
+      changes.push({
+        name: headEntry.name,
+        kind: "added",
+        tier: headEntry.tier,
+        binding,
+        wasDeprecated: false,
+      });
       continue;
     }
     if (baseEntry.tier !== headEntry.tier) {
       const kind = TIER_RANK[headEntry.tier] < TIER_RANK[baseEntry.tier] ? "demoted" : "promoted";
       changes.push({
-        name,
+        name: baseEntry.name,
         kind,
         tier: baseEntry.tier,
         binding,
@@ -227,7 +269,7 @@ export function diffSurfaces(
     }
     if (baseEntry.declaration !== headEntry.declaration) {
       changes.push({
-        name,
+        name: baseEntry.name,
         kind: "signature",
         tier: baseEntry.tier,
         binding,
@@ -236,10 +278,10 @@ export function diffSurfaces(
     }
   }
 
-  for (const [name, baseEntry] of base) {
-    if (!head.has(name)) {
+  for (const [key, baseEntry] of base) {
+    if (!head.has(key)) {
       changes.push({
-        name,
+        name: baseEntry.name,
         kind: "removed",
         tier: baseEntry.tier,
         binding,

@@ -180,4 +180,87 @@ describe("parseSurface / diffSurfaces", () => {
 
     expect(diffSurfaces(parseSurface(goSurface), parseSurface(goSurface), "go")).toEqual([]);
   });
+
+  // FIX ROUND 1: a bare name (heading form) or bare declaration (bullet form) is not
+  // unique across `## `section`` boundaries — docs/api-surface.md really does publish
+  // two unrelated `asRecord` functions, one from `.` and one from `./connector-kit`.
+  // Every key must be qualified by its enclosing section.
+  const twoHeadingSections = (aDecl: string, bDecl: string): string =>
+    [
+      "## `.`",
+      "",
+      "1 exports.",
+      "",
+      "### `shared`",
+      "",
+      "**Stability:** stable",
+      "",
+      "From `./a.js`.",
+      "",
+      "```ts",
+      aDecl,
+      "```",
+      "",
+      "## `./other`",
+      "",
+      "1 exports.",
+      "",
+      "### `shared`",
+      "",
+      "**Stability:** frozen",
+      "",
+      "From `./b.js`.",
+      "",
+      "```ts",
+      bDecl,
+      "```",
+      "",
+    ].join("\n");
+
+  test("heading form: same name in two sections with different declarations parses to two entries", () => {
+    const entries = twoHeadingSections(
+      "declare const shared: number;",
+      "declare const shared: string;",
+    );
+    expect(parseSurface(entries).size).toBe(2);
+  });
+
+  test("heading form: a change in one section reports exactly one signature change, attributed to it", () => {
+    const base = parseSurface(
+      twoHeadingSections("declare const shared: number;", "declare const shared: string;"),
+    );
+    const head = parseSurface(
+      twoHeadingSections("declare const shared: boolean;", "declare const shared: string;"),
+    );
+
+    const changes = diffSurfaces(base, head, "typescript");
+    expect(changes).toEqual([
+      {
+        name: "shared",
+        kind: "signature",
+        tier: "stable",
+        binding: "typescript",
+        wasDeprecated: false,
+      },
+    ]);
+  });
+
+  test("bullet form: identical declaration text in two sections parses to two entries", () => {
+    const twoBulletSections = [
+      "## `nimbus_sdk`",
+      "",
+      "1 exports.",
+      "",
+      "- `func shared() string` — **stable**",
+      "",
+      "## `nimbus_sdk.other`",
+      "",
+      "1 exports.",
+      "",
+      "- `func shared() string` — **stable**",
+      "",
+    ].join("\n");
+
+    expect(parseSurface(twoBulletSections).size).toBe(2);
+  });
 });

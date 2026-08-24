@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { collectStability } from "./api-surface.ts";
+import { buildSurface, collectStability, renderSurface } from "./api-surface.ts";
 
 describe("collectStability", () => {
   test("reads the module default from @moduleStability", () => {
@@ -40,5 +40,41 @@ describe("collectStability", () => {
 
   test("returns a null module tier when the file carries no tag", () => {
     expect(collectStability("export declare const a: number;\n").module).toBeNull();
+  });
+});
+
+describe("stability in the surface", () => {
+  const files: Record<string, string> = {
+    "package.json": JSON.stringify({ exports: { ".": { types: "./dist/index.d.ts" } } }),
+    "dist/index.d.ts": `/** @moduleStability stable */\nexport declare const a: number;\n`,
+  };
+  const read = (path: string): string => {
+    const text = files[path];
+    if (text === undefined) throw new Error(`no such file: ${path}`);
+    return text;
+  };
+
+  test("buildSurface resolves the module default onto each export", () => {
+    const [surface] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], read);
+    expect(surface?.exports[0]?.stability).toBe("stable");
+  });
+
+  test("renderSurface emits the tier line", () => {
+    const markdown = renderSurface([
+      {
+        label: ".",
+        exports: [
+          {
+            name: "a",
+            typeOnly: false,
+            source: "(local)",
+            declaration: "export declare const a: number;",
+            deprecated: null,
+            stability: "stable",
+          },
+        ],
+      },
+    ]);
+    expect(markdown).toContain("**Stability:** stable");
   });
 });

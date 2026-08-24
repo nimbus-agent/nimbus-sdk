@@ -304,6 +304,7 @@ describe("buildSurface", () => {
       'export { hidden as visible } from "./types.js";',
     ].join("\n"),
     "dist/types.d.ts": [
+      "/** @moduleStability stable */",
       "export declare class Thing {\n}",
       'export declare const VERSION = "1";',
       "export declare function doIt(x: number): string;",
@@ -358,7 +359,8 @@ describe("buildSurface", () => {
 
   test("includes a locally declared export with source '(local)'", () => {
     const local = {
-      "dist/testing/index.d.ts": "export declare class MockGateway {\n    m(): void;\n}",
+      "dist/testing/index.d.ts":
+        "/** @moduleStability stable */\nexport declare class MockGateway {\n    m(): void;\n}",
     };
     const [entry] = buildSurface(
       [{ label: "./testing", file: "dist/testing/index.d.ts" }],
@@ -371,6 +373,7 @@ describe("buildSurface", () => {
         source: "(local)",
         declaration: "export declare class MockGateway {\n    m(): void;\n}",
         deprecated: null,
+        stability: "stable",
       },
     ]);
   });
@@ -378,7 +381,7 @@ describe("buildSurface", () => {
   test("marks an export whose declaration cannot be found rather than dropping it", () => {
     const broken = {
       "dist/index.d.ts": 'export { Missing } from "./types.js";',
-      "dist/types.d.ts": "export declare const Other: string;",
+      "dist/types.d.ts": "/** @moduleStability stable */\nexport declare const Other: string;",
     };
     const [entry] = buildSurface(
       [{ label: ".", file: "dist/index.d.ts" }],
@@ -419,6 +422,7 @@ describe("buildSurface", () => {
     const files = {
       "dist/index.d.ts": 'export { Public } from "./types.js";',
       "dist/types.d.ts":
+        "/** @moduleStability stable */\n" +
         "type InternalHelper = {\n    id: string;\n};\n" +
         "export declare const Public: InternalHelper;\n" +
         "export {};",
@@ -434,6 +438,7 @@ describe("buildSurface", () => {
         source: "./types.js",
         declaration: "export declare const Public: InternalHelper;",
         deprecated: null,
+        stability: "stable",
       },
     ]);
   });
@@ -450,6 +455,7 @@ describe("renderSurface", () => {
           source: "./types.js",
           declaration: "export interface Item {\n    id: string;\n}",
           deprecated: null,
+          stability: "stable",
         },
         {
           name: "VERSION",
@@ -457,6 +463,7 @@ describe("renderSurface", () => {
           source: "./types.js",
           declaration: 'export declare const VERSION = "1";',
           deprecated: null,
+          stability: "stable",
         },
       ],
     },
@@ -717,6 +724,7 @@ describe("buildSurface — deprecations", () => {
     const files: Record<string, string> = {
       "dist/index.d.ts": 'export { oldThing, fine } from "./t.js";',
       "dist/t.d.ts": [
+        "/** @moduleStability stable */",
         "/** @deprecated since 1.8.0 — use `fine`. */",
         "export declare const oldThing: string;",
         "export declare const fine: string;",
@@ -733,6 +741,7 @@ describe("buildSurface — deprecations", () => {
     const files: Record<string, string> = {
       "dist/index.d.ts": 'export { internalName as publicName } from "./t.js";',
       "dist/t.d.ts": [
+        "/** @moduleStability stable */",
         "/** @deprecated since 1.8.0 */",
         "export declare const internalName: string;",
       ].join("\n"),
@@ -745,6 +754,7 @@ describe("buildSurface — deprecations", () => {
   test("carries a deprecation on a barrel-local declaration", () => {
     const files: Record<string, string> = {
       "dist/testing/index.d.ts": [
+        "/** @moduleStability stable */",
         "/** @deprecated since 1.8.0 — use the real gateway. */",
         "export declare class MockGateway {",
         "    m(): void;",
@@ -767,7 +777,7 @@ describe("buildSurface — deprecation marker on a barrel re-export clause", () 
         "/** @deprecated since 1.8.0 — marked on the barrel clause. */",
         'export { oldThing } from "./t.js";',
       ].join("\n"),
-      "dist/t.d.ts": "export declare const oldThing: string;",
+      "dist/t.d.ts": "/** @moduleStability stable */\nexport declare const oldThing: string;",
     };
     const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
     expect(entry?.exports[0]?.name).toBe("oldThing");
@@ -778,6 +788,7 @@ describe("buildSurface — deprecation marker on a barrel re-export clause", () 
     const files: Record<string, string> = {
       "dist/index.d.ts": 'export { oldThing } from "./t.js";',
       "dist/t.d.ts": [
+        "/** @moduleStability stable */",
         "/** @deprecated since 1.8.0 — marked in the source module. */",
         "export declare const oldThing: string;",
       ].join("\n"),
@@ -793,6 +804,7 @@ describe("buildSurface — deprecation marker on a barrel re-export clause", () 
         'export { oldThing } from "./t.js";',
       ].join("\n"),
       "dist/t.d.ts": [
+        "/** @moduleStability stable */",
         "/** @deprecated since 1.8.0 — marked in the source (should win). */",
         "export declare const oldThing: string;",
       ].join("\n"),
@@ -807,7 +819,7 @@ describe("buildSurface — deprecation marker on a barrel re-export clause", () 
         "/** @deprecated since 1.8.0 — marked on the barrel, aliased. */",
         'export { internalName as publicName } from "./t.js";',
       ].join("\n"),
-      "dist/t.d.ts": "export declare const internalName: string;",
+      "dist/t.d.ts": "/** @moduleStability stable */\nexport declare const internalName: string;",
     };
     const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
     expect(entry?.exports[0]?.name).toBe("publicName");
@@ -823,6 +835,7 @@ describe("buildSurface — a multi-name barrel clause marker is ambiguous", () =
         'export { oldThing, keepThing } from "./t.js";',
       ].join("\n"),
       "dist/t.d.ts": [
+        "/** @moduleStability stable */",
         "export declare const oldThing: string;",
         "export declare const keepThing: string;",
       ].join("\n"),
@@ -841,6 +854,7 @@ describe("buildSurface — a multi-name barrel clause marker is ambiguous", () =
         'export { oldThing, keepThing } from "./t.js";',
       ].join("\n"),
       "dist/t.d.ts": [
+        "/** @moduleStability stable */",
         "/** @deprecated since 1.8.0 — marked in the source. */",
         "export declare const oldThing: string;",
         "export declare const keepThing: string;",
@@ -859,7 +873,7 @@ describe("buildSurface — a multi-name barrel clause marker is ambiguous", () =
         "/** @deprecated since 1.8.0 — single-name clause still applies. */",
         'export { oldThing } from "./t.js";',
       ].join("\n"),
-      "dist/t.d.ts": "export declare const oldThing: string;",
+      "dist/t.d.ts": "/** @moduleStability stable */\nexport declare const oldThing: string;",
     };
     const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
     expect(entry?.exports[0]?.deprecated).toBe("since 1.8.0 — single-name clause still applies.");
@@ -871,7 +885,7 @@ describe("buildSurface — a multi-name barrel clause marker is ambiguous", () =
         "/** @deprecated since 1.8.0 — single-name aliased clause still applies. */",
         'export { internalName as publicName } from "./t.js";',
       ].join("\n"),
-      "dist/t.d.ts": "export declare const internalName: string;",
+      "dist/t.d.ts": "/** @moduleStability stable */\nexport declare const internalName: string;",
     };
     const [entry] = buildSurface([{ label: ".", file: "dist/index.d.ts" }], (p) => files[p] ?? "");
     expect(entry?.exports[0]?.name).toBe("publicName");
@@ -892,6 +906,7 @@ describe("renderSurface — deprecations", () => {
           source: "./old-thing.js",
           declaration: "export declare const oldThing: string;",
           deprecated: "since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.",
+          stability: "stable",
         },
         {
           name: "stillFine",
@@ -899,6 +914,7 @@ describe("renderSurface — deprecations", () => {
           source: "./fine.js",
           declaration: "export declare const stillFine: number;",
           deprecated: null,
+          stability: "stable",
         },
       ],
     },
@@ -912,7 +928,7 @@ describe("renderSurface — deprecations", () => {
 
   test("places the marker between the heading and the source line", () => {
     expect(renderSurface(withDeprecated)).toContain(
-      "### `oldThing`\n\n**Deprecated:** since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.\n\nFrom `./old-thing.js`.",
+      "### `oldThing`\n\n**Deprecated:** since 1.8.0 — use `newThing` instead. May be removed in 2.0.0.\n\n**Stability:** stable\n\nFrom `./old-thing.js`.",
     );
   });
 
@@ -923,7 +939,9 @@ describe("renderSurface — deprecations", () => {
   });
 
   test("renders nothing extra for a non-deprecated export", () => {
-    expect(renderSurface(withDeprecated)).toContain("### `stillFine`\n\nFrom `./fine.js`.");
+    expect(renderSurface(withDeprecated)).toContain(
+      "### `stillFine`\n\n**Stability:** stable\n\nFrom `./fine.js`.",
+    );
   });
 
   test("a deprecated tag with no message renders the label alone", () => {
@@ -937,6 +955,7 @@ describe("renderSurface — deprecations", () => {
             source: "./bare.js",
             declaration: "export declare const bare: number;",
             deprecated: "",
+            stability: "stable",
           },
         ],
       },

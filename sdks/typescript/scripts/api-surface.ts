@@ -513,6 +513,8 @@ export type SurfaceExport = {
   declaration: string;
   /** The `@deprecated` message, or null when the export is not deprecated. */
   deprecated: string | null;
+  /** The resolved tier: the module's `@moduleStability`, or a `@stability` override. */
+  stability: Tier;
 };
 
 export type EntrySurface = { label: string; exports: SurfaceExport[] };
@@ -636,17 +638,38 @@ function tidy(statement: string): string {
  */
 export const DECLARATION_NOT_FOUND = "(declaration not found)";
 
-/** One target module's declarations and deprecations, read once and reused. */
+/** One target module's declarations, deprecations, and stability, read once and reused. */
 type ModuleIndex = {
   declarations: Map<string, string>;
   deprecations: Map<string, string>;
+  stability: ModuleStability;
 };
+
+/**
+ * Resolve an export's tier: its own `@stability` override if one exists, else its
+ * module's `@moduleStability` default. Throws when neither is present — this is the
+ * no-default guard: a module reachable from the published surface must declare a tier.
+ */
+function resolveStability(modulePath: string, name: string, stability: ModuleStability): Tier {
+  const resolved = stability.overrides.get(name) ?? stability.module;
+  if (resolved === null) {
+    throw new Error(
+      `${modulePath} has no @moduleStability tag and no @stability override for "${name}".\n` +
+        "Every module reachable from the published surface must declare a tier.\n" +
+        'Fix: add `/** @moduleStability frozen|stable|experimental */` to the module in ' +
+        "sdks/typescript/src/, then re-run `bun run build && bun run api:surface`.\n" +
+        "See docs/rfcs/0015-tiered-stability.md for which tier applies.",
+    );
+  }
+  return resolved;
+}
 
 export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySurface[] {
   return entries.map((entry) => {
     const barrelText = readFile(entry.file);
     const barrel = parseBarrel(barrelText);
     const barrelDeprecations = collectDeprecations(barrelText);
+    const barrelStability = collectStability(barrelText);
     const exports: SurfaceExport[] = [];
 
     for (const statement of barrel.locals) {
@@ -658,6 +681,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         source: "(local)",
         declaration: tidy(statement),
         deprecated: barrelDeprecations.get(name) ?? null,
+        stability: resolveStability(entry.file, name, barrelStability),
       });
     }
 
@@ -670,6 +694,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         index = {
           declarations: declarationsOf(text, target),
           deprecations: collectDeprecations(text),
+          stability: collectStability(text),
         };
         cache.set(target, index);
       }
@@ -685,6 +710,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         declaration: index.declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
         deprecated:
           index.deprecations.get(ref.sourceName) ?? barrelDeprecations.get(ref.name) ?? null,
+        stability: resolveStability(target, ref.sourceName, index.stability),
       });
     }
 
@@ -728,6 +754,8 @@ export function renderSurface(surfaces: EntrySurface[]): string {
           "",
         );
       }
+
+      lines.push(`**Stability:** ${entry.stability}`, "");
 
       lines.push(`From \`${entry.source}\`.`, "", "```ts", entry.declaration, "```", "");
     }

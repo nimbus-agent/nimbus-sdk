@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFromRepo } from "./paths.ts";
 import { diffSurfaces, parseSurface, requiredFor, type SurfaceChange } from "./stability-rules.ts";
 
 const change = (over: Partial<SurfaceChange>): SurfaceChange => ({
@@ -262,5 +263,29 @@ describe("parseSurface / diffSurfaces", () => {
     ].join("\n");
 
     expect(parseSurface(twoBulletSections).size).toBe(2);
+  });
+});
+
+/**
+ * Anti-vacuity: `parseSurface`'s correctness against the real goldens was previously
+ * proved only by an uncommitted scratch script. This gate's one unsurvivable failure
+ * mode is a parser that silently returns too few entries — it then reads every real
+ * diff as "nothing changed" and passes everything, failing OPEN. `> 0` would not catch
+ * a regression that still returns *some* entries, so the counts are pinned exactly.
+ * Pinning them exactly also means adding a new entry point forces an update here,
+ * which is the moment to check the gate still sees the whole surface — the same
+ * reasoning `api-surface.ts` uses when it refuses to write a golden with zero exports.
+ */
+describe("parseSurface against the real goldens", () => {
+  test("docs/api-surface.md", () => {
+    expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(226);
+  });
+
+  test("docs/api-surface-python.md", () => {
+    expect(parseSurface(readFromRepo("docs/api-surface-python.md")).size).toBe(82);
+  });
+
+  test("docs/api-surface-go.md", () => {
+    expect(parseSurface(readFromRepo("docs/api-surface-go.md")).size).toBe(123);
   });
 });

@@ -18,7 +18,15 @@
  *
  * Exit codes: 0 pass or not applicable, 1 a rule failed, 2 the check could not run.
  */
-import { type CarriedCommit, checkAggregate } from "./conventional-commit.ts";
+import { existsSync, readdirSync } from "node:fs";
+import {
+  type CarriedCommit,
+  checkAggregate,
+  compareImpact,
+  impactOfSubject,
+  parseConventionalSubject,
+} from "./conventional-commit.ts";
+import { diffSurfaces, parseSurface, requiredFor, type SurfaceChange } from "./stability-rules.ts";
 
 const EXIT_OK = 0;
 const EXIT_VIOLATION = 1;
@@ -56,10 +64,69 @@ function encodeAnnotation(message: string): string {
   return message.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
+/** The three generated goldens the tiered-stability rule diffs. */
+const GOLDENS = [
+  { path: "docs/api-surface.md", binding: "typescript" },
+  { path: "docs/api-surface-python.md", binding: "python" },
+  { path: "docs/api-surface-go.md", binding: "go" },
+] as const;
+
+/** The golden at `revision`, or "" when it did not exist there. */
+function goldenAt(revision: string, path: string): string {
+  const shown = Bun.spawnSync(["git", "show", `${revision}:${path}`]);
+  // A file absent at the base is not an error: the first shipment to add a golden
+  // must read as an all-additions diff, not as a failure to run.
+  return shown.exitCode === 0 ? shown.stdout.toString() : "";
+}
+
+/**
+ * Make `baseSha`'s tree readable, fetching only if it is not already present.
+ *
+ * The test is `^{tree}`, NOT `git cat-file -t <sha>`. On the `--depth=1` merge-ref
+ * checkout CI uses, the base commit exists as a shallow boundary — `cat-file -t`
+ * happily answers "commit" — while its tree does not, so `git show <sha>:path` still
+ * fails and every golden would read as empty. Every export in the repository would then
+ * look newly added. Resolving the tree is what actually proves the read will work.
+ */
+function ensureBaseTree(baseSha: string): void {
+  if (Bun.spawnSync(["git", "cat-file", "-e", `${baseSha}^{tree}`]).exitCode === 0) return;
+
+  const fetched = Bun.spawnSync(["git", "fetch", "--depth=1", "origin", baseSha]);
+  if (fetched.exitCode !== 0) {
+    throw new Error(
+      `could not fetch base ${baseSha}: ${fetched.stderr.toString()}\n` +
+        "Running locally against a fork or a remote not named `origin`? Fetch the base " +
+        "commit yourself first, then re-run — this guard will then skip the fetch.",
+    );
+  }
+}
+
+/** The surface changes across all three goldens, base → head (the current worktree). */
+async function surfaceChanges(baseSha: string): Promise<SurfaceChange[]> {
+  ensureBaseTree(baseSha);
+  const changes: SurfaceChange[] = [];
+  for (const golden of GOLDENS) {
+    const base = parseSurface(goldenAt(baseSha, golden.path));
+    const head = parseSurface(existsSync(golden.path) ? await Bun.file(golden.path).text() : "");
+    changes.push(...diffSurfaces(base, head, golden.binding));
+  }
+  return changes;
+}
+
+/** True when `body` cites an RFC whose file exists in the workspace. */
+function citesAnExistingRfc(body: string): boolean {
+  const cited = [...body.matchAll(/RFC-(\d{4})/g)].map((match) => match[1] ?? "");
+  if (cited.length === 0) return false;
+  const present = readdirSync("docs/rfcs");
+  return cited.some((number) => present.some((file) => file.startsWith(`${number}-`)));
+}
+
 interface PullRequestRef {
   readonly number: number;
   readonly title: string;
   readonly baseRef: string;
+  /** The PR description. Empty string when GitHub reports no body (it may be `null`). */
+  readonly body: string;
 }
 
 async function pullRequestFromEvent(path: string): Promise<PullRequestRef | null> {
@@ -75,7 +142,7 @@ async function pullRequestFromEvent(path: string): Promise<PullRequestRef | null
   if (typeof number !== "number" || title === null || baseRef === null) {
     return null;
   }
-  return { number, title, baseRef };
+  return { number, title, baseRef, body: asString(pr["body"]) ?? "" };
 }
 
 async function pullRequestFromApi(
@@ -98,7 +165,7 @@ async function pullRequestFromApi(
   if (title === null || baseRef === null) {
     return null;
   }
-  return { number, title, baseRef };
+  return { number, title, baseRef, body: (pr === null ? null : asString(pr["body"])) ?? "" };
 }
 
 function apiHeaders(token: string): Record<string, string> {
@@ -228,7 +295,52 @@ async function main(): Promise<number> {
     }
   }
 
-  if (verdict.ok) {
+  // The tiered-stability rule: a second, independent requirement derived from the diff
+  // of the three generated goldens, base → head. It composes with the carried-commits
+  // rule above by both standing — a PR must satisfy whichever demands more, which falls
+  // out of running the two checks independently rather than out of any explicit `max`.
+  const baseSha = env["GITHUB_BASE_SHA"] ?? "";
+  const changes = baseSha === "" ? [] : await surfaceChanges(baseSha);
+  const required = requiredFor(changes);
+
+  if (baseSha === "") {
+    out("\nnote: GITHUB_BASE_SHA is not set, so this is not running on a pull request; ");
+    out("skipping the surface-tier rule.\n");
+  } else if (changes.length > 0) {
+    out(
+      `\nsurface:  ${changes.length} change(s) across the goldens, requiring at least ` +
+        `"${required.impact}"\n`,
+    );
+  }
+
+  for (const notice of required.notices) {
+    out(`::notice::${notice}\n`);
+  }
+
+  const declaredSubject = parseConventionalSubject(target.title);
+  const declared = declaredSubject === null ? "none" : impactOfSubject(declaredSubject);
+  const declaredBreaking = declaredSubject?.breaking ?? false;
+
+  const surfaceFailures: string[] = [];
+  if (compareImpact(declared, required.impact) < 0) {
+    surfaceFailures.push(
+      `the surface diff requires at least "${required.impact}" but the subject declares ` +
+        `"${declared}". Changed: ${changes.map((c) => `${c.name} (${c.kind}, ${c.tier})`).join(", ")}`,
+    );
+  }
+  if (required.breaking && !declaredBreaking) {
+    surfaceFailures.push(
+      "a stable or frozen export was removed, changed or demoted — the subject needs `!`",
+    );
+  }
+  if (required.needsRfc && !citesAnExistingRfc(target.body)) {
+    surfaceFailures.push(
+      "a frozen module's surface changed — the PR body must cite an RFC-NNNN that exists " +
+        "under docs/rfcs/",
+    );
+  }
+
+  if (verdict.ok && surfaceFailures.length === 0) {
     out("\nok — the subject declares at least what the PR carries.\n");
     return EXIT_OK;
   }
@@ -237,9 +349,11 @@ async function main(): Promise<number> {
   for (const violation of verdict.violations) {
     out(`FAIL: ${violation}\n\n`);
   }
-  out(
-    `::error title=Conventional Commit guard::${encodeAnnotation(verdict.violations.join("\n\n"))}\n`,
-  );
+  for (const failure of surfaceFailures) {
+    out(`FAIL: ${failure}\n\n`);
+  }
+  const allFailures = [...verdict.violations, ...surfaceFailures];
+  out(`::error title=Conventional Commit guard::${encodeAnnotation(allFailures.join("\n\n"))}\n`);
   return EXIT_VIOLATION;
 }
 

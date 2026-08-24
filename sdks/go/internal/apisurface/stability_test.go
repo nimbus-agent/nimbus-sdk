@@ -5,10 +5,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"strings"
 	"testing"
 )
 
-func parse(t *testing.T, sources ...string) []*ast.File {
+func parse(t *testing.T, sources ...string) (*token.FileSet, []*ast.File) {
 	t.Helper()
 	fset := token.NewFileSet()
 	files := make([]*ast.File, 0, len(sources))
@@ -19,17 +20,17 @@ func parse(t *testing.T, sources ...string) []*ast.File {
 		}
 		files = append(files, f)
 	}
-	return files
+	return fset, files
 }
 
 // connectorkit and diagnostics carry the package doc in doc.go; contract, ipc and
 // spec put it atop an ordinary source file. The walker must find both.
 func TestPackageStabilityFromAnyFile(t *testing.T) {
-	files := parse(t,
+	fset, files := parse(t,
 		"package k\n\nfunc A() {}\n",
 		"// Package k does things.\n//\n// Stability: experimental\npackage k\n",
 	)
-	got, err := PackageStability(files)
+	got, err := PackageStability(fset, files)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -38,30 +39,39 @@ func TestPackageStabilityFromAnyFile(t *testing.T) {
 	}
 }
 
+// The error must name the two actual files, not the package identifier: f.Name.Name is
+// "k" for both files in this test, so before Defect A's fix the error read "k and k" no
+// matter which two files disagreed.
 func TestPackageStabilityRejectsTwoDeclarations(t *testing.T) {
-	files := parse(t,
+	fset, files := parse(t,
 		"// Stability: stable\npackage k\n",
 		"// Stability: frozen\npackage k\n",
 	)
-	if _, err := PackageStability(files); err == nil {
+	_, err := PackageStability(fset, files)
+	if err == nil {
 		t.Fatal("want an error when two files declare a tier, got nil")
+	}
+	if !strings.Contains(err.Error(), "f0.go") || !strings.Contains(err.Error(), "f1.go") {
+		t.Fatalf("error does not name both files (f0.go and f1.go): %v", err)
 	}
 }
 
 func TestPackageStabilityRejectsUnknownTier(t *testing.T) {
-	if _, err := PackageStability(parse(t, "// Stability: sortof\npackage k\n")); err == nil {
+	fset, files := parse(t, "// Stability: sortof\npackage k\n")
+	if _, err := PackageStability(fset, files); err == nil {
 		t.Fatal("want an error for an unknown tier, got nil")
 	}
 }
 
 func TestPackageStabilityRequiresATier(t *testing.T) {
-	if _, err := PackageStability(parse(t, "package k\n")); err == nil {
+	fset, files := parse(t, "package k\n")
+	if _, err := PackageStability(fset, files); err == nil {
 		t.Fatal("want an error when no file declares a tier, got nil")
 	}
 }
 
 func TestDeclStabilityReadsAnOverride(t *testing.T) {
-	files := parse(t, "package k\n\n// A does things.\n//\n// Stability: frozen\nfunc A() {}\n")
+	_, files := parse(t, "package k\n\n// A does things.\n//\n// Stability: frozen\nfunc A() {}\n")
 	decl, ok := files[0].Decls[0].(*ast.FuncDecl)
 	if !ok {
 		t.Fatal("expected a FuncDecl")
@@ -71,13 +81,18 @@ func TestDeclStabilityReadsAnOverride(t *testing.T) {
 	}
 }
 
-// A CRLF checkout must not change the parsed tier. `strings.TrimSpace` in
-// `stabilityIn` already strips the trailing \r — unicode.IsSpace includes it — so this
-// test locks that in rather than driving a change. Without it, a later "simplification"
-// to TrimPrefix-only would yield the tier "frozen\r", which fails the tiers lookup with
-// a message that names a value the source does not appear to contain.
+// A CRLF checkout must still yield the correct tier. That safety net is go/ast's own,
+// not this package's: doc.Text() already strips the trailing \r from every line (via
+// stripTrailingWhitespace) before stabilityIn ever runs, so by the time TrimSpace sees
+// the line the \r is already gone. What TrimSpace actually strips here is the leading
+// space TrimPrefix(line, "Stability:") leaves behind ("Stability: frozen" → " frozen" →
+// "frozen") — a mechanism plain LF input needs just as much, unrelated to CRLF. This
+// test still earns its place: without that TrimSpace the tier would be " frozen", which
+// fails the tiers lookup with a message naming a value the source does not appear to
+// contain.
 func TestPackageStabilityToleratesCRLF(t *testing.T) {
-	got, err := PackageStability(parse(t, "// Package k does things.\r\n//\r\n// Stability: frozen\r\npackage k\r\n"))
+	fset, files := parse(t, "// Package k does things.\r\n//\r\n// Stability: frozen\r\npackage k\r\n")
+	got, err := PackageStability(fset, files)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,7 +102,7 @@ func TestPackageStabilityToleratesCRLF(t *testing.T) {
 }
 
 func TestDeclStabilityIsEmptyWithoutATag(t *testing.T) {
-	files := parse(t, "package k\n\n// A does things.\nfunc A() {}\n")
+	_, files := parse(t, "package k\n\n// A does things.\nfunc A() {}\n")
 	decl := files[0].Decls[0].(*ast.FuncDecl)
 	if got := DeclStability(decl.Doc); got != "" {
 		t.Fatalf("got %q, want empty", got)

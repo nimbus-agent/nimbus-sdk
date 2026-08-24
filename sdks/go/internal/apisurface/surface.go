@@ -26,7 +26,7 @@ import (
 // fs.FileInfo — an easy signature to get wrong for no benefit here.
 //
 // Known and accepted: this reads some files the go tool itself would not build.
-// parser.ParseFile with mode 0 evaluates no build constraints, so a file behind
+// parser.ParseFile evaluates no build constraints regardless of mode, so a file behind
 // //go:build ignore is parsed like any other, and the filter below rejects only
 // _test.go — not the "_"-prefixed and "testdata" names go/build excludes by
 // convention. Both directions are false positives, never a missed export: an
@@ -34,6 +34,11 @@ import (
 // cmd/golden_test.go reports as unlisted. Nothing in this module triggers
 // either, and filtering properly means reimplementing go/build's file
 // selection — worth doing the day such a file lands, not before.
+//
+// Parsed with parser.ParseComments: mode is a bitmask controlling only what the
+// parser retains (here, doc comments for PackageStability and DeclStability to read),
+// not which build constraints it evaluates — that is governed separately, as the
+// paragraph above already says, and parser.ParseComments changes none of it.
 func RenderPackage(dir string) (string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -42,7 +47,7 @@ func RenderPackage(dir string) (string, error) {
 
 	fset := token.NewFileSet()
 	var name string
-	var lines []string
+	var files []*ast.File
 	var parsed int
 
 	// Sorted by os.ReadDir, so file order is already deterministic.
@@ -54,24 +59,34 @@ func RenderPackage(dir string) (string, error) {
 		if !strings.HasSuffix(fileName, ".go") || strings.HasSuffix(fileName, "_test.go") {
 			continue
 		}
-		file, err := parser.ParseFile(fset, filepath.Join(dir, fileName), nil, 0)
+		file, err := parser.ParseFile(fset, filepath.Join(dir, fileName), nil, parser.ParseComments)
 		if err != nil {
 			return "", fmt.Errorf("apisurface: parsing %s: %w", fileName, err)
 		}
 		parsed++
 		name = file.Name.Name
-		lines = append(lines, declarations(fset, file)...)
+		files = append(files, file)
 	}
 
 	if parsed == 0 {
 		return "", fmt.Errorf("apisurface: no non-test Go files in %s", dir)
 	}
 
-	sort.Strings(lines)
+	pkgTier, err := PackageStability(fset, files)
+	if err != nil {
+		return "", fmt.Errorf("apisurface: %s: %w", dir, err)
+	}
+
+	var lines []declEntry
+	for _, file := range files {
+		lines = append(lines, declarations(fset, file, pkgTier)...)
+	}
+
+	sort.Slice(lines, func(i, j int) bool { return lines[i].line < lines[j].line })
 	var b strings.Builder
 	fmt.Fprintf(&b, "## `%s`\n\n%d exports.\n\n", name, len(lines))
-	for _, line := range lines {
-		fmt.Fprintf(&b, "- %s\n", codeSpan(line))
+	for _, e := range lines {
+		fmt.Fprintf(&b, "- %s — **%s**\n", codeSpan(e.line), e.tier)
 	}
 	return b.String(), nil
 }
@@ -89,15 +104,50 @@ func codeSpan(line string) string {
 	return "`` " + line + " ``"
 }
 
-func declarations(fset *token.FileSet, file *ast.File) []string {
-	var out []string
+// declEntry pairs one rendered declaration with the tier it renders under — a
+// per-declaration override when one is present, otherwise the enclosing package's tier.
+// Sorting happens on line alone, so a declaration's position in the snapshot never
+// depends on its tier.
+type declEntry struct {
+	line string
+	tier string
+}
+
+// resolveTier returns the first non-empty DeclStability found among docs, in order,
+// falling back to pkgTier when none carries an override. docs is ordered
+// most-specific-first: a ValueSpec/TypeSpec's own doc comment before the GenDecl's.
+func resolveTier(pkgTier string, docs ...*ast.CommentGroup) string {
+	for _, doc := range docs {
+		if t := DeclStability(doc); t != "" {
+			return t
+		}
+	}
+	return pkgTier
+}
+
+// specDocOf returns the doc comment attached directly to spec, if any. A spec inside a
+// grouped declaration ("const (\n\t// Doc\n\tA = 1\n)") can carry its own doc comment
+// distinct from the GenDecl's.
+func specDocOf(spec ast.Spec) *ast.CommentGroup {
+	switch s := spec.(type) {
+	case *ast.ValueSpec:
+		return s.Doc
+	case *ast.TypeSpec:
+		return s.Doc
+	default:
+		return nil
+	}
+}
+
+func declarations(fset *token.FileSet, file *ast.File, pkgTier string) []declEntry {
+	var out []declEntry
 	for _, decl := range file.Decls {
 		switch d := decl.(type) {
 		case *ast.FuncDecl:
 			if !d.Name.IsExported() || !receiverIsExported(d.Recv) {
 				continue
 			}
-			out = append(out, funcSignature(fset, d))
+			out = append(out, declEntry{funcSignature(fset, d), resolveTier(pkgTier, d.Doc)})
 		case *ast.GenDecl:
 			// groupType carries a const group's implicitly repeated type across
 			// its specs: in "const ( A Kind = iota; B )", B has neither a type
@@ -115,27 +165,28 @@ func declarations(fset *token.FileSet, file *ast.File) []string {
 						groupType = nil
 					}
 				}
-				out = append(out, specDeclarations(fset, d.Tok, spec, groupType)...)
+				tier := resolveTier(pkgTier, specDocOf(spec), d.Doc)
+				out = append(out, specDeclarations(fset, d.Tok, spec, groupType, tier)...)
 			}
 		}
 	}
 	return out
 }
 
-func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec, groupType ast.Expr) []string {
-	var out []string
+func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec, groupType ast.Expr, tier string) []declEntry {
+	var out []declEntry
 	switch s := spec.(type) {
 	case *ast.ValueSpec:
 		for i, ident := range s.Names {
 			if ident.IsExported() {
-				out = append(out, fmt.Sprintf("%s %s%s", tok, ident.Name, valueSuffix(fset, s, i, groupType)))
+				out = append(out, declEntry{fmt.Sprintf("%s %s%s", tok, ident.Name, valueSuffix(fset, s, i, groupType)), tier})
 			}
 		}
 	case *ast.TypeSpec:
 		if !s.Name.IsExported() {
 			return nil
 		}
-		out = append(out, typeDeclaration(fset, s))
+		out = append(out, declEntry{typeDeclaration(fset, s), tier})
 	}
 	return out
 }
@@ -394,7 +445,12 @@ func DeclStability(doc *ast.CommentGroup) string { return stabilityIn(doc) }
 // Exactly one file may declare a tier. Two is an error rather than a first-match win:
 // silently picking one of two disagreeing tiers is the failure this design exists to
 // prevent.
-func PackageStability(files []*ast.File) (string, error) {
+//
+// fset is required to name the offending files in that error: f.Name.Name is the
+// package identifier, identical for every file in the package, so it cannot tell two
+// files apart — only fset.Position(f.Package) can resolve the file each doc comment
+// actually came from.
+func PackageStability(fset *token.FileSet, files []*ast.File) (string, error) {
 	found, from := "", ""
 	for _, f := range files {
 		tier := stabilityIn(f.Doc)
@@ -404,10 +460,11 @@ func PackageStability(files []*ast.File) (string, error) {
 		if !tiers[tier] {
 			return "", fmt.Errorf("apisurface: unknown stability tier %q in package %s; add one of `// Stability: frozen|stable|experimental`, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md", tier, f.Name.Name)
 		}
+		fileName := filepath.Base(fset.Position(f.Package).Filename)
 		if found != "" {
-			return "", fmt.Errorf("apisurface: package %s declares a stability tier in two files (%s and %s); keep exactly one `// Stability: frozen|stable|experimental` line, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md", f.Name.Name, from, f.Name.Name)
+			return "", fmt.Errorf("apisurface: package %s declares a stability tier in two files (%s and %s); keep exactly one `// Stability: frozen|stable|experimental` line, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md", f.Name.Name, from, fileName)
 		}
-		found, from = tier, f.Name.Name
+		found, from = tier, fileName
 	}
 	if found == "" {
 		return "", fmt.Errorf("apisurface: package declares no `// Stability:` line in any file; add `// Stability: frozen|stable|experimental` to the package doc comment, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md")

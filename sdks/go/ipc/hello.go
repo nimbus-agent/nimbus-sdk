@@ -13,6 +13,8 @@
 // The handshake that puts the two together is not part of this package yet. Nothing
 // here touches a stream: a caller feeds LineReader the octets it read, and passes what
 // comes out to ParseHello itself.
+//
+// Stability: frozen
 package ipc
 
 import (

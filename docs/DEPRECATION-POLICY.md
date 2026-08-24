@@ -76,6 +76,42 @@ So **opening and closing a deprecation are both reviewable diffs** in the artifa
 already gates the contract — the same property adds, removals, and signature changes
 have. A deprecation that does not show up there has not really been made.
 
+## Tier and deprecation are orthogonal axes
+
+Every export also carries a [stability tier](./rfcs/0015-tiered-stability.md) —
+`frozen`, `stable`, or `experimental`. The tier and this policy's deprecation marker are
+independent axes, and one export already sits at the intersection:
+`createScopedAuditLogger` (and the rest of `audit-logger`'s free-form payload) is
+`stable` — a long-shipped, widely-used battery with no spec or corpus behind it — *and*
+`@deprecated since 1.16.0 — use createEmitter from @nimbus-dev/sdk/diagnostics instead.
+May be removed in 2.0.0.` at the same time. The tier states what breaking the export
+costs; the marker states that it is on its way out. Neither implies the other, and
+`audit-logger` stays `stable` rather than dropping to `experimental` — being on its way
+out does not make it less battle-tested while it still ships.
+
+## `experimental` exports are exempt from the window
+
+The window above binds `stable` and `frozen` exports. An `experimental` export carries
+no such promise: per [RFC-0015's rule table](./rfcs/0015-tiered-stability.md#2-the-rule-table),
+it may be removed under a plain `feat:` with no `@deprecated` marker and no waiting
+release. This is not an oversight — it is the reason a newly admitted battery
+[enters at `experimental`](./INCLUSION-POLICY.md#admission-criteria): the tier exists
+precisely so a helper that turns out to be the wrong shape can be walked back without
+this policy's ceremony.
+
+### The window's marker check is TypeScript-only
+
+The one thing a guard can check about the window — whether a removed `stable` or
+`frozen` export carried a `**Deprecated:**` line in the *base* golden — is readable in
+one binding. `docs/api-surface-python.md` records no docstrings and
+`docs/api-surface-go.md` records no doc comments, so neither golden carries a
+deprecation marker for anything to read. Removing a `stable` or `frozen` Python or Go
+export therefore surfaces as a `::notice::` naming the export and asking a reviewer to
+confirm the window by hand, not as a pass or a fail — a green run there means "not
+checked," not "checked and clean." (The other half of the window — that the marker
+*survived* a later, separate release before removal — is unchecked in every binding;
+see [RFC-0015 §Problem](./rfcs/0015-tiered-stability.md#the-window-check-is-half-checkable-and-only-in-one-binding).)
+
 ## Worked precedents
 
 Real classification calls and the reasoning behind them, so the next similar decision is

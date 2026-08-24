@@ -1,20 +1,40 @@
 /**
- * CI entry point for the Conventional Commit rules in `conventional-commit.ts`.
+ * CI entry point for two independent Conventional Commit rules: the carried-commits rule
+ * in `conventional-commit.ts`, and the tiered-stability rule in `stability-rules.ts`.
  *
- * Thin glue by design: everything decidable lives in the pure module next door, under unit
- * test, so this file holds only the parts that need the network and the environment — read
- * the event payload, fetch the PR's commits, print, set an exit code.
+ * Thin glue by design: everything decidable for both rules lives in the pure modules next
+ * door, under unit test, so this file holds only the parts that need the network, the
+ * filesystem and the environment — read the event payload, fetch the PR's commits and
+ * body, read `docs/rfcs/`, diff the three golden files base → head, print, set an exit
+ * code. The two rules compose by both standing: a PR must satisfy whichever demands more,
+ * which falls out of running them independently rather than out of any explicit `max`.
  *
- * Runs on `pull_request` events targeting `main`. On anything else it exits 0 with a note
- * rather than being skipped by an `if:` in the workflow: `ci-complete` treats a skipped
- * dependency as a failure, so a job that opts out of a push build must do so from the
- * inside.
+ * Carried-commits (`conventional-commit.ts`): the aggregate PR subject that lands on
+ * `main` may not declare less release impact than the commits it squashes away.
  *
- * Also usable locally against any PR, which is how the rules were checked against the
- * release this guard exists to prevent:
+ * Tiered stability (`stability-rules.ts`): a second requirement derived from the diff of
+ * `docs/api-surface.md`, `docs/api-surface-python.md` and `docs/api-surface-go.md`
+ * against `GITHUB_BASE_SHA` — see [RFC-0015](../../../docs/rfcs/0015-tiered-stability.md)
+ * for the rule table this enforces. A FLOOR, never a certificate: the diff can prove the
+ * declared type is not too small, never that it is big enough.
+ *
+ * Runs on `pull_request` events targeting `main`, from its own workflow —
+ * `.github/workflows/commit-subject.yml` (job id `commit-guard`, no `name:` key, so
+ * GitHub reports the status check as `commit-guard`, not `commit-subject`) — rather than
+ * from `ci.yml`, because this guard reads the PR *title* and must re-run on an `edited`
+ * event, which `ci.yml`'s full matrix cannot afford to re-run on every retitle. On
+ * anything else it exits 0 with a note rather than being skipped by an `if:` in the
+ * workflow: `ci-complete` treats a skipped dependency as a failure, so a job that opts
+ * out of a push build must do so from the inside.
+ *
+ * Also usable locally against any PR, which is how the carried-commits rule was checked
+ * against the release this guard exists to prevent:
  *
  *   GITHUB_REPOSITORY=nimbus-agent/nimbus-sdk GH_TOKEN=$(gh auth token) \
  *     bun run scripts/conventional-commit-guard.ts --pr 59
+ *
+ * The tiered-stability half additionally needs `GITHUB_BASE_SHA` set to diff against —
+ * without it, that half is skipped with a note rather than treated as a pass.
  *
  * Exit codes: 0 pass or not applicable, 1 a rule failed, 2 the check could not run.
  */

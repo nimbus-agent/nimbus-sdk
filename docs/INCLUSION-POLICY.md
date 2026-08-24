@@ -105,9 +105,21 @@ A proposal needing any of these relaxed is contract-affecting and takes the RFC 
 
 A new battery is an **additive** change under
 [GOVERNANCE.md's change classes](./GOVERNANCE.md#change-classes): PR plus review, minor
-bump, and it will show up as new entries in [`api-surface.md`](./api-surface.md). Adding
-it is easy; removing it later requires the
-[deprecation policy](./DEPRECATION-POLICY.md) and a major version. Decide accordingly.
+bump, and it will show up as new entries in [`api-surface.md`](./api-surface.md).
+
+**A newly admitted battery enters at `experimental`**, the weakest of the three
+[stability tiers](./rfcs/0015-tiered-stability.md#1-the-three-tiers) — never `stable`,
+and it cannot be `frozen` at all until a normative spec and a conformance-corpus guard
+exist for it. This matters more than it looks: without a tier system, every admitted
+battery is `frozen` in every way that counts the moment it ships, because no weaker
+promise exists to make instead — removing or reshaping it later would need the full
+[deprecation policy](./DEPRECATION-POLICY.md) window and a major version regardless of
+how new or lightly used it still is. Admission was already meant to be conservative
+("the default answer is no," above) partly *because* it was effectively irreversible.
+Entering at `experimental` makes it less so: a battery that turns out to be the wrong
+shape, or to see no real adoption, can still be walked back — or promoted to `stable`
+once it proves itself — under a plain `feat:`, no deprecation window required, right up
+until someone chooses to promote it.
 
 ## What rejection means
 

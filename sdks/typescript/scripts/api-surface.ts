@@ -226,6 +226,70 @@ export function collectDeprecations(rawText: string): Map<string, string> {
   return found;
 }
 
+/** The three stability tiers. No other value is valid, and there is no default. */
+export type Tier = "frozen" | "stable" | "experimental";
+
+const TIERS: readonly string[] = ["frozen", "stable", "experimental"];
+
+/** A module's default tier and its per-export overrides. */
+export type ModuleStability = { module: Tier | null; overrides: Map<string, Tier> };
+
+/** The single-word value of `tag` in a JSDoc body, or null when the tag is absent. */
+function tagWord(body: string, tag: string): string | null {
+  const match = new RegExp(`(?<=^|\\s)@${tag}\\s+(\\S+)`).exec(body);
+  return match?.[1] ?? null;
+}
+
+function asTier(value: string, tag: string): Tier {
+  if (!TIERS.includes(value)) {
+    throw new Error(`@${tag} has unknown tier "${value}" — expected one of ${TIERS.join(", ")}`);
+  }
+  return value as Tier;
+}
+
+/**
+ * A module's `@moduleStability` default and every `@stability` override in it.
+ *
+ * TWO tags rather than one distinguished by position, and that is load-bearing. This
+ * runs on `dist/`, and `tsc` emits a module's file-level JSDoc block immediately
+ * adjacent to the first declaration with no blank line — verified against
+ * `dist/icalendar.d.ts`, where the block ends at line 14 and `export interface
+ * ParsedEvent` begins at line 15. So `declaredNameOf` returns `ParsedEvent` for the
+ * module's own docblock, and any rule of the form "a tag annotating no declaration is
+ * the module default" would silently attribute it to whichever export is declared
+ * first.
+ */
+export function collectStability(rawText: string): ModuleStability {
+  const text = normalizeEol(rawText);
+  const overrides = new Map<string, Tier>();
+  let moduleTier: Tier | null = null;
+
+  JSDOC_BLOCK.lastIndex = 0;
+  let block = JSDOC_BLOCK.exec(text);
+  while (block !== null) {
+    const body = block[1] ?? "";
+
+    const moduleWord = tagWord(body, "moduleStability");
+    if (moduleWord !== null) {
+      if (moduleTier !== null) {
+        throw new Error("more than one @moduleStability tag in a single module");
+      }
+      moduleTier = asTier(moduleWord, "moduleStability");
+    }
+
+    const exportWord = tagWord(body, "stability");
+    if (exportWord !== null) {
+      const after = text.slice(block.index + block[0].length);
+      const name = declaredNameOf(after.replace(SKIPPABLE_BEFORE_DECLARATION, ""));
+      if (name !== null) overrides.set(name, asTier(exportWord, "stability"));
+    }
+
+    block = JSDOC_BLOCK.exec(text);
+  }
+
+  return { module: moduleTier, overrides };
+}
+
 // A tag begins at an `@word` preceded by whitespace (including a newline) or by the
 // start of the body — never when it directly follows a non-whitespace character. That
 // is how TypeScript's own JSDoc parser recognizes a tag, which is why tsc emits these

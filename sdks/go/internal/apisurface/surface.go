@@ -360,3 +360,57 @@ func render(fset *token.FileSet, node ast.Node) string {
 	}
 	return strings.Join(strings.Fields(buf.String()), " ")
 }
+
+// tiers are the only valid stability values. There is no default.
+var tiers = map[string]bool{"frozen": true, "stable": true, "experimental": true}
+
+const stabilityPrefix = "Stability:"
+
+// stabilityIn returns the tier named by a `Stability:` line in doc, or "".
+func stabilityIn(doc *ast.CommentGroup) string {
+	if doc == nil {
+		return ""
+	}
+	for _, line := range strings.Split(doc.Text(), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, stabilityPrefix) {
+			continue
+		}
+		return strings.TrimSpace(strings.TrimPrefix(line, stabilityPrefix))
+	}
+	return ""
+}
+
+// DeclStability is the per-declaration override, or "" when the declaration has none.
+func DeclStability(doc *ast.CommentGroup) string { return stabilityIn(doc) }
+
+// PackageStability is the tier declared by the package doc comment.
+//
+// A Go package is a directory, and its package doc may precede the `package` keyword in
+// ANY file. This module is already inconsistent about where: connectorkit and
+// diagnostics use a doc.go, while contract, ipc and spec put it atop an ordinary source
+// file (version.go, hello.go, spec.go). So every file is scanned.
+//
+// Exactly one file may declare a tier. Two is an error rather than a first-match win:
+// silently picking one of two disagreeing tiers is the failure this design exists to
+// prevent.
+func PackageStability(files []*ast.File) (string, error) {
+	found, from := "", ""
+	for _, f := range files {
+		tier := stabilityIn(f.Doc)
+		if tier == "" {
+			continue
+		}
+		if !tiers[tier] {
+			return "", fmt.Errorf("apisurface: unknown stability tier %q in package %s; add one of `// Stability: frozen|stable|experimental`, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md", tier, f.Name.Name)
+		}
+		if found != "" {
+			return "", fmt.Errorf("apisurface: package %s declares a stability tier in two files (%s and %s); keep exactly one `// Stability: frozen|stable|experimental` line, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md", f.Name.Name, from, f.Name.Name)
+		}
+		found, from = tier, f.Name.Name
+	}
+	if found == "" {
+		return "", fmt.Errorf("apisurface: package declares no `// Stability:` line in any file; add `// Stability: frozen|stable|experimental` to the package doc comment, re-run `go -C sdks/go run ./internal/apisurface/cmd`, and see docs/rfcs/0015-tiered-stability.md")
+	}
+	return found, nil
+}

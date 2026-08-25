@@ -46,14 +46,16 @@
 - Modify: 5 packages under `sdks/go/` — one `// Stability:` line each, plus two overrides.
 - Modify: `docs/api-surface-go.md` — regenerated.
 
-**Shipment 5 — the gate**
+**Shipment 5 — the gate, and the trailing documentation it closes out**
+
+RFC-0015 and the design define five shipments, not six — the trailing documentation
+below is Task 13, part of this shipment's own pull request, not a shipment of its own.
+
 - Create: `sdks/typescript/scripts/stability-rules.ts` — the pure rule table and surface-diff classifier.
 - Create: `sdks/typescript/scripts/stability-rules.test.ts`.
 - Modify: `sdks/typescript/scripts/conventional-commit-guard.ts` — the second rule.
 - Create: `.github/workflows/commit-subject.yml`.
 - Modify: `.github/workflows/ci.yml` — remove the `commit-guard` job and its `ci-complete` dependency.
-
-**Shipment 6 — trailing docs**
 - Modify: `docs/ROADMAP.md`, `docs/DEPRECATION-POLICY.md`, `docs/INCLUSION-POLICY.md`, `CLAUDE.md`.
 
 ---
@@ -1580,7 +1582,9 @@ git commit -m "feat(typescript): require a bump matching the tier of every surfa
 
 **Interfaces:**
 - Consumes: the guard from Task 11.
-- Produces: a status check named `commit-subject`, to be marked required in branch protection.
+- Produces: a status check named `commit-guard` (the job id inside `commit-subject.yml`,
+  which carries no `name:` key — GitHub derives the check name from the job, not the
+  workflow file), to be marked required in branch protection.
 
 - [ ] **Step 1: Create the workflow**
 
@@ -1622,7 +1626,7 @@ git commit -m "ci: run the commit-subject guard in its own workflow, including o
 
 - [ ] **Step 6: DEPLOYMENT STEP — mark the check required**
 
-**This shipment is not done when the pull request merges.** In repository settings → branch protection for `main`, add `commit-subject` to the required status checks. `ci-complete` stays required. Until this is done the check reports but blocks nothing.
+**This shipment is not done when the pull request merges.** In repository settings → branch protection for `main`, add `commit-guard` to the required status checks — that is the check's actual name (the job id, since the job carries no `name:` key), not `commit-subject` (the workflow file's name). `ci-complete` stays required. Until this is done the check reports but blocks nothing.
 
 ---
 

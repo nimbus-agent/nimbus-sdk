@@ -32,9 +32,14 @@ It is a statement of intent for how the project is run, not a legal document.
   - **Go** (`github.com/nimbus-agent/nimbus-sdk/sdks/go`) — Asaf Golombek
     ([@AsafGolombek](https://github.com/AsafGolombek)), per
     [RFC-0013](./rfcs/0013-go-sdk-official.md).
-  - **TypeScript** (`@nimbus-dev/sdk`) — the reference implementation, maintained by the
-    maintainers above. It predates this process and has no promotion RFC of its own;
-    RFC-0008 records that asymmetry rather than resolving it.
+  - **TypeScript** (`@nimbus-dev/sdk`) — Asaf Golombek
+    ([@AsafGolombek](https://github.com/AsafGolombek)), per
+    [RFC-0016](./rfcs/0016-typescript-sdk-official.md). It is also the reference
+    implementation, and it predates this process: RFC-0008 recorded that asymmetry
+    rather than resolving it, and RFC-0016 resolves it — not by promoting a binding that
+    was never community, but by holding the binding that *defines* the bar to it. It is
+    the only one that satisfies criterion 1 under its literal wording, executing all
+    eight published corpora where the other two execute four.
 - **Contributors** — anyone opening issues, PRs, or RFCs. Third-party connector and
   app authors are first-class contributors to the ecosystem.
 

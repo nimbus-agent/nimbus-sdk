@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.21.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.20.1...typescript-v1.21.0) (2026-08-25)
+
+
+### Features
+
+* tiered stability markers across all three bindings (RFC-0015) ([#175](https://github.com/nimbus-agent/nimbus-sdk/issues/175)) ([c85750a](https://github.com/nimbus-agent/nimbus-sdk/commit/c85750aa0b380a7b195c98a41727adfe3a82ccc7))
+
 ## [1.20.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.20.0...typescript-v1.20.1) (2026-08-25)
 
 

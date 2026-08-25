@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.8.1...sdks/go/v0.8.2) (2026-08-25)
+
+
+### Bug Fixes
+
+* **diagnostics:** reject an own __proto__ member instead of silently dropping it ([#174](https://github.com/nimbus-agent/nimbus-sdk/issues/174)) ([a7e754b](https://github.com/nimbus-agent/nimbus-sdk/commit/a7e754b96d1a7e6251ffbb08baf127a6edb627ee))
+
 ## [0.8.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.8.0...sdks/go/v0.8.1) (2026-08-23)
 
 

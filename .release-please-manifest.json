@@ -2,5 +2,5 @@
   "sdks/typescript": "1.20.1",
   "sdks/python": "0.11.1",
   "tools/create-connector": "0.3.1",
-  "sdks/go": "0.8.1"
+  "sdks/go": "0.8.2"
 }

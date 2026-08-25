@@ -184,4 +184,155 @@ describe("the release workflow", () => {
         "cannot stop a bad build from shipping, since PyPI can never re-upload a version",
     ).toBeLessThan(publishIndex);
   });
+
+  /**
+   * Parsed, never substring-matched. `release.yml` discusses these actions in its
+   * comments, so a `toContain` check would match the prose and keep passing with the
+   * `uses:` deleted — the exact vacuity that let a guard elsewhere in this repo match a
+   * workflow's own documentation instead of its code.
+   */
+  const npmPublishJobs = ["publish", "publish-create-connector"] as const;
+
+  test("both npm publish jobs use the shared preflight and verify actions", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<string, { steps: { name?: string; uses?: string }[] }>;
+    };
+
+    for (const job of npmPublishJobs) {
+      const uses = workflow.jobs[job]?.steps.map((step) => step.uses ?? "") ?? [];
+      expect(uses).toContain("./.github/actions/npm-publish-preflight");
+      expect(uses).toContain("./.github/actions/verify-npm-publish");
+    }
+  });
+
+  test("the preflight runs before the publish in both npm jobs", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<string, { steps: { name?: string; uses?: string }[] }>;
+    };
+
+    for (const job of npmPublishJobs) {
+      const steps = workflow.jobs[job]?.steps ?? [];
+      const preflight = steps.findIndex(
+        (step) => step.uses === "./.github/actions/npm-publish-preflight",
+      );
+      const publish = steps.findIndex((step) => (step.name ?? "").startsWith("Publish to npm"));
+
+      expect(preflight).toBeGreaterThanOrEqual(0);
+      expect(publish).toBeGreaterThanOrEqual(0);
+      // The whole point of a preflight: npm cannot unpublish after 72h, so a check
+      // that runs after the publish reports damage instead of preventing it.
+      expect(preflight).toBeLessThan(publish);
+    }
+  });
+
+  test("the preflight is told which package directory to read", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<
+        string,
+        {
+          defaults?: { run?: { "working-directory"?: string } };
+          steps: { uses?: string; with?: Record<string, string> }[];
+        }
+      >;
+    };
+
+    // A composite action's run steps do NOT inherit the job's
+    // defaults.run.working-directory. Without this input the preflight reads the
+    // workspace root's package.json — wrong file, and silently so. Derived from each
+    // job's own defaults.run.working-directory rather than a hardcoded literal map, so
+    // changing the job's default alone cannot leave this guard green while the action
+    // still reads a stale directory.
+    for (const job of npmPublishJobs) {
+      const jobDefaultDir = workflow.jobs[job]?.defaults?.run?.["working-directory"];
+      expect(
+        jobDefaultDir,
+        `${job} must declare defaults.run.working-directory for this guard to derive an expectation from`,
+      ).toBeDefined();
+
+      const step = workflow.jobs[job]?.steps.find(
+        (s) => s.uses === "./.github/actions/npm-publish-preflight",
+      );
+      expect(step?.with?.["working-directory"]).toBe(jobDefaultDir);
+    }
+  });
+
+  test("only publish-create-connector's preflight is told an expected-version, and it is non-empty", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<string, { steps: { uses?: string; with?: Record<string, string> }[] }>;
+    };
+
+    const preflightStep = (job: string) =>
+      workflow.jobs[job]?.steps.find((s) => s.uses === "./.github/actions/npm-publish-preflight");
+
+    // publish-create-connector knows its version ahead of time (release-please's
+    // cc_version output) and must assert it matches before publishing — the whole point
+    // of the preflight. Deleting this `with:` line leaves every other guard green while
+    // the version check silently no-ops (the action's EXPECTED_VERSION empty-string
+    // branch skips the comparison entirely).
+    const ccExpectedVersion = preflightStep("publish-create-connector")?.with?.["expected-version"];
+    expect(
+      ccExpectedVersion,
+      "publish-create-connector's preflight step must pass a non-empty `expected-version`",
+    ).toBeTruthy();
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a literal GitHub Actions expression string from the parsed workflow YAML, not a mistaken JS template.
+    expect(ccExpectedVersion).toBe("${{ needs.release-please.outputs.cc_version }}");
+
+    // The asymmetry is intentional, not an oversight: the TypeScript SDK resolves its
+    // version AFTER publishing (see the "Resolve published version" step below it), so
+    // release-please exposes no ts_version output to check ahead of time. Pinning the
+    // absence stops someone "fixing" the inconsistency by wiring in a wrong value.
+    expect(
+      preflightStep("publish")?.with?.["expected-version"],
+      "publish's preflight must NOT pass expected-version — the SDK's version isn't known until after publish",
+    ).toBeUndefined();
+  });
+
+  test("both composite actions exist and declare exactly the inputs their callers pass", () => {
+    for (const action of ["npm-publish-preflight", "verify-npm-publish"]) {
+      const parsed = parse(readFromRepo(`.github/actions/${action}/action.yml`)) as {
+        runs: { using: string };
+        inputs?: Record<string, unknown>;
+      };
+      expect(parsed.runs.using).toBe("composite");
+      expect(parsed.inputs).toBeDefined();
+    }
+
+    const preflight = parse(readFromRepo(".github/actions/npm-publish-preflight/action.yml")) as {
+      inputs: Record<string, unknown>;
+    };
+    expect(Object.keys(preflight.inputs).sort()).toEqual(["expected-version", "working-directory"]);
+
+    const verify = parse(readFromRepo(".github/actions/verify-npm-publish/action.yml")) as {
+      inputs: Record<string, unknown>;
+    };
+    expect(Object.keys(verify.inputs).sort()).toEqual(["package", "version"]);
+  });
+
+  test("the composite actions' run scripts still pin the values the plan calls out", () => {
+    // Parsed, never substring-matched against the raw file — the same reasoning as the
+    // npmPublishJobs comment above: an action's own comments discuss these values, so a
+    // naive check of the raw file text would keep passing after the `run:` script itself
+    // dropped them.
+    const preflight = parse(readFromRepo(".github/actions/npm-publish-preflight/action.yml")) as {
+      runs: { steps: { run?: string }[] };
+    };
+    const preflightRun = preflight.runs.steps.map((s) => s.run ?? "").join("\n");
+    expect(
+      preflightRun,
+      "npm-publish-preflight's run script must still pin the 11.5.1 OIDC trusted-publishing floor",
+    ).toContain("11.5.1");
+
+    const verify = parse(readFromRepo(".github/actions/verify-npm-publish/action.yml")) as {
+      runs: { steps: { run?: string }[] };
+    };
+    const verifyRun = verify.runs.steps.map((s) => s.run ?? "").join("\n");
+    expect(
+      verifyRun,
+      "verify-npm-publish's run script must still pass --prefer-online, or a retry just replays the cached negative packument",
+    ).toContain("--prefer-online");
+    expect(
+      verifyRun,
+      "verify-npm-publish's run script must still retry across all 8 attempts (1 2 3 4 5 6 7 8)",
+    ).toContain("1 2 3 4 5 6 7 8");
+  });
 });

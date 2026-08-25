@@ -275,6 +275,33 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
 - **`release-please-config.json` grows one component per language SDK**; each tracks
   its own version in `.release-please-manifest.json` and maintains its own
   `CHANGELOG`.
+- **Draining a queue of release PRs: run the `Release Drain` workflow.** Because every
+  component's version lives in the *same* `.release-please-manifest.json`, merging one
+  release PR leaves the others based on a stale `main`, and GitHub shows them as
+  conflicted. That resolves itself — `always-update: true` makes release-please rebase
+  the survivors on its next run, usually within a minute — but each rebase restarts the
+  full cross-OS CI matrix. Draining N release PRs by hand is therefore N sequential
+  matrix runs with a person waiting between them.
+
+  [`release-drain.yml`](../.github/workflows/release-drain.yml) is a manual
+  `workflow_dispatch` that arms `gh pr merge --auto --squash` on every open
+  release-please PR, so each lands itself the moment its own checks pass, in whatever
+  order they finish. Run it when you have decided to ship.
+
+  It is **not** armed automatically when a release PR opens, and that is deliberate:
+  doing so would make every merged `feat:` publish itself once green. Publishing here
+  cannot be undone — npm refuses to unpublish after 72h, and `proxy.golang.org` caches a
+  Go tag permanently — so the decision of *when* to ship stays with a person. The
+  workflow only removes the waiting.
+
+  **Do not "fix" the shared manifest with `separate-pull-requests: false`.** A grouped
+  release PR looks like the obvious answer and fails silently in the publishing
+  direction: its default title pattern omits `${version}`, so release-please cannot parse
+  a version out of its own merged title and skips creating the release and tag — the
+  manifest updates, the PR looks merged, and nothing publishes
+  ([googleapis/release-please#2712](https://github.com/googleapis/release-please/issues/2712),
+  open). `sdks/typescript/scripts/release-config-guard.test.ts` pins the key and carries
+  the full reasoning.
 - **A reusable release workflow** (harden → build/test → publish → post-publish
   verify), defined once and called by each language's job so the hardened pipeline is not
   re-implemented three times, is **not built yet** — it is an open

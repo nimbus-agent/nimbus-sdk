@@ -1,0 +1,104 @@
+name: Release Drain
+
+# Arms auto-merge on every open release-please PR, on demand.
+#
+# WHY THIS EXISTS. The four release components share one `.release-please-manifest.json`,
+# so every release PR edits the same file. Merging one rewrites it and leaves the others
+# based on a stale main, which GitHub reports as a conflict until release-please's next
+# run rebases them (`always-update: true` in release-please-config.json is what makes
+# that self-healing — see the comment in sdks/typescript/scripts/release-config-guard.test.ts).
+#
+# The conflict resolves itself in about a minute, so it is not the real cost. The real
+# cost is that each rebase restarts the full cross-OS CI matrix, so draining a queue of N
+# release PRs means N sequential matrix runs with a human waiting between each. Observed:
+# four components released in one afternoon took four rounds of merge → rebase → wait.
+#
+# `gh pr merge --auto` removes the waiting without removing anything else. Each PR lands
+# itself the moment its own checks pass, in whatever order they finish.
+#
+# WHY NOT `separate-pull-requests: false`. A grouped PR would sidestep the shared manifest
+# entirely, and it is the obvious fix — but it is a trap, and the reasoning is recorded in
+# release-config-guard.test.ts with a test pinning the key. In short:
+# googleapis/release-please#2712 (open, p3) — a grouped PR's default title pattern omits
+# `${version}`, so on merge release-please cannot parse a version out of its own title and
+# SILENTLY skips creating the release and tag. The manifest updates, the PR looks merged,
+# and nothing publishes. That fails in the worst possible direction for a release system.
+#
+# WHY `workflow_dispatch` RATHER THAN ARMING AUTOMATICALLY. Arming auto-merge when the PR
+# is opened would make every merged `feat:` publish itself once green — continuous
+# delivery, with no human deciding when to ship. Publishing here is irreversible: npm
+# cannot unpublish after 72h, and proxy.golang.org caches a Go tag permanently, so a
+# wrong version can never be taken back (see docs/RELEASING.md). Keeping the trigger
+# manual leaves that one decision with a person while removing the babysitting.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm-auto-merge:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+
+      # The same "Nimbus Release Bot" App release.yml uses. The org blocks GITHUB_TOKEN
+      # from pull-request operations, so a minted App token is the only thing that can
+      # act on these PRs. Tokens are per-run and expire in ~1h.
+      - name: Mint release-bot token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ secrets.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          owner: nimbus-agent
+          repositories: nimbus-sdk
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Arm auto-merge on every open release PR
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Identified by head branch, not by title: release-please owns the
+          # `release-please--` branch prefix, while a title is editable by anyone.
+          mapfile -t prs < <(
+            gh pr list --state open --limit 50 \
+              --json number,headRefName,title \
+              --jq '.[] | select(.headRefName | startswith("release-please--")) | "\(.number)\t\(.title)"'
+          )
+
+          if [ "${#prs[@]}" -eq 0 ]; then
+            echo "No open release-please pull requests — nothing to arm."
+            exit 0
+          fi
+
+          # Arm every PR before failing on any one of them, so a single unarmable PR
+          # does not strand the rest. A queue half-armed is the state this workflow
+          # exists to avoid.
+          failed=0
+          for entry in "${prs[@]}"; do
+            number="${entry%%$'\t'*}"
+            title="${entry#*$'\t'}"
+            if gh pr merge "$number" --auto --squash; then
+              echo "::notice::armed auto-merge on #${number} — ${title}"
+            else
+              echo "::error::could not arm auto-merge on #${number} — ${title}"
+              failed=1
+            fi
+          done
+
+          exit "$failed"

@@ -1,0 +1,74 @@
+name: verify npm publish
+description: >-
+  Install the just-published package from the registry into a clean tree and
+  verify its registry signature and attestation.
+
+inputs:
+  package:
+    description: "The published package name, e.g. @nimbus-dev/sdk"
+    required: true
+  version:
+    description: "The published version to verify"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # No working-directory input: every command runs inside a fresh mktemp -d.
+    # `npm audit signatures` verifies the packages in the CURRENT tree, so run in
+    # the repo it would audit our own dependencies — which never includes the
+    # package just shipped. Verifying the published artifact means installing it
+    # from the registry into a clean tree first.
+    - name: Install from the registry and audit signatures
+      shell: bash
+      env:
+        PUBLISHED_PACKAGE: ${{ inputs.package }}
+        PUBLISHED_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        tmp="$(mktemp -d)"
+        # Cleaned up on every exit path, success or failure. Moot on a
+        # GitHub-hosted runner, whose VM is destroyed with the job — but this
+        # action is now callable from anywhere, including a self-hosted runner
+        # where /tmp persists across jobs and an npm install tree is not small.
+        trap 'rm -rf "$tmp"' EXIT
+        cd "$tmp"
+        npm init -y >/dev/null
+        # A publish is followed by TWO independent propagation lags, and each has
+        # already turned a good release red:
+        #
+        #   * packument lag — `npm install pkg@<v>` fails ETARGET "No matching
+        #     version found" while the version is still propagating.
+        #   * attestation lag — the tarball installs fine while
+        #     `/-/npm/v1/attestations/...` still 404s, so `npm audit signatures`
+        #     fails on a package that is live and correctly attested. That is what
+        #     made 1.5.0's publish job red: install succeeded on attempt 1, the loop
+        #     broke, and the single audit that followed hit the 404. Minutes later
+        #     the identical command reported a verified signature and attestation.
+        #
+        # So install and audit must retry TOGETHER — a loop that breaks on install
+        # alone and audits once afterwards reads attestation lag as a supply-chain
+        # failure. `--prefer-online` is also required: npm caches the negative
+        # packument, so plain retries re-read the same cached 404 instead of asking
+        # the registry again.
+        #
+        # The condition is deliberately NOT split to report which half failed:
+        # retrying as one unit is the correctness property, and npm's own stderr
+        # already names ETARGET or the attestation 404 on each attempt.
+        verified=""
+        for attempt in 1 2 3 4 5 6 7 8; do
+          echo "verifying ${PUBLISHED_PACKAGE}@${PUBLISHED_VERSION} — attempt ${attempt}/8"
+          if npm install "${PUBLISHED_PACKAGE}@${PUBLISHED_VERSION}" \
+               --no-audit --no-fund --prefer-online \
+            && npm audit signatures; then
+            verified=1
+            break
+          fi
+          if [ "$attempt" != 8 ]; then
+            sleep $(( attempt * 10 ))
+          fi
+        done
+        if [ -z "$verified" ]; then
+          echo "::error::${PUBLISHED_PACKAGE}@${PUBLISHED_VERSION} could not be installed and signature-verified from the registry after 8 attempts (~4.5 min)."
+          exit 1
+        fi

@@ -21,6 +21,12 @@
 - **The npm trusted-publishing floor is `11.5.1`.** Copy it verbatim; do not "modernise" it.
 - **The retry loop is 8 attempts with `sleep $(( attempt * 10 ))`** (~4.5 minutes total). Do not change the counts.
 - **Preserve every explanatory comment verbatim** when moving code. The comments are the only record of why these shapes exist — the `1.5.0` propagation-lag incident, the 72-hour unpublish window, the `sort -V` runner assumption.
+- **Three deliberate additions to the moved code, and nothing else.** Each exists because factoring the code into an action changes what can go wrong, so "verbatim" would preserve a hazard rather than a behaviour:
+  1. a `sort -V` capability guard, because the action no longer sits beside the job that pins `ubuntu-24.04`;
+  2. a `package.json`-missing diagnostic naming `working-directory`, because that input is new and node's `MODULE_NOT_FOUND` never mentions it;
+  3. a `trap … EXIT` cleaning the temp directory, because the action is now callable from a runner whose `/tmp` persists.
+
+  Everything else moves unchanged. If you find yourself improving a fourth thing, stop — it is out of scope for this plan.
 
 ---
 
@@ -109,7 +115,22 @@ runs:
         fi
 
         if [ -n "$EXPECTED_VERSION" ]; then
-          declared="$(node -p "require('./package.json').version")"
+          # Diagnose the failure this refactor makes possible. Inline in the job,
+          # a missing package.json meant a broken repository. Behind a composite
+          # action the likeliest cause is a wrong `working-directory` input — and
+          # node's bare MODULE_NOT_FOUND stack never mentions it, so the reader is
+          # sent hunting the wrong thing.
+          if [ ! -f package.json ]; then
+            echo "::error::no package.json in $(pwd)."
+            echo "::error::Check this action's \`working-directory\` input: a composite action does NOT"
+            echo "::error::inherit the calling job's \`defaults.run.working-directory\`."
+            exit 1
+          fi
+          if ! declared="$(node -p "require('./package.json').version" 2>&1)"; then
+            echo "::error::could not read a version from $(pwd)/package.json — malformed JSON?"
+            echo "::error::node said: ${declared}"
+            exit 1
+          fi
           if [ "$declared" != "$EXPECTED_VERSION" ]; then
             echo "::error::package.json declares $declared but release-please released $EXPECTED_VERSION."
             exit 1
@@ -198,6 +219,11 @@ runs:
       run: |
         set -euo pipefail
         tmp="$(mktemp -d)"
+        # Cleaned up on every exit path, success or failure. Moot on a
+        # GitHub-hosted runner, whose VM is destroyed with the job — but this
+        # action is now callable from anywhere, including a self-hosted runner
+        # where /tmp persists across jobs and an npm install tree is not small.
+        trap 'rm -rf "$tmp"' EXIT
         cd "$tmp"
         npm init -y >/dev/null
         # A publish is followed by TWO independent propagation lags, and each has
@@ -372,6 +398,8 @@ git commit -m "ci: call the npm preflight and verify actions from both publish j
 **Interfaces:**
 - Consumes: the `release.yml` shape produced by Task 3; `parse` from the `yaml` package and `readFromRepo` from `./paths.ts`, both already imported at the top of that file.
 - Produces: no exports — tests only.
+
+**No install step is needed.** `yaml` is already declared in `sdks/typescript/package.json` under `devDependencies` at `^2.9.0`, and `release-workflow-guard.test.ts:18` already imports `parse` from it. Do **not** add `bun install yaml`. Worth stating because this repository has been bitten by the opposite: `tools/create-connector` once relied on a dependency it never declared, resolving through the parent checkout's `node_modules`, which passed for six reviewers locally and took down `build-test` on all three OSes the moment it reached CI.
 
 - [ ] **Step 1: Write the failing tests**
 

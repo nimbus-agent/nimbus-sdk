@@ -234,10 +234,28 @@ const TIERS: readonly string[] = ["frozen", "stable", "experimental"];
 /** A module's default tier and its per-export overrides. */
 export type ModuleStability = { module: Tier | null; overrides: Map<string, Tier> };
 
-/** The single-word value of `tag` in a JSDoc body, or null when the tag is absent. */
+/**
+ * The single-word value of `tag` in a JSDoc body, or null when the tag is absent.
+ *
+ * Global, not just anchored: a body carrying `@tag` twice is not "the first one wins" —
+ * it is rejected the same way two `@moduleStability` blocks in one module already are.
+ * A non-global regex here would silently keep only the first match, which is the
+ * within-block hole that made the cross-block duplicate check (`moduleTier !== null`,
+ * below) inconsistent — two tags a line apart failed, two tags in the same block did
+ * not.
+ */
 function tagWord(body: string, tag: string): string | null {
-  const match = new RegExp(`(?<=^|\\s)@${tag}\\s+(\\S+)`).exec(body);
-  return match?.[1] ?? null;
+  const re = new RegExp(`(?<=^|\\s)@${tag}\\s+(\\S+)`, "g");
+  const words: string[] = [];
+  let match = re.exec(body);
+  while (match !== null) {
+    words.push(match[1] ?? "");
+    match = re.exec(body);
+  }
+  if (words.length > 1) {
+    throw new Error(`more than one @${tag} tag in a single JSDoc block`);
+  }
+  return words[0] ?? null;
 }
 
 function asTier(value: string, tag: string): Tier {
@@ -258,6 +276,16 @@ function asTier(value: string, tag: string): Tier {
  * module's own docblock, and any rule of the form "a tag annotating no declaration is
  * the module default" would silently attribute it to whichever export is declared
  * first.
+ *
+ * A `@stability` block that sits above a from-clause re-export (rather than a
+ * declaration) is also resolved, but only when that clause exports exactly one name —
+ * mirroring `collectDeprecations`'s identical fallback to `reexportedNamesOf`, for the
+ * identical reason. `declaredNameOf` returns null for a re-export clause such as
+ * `export { Source as Public } from "./source.js";`, so without this fallback a
+ * `@stability` tag above one is silently dropped and that export quietly inherits its
+ * source module's tier instead of the override. A clause naming more than one export
+ * (`export { a, b } from "./t.js"`) is left unresolved rather than guessed: there is no
+ * way to tell which of `a` or `b` the tag was meant for.
  */
 export function collectStability(rawText: string): ModuleStability {
   const text = normalizeEol(rawText);
@@ -280,8 +308,18 @@ export function collectStability(rawText: string): ModuleStability {
     const exportWord = tagWord(body, "stability");
     if (exportWord !== null) {
       const after = text.slice(block.index + block[0].length);
-      const name = declaredNameOf(after.replace(SKIPPABLE_BEFORE_DECLARATION, ""));
-      if (name !== null) overrides.set(name, asTier(exportWord, "stability"));
+      const declaration = after.replace(SKIPPABLE_BEFORE_DECLARATION, "");
+      const name = declaredNameOf(declaration);
+      if (name !== null) {
+        overrides.set(name, asTier(exportWord, "stability"));
+      } else {
+        const reexported = reexportedNamesOf(declaration);
+        // Exactly one name: unambiguous, attach the override. Zero or several: either
+        // this isn't a from-clause at all, or it covers multiple names — in both cases
+        // there is no single name to safely attach the override to.
+        const only = reexported.length === 1 ? reexported[0] : undefined;
+        if (only !== undefined) overrides.set(only, asTier(exportWord, "stability"));
+      }
     }
 
     block = JSDOC_BLOCK.exec(text);

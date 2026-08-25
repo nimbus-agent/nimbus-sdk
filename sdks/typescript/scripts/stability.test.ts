@@ -38,8 +38,54 @@ describe("collectStability", () => {
     expect(() => collectStability(text)).toThrow(/more than one/i);
   });
 
+  // The within-block hole a non-global tagWord left open: the cross-block case above
+  // (two separate JSDoc blocks) was already guarded by `moduleTier !== null`, but two
+  // @moduleStability tags inside the SAME block used to resolve to the first instead of
+  // failing, because `tagWord` returned only its regex's first match.
+  test("rejects two @moduleStability tags within a single JSDoc block", () => {
+    const text =
+      "/** @moduleStability stable @moduleStability frozen */\nexport declare const a: number;\n";
+    expect(() => collectStability(text)).toThrow(/more than one/i);
+  });
+
+  test("rejects two @stability tags within a single JSDoc block", () => {
+    const text = [
+      "/** @moduleStability experimental */",
+      "/** @stability frozen @stability stable */",
+      "export declare const a: number;",
+      "",
+    ].join("\n");
+    expect(() => collectStability(text)).toThrow(/more than one/i);
+  });
+
   test("returns a null module tier when the file carries no tag", () => {
     expect(collectStability("export declare const a: number;\n").module).toBeNull();
+  });
+
+  // Mirrors collectDeprecations' identical fallback: declaredNameOf returns null for a
+  // from-clause re-export clause (it isn't a declaration), so without falling back to
+  // reexportedNamesOf a @stability tag placed above one would be silently dropped and
+  // that export would quietly inherit its source module's tier.
+  test("resolves a @stability override placed above a single-name re-export clause", () => {
+    const text = [
+      "/** @moduleStability experimental */",
+      "/** @stability frozen */",
+      'export { Source as Public } from "./source.js";',
+      "",
+    ].join("\n");
+    const result = collectStability(text);
+    expect(result.overrides.get("Public")).toBe("frozen");
+  });
+
+  test("refuses a @stability override above a multi-name re-export clause", () => {
+    const text = [
+      "/** @moduleStability experimental */",
+      "/** @stability frozen */",
+      'export { a, b } from "./source.js";',
+      "",
+    ].join("\n");
+    const result = collectStability(text);
+    expect(result.overrides.size).toBe(0);
   });
 });
 

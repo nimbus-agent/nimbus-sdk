@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Iterator
+from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
@@ -60,27 +61,44 @@ class _Handler(BaseHTTPRequestHandler):
         """Silence the default stderr access log."""
 
 
-def _serve() -> tuple[HTTPServer, int]:
-    # Port 0, and the assigned port read back off the socket. This suite runs on a
-    # cross-OS CI matrix alongside other jobs; a pinned port is a flake waiting for its
-    # first collision.
+@contextmanager
+def _serving() -> Iterator[tuple[str, int, HTTPServer]]:
+    """A running server, guaranteed released on exit.
+
+    Teardown lives here rather than in each fixture so it cannot be done by halves —
+    which is exactly what went wrong before. ``shutdown()`` stops the ``serve_forever``
+    loop but does **not** close the listening socket; only ``server_close()`` does.
+    Calling just the first leaked a bound port per test, and on Windows a later
+    ``bind(port 0)`` handed back one of those ports failed mid-request with
+    ``[WinError 10053] An established connection was aborted``. Measured: after
+    ``shutdown()`` alone the port still refuses a fresh exclusive bind and the server's
+    socket still has a live fileno; after ``server_close()`` the bind succeeds and the
+    fileno is -1.
+
+    Port 0, and the assigned port read back off the socket. This suite runs on a
+    cross-OS CI matrix alongside other jobs; a pinned port is a flake waiting for its
+    first collision.
+    """
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    return server, server.server_address[1]
+    port = server.server_address[1]
+    try:
+        yield f"http://127.0.0.1:{port}", port, server
+    finally:
+        server.shutdown()
+        server.server_close()
 
 
 @pytest.fixture
 def origin_a() -> Iterator[str]:
-    server, port = _serve()
-    yield f"http://127.0.0.1:{port}"
-    server.shutdown()
+    with _serving() as (origin, _port, _server):
+        yield origin
 
 
 @pytest.fixture
 def origin_b() -> Iterator[tuple[str, int]]:
-    server, port = _serve()
-    yield f"http://127.0.0.1:{port}", port
-    server.shutdown()
+    with _serving() as (origin, port, _server):
+        yield origin, port
 
 
 @pytest.fixture(autouse=True)
@@ -183,3 +201,29 @@ def test_a_post_body_reaches_the_server(origin_a: str) -> None:
         HttpRequest(url=f"{origin_a}/plain", method="POST", body=b'{"a":1}')
     )
     assert res.ok is True
+
+
+def test_the_test_server_releases_its_port_on_teardown() -> None:
+    """The fixture must CLOSE its listening socket, not merely stop serving on it.
+
+    This guards the isolation bug the suite actually had. ``shutdown()`` stops the
+    ``serve_forever`` loop but leaves the socket bound; only ``server_close()`` releases
+    it. On Windows the leak surfaced far from its cause — a *later* test failed
+    mid-request with ``[WinError 10053] An established connection was aborted``,
+    intermittently, once enough earlier tests had run to make a collision likely.
+
+    Asserted on ``fileno()`` while holding a reference to the server, and both halves of
+    that matter. A probe that merely tries to re-bind the port passes even when the fix
+    is reverted: once the context manager exits, the last reference to the server dies
+    and CPython's refcounting closes the socket as a side effect, hiding the leak. That
+    accidental cleanup is also why the original bug was intermittent rather than
+    constant. Keeping ``server`` alive here removes the GC from the experiment, so the
+    assertion measures the teardown and nothing else.
+    """
+    with _serving() as (_origin, _port, server):
+        assert server.socket.fileno() != -1, "the server should be open while serving"
+
+    assert server.socket.fileno() == -1, (
+        "the listening socket is still open after teardown — shutdown() was called "
+        "without server_close(), which leaks a bound port per test"
+    )

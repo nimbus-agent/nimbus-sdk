@@ -83,8 +83,8 @@ Every export also carries a [stability tier](./rfcs/0015-tiered-stability.md) �
 independent axes, and one export already sits at the intersection:
 `createScopedAuditLogger` (and the rest of `audit-logger`'s free-form payload) is
 `stable` — a long-shipped, widely-used battery with no spec or corpus behind it — *and*
-`@deprecated since 1.16.0 — use createEmitter from @nimbus-dev/sdk/diagnostics instead.
-May be removed in 2.0.0.` at the same time. The tier states what breaking the export
+`` @deprecated since 1.16.0 — use createEmitter from `@nimbus-dev/sdk/diagnostics` instead.
+May be removed in 2.0.0. `` at the same time. The tier states what breaking the export
 costs; the marker states that it is on its way out. Neither implies the other, and
 `audit-logger` stays `stable` rather than dropping to `experimental` — being on its way
 out does not make it less battle-tested while it still ships.

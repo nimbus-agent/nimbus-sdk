@@ -86,7 +86,7 @@ chosen to respect a rule that binding's surface generator already states about i
 Tiers are declared **at module scope** and may be **overridden per export**. Per-export
 declaration was rejected: TypeScript alone publishes 226 exports across five entry
 points, and with Python and Go that is roughly 350 hand-written annotations for the same
-expressiveness that 56 module-level decisions buy. CI fails on any module with no tier,
+expressiveness that 57 module-level decisions buy. CI fails on any module with no tier,
 so a new module cannot slip in untagged and inherit a default nobody chose.
 
 - **TypeScript** — **two distinct tags**, not one tag in two positions:
@@ -364,12 +364,12 @@ a compromise — it is what Phase 4's "matrix per export tier **and** language" 
 presupposes, and requiring uniformity would force every binding down to the youngest
 one's tier.
 
-### 5.1 Python — 16 modules across four roots
+### 5.1 Python — 17 modules across four roots
 
 | Tier | Modules |
 |---|---|
 | `frozen` | `contract.py`, `ipc/hello.py`, `ipc/ndjson.py`, `ipc/handshake.py`, `diagnostics/event.py`, `connector_kit/urls.py` |
-| `stable` | `spec.py`, `diagnostics/timestamp.py`, `connector_kit/errors.py`, `connector_kit/env.py`, `connector_kit/types.py`, `connector_kit/results.py`, `connector_kit/search_filter.py` |
+| `stable` | `__init__.py`, `spec.py`, `diagnostics/timestamp.py`, `connector_kit/errors.py`, `connector_kit/env.py`, `connector_kit/types.py`, `connector_kit/results.py`, `connector_kit/search_filter.py` |
 | `experimental` | `connector_kit/transport.py`, `connector_kit/router.py`, `connector_kit/rest.py` |
 
 `connector_kit/urls.py` is `frozen` on its own merits — `resolve_url_with_base` binds
@@ -377,7 +377,9 @@ one's tier.
 corpus and are weeks old. `ipc/handshake.py` is `frozen` under the same §4 exception as
 TypeScript's `handshake.js`, and for the same reason; Go's `ipc` package inherits it too,
 since it holds `PerformHandshake` alongside the corpus-gated `LineReader` and hello frame
-and takes one package-level tier.
+and takes one package-level tier. `__init__.py` is `stable`: it carries `__stability__ =
+"stable"` because it is the one barrel that *defines* a name, `__version__`, rather than
+only re-exporting names other modules define.
 
 ### 5.2 Go — 5 packages
 
@@ -495,7 +497,7 @@ churn, not to count, so it does not apply here.
 
 1. **RFC-0015** — documentation only, and the decision this design records. Vocabulary,
    the rule table, the floor-not-certificate opening, the declared-impact reasoning of
-   §3.1, deprecation orthogonality, all 56 classification rows, the RFC-link check, and
+   §3.1, deprecation orthogonality, all 57 classification rows, the RFC-link check, and
    the §6 scope boundary. Cuts no release, which is right: the RFC is the decision, not
    the commitment.
 2. **TypeScript** — the `@stability` tag, `api-surface.ts` emitting the resolved tier, 35
@@ -503,7 +505,7 @@ churn, not to count, so it does not apply here.
    untagged. `feat:`.
 3. **Python** — `__stability__` / `__stability_overrides__`, the §2.1.1 two-step resolver
    and the module-docstring note recording its departure, `api_surface.py` emitting the
-   tier, 16 modules tagged, golden regenerated, untagged-module guard. `feat:`. The
+   tier, 17 modules tagged, golden regenerated, untagged-module guard. `feat:`. The
    resolver is the largest single piece of work in shipments 2–4; do not size this
    alongside the other two.
 4. **Go** — the `// Stability:` doc-comment convention read across every file in each

@@ -13,9 +13,11 @@
  */
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { citesAnExistingRfc, surfaceChanges } from "./conventional-commit-guard.ts";
-import { packageRoot, repoRoot } from "./paths.ts";
+import { joinRepo, packageRoot, repoRoot } from "./paths.ts";
+import { parseSurface } from "./stability-rules.ts";
 
 const GUARD = join(packageRoot, "scripts", "conventional-commit-guard.ts");
 
@@ -100,25 +102,53 @@ describe("conventional-commit-guard CLI", () => {
  * process-global and this suite may share a process with other test files.
  */
 describe("repo-root anchoring (Finding A)", () => {
-  // A real ancestor commit, already known (from the CodeRabbit finding this guards
-  // against) to diff non-trivially against the current worktree's goldens — a
-  // zero-vs-zero comparison from both cwds would not have caught the original bug.
-  const BASE_SHA = "a7e754b";
+  // `HEAD`, not a pinned ancestor SHA. This keeps the file's stated contract — no token,
+  // reaches nothing — and it is what makes the test survive CI at all: `actions/checkout`
+  // gives a depth-1 merge ref, so any older SHA sends `ensureBaseTree` to the network,
+  // where `git fetch origin <abbrev>` fails with "couldn't find remote ref" because an
+  // abbreviation is not a refname. HEAD's tree is always present, so no fetch happens.
+  //
+  // Comparing HEAD against the worktree still catches the bug, and catches it sharply:
+  //
+  //   fixed    — base and head both read the same goldens, so the diff is empty from
+  //              either cwd, and the two results agree.
+  //   reverted — `git show <rev>:<path>` resolves repo-relative regardless of cwd, so the
+  //              BASE side still parses all 226 TypeScript entries, while the HEAD side
+  //              goes through `existsSync`/`Bun.file` and finds nothing from packageRoot.
+  //              Every base entry then reads as `removed`, and the two cwds disagree.
+  //
+  // So the assertion is "both cwds agree", not "the diff is non-empty" — an empty diff is
+  // the correct answer here, and the reverted code cannot produce it from packageRoot.
+  const BASE_SHA = "HEAD";
 
-  test("surfaceChanges returns the same non-empty diff from the repo root and from the package root", async () => {
+  test("surfaceChanges returns the same diff from the repo root and from the package root", async () => {
     const original = process.cwd();
     try {
       process.chdir(repoRoot);
       const fromRepoRoot = await surfaceChanges(BASE_SHA);
-      expect(fromRepoRoot.length).toBeGreaterThan(0);
 
       process.chdir(packageRoot);
       const fromPackageRoot = await surfaceChanges(BASE_SHA);
 
-      // The reverted (cwd-relative) behavior: from packageRoot the head golden isn't
-      // found, so it parses as "" and every base-only export shows up as "removed" —
-      // a different, wrong count, not the same diff computed twice.
       expect(fromPackageRoot).toEqual(fromRepoRoot);
+      expect(fromRepoRoot).toEqual([]);
+    } finally {
+      process.chdir(original);
+    }
+  });
+
+  // The equality above would hold vacuously if a future change made the head-golden read
+  // fail from BOTH cwds — empty equals empty. This is the non-vacuity half: the head
+  // golden must actually be readable through the same anchoring the guard uses, from the
+  // cwd where the original bug bit. `parseSurface` is the guard's own parser, and 226 is
+  // the count pinned in stability-rules.test.ts.
+  test("the head golden is readable through repo anchoring from the package root", () => {
+    const original = process.cwd();
+    try {
+      process.chdir(packageRoot);
+      const golden = joinRepo("docs/api-surface.md");
+      expect(existsSync(golden)).toBe(true);
+      expect(parseSurface(readFileSync(golden, "utf8")).size).toBe(226);
     } finally {
       process.chdir(original);
     }

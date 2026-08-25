@@ -419,6 +419,25 @@ describe("buildSearchRequest", () => {
     >;
     expect(queryArgs["limit"]).toBe(15);
   });
+
+  // list and search are one builder with one axis of variation. Asserted here because the
+  // search request had no coverage of `using` or the `#ids` back-reference at all: those are
+  // exactly the members a divergence between the two would silently break, and the failure
+  // would be a server-side unresolved-reference error rather than a local one.
+  test("differs from the list request only by the query filter", () => {
+    const search = buildSearchRequest("acc1", "invoice", 10) as Record<string, unknown>;
+    const list = buildListRequest("acc1", 10) as Record<string, unknown>;
+
+    expect(search["using"]).toEqual(list["using"]);
+    const searchCalls = search["methodCalls"] as unknown[];
+    const listCalls = list["methodCalls"] as unknown[];
+    expect(searchCalls[1]).toEqual(listCalls[1]);
+
+    const searchQuery = { ...((searchCalls[0] as unknown[])[1] as Record<string, unknown>) };
+    expect(searchQuery["filter"]).toEqual({ text: "invoice" });
+    delete searchQuery["filter"];
+    expect(searchQuery).toEqual((listCalls[0] as unknown[])[1] as Record<string, unknown>);
+  });
 });
 
 describe("buildGetRequest", () => {

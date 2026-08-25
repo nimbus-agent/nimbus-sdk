@@ -231,8 +231,26 @@ function emailGetArgs(accountId: string, idsRef: Record<string, unknown>): Recor
   };
 }
 
-/** Build a JMAP request: query the most-recent `limit` emails, then get their views. */
-export function buildListRequest(accountId: string, limit: number): unknown {
+/**
+ * The `Email/query` → `Email/get` pair both the list and the search request are: query the
+ * most-recent `limit` emails (optionally filtered), then fetch their views by back-reference
+ * off that query rather than in a second round trip.
+ *
+ * Built in one place because the two halves have to agree: `"q"` is the query call's client
+ * id AND the `resultOf` the get call resolves against, so a rename in one copy that missed the
+ * other would produce a request the server answers with an unresolved-reference error — at
+ * runtime, against a live account, which is the worst place to find it. `filter` is
+ * deliberately the only axis of variation; everything else here is protocol, not policy.
+ *
+ * `filter` is a required parameter rather than an optional one: under
+ * `exactOptionalPropertyTypes` an explicit `undefined` is not assignable to an optional
+ * property, so the absent case is spelled at the call site instead of being implied.
+ */
+function queryThenGetRequest(
+  accountId: string,
+  limit: number,
+  filter: Record<string, unknown> | undefined,
+): unknown {
   return {
     using: [CORE_CAPABILITY, MAIL_CAPABILITY],
     methodCalls: [
@@ -240,6 +258,7 @@ export function buildListRequest(accountId: string, limit: number): unknown {
         "Email/query",
         {
           accountId,
+          ...(filter === undefined ? {} : { filter }),
           sort: [{ property: "receivedAt", isAscending: false }],
           collapseThreads: false,
           limit,
@@ -257,31 +276,14 @@ export function buildListRequest(accountId: string, limit: number): unknown {
   };
 }
 
+/** Build a JMAP request: query the most-recent `limit` emails, then get their views. */
+export function buildListRequest(accountId: string, limit: number): unknown {
+  return queryThenGetRequest(accountId, limit, undefined);
+}
+
 /** Build a JMAP request: text-search the most-recent `limit` matching emails. */
 export function buildSearchRequest(accountId: string, query: string, limit: number): unknown {
-  return {
-    using: [CORE_CAPABILITY, MAIL_CAPABILITY],
-    methodCalls: [
-      [
-        "Email/query",
-        {
-          accountId,
-          filter: { text: query },
-          sort: [{ property: "receivedAt", isAscending: false }],
-          collapseThreads: false,
-          limit,
-        },
-        "q",
-      ],
-      [
-        "Email/get",
-        emailGetArgs(accountId, {
-          "#ids": { resultOf: "q", name: "Email/query", path: "/ids" },
-        }),
-        "e",
-      ],
-    ],
-  };
+  return queryThenGetRequest(accountId, limit, { text: query });
 }
 
 /** Build a JMAP request: get one email by id. */

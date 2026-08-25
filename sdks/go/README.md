@@ -19,8 +19,10 @@ are generated into
 
 > **Released.** The `go get` above resolves: `proxy.golang.org` serves the module,
 > `sum.golang.org` vouches for it, and the docs render on
-> [pkg.go.dev](https://pkg.go.dev/github.com/nimbus-agent/nimbus-sdk/sdks/go). The latest
-> tag is `sdks/go/v0.6.1`. See [Status](#status).
+> [pkg.go.dev](https://pkg.go.dev/github.com/nimbus-agent/nimbus-sdk/sdks/go). Every tag
+> from `sdks/go/v0.1.0` onward went out that way. The latest one is named on `pkg.go.dev`
+> and nowhere in this file, deliberately: a version restated here goes stale the next time
+> a release PR merges, and this one did. See [Status](#status).
 
 ## What this is
 
@@ -37,9 +39,16 @@ is the reference implementation; every binding is held to the same conformance c
 
 | Package | What it is |
 |---|---|
-| `.../sdks/go/contract` | The contract majors, the negotiation algorithm, and the manifest-versus-hello declaration check |
+| `.../sdks/go/contract` | The contract majors, the negotiation algorithm, the manifest-versus-hello declaration check, and `SDKVersion` |
 | `.../sdks/go/spec` | `LoadSchema` and `LoadCorpus` over the embedded contract data |
-| `.../sdks/go/ipc` | The hello frame (`EncodeHello`, `ParseHello`) and the NDJSON line reader (`LineReader`) |
+| `.../sdks/go/ipc` | The hello frame (`EncodeHello`, `ParseHello`), the NDJSON line reader (`LineReader`), and the handshake (`PerformHandshake`) |
+| `.../sdks/go/diagnostics` | The diagnostics contract v0: `Encode`, `Parse`, `MeetsLevel`, and the emitter (`NewEmitter`) |
+| `.../sdks/go/connectorkit` | The batteries a hand-rolled MCP connector needs: `ResolveURLWithBase`, `RequireEnv`, the MCP result builders, the search filter, `HTTPTransport`, `ToolRouter`, and the REST factories |
+
+That is the whole surface —
+[`docs/api-surface-go.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/api-surface-go.md)
+is the generated authority on what each package exports, and
+`internal/apisurface/cmd/golden_test.go` fails the pull request when it drifts.
 
 ## Negotiating a contract version
 

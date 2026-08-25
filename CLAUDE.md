@@ -291,8 +291,8 @@ outright instead of quietly downloading a toolchain.
 
 Releases are tagged **`sdks/go/vX.Y.Z`** (release-please component `sdks/go`,
 `tag-separator: "/"`, set per-package so the other three components are untouched).
-**Seven `sdks/go` versions are pushed**, `v0.1.0` through `v0.6.1`, `release-go.yml` green
-on each — so the pipeline is *observed*, not merely wired: `proxy.golang.org` serves the
+**Every `sdks/go` version from `v0.1.0` onward is pushed**, `release-go.yml` green on
+each — so the pipeline is *observed*, not merely wired: `proxy.golang.org` serves the
 module, `sum.golang.org` records its hashes, and `pkg.go.dev` renders the docs. Every one
 of them is cached permanently; that is the shape of every future tag too, so a wrong one
 cannot be taken back. For any future major ≥ 2, Go's semantic import versioning

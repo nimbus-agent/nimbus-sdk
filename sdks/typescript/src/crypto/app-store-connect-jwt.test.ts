@@ -12,6 +12,29 @@ function decode(segment: string): Record<string, unknown> {
   return JSON.parse(Buffer.from(segment, "base64url").toString("utf8")) as Record<string, unknown>;
 }
 
+/**
+ * Verify a token's signature with the public half of `privateKeyPem`, under the exact
+ * algorithm pair App Store Connect requires: ES256 with `ieee-p1363` (raw r||s) rather than
+ * DER. Written once because both call sites have to name the same pair — a copy that drifted
+ * to the `dsaEncoding` default would report a *false* signature failure and read as a bug in
+ * the signer.
+ *
+ * Returns false for a token that is not three segments, which also removes the
+ * `noUncheckedIndexedAccess` cast the two inlined copies each needed.
+ */
+function verifyEs256(token: string, privateKeyPem: string): boolean {
+  const [header, payload, signature] = token.split(".");
+  if (header === undefined || payload === undefined || signature === undefined) {
+    return false;
+  }
+  return crypto.verify(
+    "sha256",
+    Buffer.from(`${header}.${payload}`, "utf8"),
+    { key: crypto.createPublicKey(privateKeyPem), dsaEncoding: "ieee-p1363" },
+    Buffer.from(signature, "base64url"),
+  );
+}
+
 const NOW_MS = 1_700_000_000_000;
 
 describe("signAppStoreConnectJwt", () => {
@@ -35,14 +58,7 @@ describe("signAppStoreConnectJwt", () => {
   });
 
   test("signature verifies under ES256 / ieee-p1363", () => {
-    const [h, p, sig] = signAppStoreConnectJwt(params, NOW_MS).split(".");
-    const ok = crypto.verify(
-      "sha256",
-      Buffer.from(`${h}.${p}`, "utf8"),
-      { key: crypto.createPublicKey(privateKeyPem), dsaEncoding: "ieee-p1363" },
-      Buffer.from(sig as string, "base64url"), // NOSONAR S4325: sig is string|undefined from the JWT split under noUncheckedIndexedAccess
-    );
-    expect(ok).toBe(true);
+    expect(verifyEs256(signAppStoreConnectJwt(params, NOW_MS), privateKeyPem)).toBe(true);
   });
 
   test("default nowMs branch — omitting nowMs uses Date.now() and produces a valid iat/exp", () => {
@@ -68,13 +84,6 @@ describe("signAppStoreConnectJwt", () => {
     expect(exp).toBe(iat + 600);
 
     // The JWT is structurally and cryptographically valid
-    const [h, p, sig] = parts;
-    const ok = crypto.verify(
-      "sha256",
-      Buffer.from(`${h}.${p}`, "utf8"),
-      { key: crypto.createPublicKey(privateKeyPem), dsaEncoding: "ieee-p1363" },
-      Buffer.from(sig as string, "base64url"), // NOSONAR S4325: sig is string|undefined from the JWT split under noUncheckedIndexedAccess
-    );
-    expect(ok).toBe(true);
+    expect(verifyEs256(token, privateKeyPem)).toBe(true);
   });
 });

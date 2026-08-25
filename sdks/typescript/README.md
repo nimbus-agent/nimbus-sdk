@@ -192,8 +192,8 @@ Changing an exported type is a semver-relevant change.
 - [Architecture](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/ARCHITECTURE.md) —
   how the SDK is structured today and the spec-first / polyglot target.
 - [Releasing](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/RELEASING.md) — how
-  each language SDK is published (npm and PyPI today; the Go module proxy planned) under
-  one set of release-parity guarantees.
+  each language SDK is published — npm, PyPI, and, for Go, a tag the module proxy serves —
+  under one set of release-parity guarantees.
 - [Security](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/SECURITY.md) —
   reporting, supply-chain posture, and the trust model as the SDK grows.
 - [Governance](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md) — how

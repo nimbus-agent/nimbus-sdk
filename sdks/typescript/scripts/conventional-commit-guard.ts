@@ -37,6 +37,10 @@
  *   GITHUB_REPOSITORY=nimbus-agent/nimbus-sdk GH_TOKEN=$(gh auth token) \
  *     bun run scripts/conventional-commit-guard.ts --pr 59
  *
+ * `--help` prints that recipe; `--pr` without a number is an error rather than a fall-back
+ * to the event payload, because outside CI there is no event payload and the fall-back
+ * printed "nothing to check" and exited 0 — a typo that read exactly like a pass.
+ *
  * The tiered-stability half additionally needs `GITHUB_BASE_SHA` set to diff against —
  * without it, that half is skipped with a note rather than treated as a pass.
  *
@@ -58,6 +62,27 @@ const EXIT_ERROR = 2;
 
 /** The branch whose commit history release-please reads. */
 const RELEASE_BRANCH = "main";
+
+const USAGE = `Usage: bun run scripts/conventional-commit-guard.ts [--pr <number>]
+
+Asserts that the subject which will land on ${RELEASE_BRANCH} — a squashed pull request's
+title — is a Conventional Commit and declares at least what its commits carry.
+
+  --pr <number>   check that pull request instead of the current event payload
+  --help, -h      print this
+
+Environment:
+  GITHUB_REPOSITORY   owner/name (required)
+  GITHUB_TOKEN | GH_TOKEN   a token that can read pull requests (required)
+  GITHUB_API_URL      defaults to https://api.github.com
+  GITHUB_EVENT_NAME / GITHUB_EVENT_PATH   set by Actions; used when --pr is absent
+
+Locally:
+  GITHUB_REPOSITORY=nimbus-agent/nimbus-sdk GH_TOKEN=$(gh auth token) \\
+    bun run scripts/conventional-commit-guard.ts --pr 59
+
+Exit codes: 0 pass or not applicable, 1 a rule failed, 2 the check could not run.
+`;
 
 /**
  * GitHub caps this endpoint at 250 commits and paginates at 100. A PR that large is not a
@@ -257,8 +282,22 @@ async function main(): Promise<number> {
   const token = env["GITHUB_TOKEN"] ?? env["GH_TOKEN"] ?? "";
   const apiUrl = env["GITHUB_API_URL"] ?? "https://api.github.com";
 
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    out(USAGE);
+    return EXIT_OK;
+  }
+
+  // Presence and value are tracked separately. `--pr` as the last argument leaves the value
+  // `undefined`, and treating that as "no flag given" fell through to the event-payload
+  // branch, which outside CI prints "nothing to check" and exits 0 — the shape of a pass.
   const prFlagIndex = process.argv.indexOf("--pr");
-  const prFlag = prFlagIndex === -1 ? null : process.argv[prFlagIndex + 1];
+  const prFlagGiven = prFlagIndex !== -1;
+  const prFlag = prFlagGiven ? process.argv[prFlagIndex + 1] : undefined;
+
+  if (prFlagGiven && prFlag === undefined) {
+    out("error: --pr expects a pull request number, e.g. --pr 59\n");
+    return EXIT_ERROR;
+  }
 
   if (repo === "") {
     out("error: GITHUB_REPOSITORY is not set\n");
@@ -270,7 +309,7 @@ async function main(): Promise<number> {
   }
 
   let target: PullRequestRef | null;
-  if (prFlag !== undefined && prFlag !== null) {
+  if (prFlag !== undefined) {
     const number = Number.parseInt(prFlag, 10);
     if (!Number.isInteger(number) || number <= 0) {
       out(`error: --pr expects a positive integer, got "${prFlag}"\n`);

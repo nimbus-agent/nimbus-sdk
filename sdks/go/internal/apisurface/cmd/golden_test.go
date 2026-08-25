@@ -18,8 +18,8 @@ const requireEnv = "NIMBUS_SPEC_DRIFT"
 // renderFromModuleRoot calls Render() with the working directory set to the
 // module root (sdks/go), the directory `go -C sdks/go run
 // ./internal/apisurface/cmd` runs it from. Render, via
-// apisurface.RenderPackage, resolves each entry of packages ("contract",
-// "ipc", "spec") as a directory relative to the current working directory —
+// apisurface.RenderPackage, resolves each entry of the packages list (see
+// main.go) as a directory relative to the current working directory —
 // but `go test` always runs a package's tests with the working directory set
 // to that package's own source directory, here
 // sdks/go/internal/apisurface/cmd, three levels below the module root, so

@@ -116,6 +116,24 @@ describe("mintGoogleAccessToken", () => {
     expect(sent.body).toContain("assertion=");
   });
 
+  // A 200 whose body is valid JSON but not an object. Without the `typeof parsed !== "object"
+  // || parsed === null` guard, `null["access_token"]` throws a TypeError out of a function
+  // whose contract is `Promise<string | null>` — a caller that handles the null branch would
+  // still crash — and a JSON string would index to `undefined`, which is the same null with a
+  // different route. A captive portal or an auth proxy answering 200 with a JSON scalar is
+  // the realistic source.
+  test("returns null when the token endpoint answers 200 with JSON that is not an object", async () => {
+    const jsonNull: FetchLike = async () => new Response("null", { status: 200 });
+    expect(await mintGoogleAccessToken(sa, jsonNull, NOW_MS)).toBeNull();
+
+    const jsonString: FetchLike = async () =>
+      new Response(JSON.stringify("ya29.not-an-object"), { status: 200 });
+    expect(await mintGoogleAccessToken(sa, jsonString, NOW_MS)).toBeNull();
+
+    const jsonNumber: FetchLike = async () => new Response("3600", { status: 200 });
+    expect(await mintGoogleAccessToken(sa, jsonNumber, NOW_MS)).toBeNull();
+  });
+
   test("returns null on non-ok, non-JSON, or missing access_token", async () => {
     const bad: FetchLike = async () => new Response("denied", { status: 400 });
     expect(await mintGoogleAccessToken(sa, bad, NOW_MS)).toBeNull();

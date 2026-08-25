@@ -9,6 +9,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { parse } from "yaml";
 import { joinRepo, readFromRepo } from "./paths.ts";
 
 interface PackageConfig {
@@ -180,5 +181,60 @@ describe("the release-please configuration", () => {
       config["always-update"],
       "always-update must stay true while separate-pull-requests is true — see the comment above",
     ).toBe(true);
+  });
+
+  /**
+   * `always-update` fixes the conflict but not its cost. Each rebase restarts the full
+   * cross-OS CI matrix, so draining N release PRs is N sequential matrix runs with a
+   * human waiting between them — four components in one afternoon meant four rounds of
+   * merge, rebase, wait.
+   *
+   * `.github/workflows/release-drain.yml` is the answer: a manual `workflow_dispatch`
+   * that arms `gh pr merge --auto` on every open release PR, so they land themselves as
+   * their own checks pass. It is deliberately NOT armed automatically on PR creation —
+   * that would make every merged `feat:` publish itself, and publishing here cannot be
+   * undone (npm's 72h window, and proxy.golang.org caching a Go tag permanently).
+   *
+   * Guarded because the workflow's whole reason for existing is the `separate-pull-requests:
+   * true` above. If that key ever legitimately flips, this workflow becomes dead weight and
+   * should go in the same change — not linger, arming auto-merge on PRs that no longer
+   * conflict for a reason nobody remembers.
+   */
+  test("the release-drain workflow arms auto-merge, and only on PRs the release bot opened", () => {
+    const drain = readFromRepo(".github/workflows/release-drain.yml");
+
+    // Parsed, not substring-matched. This file's own header comment discusses
+    // `workflow_dispatch` and `--auto` in prose, so a `toContain` check passes even with
+    // the trigger and the flag deleted — a guard that reads its own documentation and
+    // calls it evidence.
+    const parsed = parse(drain) as {
+      on?: Record<string, unknown>;
+      true?: Record<string, unknown>;
+      jobs: Record<string, { steps?: { run?: string }[] }>;
+    };
+    // YAML 1.1 folds a bare `on:` key to boolean true; the `yaml` package is 1.2 and
+    // keeps it a string. Accept either so a parser upgrade cannot quietly empty this.
+    const triggers = parsed.on ?? parsed.true ?? {};
+    expect(Object.keys(triggers)).toContain("workflow_dispatch");
+
+    const script = Object.values(parsed.jobs)
+      .flatMap((job) => job.steps ?? [])
+      .map((step) => step.run ?? "")
+      .join("\n");
+
+    // The executable command, not the prose about it.
+    expect(script).toMatch(/gh pr merge\b[^\n]*--auto/);
+
+    // `--auto` waits for the required checks; `--admin` bypasses them. The whole point is
+    // to remove waiting, never to remove the gate — `--admin` here would make this a way
+    // to ship a red build.
+    expect(script).not.toMatch(/gh pr merge\b[^\n]*--admin/);
+
+    // The security half, and the reason this test names the bot. A `release-please--`
+    // branch prefix proves nothing — any contributor can choose that name — so arming
+    // auto-merge on prefix alone would merge attacker-authored code with a write-scoped
+    // App token. The author check is what makes the selection trustworthy.
+    expect(script).toContain('.author.login == "app/nimbus-release-bot"');
+    expect(script).toContain(".isCrossRepository == false");
   });
 });

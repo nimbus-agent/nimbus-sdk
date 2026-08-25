@@ -643,6 +643,19 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
 `separate-pull-requests` is on — so merged Conventional Commits open a release PR *per
 component*, and merging one tags and publishes only that component:
 
+**All four share one `.release-please-manifest.json`, so merging one release PR shows the
+others as conflicted until release-please rebases them** (`always-update: true` does this
+within about a minute). The conflict is self-healing; the cost is that each rebase
+restarts the full cross-OS CI matrix, so draining N release PRs by hand is N sequential
+matrix runs. Run the **`Release Drain`** workflow instead — a manual `workflow_dispatch`
+that arms `gh pr merge --auto` on every open release PR so each lands as its own checks
+pass. It is deliberately manual: arming on PR creation would make every merged `feat:`
+publish itself, and neither an npm publish past 72h nor a Go tag cached by
+`proxy.golang.org` can be taken back. **Do not switch to `separate-pull-requests: false`**
+— a grouped PR cannot parse a version out of its own title and silently publishes
+nothing; `sdks/typescript/scripts/release-config-guard.test.ts` pins the key and explains
+why.
+
 | Component | Package | Registry | Changelog |
 |---|---|---|---|
 | `sdks/typescript` | `@nimbus-dev/sdk` | npm | `sdks/typescript/CHANGELOG.md` |

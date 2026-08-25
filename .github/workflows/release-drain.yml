@@ -73,12 +73,27 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Identified by head branch, not by title: release-please owns the
-          # `release-please--` branch prefix, while a title is editable by anyone.
+          # THREE conditions, and the branch prefix is the weakest of them.
+          #
+          # A `release-please--` prefix proves nothing: any contributor who can push a
+          # branch, or open a PR from a fork, can choose that name. Arming auto-merge on
+          # such a PR with a `contents: write` App token would merge attacker-authored
+          # code into main the moment its checks went green — the workflow would be an
+          # escalation path, not a convenience.
+          #
+          # So the load-bearing check is the AUTHOR: release-please opens these PRs
+          # through the Nimbus Release Bot App, which appears as `app/nimbus-release-bot`
+          # and cannot be impersonated by a contributor. `isCrossRepository == false`
+          # rejects fork PRs outright, so a head branch in someone else's repository is
+          # never considered even if the author check were ever loosened.
           mapfile -t prs < <(
             gh pr list --state open --limit 50 \
-              --json number,headRefName,title \
-              --jq '.[] | select(.headRefName | startswith("release-please--")) | "\(.number)\t\(.title)"'
+              --json number,headRefName,title,author,isCrossRepository \
+              --jq '.[]
+                | select(.author.login == "app/nimbus-release-bot")
+                | select(.isCrossRepository == false)
+                | select(.headRefName | startswith("release-please--"))
+                | "\(.number)\t\(.title)"'
           )
 
           if [ "${#prs[@]}" -eq 0 ]; then

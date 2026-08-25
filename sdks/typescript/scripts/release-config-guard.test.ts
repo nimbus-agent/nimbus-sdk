@@ -9,6 +9,7 @@
  */
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
+import { parse } from "yaml";
 import { joinRepo, readFromRepo } from "./paths.ts";
 
 interface PackageConfig {
@@ -199,12 +200,41 @@ describe("the release-please configuration", () => {
    * should go in the same change — not linger, arming auto-merge on PRs that no longer
    * conflict for a reason nobody remembers.
    */
-  test("the release-drain workflow exists and arms auto-merge rather than merging outright", () => {
+  test("the release-drain workflow arms auto-merge, and only on PRs the release bot opened", () => {
     const drain = readFromRepo(".github/workflows/release-drain.yml");
-    expect(drain).toContain("workflow_dispatch");
-    expect(drain).toContain("--auto");
-    // `--auto` is the point: an outright `gh pr merge` would bypass the required checks
-    // this repo gates releases on, turning a convenience into a way to ship a red build.
-    expect(drain).not.toMatch(/gh pr merge [^\n]*--admin/);
+
+    // Parsed, not substring-matched. This file's own header comment discusses
+    // `workflow_dispatch` and `--auto` in prose, so a `toContain` check passes even with
+    // the trigger and the flag deleted — a guard that reads its own documentation and
+    // calls it evidence.
+    const parsed = parse(drain) as {
+      on?: Record<string, unknown>;
+      true?: Record<string, unknown>;
+      jobs: Record<string, { steps?: { run?: string }[] }>;
+    };
+    // YAML 1.1 folds a bare `on:` key to boolean true; the `yaml` package is 1.2 and
+    // keeps it a string. Accept either so a parser upgrade cannot quietly empty this.
+    const triggers = parsed.on ?? parsed.true ?? {};
+    expect(Object.keys(triggers)).toContain("workflow_dispatch");
+
+    const script = Object.values(parsed.jobs)
+      .flatMap((job) => job.steps ?? [])
+      .map((step) => step.run ?? "")
+      .join("\n");
+
+    // The executable command, not the prose about it.
+    expect(script).toMatch(/gh pr merge\b[^\n]*--auto/);
+
+    // `--auto` waits for the required checks; `--admin` bypasses them. The whole point is
+    // to remove waiting, never to remove the gate — `--admin` here would make this a way
+    // to ship a red build.
+    expect(script).not.toMatch(/gh pr merge\b[^\n]*--admin/);
+
+    // The security half, and the reason this test names the bot. A `release-please--`
+    // branch prefix proves nothing — any contributor can choose that name — so arming
+    // auto-merge on prefix alone would merge attacker-authored code with a write-scoped
+    // App token. The author check is what makes the selection trustworthy.
+    expect(script).toContain('.author.login == "app/nimbus-release-bot"');
+    expect(script).toContain(".isCrossRepository == false");
   });
 });

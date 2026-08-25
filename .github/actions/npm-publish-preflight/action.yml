@@ -1,0 +1,86 @@
+name: npm publish preflight
+description: >-
+  Assert, BEFORE npm publish runs, that this job can publish with provenance and
+  that it is about to publish the version release-please released.
+
+# Runs before publishing on purpose. npm cannot unpublish after 72 hours, so a
+# post-publish check reports damage rather than preventing it.
+
+inputs:
+  expected-version:
+    description: >-
+      When set, package.json's version must equal it. Leave empty to skip the
+      comparison (the TypeScript SDK resolves its version after publishing).
+    required: false
+    default: ""
+  working-directory:
+    description: >-
+      Directory holding the package.json to read. REQUIRED in practice: a
+      composite action's run steps do NOT inherit the calling job's
+      defaults.run.working-directory, so leaving this at "." reads the workspace
+      root's package.json instead of the package being published.
+    required: false
+    default: "."
+
+runs:
+  using: composite
+  steps:
+    - name: Assert OIDC, the npm floor, and the version about to publish
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        EXPECTED_VERSION: ${{ inputs.expected-version }}
+      run: |
+        set -euo pipefail
+        if [ -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]; then
+          echo "::error::ACTIONS_ID_TOKEN_REQUEST_TOKEN is unset — the job lacks 'id-token: write'."
+          echo "::error::Publishing now would succeed WITHOUT provenance and cannot be undone after 72h."
+          exit 1
+        fi
+
+        # `sort -V` is a GNU coreutils extension. Both npm jobs run on
+        # ubuntu-24.04, where it is guaranteed. Asserted rather than assumed
+        # because this action no longer sits beside the job that pins the
+        # runner: without this check, a BSD sort rejects -V, the substitution
+        # below yields empty, the comparison is true, and the failure claims npm
+        # is below the floor — blaming the version for a runner problem.
+        # Tests the flag, not `sort --version`, to assert the capability the
+        # comparison actually uses.
+        if ! printf '1\n2\n' | sort -V >/dev/null 2>&1; then
+          echo "::error::this runner's \`sort\` lacks -V (GNU coreutils); the npm floor comparison cannot run."
+          echo "::error::On macOS use \`gsort\`, or replace the comparison with a Node one-liner."
+          exit 1
+        fi
+
+        have="$(npm --version)"
+        need="11.5.1"
+        if [ "$(printf '%s\n%s\n' "$need" "$have" | sort -V | head -n1)" != "$need" ]; then
+          echo "::error::npm $have is below the $need floor required for OIDC trusted publishing."
+          exit 1
+        fi
+
+        if [ -n "$EXPECTED_VERSION" ]; then
+          # Diagnose the failure this refactor makes possible. Inline in the job,
+          # a missing package.json meant a broken repository. Behind a composite
+          # action the likeliest cause is a wrong `working-directory` input — and
+          # node's bare MODULE_NOT_FOUND stack never mentions it, so the reader is
+          # sent hunting the wrong thing.
+          if [ ! -f package.json ]; then
+            echo "::error::no package.json in $(pwd)."
+            echo "::error::Check this action's \`working-directory\` input: a composite action does NOT"
+            echo "::error::inherit the calling job's \`defaults.run.working-directory\`."
+            exit 1
+          fi
+          if ! declared="$(node -p "require('./package.json').version" 2>&1)"; then
+            echo "::error::could not read a version from $(pwd)/package.json — malformed JSON?"
+            echo "::error::node said: ${declared}"
+            exit 1
+          fi
+          if [ "$declared" != "$EXPECTED_VERSION" ]; then
+            echo "::error::package.json declares $declared but release-please released $EXPECTED_VERSION."
+            exit 1
+          fi
+          echo "preflight ok: OIDC token present, npm $have >= $need, version $declared"
+        else
+          echo "preflight ok: OIDC token present, npm $have >= $need"
+        fi

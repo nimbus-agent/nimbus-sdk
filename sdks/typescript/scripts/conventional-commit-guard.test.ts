@@ -14,7 +14,8 @@
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
-import { packageRoot } from "./paths.ts";
+import { citesAnExistingRfc, surfaceChanges } from "./conventional-commit-guard.ts";
+import { packageRoot, repoRoot } from "./paths.ts";
 
 const GUARD = join(packageRoot, "scripts", "conventional-commit-guard.ts");
 
@@ -82,5 +83,59 @@ describe("conventional-commit-guard CLI", () => {
     const { status, stdout } = run([]);
     expect(status).toBe(0);
     expect(stdout).toContain("nothing to check");
+  });
+});
+
+/**
+ * The bug: `existsSync(golden.path)` / `Bun.file(golden.path)` and
+ * `readdirSync("docs/rfcs")` resolved against `process.cwd()`, not the repository root.
+ * From the repo root that happens to work; from `sdks/typescript/` — the guard's own
+ * documented local recipe — the head golden read as "" and the surface-tier rule
+ * silently evaluated nothing while still printing "ok". Both functions are exported
+ * specifically so this is testable without a network call: `surfaceChanges` only needs
+ * a base sha already reachable in this checkout's history, and `citesAnExistingRfc`
+ * needs nothing but `docs/rfcs` on disk.
+ *
+ * Every case here restores `process.cwd()` in a `finally`, since `process.chdir` is
+ * process-global and this suite may share a process with other test files.
+ */
+describe("repo-root anchoring (Finding A)", () => {
+  // A real ancestor commit, already known (from the CodeRabbit finding this guards
+  // against) to diff non-trivially against the current worktree's goldens — a
+  // zero-vs-zero comparison from both cwds would not have caught the original bug.
+  const BASE_SHA = "a7e754b";
+
+  test("surfaceChanges returns the same non-empty diff from the repo root and from the package root", async () => {
+    const original = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      const fromRepoRoot = await surfaceChanges(BASE_SHA);
+      expect(fromRepoRoot.length).toBeGreaterThan(0);
+
+      process.chdir(packageRoot);
+      const fromPackageRoot = await surfaceChanges(BASE_SHA);
+
+      // The reverted (cwd-relative) behavior: from packageRoot the head golden isn't
+      // found, so it parses as "" and every base-only export shows up as "removed" —
+      // a different, wrong count, not the same diff computed twice.
+      expect(fromPackageRoot).toEqual(fromRepoRoot);
+    } finally {
+      process.chdir(original);
+    }
+  });
+
+  test("citesAnExistingRfc finds docs/rfcs regardless of cwd", () => {
+    const original = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      expect(citesAnExistingRfc("see RFC-0015 for the rule table")).toBe(true);
+
+      // Reverted to `readdirSync("docs/rfcs")`, this throws ENOENT from packageRoot
+      // (there is no sdks/typescript/docs/rfcs) instead of resolving the citation.
+      process.chdir(packageRoot);
+      expect(citesAnExistingRfc("see RFC-0015 for the rule table")).toBe(true);
+    } finally {
+      process.chdir(original);
+    }
   });
 });

@@ -54,6 +54,7 @@ import {
   impactOfSubject,
   parseConventionalSubject,
 } from "./conventional-commit.ts";
+import { joinRepo } from "./paths.ts";
 import { diffSurfaces, parseSurface, requiredFor, type SurfaceChange } from "./stability-rules.ts";
 
 const EXIT_OK = 0;
@@ -162,23 +163,44 @@ function ensureBaseTree(baseSha: string): void {
   }
 }
 
-/** The surface changes across all three goldens, base → head (the current worktree). */
-async function surfaceChanges(baseSha: string): Promise<SurfaceChange[]> {
+/**
+ * The surface changes across all three goldens, base → head (the current worktree).
+ *
+ * Exported so its cwd-independence is under direct test, without needing the network
+ * access the rest of `main` requires — see `conventional-commit-guard.test.ts`.
+ */
+export async function surfaceChanges(baseSha: string): Promise<SurfaceChange[]> {
   ensureBaseTree(baseSha);
   const changes: SurfaceChange[] = [];
   for (const golden of GOLDENS) {
     const base = parseSurface(goldenAt(baseSha, golden.path));
-    const head = parseSurface(existsSync(golden.path) ? await Bun.file(golden.path).text() : "");
+    // Anchored to the repo root, not cwd: `git show <rev>:<path>` above already resolves
+    // `golden.path` against the tree root regardless of cwd, but `existsSync`/`Bun.file`
+    // resolve a relative path against cwd — so without this, running the guard from
+    // `sdks/typescript/` (its own documented local recipe) read the head golden as "",
+    // every export looked unchanged, and the surface-tier rule silently evaluated
+    // nothing while still printing "ok".
+    const headPath = joinRepo(golden.path);
+    const head = parseSurface(existsSync(headPath) ? await Bun.file(headPath).text() : "");
     changes.push(...diffSurfaces(base, head, golden.binding));
   }
   return changes;
 }
 
-/** True when `body` cites an RFC whose file exists in the workspace. */
-function citesAnExistingRfc(body: string): boolean {
+/**
+ * True when `body` cites an RFC whose file exists in the workspace.
+ *
+ * Exported so its cwd-independence is under direct test — see
+ * `conventional-commit-guard.test.ts`.
+ */
+export function citesAnExistingRfc(body: string): boolean {
   const cited = [...body.matchAll(/RFC-(\d{4})/g)].map((match) => match[1] ?? "");
   if (cited.length === 0) return false;
-  const present = readdirSync("docs/rfcs");
+  // Anchored to the repo root for the same reason as the golden reads above: a
+  // cwd-relative `readdirSync("docs/rfcs")` throws when run from `sdks/typescript/`
+  // rather than failing open, but it is the same class of bug — a repository-level path
+  // that only happens to work from the repo root.
+  const present = readdirSync(joinRepo("docs/rfcs"));
   return cited.some((number) => present.some((file) => file.startsWith(`${number}-`)));
 }
 
@@ -432,4 +454,18 @@ async function main(): Promise<number> {
   return EXIT_VIOLATION;
 }
 
-process.exit(await main());
+if (import.meta.main) {
+  // `main` throwing (`ensureBaseTree` does, by design, when the base tree can't be
+  // fetched or read) is an infrastructure failure, not a rule failure — it belongs to
+  // EXIT_ERROR (2), the code this file's own docstring documents for "the check could
+  // not run". Left uncaught, an unhandled rejection exits 1, which this guard defines as
+  // "a rule failed" — reporting an infrastructure problem as though the PR itself were
+  // in violation.
+  main()
+    .then((code) => process.exit(code))
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      out(`error: ${message}\n`);
+      process.exit(EXIT_ERROR);
+    });
+}

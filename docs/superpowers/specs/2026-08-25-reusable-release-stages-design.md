@@ -106,9 +106,31 @@ Order matters and is preserved: this runs before publishing because **npm cannot
 unpublish after 72 hours**, so a post-publish failure reports damage rather than
 preventing it. That sentence is in `release.yml` today and moves with the code.
 
-`sort -V` stays. Its existing comment — that it is a GNU coreutils extension, fine on
-`ubuntu-24.04`, and broken on a BSD `sort` if the job ever moves to macOS — travels with
-it, because a composite action makes the runner assumption less visible, not more.
+`sort -V` stays, **and gains a capability guard it does not have today.** Its existing
+comment records that `-V` is a GNU coreutils extension, guaranteed on `ubuntu-24.04` and
+absent from BSD `sort` if the job ever moves to macOS. Today that assumption is stated
+beside the code that depends on it; a composite action moves the code away from the job
+that pins the runner, so the assumption becomes less visible exactly when it becomes
+easier to violate.
+
+The failure without a guard is loud but misleading: BSD `sort` rejects `-V`, the command
+substitution yields empty, the comparison against `$need` is true, and the preflight
+fails claiming **npm is below the floor** — blaming the version when the cause is the
+runner. So the action asserts the capability first:
+
+```bash
+if ! printf '1\n2\n' | sort -V >/dev/null 2>&1; then
+  echo "::error::this runner's \`sort\` lacks -V (GNU coreutils). The npm floor comparison"
+  echo "::error::cannot run. On macOS use \`gsort\`, or replace the comparison with a Node one-liner."
+  exit 1
+fi
+```
+
+Testing the flag rather than `sort --version` is deliberate: it asserts the capability the
+code actually uses, and does not depend on how a given `sort` spells its version output.
+
+If this ever fires, the fix is the Node one-liner the existing comment already names —
+`node -p` is available in these jobs, since `setup-node` runs before the preflight.
 
 ### 4.2 `.github/actions/verify-npm-publish`
 
@@ -131,6 +153,27 @@ mandatory, because npm caches the negative packument.
 Preserving that comment is part of the deliverable, not decoration. It is the only record
 of why the loop is shaped as it is.
 
+**The parameters are pinned, not left to the implementer.** "Verbatim" is doing too much
+work otherwise, and a plan-writer inventing different numbers would change how long a
+release tolerates propagation:
+
+- **8 attempts**, then fail.
+- **Linear backoff**, `sleep $(( attempt * 10 ))` — 10s, 20s, … 70s, no sleep after the
+  last attempt. Total ≈ 4.5 minutes of tolerance.
+- On failure, an `::error::` naming the package, the version, the attempt count and that
+  duration.
+
+Add one thing the current loop lacks: a line per attempt naming which attempt is running.
+Today a slow release prints nothing until it either succeeds or fails four minutes later,
+which reads as a hang.
+
+**Deliberately NOT added: separating "install failed" from "audit failed".** The review
+suggested reporting which half failed. Doing so means splitting the `&&` condition, and
+that condition retrying as one unit is the entire correctness property — splitting it is
+precisely the shape that made `1.5.0` red. npm's own stderr already names the cause
+(`ETARGET`, or the audit's 404) on every attempt, so the diagnosis is present without
+restructuring the thing the comment exists to protect.
+
 ### 4.3 Not factored, deliberately
 
 - **`harden-runner`** — per-job egress allowlists, see §3.
@@ -138,6 +181,38 @@ of why the loop is shaped as it is.
 - **Setup Node + `npm install -g npm@latest`** — two steps, no logic. Wrapping them buys
   indirection, not safety.
 - **Anything in the Python or Go jobs** — nothing to share it with.
+- **A preflight action for Python or Go.** `publish-python` already has a preflight of
+  the same shape (`release.yml:506` — "OIDC available and version matches the release"),
+  so the *pattern* is established; what it lacks is a second caller. Factoring a
+  single-use step produces indirection, not reuse. The pattern is worth documenting so
+  the next language follows it — see §5 — but not worth an action until something calls
+  it twice.
+
+### 4.4 Three questions the implementer does not have to answer
+
+Each was raised in review and each is settled by the code as it stands:
+
+- **The registry is the caller's concern, and neither action touches it.** Both npm jobs
+  configure it through `actions/setup-node` with
+  `registry-url: "https://registry.npmjs.org"` (`release.yml:105`, `:252`). `setup-node`
+  writes an npmrc and points `NPM_CONFIG_USERCONFIG` at it, which is environment-scoped —
+  so it applies inside `verify-npm-publish`'s temporary directory too. That is not a
+  prediction: today's inline loop already runs `npm install` from a `mktemp -d` and works.
+  Neither action hardcodes or overrides a registry, so a future custom registry is
+  configured in the caller and both actions follow it.
+- **Pre-release versions need no special handling.** Version appears in exactly two
+  places, and neither does range logic. The floor check version-sorts *npm's own*
+  version against `11.5.1`. The `expected-version` check is string equality between
+  `package.json`'s `version` and what release-please released — which is exactly the
+  comparison wanted, since a pre-release must match its own tag character for character.
+  release-please is not configured for pre-releases on any component today in any case.
+- **The guard test parses YAML; it does not substring-match.**
+  `release-workflow-guard.test.ts:18` already imports `parse` from the `yaml` package and
+  reads `jobs.<id>.steps[]` as structure, so comments and formatting cannot affect it, and
+  step *order* is readable directly from the array. This matters more than it looks: a
+  substring-matching guard in this repository was recently found to be matching a
+  workflow's own explanatory comment rather than its executable content, and passing when
+  the code it guarded had been deleted.
 
 ## 5. Roadmap and documentation
 
@@ -156,7 +231,15 @@ Three edits, and two of them are corrections rather than ticks.
 - **`docs/RELEASING.md`** — the "Shared plumbing" bullet currently says a reusable
   workflow *"is not built yet — it is an open roadmap Phase 3 box"* and that *"no workflow
   in `.github/workflows/` declares `workflow_call`."* Both become stale on merge. Replace
-  with what exists and why.
+  with what exists and why — including that the second sentence stays true **on purpose**,
+  and is not an omission waiting to be corrected by the next person who reads it.
+
+  Also record the **preflight pattern** there, in one short paragraph: every publish path
+  asserts before publishing that the OIDC identity is present and that the version about
+  to ship is the version release-please released. npm and Python each implement it for
+  their own registry; a future language should implement it too. Documenting the pattern
+  is what §4.3 offers instead of a single-use action — it tells the next binding what to
+  build without pretending three disjoint implementations are one.
 
 ## 6. Testing, and what cannot be tested before merge
 

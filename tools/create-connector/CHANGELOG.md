@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/nimbus-agent/nimbus-sdk/compare/create-connector-v0.3.0...create-connector-v0.3.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* **diagnostics:** reject an own __proto__ member instead of silently dropping it ([#174](https://github.com/nimbus-agent/nimbus-sdk/issues/174)) ([a7e754b](https://github.com/nimbus-agent/nimbus-sdk/commit/a7e754b96d1a7e6251ffbb08baf127a6edb627ee))
+
 ## [0.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/create-connector-v0.2.0...create-connector-v0.3.0) (2026-08-23)
 
 

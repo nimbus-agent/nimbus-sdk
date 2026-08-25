@@ -302,12 +302,40 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   ([googleapis/release-please#2712](https://github.com/googleapis/release-please/issues/2712),
   open). `sdks/typescript/scripts/release-config-guard.test.ts` pins the key and carries
   the full reasoning.
-- **A reusable release workflow** (harden → build/test → publish → post-publish
-  verify), defined once and called by each language's job so the hardened pipeline is not
-  re-implemented three times, is **not built yet** — it is an open
-  [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries) box. Today
-  `release.yml` and `release-go.yml` spell each language's pipeline out inline; no
-  workflow in `.github/workflows/` declares `workflow_call`.
+- **The npm publish machinery is factored into two composite actions**, not a reusable
+  workflow: [`npm-publish-preflight`](../.github/actions/npm-publish-preflight/action.yml)
+  asserts (before `npm publish` runs) that an OIDC token is present, that npm meets the
+  `11.5.1` trusted-publishing floor, and — when given `expected-version` — that the
+  package's declared version matches the version release-please released;
+  [`verify-npm-publish`](../.github/actions/verify-npm-publish/action.yml) installs the
+  just-published package from the registry into a clean tree and runs
+  `npm audit signatures`, retrying to ride out packument and attestation propagation lag.
+  Both npm publish jobs in `release.yml` — `publish` and `publish-create-connector` —
+  call the same two actions, so the genuinely duplicated machinery (a `npm ↔ npm`
+  problem, not a three-language one) is defined once.
+
+  **No workflow in `.github/workflows/` declares `workflow_call`, and that is deliberate
+  and permanent, not an omission awaiting correction.** PyPI's Trusted Publisher does not
+  support it — [PyPI's troubleshooting guide](https://docs.pypi.org/trusted-publishers/troubleshooting/)
+  states *"reusable workflows cannot currently be used as the workflow in a Trusted
+  Publisher"* (`warehouse#11096`) — and `publish-python` has no token fallback:
+  `environment: pypi` plus `id-token: write` is its entire authentication story. A
+  composite action runs as steps inside the caller's own job, leaving the OIDC identity
+  untouched, which is why that shape works where a called workflow would not. Python and
+  Go share nothing with npm or each other here regardless: PyPI builds and gates dists
+  then verifies a PEP 740 attestation, and Go does not publish at all, it attests an
+  archive and resolves through the module proxy — three disjoint publish mechanics with
+  only `harden-runner` in common, and each job's egress allowlist is its own. See
+  [the design](./superpowers/specs/2026-08-25-reusable-release-stages-design.md) and
+  [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
+
+  **The preflight pattern, not the code, is what generalizes.** Every publish path
+  asserts, before publishing, that the OIDC identity is present and that the version
+  about to ship is the version release-please released. npm implements it in
+  `npm-publish-preflight`, called from both npm jobs; Python implements the same check
+  inline in `publish-python`'s own preflight step, because it has exactly one caller and
+  factoring a single-use step buys indirection, not reuse. A future language adds its own
+  registry's version of the same two assertions rather than trying to call npm's.
 - The conformance suite gates release: an SDK that fails it does not publish. See
   [SECURITY.md](./SECURITY.md#multi-language-supply-chain) for the supply-chain posture
   and [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official) for what makes a

@@ -360,10 +360,16 @@ git diff --stat .github/workflows/release.yml
 Expected: it parses, and the diff touches only `release.yml`. Then confirm the untouchable jobs are unchanged:
 
 ```bash
-git diff .github/workflows/release.yml | grep -E "^[+-]" | grep -icE "environment: pypi|id-token|permissions|npm publish --provenance"
+git diff --stat .github/workflows/release.yml
+git diff .github/workflows/release.yml | grep -E "^[+-]\s*(permissions:|id-token: write|environment:|contents:|run: npm publish)"
 ```
 
-Expected: `0`. Any non-zero result means a credential, permission or publish command moved — revert and redo the step.
+Expected: the second command prints nothing. A bare `grep -icE "id-token"` is the wrong
+check here: it also matches the deleted preflight's own `echo "::error::…the job lacks
+'id-token: write'."` message, so a *correct* implementation — the string moving into the
+composite action's error text — returns a non-zero count and reads as a moved credential,
+which is exactly what happened during execution. Anchoring to the YAML keys avoids
+matching prose that merely mentions them.
 
 - [ ] **Step 6: Confirm the OIDC preflight still precedes the publish in both jobs**
 

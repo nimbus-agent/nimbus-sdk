@@ -352,9 +352,40 @@ maintained."*
   a long-lived credential into the one language that needs no publish credential at all.
   See [RFC-0012](./rfcs/0012-go-sdk-binding.md) and
   [RELEASING.md](./RELEASING.md#go--module-proxy-implemented-and-exercised).
-- [ ] A **reusable release workflow** (harden-runner → build/test → publish →
+- [x] A **reusable release workflow** (harden-runner → build/test → publish →
   post-publish verify) that each language's release job calls, so the hardened
-  pipeline is defined once and every SDK inherits it — *Pillar 5*
+  pipeline is defined once and every SDK inherits it — *Pillar 5*.
+
+  **This box's own mechanism would have broken the PyPI publish, and the correction is
+  recorded the same way the Go provenance box's was.** `workflow_call` is a
+  `Trusted Publisher` non-starter: [PyPI's own troubleshooting guide](https://docs.pypi.org/trusted-publishers/troubleshooting/)
+  states plainly that *"reusable workflows cannot currently be used as the workflow in
+  a Trusted Publisher"*, tracked upstream in `warehouse#11096`. `publish-python` has no
+  token fallback — `environment: pypi` plus `id-token: write` is its entire
+  authentication story — so moving that job's publish step into a called workflow would
+  not degrade the release, it would stop it publishing. npm is softer — it validates
+  the *calling* workflow's name, so the pattern is technically usable there — but it
+  needs `id-token: write` on both parent and child, and npm's own documentation
+  recommends against it.
+
+  What shipped instead is two **composite actions**,
+  [`npm-publish-preflight`](../.github/actions/npm-publish-preflight/action.yml) and
+  [`verify-npm-publish`](../.github/actions/verify-npm-publish/action.yml), used by both
+  npm publish jobs in `release.yml`. A composite action runs as steps inside the
+  caller's own job — same runner, same job, same OIDC identity — so it achieves the
+  box's real intent (the hardened pipeline defined once) without the mechanism that
+  breaks PyPI.
+
+  **The shareable surface is smaller than the box assumed, independently of PyPI.**
+  Measured against the three publish jobs, the mechanics have nothing in common to
+  share: npm publishes then audits registry signatures; PyPI builds and gates dists
+  then verifies a PEP 740 attestation; Go does not publish at all, it attests an
+  archive and resolves through the module proxy. The only step every job shares is
+  `harden-runner`, and each carries a *different* egress allowlist, so factoring it
+  would move the allowlist away from the job that depends on it. The real, dangerous
+  duplication was npm ↔ npm — see
+  [the design](./superpowers/specs/2026-08-25-reusable-release-stages-design.md)
+  and [RELEASING.md](./RELEASING.md#shared-plumbing).
 - [x] A **cross-language CI matrix** running the conformance suite against every
   SDK — *Pillar 5*. `ci.yml`'s `conformance` job takes **language** as its matrix axis and
   runs each binding's corpus suite with `NIMBUS_CONFORMANCE_REPORT` set; `conformance-report`
@@ -394,15 +425,16 @@ maintained."*
   a genuinely breaking behavioral change that produced zero signature change, invisible
   to all three goldens this gate reads. See RFC-0015's [floor-not-certificate
   section](./rfcs/0015-tiered-stability.md#the-gate-is-a-floor-never-a-certificate).
-- [ ] Make **`commit-guard` a required status check** in branch protection, closing out
-  tiered stability's own Shipment 5 — *Pillars 3, 7*. RFC-0015's front matter conditions
+- [x] Make **`commit-guard` a required status check** in branch protection, closing out
+  tiered stability's own Shipment 5 — *Pillars 3, 7*. RFC-0015's front matter conditioned
   the box above on Shipment 5 landing *and* this deployment step being done, not on the
-  RFC merging, so this is split out honestly rather than folded into an `[x]` that would
-  overstate it. Shipment 5 has landed; this step has not, because it is a
-  repository-settings change outside what a change in this repository can make. Until it
-  is done, the guard's check **reports without blocking**: a PR that fails it shows a red
-  status but can still be merged — the tiered-stability rule computes the right answer on
-  every pull request today, but nothing yet stops a PR from landing against its verdict.
+  RFC merging, so this was split out honestly rather than folded into an `[x]` that would
+  have overstated it. On 2026-08-25, `commit-guard` was added to the `General` ruleset on
+  `refs/heads/main`, alongside `ci-complete`, `Analyze (javascript-typescript)` and `cla`,
+  and the ruleset was re-read afterward to confirm it. The guard's check now **blocks**: a
+  PR that fails it can no longer be merged, closing the gap where the tiered-stability
+  rule computed the right answer but nothing stopped a PR from landing against its
+  verdict.
 - [x] The written process for **how a language becomes "official"** — *Pillar 9*.
   Published as [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official),
   and Phase 2 already ran a language through it, in
@@ -414,8 +446,10 @@ maintained."*
 **Exit criteria:** at least three official SDKs pass the suite in a shared matrix;
 each publishes through its ecosystem's tokenless, provenance-carrying path (npm /
 PyPI OIDC push; for Go, a semver tag the module proxy serves and `sum.golang.org`
-vouches for — *not* signed tags, per the correction above) from a shared reusable
-workflow; each SDK's stability tier is documented and enforced; the official-language
+vouches for — *not* signed tags, per the correction above), with the hardened stages
+each path shares factored out rather than duplicated — *not* a shared reusable
+workflow, which a trusted-publisher pipeline cannot use, per the correction above;
+each SDK's stability tier is documented and enforced; the official-language
 process is written down.
 
 ### Phase 4 — Open the ecosystem

@@ -184,4 +184,81 @@ describe("the release workflow", () => {
         "cannot stop a bad build from shipping, since PyPI can never re-upload a version",
     ).toBeLessThan(publishIndex);
   });
+
+  /**
+   * Parsed, never substring-matched. `release.yml` discusses these actions in its
+   * comments, so a `toContain` check would match the prose and keep passing with the
+   * `uses:` deleted — the exact vacuity that let a guard elsewhere in this repo match a
+   * workflow's own documentation instead of its code.
+   */
+  const npmPublishJobs = ["publish", "publish-create-connector"] as const;
+
+  test("both npm publish jobs use the shared preflight and verify actions", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<string, { steps: { name?: string; uses?: string }[] }>;
+    };
+
+    for (const job of npmPublishJobs) {
+      const uses = workflow.jobs[job]?.steps.map((step) => step.uses ?? "") ?? [];
+      expect(uses).toContain("./.github/actions/npm-publish-preflight");
+      expect(uses).toContain("./.github/actions/verify-npm-publish");
+    }
+  });
+
+  test("the preflight runs before the publish in both npm jobs", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<string, { steps: { name?: string; uses?: string }[] }>;
+    };
+
+    for (const job of npmPublishJobs) {
+      const steps = workflow.jobs[job]?.steps ?? [];
+      const preflight = steps.findIndex(
+        (step) => step.uses === "./.github/actions/npm-publish-preflight",
+      );
+      const publish = steps.findIndex((step) => (step.name ?? "").startsWith("Publish to npm"));
+
+      expect(preflight).toBeGreaterThanOrEqual(0);
+      expect(publish).toBeGreaterThanOrEqual(0);
+      // The whole point of a preflight: npm cannot unpublish after 72h, so a check
+      // that runs after the publish reports damage instead of preventing it.
+      expect(preflight).toBeLessThan(publish);
+    }
+  });
+
+  test("the preflight is told which package directory to read", () => {
+    const workflow = parse(readFromRepo(".github/workflows/release.yml")) as {
+      jobs: Record<string, { steps: { uses?: string; with?: Record<string, string> }[] }>;
+    };
+
+    // A composite action's run steps do NOT inherit the job's
+    // defaults.run.working-directory. Without this input the preflight reads the
+    // workspace root's package.json — wrong file, and silently so.
+    const expected: Record<string, string> = {
+      publish: "sdks/typescript",
+      "publish-create-connector": "tools/create-connector",
+    };
+
+    for (const job of npmPublishJobs) {
+      const step = workflow.jobs[job]?.steps.find(
+        (s) => s.uses === "./.github/actions/npm-publish-preflight",
+      );
+      expect(step?.with?.["working-directory"]).toBe(expected[job]);
+    }
+  });
+
+  test("both composite actions exist and declare the inputs their callers pass", () => {
+    for (const action of ["npm-publish-preflight", "verify-npm-publish"]) {
+      const parsed = parse(readFromRepo(`.github/actions/${action}/action.yml`)) as {
+        runs: { using: string };
+        inputs?: Record<string, unknown>;
+      };
+      expect(parsed.runs.using).toBe("composite");
+      expect(parsed.inputs).toBeDefined();
+    }
+
+    const verify = parse(readFromRepo(".github/actions/verify-npm-publish/action.yml")) as {
+      inputs: Record<string, unknown>;
+    };
+    expect(Object.keys(verify.inputs).sort()).toEqual(["package", "version"]);
+  });
 });

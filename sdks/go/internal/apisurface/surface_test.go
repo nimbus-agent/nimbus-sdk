@@ -18,7 +18,8 @@ func writeFixture(t *testing.T, name, src string) string {
 }
 
 func TestRenderPackageListsOnlyExportedDeclarations(t *testing.T) {
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 const Exported = 1
 const unexported = 2
@@ -52,7 +53,8 @@ func private() {}
 }
 
 func TestRenderPackageListsExportedStructFieldsAndInterfaceMethods(t *testing.T) {
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 type Result interface{ isResult() }
 
@@ -91,7 +93,7 @@ type Reader interface {
 }
 
 func TestRenderPackageIgnoresTestFiles(t *testing.T) {
-	dir := writeFixture(t, "x.go", "package demo\n\nfunc Real() {}\n")
+	dir := writeFixture(t, "x.go", "// Stability: stable\npackage demo\n\nfunc Real() {}\n")
 	if err := os.WriteFile(filepath.Join(dir, "x_test.go"),
 		[]byte("package demo\n\nfunc TestOnlyHelper() {}\n"), 0o644); err != nil {
 		t.Fatal(err)
@@ -108,8 +110,8 @@ func TestRenderPackageIgnoresTestFiles(t *testing.T) {
 func TestRenderPackageIsDeterministic(t *testing.T) {
 	// Declaration order in the source must not change the output, or the golden
 	// would churn on an unrelated reorder and stop meaning anything.
-	a := writeFixture(t, "x.go", "package demo\n\nfunc Beta() {}\nfunc Alpha() {}\n")
-	b := writeFixture(t, "x.go", "package demo\n\nfunc Alpha() {}\nfunc Beta() {}\n")
+	a := writeFixture(t, "x.go", "// Stability: stable\npackage demo\n\nfunc Beta() {}\nfunc Alpha() {}\n")
+	b := writeFixture(t, "x.go", "// Stability: stable\npackage demo\n\nfunc Alpha() {}\nfunc Beta() {}\n")
 	first, err := RenderPackage(a)
 	if err != nil {
 		t.Fatal(err)
@@ -129,11 +131,55 @@ func TestRenderPackageRefusesADirectoryWithNoGoFiles(t *testing.T) {
 	}
 }
 
+// A per-declaration override that is not one of the three valid tiers must fail
+// RenderPackage outright, exactly like an unknown package-level tier already does in
+// PackageStability. Left unvalidated, an idiomatic full-sentence doc comment like
+// "// Stability: frozen." renders as "**frozen.**" — a value the golden's own parser
+// (which requires \*\*(frozen|stable|experimental)\*\*) silently discards, so the
+// export vanishes from every future base/head diff undetected. See Finding 1.
+func TestRenderPackageRejectsAMalformedDeclOverride(t *testing.T) {
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
+
+// A does things.
+//
+// Stability: frozen.
+func A() {}
+`)
+	_, err := RenderPackage(dir)
+	if err == nil {
+		t.Fatal("want an error for a malformed per-declaration override, got nil")
+	}
+	if !strings.Contains(err.Error(), "frozen.") || !strings.Contains(err.Error(), "A") {
+		t.Errorf("error does not name the bad value or the declaration: %v", err)
+	}
+}
+
+// A correctly-cased, correctly-punctuated per-declaration override still works and wins
+// over the package tier.
+func TestRenderPackageAcceptsAValidDeclOverride(t *testing.T) {
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
+
+// B does things.
+//
+// Stability: frozen
+func B() {}
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	if !strings.Contains(got, "- `func B()` — **frozen**") {
+		t.Errorf("override did not apply:\n%s", got)
+	}
+}
+
 func TestRenderPackageRendersMethodWithReceiver(t *testing.T) {
 	// The brief's own rendering rule: "A method renders with its receiver:
 	// func (T) Name()." Nothing above exercised this — the sealed-interface
 	// fixture's (Ok) isResult() method is unexported and never asserted on.
-	dir := writeFixture(t, "x.go", "package demo\n\ntype T struct{}\n\nfunc (T) Name() string { return \"\" }\n")
+	dir := writeFixture(t, "x.go", "// Stability: stable\npackage demo\n\ntype T struct{}\n\nfunc (T) Name() string { return \"\" }\n")
 	got, err := RenderPackage(dir)
 	if err != nil {
 		t.Fatalf("RenderPackage: %v", err)
@@ -152,7 +198,7 @@ func TestRenderPackageRendersFuncTypedStructFieldAsAField(t *testing.T) {
 	// an interface method: "Callback(int) error" instead of
 	// "Callback func(int) error", indistinguishable from a method in the
 	// snapshot.
-	dir := writeFixture(t, "x.go", "package demo\n\ntype Ok struct {\n\tCallback func(int) error\n}\n")
+	dir := writeFixture(t, "x.go", "// Stability: stable\npackage demo\n\ntype Ok struct {\n\tCallback func(int) error\n}\n")
 	got, err := RenderPackage(dir)
 	if err != nil {
 		t.Fatalf("RenderPackage: %v", err)
@@ -168,7 +214,8 @@ func TestRenderPackageRendersEmbeddedFieldsAndInterfaces(t *testing.T) {
 	// no Names, so the old code's "for _, ident := range field.Names" silently
 	// contributed nothing for it — an embedded struct field and an embedded
 	// interface both vanished from the surface with no error.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 import "io"
 
@@ -214,7 +261,8 @@ func TestRenderPackageOmitsUnexportedEmbeddedTypeByName(t *testing.T) {
 	// unexported member this walker skips — even though such a type can still
 	// promote exported methods, and this snapshot can't see those move. See the
 	// comment in exportedFields for the full reasoning.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 type unexportedHelper struct{}
 
@@ -240,7 +288,8 @@ func TestRenderPackageIncludesGenericTypeParameters(t *testing.T) {
 	// rendered as "type Box struct { Value T }" — changing a constraint (T any
 	// -> T comparable), a breaking change for callers, produced byte-identical
 	// output and would have passed the gate silently.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 type Box[T any] struct {
 	Value T
@@ -273,7 +322,8 @@ func TestRenderPackageDistinguishesAnAliasFromADefinedType(t *testing.T) {
 	// freely assignable) and "type C B" (a new defined type with none of B's
 	// methods) rendered byte-identically. Turning one into the other is the
 	// ordinary migration-shim move and breaks callers, and the gate saw nothing.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 type B struct {
 	Field string
@@ -325,7 +375,8 @@ func TestRenderPackageRecordsConstAndVarTypesAndValues(t *testing.T) {
 	// The rule is: the declared type when the source writes one, otherwise the
 	// value. That is the same half `tsc --declaration` keeps for TypeScript's
 	// counterparts in docs/api-surface.md.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 const TypedConst int = 10
 
@@ -365,7 +416,8 @@ func TestRenderPackageCarriesAConstGroupsTypeButNeverItsValue(t *testing.T) {
 	// type is carried into the snapshot: it is true of the identifier wherever
 	// it appears, where a repeated "= iota" would read as "= 0" on every bullet
 	// — a claim that is false for all but the first.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 type Kind int
 
@@ -396,12 +448,12 @@ const (
 		// its name alone — the honest limit of a walker that does not evaluate
 		// constants.
 		"- `const First = iota`",
-		"- `const Second`\n",
+		"- `const Second` — **stable**\n",
 		// A spec bringing its own value ends the type inheritance, exactly as
 		// the Go spec defines the repetition: AfterReset is untyped, not Kind.
 		"- `const Typed Kind`",
 		"- `const Reset = 5`",
-		"- `const AfterReset`\n",
+		"- `const AfterReset` — **stable**\n",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)
@@ -416,8 +468,8 @@ func TestRenderPackageRecordsStructTags(t *testing.T) {
 	// A struct tag is wire surface and part of Go's type identity, so retagging
 	// an exported field must not be invisible. The bullet switches to a doubled
 	// tick because a backquote cannot live inside a single-tick code span.
-	tagged := "package demo\n\ntype Tagged struct {\n\tName string `json:\"name\"`\n}\n"
-	retagged := "package demo\n\ntype Tagged struct {\n\tName string `json:\"renamed\"`\n}\n"
+	tagged := "// Stability: stable\npackage demo\n\ntype Tagged struct {\n\tName string `json:\"name\"`\n}\n"
+	retagged := "// Stability: stable\npackage demo\n\ntype Tagged struct {\n\tName string `json:\"renamed\"`\n}\n"
 
 	got, err := RenderPackage(writeFixture(t, "x.go", tagged))
 	if err != nil {
@@ -443,7 +495,8 @@ func TestRenderPackageOmitsMethodsOnAnUnexportedType(t *testing.T) {
 	// name the type, so those methods are reachable only through that interface — which
 	// is listed in its own right. Listing them again claims a public type that is not,
 	// and inflates the package's export count by one per method.
-	dir := writeFixture(t, "x.go", `package demo
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
 
 type Shown struct{}
 

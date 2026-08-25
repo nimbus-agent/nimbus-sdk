@@ -3,6 +3,8 @@
 //
 // The data is embedded, so a consumer needs no checkout. Python's spec_root() has no
 // counterpart here: an embedded copy has no filesystem path.
+//
+// Stability: stable
 package spec
 
 import (

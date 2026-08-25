@@ -11,6 +11,8 @@ import codecs
 from dataclasses import dataclass
 from typing import NoReturn
 
+__stability__ = "frozen"
+
 #: Max octets per NDJSON line, aligned with IPC protocol limits. Inclusive: a frame of
 #: exactly this many octets is conformant.
 IPC_MAX_LINE_BYTES = 1024 * 1024

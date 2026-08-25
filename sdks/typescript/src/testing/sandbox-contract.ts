@@ -2,6 +2,8 @@
  * `runSandboxContractTests` — verifies the declared sandbox permissions in a
  * manifest match the runtime enforcement seen by a forked probe.
  *
+ * @moduleStability frozen
+ *
  * Phase 5 T2 PR 1.
  *
  * Three probes run sequentially:

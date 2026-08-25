@@ -368,8 +368,41 @@ maintained."*
   executed case for case or CI fails, and that adding a corpus forces every binding to claim
   it or record why not — the failure mode no per-language guard could catch, because no
   per-language guard knows the corpus exists.
-- [ ] **Tiered stability** markers separating battle-tested helpers from the frozen
-  core — *Pillars 3, 7*
+- [x] **Tiered stability** markers separating battle-tested helpers from the frozen
+  core — *Pillars 3, 7*. Three tiers — `frozen`, `stable`, `experimental` — declared per
+  export in source across all three bindings (57 modules or packages: 35 TypeScript, 17
+  Python, 5 Go), projected into the three generated API-surface goldens, and enforced by
+  a second rule inside `conventional-commit-guard.ts` mapping a surface diff to the
+  minimum Conventional Commit type it requires. The tier definitions, the rule table, and
+  the full 57-row classification are [RFC-0015](./rfcs/0015-tiered-stability.md)'s, not
+  repeated here.
+
+  **This box's own wording is imprecise, the way the Go provenance box's once was — and
+  the correction is recorded the same way.** "Separating battle-tested helpers from the
+  frozen core" reads as a *per-export* property: which tier a given export gets. The
+  Phase 3 exit criterion below reads differently — "each SDK's stability tier is
+  documented and enforced" — as if a binding had one tier rather than 35, 16 or 5. What
+  actually shipped is the per-export tier axis, enforced independently per binding: each
+  of the three carries its own classification table and its own guard, and the same
+  helper may honestly sit at a different tier in two bindings (RFC-0015 §3). Phase 4's
+  *"a published stability / support matrix per export tier **and** language"* is what
+  crosses this per-export axis with the language axis; this box does not.
+
+  **The gate is a floor, not a certificate.** A surface diff can prove a declared
+  Conventional Commit type is not too small; it can never prove one is big enough.
+  [RFC-0014](./rfcs/0014-utf8-replacement-count.md)'s U+FFFD fix is the standing proof —
+  a genuinely breaking behavioral change that produced zero signature change, invisible
+  to all three goldens this gate reads. See RFC-0015's [floor-not-certificate
+  section](./rfcs/0015-tiered-stability.md#the-gate-is-a-floor-never-a-certificate).
+- [ ] Make **`commit-guard` a required status check** in branch protection, closing out
+  tiered stability's own Shipment 5 — *Pillars 3, 7*. RFC-0015's front matter conditions
+  the box above on Shipment 5 landing *and* this deployment step being done, not on the
+  RFC merging, so this is split out honestly rather than folded into an `[x]` that would
+  overstate it. Shipment 5 has landed; this step has not, because it is a
+  repository-settings change outside what a change in this repository can make. Until it
+  is done, the guard's check **reports without blocking**: a PR that fails it shows a red
+  status but can still be merged — the tiered-stability rule computes the right answer on
+  every pull request today, but nothing yet stops a PR from landing against its verdict.
 - [x] The written process for **how a language becomes "official"** — *Pillar 9*.
   Published as [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official),
   and Phase 2 already ran a language through it, in

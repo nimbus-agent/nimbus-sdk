@@ -14,6 +14,8 @@ from collections.abc import Mapping
 
 from nimbus_sdk.connector_kit.errors import MissingEnvError
 
+__stability__ = "stable"
+
 
 def require_env(name: str, env: Mapping[str, str] = os.environ) -> str:
     """Return ``env[name]``, or raise :class:`MissingEnvError` if unset or empty.

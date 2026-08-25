@@ -42,6 +42,8 @@ from typing import Final, NoReturn
 
 from nimbus_sdk.ipc.ndjson import IPC_MAX_LINE_BYTES
 
+__stability__ = "frozen"
+
 DIAGNOSTIC_LEVELS: Final[tuple[str, ...]] = ("debug", "info", "warn", "error")
 DIAGNOSTIC_KINDS: Final[tuple[str, ...]] = ("diagnostic", "audit")
 

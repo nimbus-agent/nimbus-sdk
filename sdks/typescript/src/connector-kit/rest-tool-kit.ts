@@ -1,6 +1,8 @@
 /**
  * rest-tool-kit — shared REST fetch wrapper for Bearer-auth connectors.
  *
+ * @moduleStability experimental
+ *
  * Covers: github, github-actions, gmail, outlook (all use Bearer token + fetchBearerAuthorizedJson).
  * Deferred: gitlab (PRIVATE-TOKEN header), onedrive (arrayBuffer/bytes graphRequest).
  */

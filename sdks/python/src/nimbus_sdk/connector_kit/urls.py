@@ -13,6 +13,8 @@ from urllib.parse import urlsplit
 
 from nimbus_sdk.connector_kit.errors import UrlResolutionError
 
+__stability__ = "frozen"
+
 #: §3. An RFC 3986 scheme followed by its colon — the one thing that makes an input
 #: absolute. A prefix test such as ``startswith("http")`` is wrong at both edges: it
 #: reads the legitimate relative path ``httpdocs/x`` as absolute, and reads

@@ -1,6 +1,8 @@
 /**
  * The handshake — the one exchange this package can perform end to end.
  *
+ * @moduleStability frozen
+ *
  * Normative documents: `docs/spec/negotiation/v1/contract-version.md` §5 (the frame and the
  * order it is written in) and §6 (the algorithm), over `docs/spec/wire/v1/framing.md` §3.
  *

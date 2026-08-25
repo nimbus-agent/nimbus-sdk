@@ -203,7 +203,10 @@ declare less than the stack contains:
 Declaring *more* than the stack contains is fine — it only over-bumps. Declaring less
 publishes a feature in a patch release, or a breaking change in a minor.
 
-The `commit-guard` CI job enforces this on every PR targeting `main`. To check a PR before
+The `commit-guard` job — in its own workflow, `.github/workflows/commit-subject.yml`,
+not `ci.yml` — enforces this on every PR targeting `main`. It also runs on the PR's
+`edited` event, not just `opened`/`synchronize`/`reopened`, so retitling a PR after a
+green run re-checks it rather than leaving a stale pass in place. To check a PR before
 pushing:
 
 ```bash

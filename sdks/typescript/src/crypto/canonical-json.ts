@@ -1,6 +1,8 @@
 /**
  * Deterministic JSON canonicalization for extension manifests.
  *
+ * @moduleStability stable
+ *
  * Used as the input to Ed25519 manifest signing (T2 PR 2 / I16). The signed
  * bytes are the manifest with the `signature` field stripped, re-serialized
  * via the rules below. Signing and verifying both call into this module so

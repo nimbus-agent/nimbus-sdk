@@ -19,146 +19,146 @@ not even another package inside this module.
 
 76 exports.
 
-- `const DefaultTimeout = 15 * time.Second`
-- `func (e *Error) Error() string`
-- `func (e *Error) Unwrap() error`
-- `func (e *HTTPStatusError) Error() string`
-- `func (e *HTTPStatusError) Unwrap() error`
-- `func (e *MissingEnvError) Error() string`
-- `func (e *MissingEnvError) Unwrap() error`
-- `func (e *TransportError) Error() string`
-- `func (e *TransportError) Unwrap() []error`
-- `func (e *TransportTimeoutError) Error() string`
-- `func (e *TransportTimeoutError) Unwrap() []error`
-- `func (e *URLResolutionError) Error() string`
-- `func (e *URLResolutionError) Unwrap() error`
-- `func (r *ToolRouter) Add(descriptor MCPToolDescriptor, handler Handler, validate Validator) error`
-- `func (r *ToolRouter) CallTool(ctx context.Context, name string, args map[string]any) MCPToolResult`
-- `func (r *ToolRouter) ListTools() []MCPToolDescriptor`
-- `func (r HTTPResponse) JSON() any`
-- `func (r HTTPResponse) Ok() bool`
-- `func (r HTTPResponse) Status() int`
-- `func (r HTTPResponse) Text() string`
-- `func (t *HTTPTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResponse, error)`
-- `func AsObjectish(value any) (map[string]any, bool)`
-- `func AsRecord(value any) (map[string]any, bool)`
-- `func ErrorResult(message string) MCPToolResult`
-- `func FieldsFromKeys(keys []string, tags bool) FieldExtractor`
-- `func FilterByQuery(items []any, query string, fields FieldExtractor, limit *float64) []any`
-- `func JSONResult(data any) (MCPToolResult, error)`
-- `func JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet int, jsonParseErrorMessage string) (MCPToolResult, error)`
-- `func JSONResultIfOk(serviceLabel string, res JSONBodyResponse, snippetMax int) (MCPToolResult, error)`
-- `func MakeQueryFilter(fields FieldExtractor) SearchFilter`
-- `func MakeRESTFetcher(cfg RESTFetcherConfig, transport Transport) RESTFetcher`
-- `func MakeRESTTool(cfg RESTToolConfig) Handler`
-- `func MatchesResult(rows any, search SearchFilter, query string, limit *float64) (MCPToolResult, error)`
-- `func NestedString(root map[string]any, path []string) string`
-- `func NewHTTPResponse(status int, raw []byte) HTTPResponse`
-- `func NewHTTPTransport(opts ...HTTPTransportOption) *HTTPTransport`
-- `func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)`
-- `func RedactedURL(rawURL string) string`
-- `func RequireEnv(name string, env func(string) string) (string, error)`
-- `func ResolveURLWithBase(baseURL, pathOrURL string) (string, error)`
-- `func ShouldStripAuth(fromURL, toURL string) bool`
-- `func StringField(row map[string]any, key string) string`
-- `func TagNamesFromObjects(row map[string]any) string`
-- `func TagText(row map[string]any) string`
-- `func WithBody(body []byte) RESTOption`
-- `func WithHTTPClient(client *http.Client) HTTPTransportOption`
-- `func WithHeader(name, value string) RESTOption`
-- `func WithMethod(method string) RESTOption`
-- `func WithTimeout(d time.Duration) RESTOption`
-- `type Error struct { Message string }`
-- `type FieldExtractor func(item any) ([]string, bool)`
-- `type HTTPRequest struct { Body []byte; Headers map[string]string; Method string; Timeout time.Duration; URL string }`
-- `type HTTPResponse struct {}`
-- `type HTTPStatusError struct { Service string; Snippet string; Status int }`
-- `type HTTPTransport struct {}`
-- `type HTTPTransportOption func(*HTTPTransport)`
-- `type Handler func(context.Context, map[string]any) (MCPToolResult, error)`
-- `type JSONBodyResponse interface { JSON() any; TextResponse }`
-- `` type MCPTextContent struct { Text string `json:"text"`; Type string `json:"type"` } ``
-- `` type MCPToolDescriptor struct { Description string `json:"description"`; InputSchema map[string]any `json:"inputSchema"`; Name string `json:"name"` } ``
-- `` type MCPToolResult struct { Content []MCPTextContent `json:"content"`; IsError bool `json:"isError,omitempty"` } ``
-- `type MissingEnvError struct { Name string }`
-- `type RESTFetcher func(ctx context.Context, pathOrURL string, opts ...RESTOption) (HTTPResponse, error)`
-- `type RESTFetcherConfig struct { APIBase string; DefaultHeaders map[string]string; Token string }`
-- `type RESTOption func(*HTTPRequest)`
-- `type RESTToolConfig struct { BuildPath func(args map[string]any) string; Env func(string) string; Fetch func(ctx context.Context, token, pathOrURL string) (HTTPResponse, error); ServiceLabel string; SnippetMax int; TokenEnv string }`
-- `type SearchFilter func(items []any, query string, limit *float64) []any`
-- `type TextResponse interface { Ok() bool; Status() int; Text() string }`
-- `type ToolRouter struct {}`
-- `type Transport interface { Send(context.Context, HTTPRequest) (HTTPResponse, error) }`
-- `type TransportError struct { Err error; Op string; URL string }`
-- `type TransportTimeoutError struct { Err error; Op string; URL string }`
-- `type URLResolutionError struct { Message string }`
-- `type Validator func(map[string]any) error`
-- `var ErrConnectorKit = errors.New("connectorkit")`
-- `var ErrTransport = errors.New("connectorkit: transport")`
+- `const DefaultTimeout = 15 * time.Second` — **experimental**
+- `func (e *Error) Error() string` — **experimental**
+- `func (e *Error) Unwrap() error` — **experimental**
+- `func (e *HTTPStatusError) Error() string` — **experimental**
+- `func (e *HTTPStatusError) Unwrap() error` — **experimental**
+- `func (e *MissingEnvError) Error() string` — **experimental**
+- `func (e *MissingEnvError) Unwrap() error` — **experimental**
+- `func (e *TransportError) Error() string` — **experimental**
+- `func (e *TransportError) Unwrap() []error` — **experimental**
+- `func (e *TransportTimeoutError) Error() string` — **experimental**
+- `func (e *TransportTimeoutError) Unwrap() []error` — **experimental**
+- `func (e *URLResolutionError) Error() string` — **experimental**
+- `func (e *URLResolutionError) Unwrap() error` — **experimental**
+- `func (r *ToolRouter) Add(descriptor MCPToolDescriptor, handler Handler, validate Validator) error` — **experimental**
+- `func (r *ToolRouter) CallTool(ctx context.Context, name string, args map[string]any) MCPToolResult` — **experimental**
+- `func (r *ToolRouter) ListTools() []MCPToolDescriptor` — **experimental**
+- `func (r HTTPResponse) JSON() any` — **experimental**
+- `func (r HTTPResponse) Ok() bool` — **experimental**
+- `func (r HTTPResponse) Status() int` — **experimental**
+- `func (r HTTPResponse) Text() string` — **experimental**
+- `func (t *HTTPTransport) Send(ctx context.Context, request HTTPRequest) (HTTPResponse, error)` — **experimental**
+- `func AsObjectish(value any) (map[string]any, bool)` — **experimental**
+- `func AsRecord(value any) (map[string]any, bool)` — **experimental**
+- `func ErrorResult(message string) MCPToolResult` — **experimental**
+- `func FieldsFromKeys(keys []string, tags bool) FieldExtractor` — **experimental**
+- `func FilterByQuery(items []any, query string, fields FieldExtractor, limit *float64) []any` — **experimental**
+- `func JSONResult(data any) (MCPToolResult, error)` — **experimental**
+- `func JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet int, jsonParseErrorMessage string) (MCPToolResult, error)` — **experimental**
+- `func JSONResultIfOk(serviceLabel string, res JSONBodyResponse, snippetMax int) (MCPToolResult, error)` — **experimental**
+- `func MakeQueryFilter(fields FieldExtractor) SearchFilter` — **experimental**
+- `func MakeRESTFetcher(cfg RESTFetcherConfig, transport Transport) RESTFetcher` — **experimental**
+- `func MakeRESTTool(cfg RESTToolConfig) Handler` — **experimental**
+- `func MatchesResult(rows any, search SearchFilter, query string, limit *float64) (MCPToolResult, error)` — **experimental**
+- `func NestedString(root map[string]any, path []string) string` — **experimental**
+- `func NewHTTPResponse(status int, raw []byte) HTTPResponse` — **experimental**
+- `func NewHTTPTransport(opts ...HTTPTransportOption) *HTTPTransport` — **experimental**
+- `func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error)` — **experimental**
+- `func RedactedURL(rawURL string) string` — **experimental**
+- `func RequireEnv(name string, env func(string) string) (string, error)` — **experimental**
+- `func ResolveURLWithBase(baseURL, pathOrURL string) (string, error)` — **frozen**
+- `func ShouldStripAuth(fromURL, toURL string) bool` — **experimental**
+- `func StringField(row map[string]any, key string) string` — **experimental**
+- `func TagNamesFromObjects(row map[string]any) string` — **experimental**
+- `func TagText(row map[string]any) string` — **experimental**
+- `func WithBody(body []byte) RESTOption` — **experimental**
+- `func WithHTTPClient(client *http.Client) HTTPTransportOption` — **experimental**
+- `func WithHeader(name, value string) RESTOption` — **experimental**
+- `func WithMethod(method string) RESTOption` — **experimental**
+- `func WithTimeout(d time.Duration) RESTOption` — **experimental**
+- `type Error struct { Message string }` — **experimental**
+- `type FieldExtractor func(item any) ([]string, bool)` — **experimental**
+- `type HTTPRequest struct { Body []byte; Headers map[string]string; Method string; Timeout time.Duration; URL string }` — **experimental**
+- `type HTTPResponse struct {}` — **experimental**
+- `type HTTPStatusError struct { Service string; Snippet string; Status int }` — **experimental**
+- `type HTTPTransport struct {}` — **experimental**
+- `type HTTPTransportOption func(*HTTPTransport)` — **experimental**
+- `type Handler func(context.Context, map[string]any) (MCPToolResult, error)` — **experimental**
+- `type JSONBodyResponse interface { JSON() any; TextResponse }` — **experimental**
+- `` type MCPTextContent struct { Text string `json:"text"`; Type string `json:"type"` } `` — **experimental**
+- `` type MCPToolDescriptor struct { Description string `json:"description"`; InputSchema map[string]any `json:"inputSchema"`; Name string `json:"name"` } `` — **experimental**
+- `` type MCPToolResult struct { Content []MCPTextContent `json:"content"`; IsError bool `json:"isError,omitempty"` } `` — **experimental**
+- `type MissingEnvError struct { Name string }` — **experimental**
+- `type RESTFetcher func(ctx context.Context, pathOrURL string, opts ...RESTOption) (HTTPResponse, error)` — **experimental**
+- `type RESTFetcherConfig struct { APIBase string; DefaultHeaders map[string]string; Token string }` — **experimental**
+- `type RESTOption func(*HTTPRequest)` — **experimental**
+- `type RESTToolConfig struct { BuildPath func(args map[string]any) string; Env func(string) string; Fetch func(ctx context.Context, token, pathOrURL string) (HTTPResponse, error); ServiceLabel string; SnippetMax int; TokenEnv string }` — **experimental**
+- `type SearchFilter func(items []any, query string, limit *float64) []any` — **experimental**
+- `type TextResponse interface { Ok() bool; Status() int; Text() string }` — **experimental**
+- `type ToolRouter struct {}` — **experimental**
+- `type Transport interface { Send(context.Context, HTTPRequest) (HTTPResponse, error) }` — **experimental**
+- `type TransportError struct { Err error; Op string; URL string }` — **experimental**
+- `type TransportTimeoutError struct { Err error; Op string; URL string }` — **experimental**
+- `type URLResolutionError struct { Message string }` — **experimental**
+- `type Validator func(map[string]any) error` — **experimental**
+- `var ErrConnectorKit = errors.New("connectorkit")` — **experimental**
+- `var ErrTransport = errors.New("connectorkit: transport")` — **experimental**
 
 ## `contract`
 
 10 exports.
 
-- `const HandshakeExit = 20`
-- `func DeclaredVersionsMatch(manifestVersions []any, helloVersions []string) bool`
-- `func IsContractVersion(v any) bool`
-- `func ManifestContractVersions(manifest any) []any`
-- `func Negotiate(local, remote []any) NegotiationResult`
-- `func SDKVersion() string`
-- `type NegotiationOk struct { Version string }`
-- `type NegotiationRefused struct { Reason string }`
-- `type NegotiationResult interface {}`
-- `var ContractVersions = []string{"1"}`
+- `const HandshakeExit = 20` — **frozen**
+- `func DeclaredVersionsMatch(manifestVersions []any, helloVersions []string) bool` — **frozen**
+- `func IsContractVersion(v any) bool` — **experimental**
+- `func ManifestContractVersions(manifest any) []any` — **frozen**
+- `func Negotiate(local, remote []any) NegotiationResult` — **frozen**
+- `func SDKVersion() string` — **frozen**
+- `type NegotiationOk struct { Version string }` — **frozen**
+- `type NegotiationRefused struct { Reason string }` — **frozen**
+- `type NegotiationResult interface {}` — **frozen**
+- `var ContractVersions = []string{"1"}` — **frozen**
 
 ## `diagnostics`
 
 18 exports.
 
-- `func Encode(event any) EncodeResult`
-- `func MeetsLevel(level, threshold string) bool`
-- `func NewEmitter(extensionID string, sink Emit) Emitter`
-- `func Parse(line string) ParseResult`
-- `type Emit func(line string) error`
-- `type EmitDetail struct { CorrelationID string; Error *EmitError; Fields map[string]any; Ts string }`
-- `type EmitError struct { Code string; Retriable *bool }`
-- `type EmitResult interface {}`
-- `type EmitSinkFailed struct { Err error; Line string }`
-- `type Emitter interface { Audit(event string, detail EmitDetail) EmitResult; Debug(event string, detail EmitDetail) EmitResult; Error(event string, detail EmitDetail) EmitResult; Info(event string, detail EmitDetail) EmitResult; Warn(event string, detail EmitDetail) EmitResult }`
-- `type EncodeOk struct { Line string }`
-- `type EncodeRejected struct { Path string; Reason string }`
-- `type EncodeResult interface {}`
-- `type ParseOk struct { Event map[string]any }`
-- `type ParseRejected struct { Path string; Reason string }`
-- `type ParseResult interface {}`
-- `var DiagnosticKinds = []string{"diagnostic", "audit"}`
-- `var DiagnosticLevels = []string{"debug", "info", "warn", "error"}`
+- `func Encode(event any) EncodeResult` — **frozen**
+- `func MeetsLevel(level, threshold string) bool` — **frozen**
+- `func NewEmitter(extensionID string, sink Emit) Emitter` — **frozen**
+- `func Parse(line string) ParseResult` — **frozen**
+- `type Emit func(line string) error` — **frozen**
+- `type EmitDetail struct { CorrelationID string; Error *EmitError; Fields map[string]any; Ts string }` — **frozen**
+- `type EmitError struct { Code string; Retriable *bool }` — **frozen**
+- `type EmitResult interface {}` — **frozen**
+- `type EmitSinkFailed struct { Err error; Line string }` — **frozen**
+- `type Emitter interface { Audit(event string, detail EmitDetail) EmitResult; Debug(event string, detail EmitDetail) EmitResult; Error(event string, detail EmitDetail) EmitResult; Info(event string, detail EmitDetail) EmitResult; Warn(event string, detail EmitDetail) EmitResult }` — **frozen**
+- `type EncodeOk struct { Line string }` — **frozen**
+- `type EncodeRejected struct { Path string; Reason string }` — **frozen**
+- `type EncodeResult interface {}` — **frozen**
+- `type ParseOk struct { Event map[string]any }` — **frozen**
+- `type ParseRejected struct { Path string; Reason string }` — **frozen**
+- `type ParseResult interface {}` — **frozen**
+- `var DiagnosticKinds = []string{"diagnostic", "audit"}` — **frozen**
+- `var DiagnosticLevels = []string{"debug", "info", "warn", "error"}` — **frozen**
 
 ## `ipc`
 
 17 exports.
 
-- `const HelloMessage = "hello"`
-- `const IPCMaxLineBytes = 1024 * 1024`
-- `func (r *LineReader) Flush() (FlushResult, error)`
-- `func (r *LineReader) Push(chunk []byte) ([]string, error)`
-- `func EncodeHello(versions []string) string`
-- `func ParseHello(frame string) HelloResult`
-- `func PerformHandshake(r io.Reader, w io.Writer, cfg HandshakeConfig) (HandshakeResult, error)`
-- `type FlushResult struct { Frames []string; Truncated bool }`
-- `type HandshakeConfig struct { LocalVersions []string; Reader *LineReader }`
-- `type HandshakeOk struct { Pending []string; Version string }`
-- `type HandshakeRefused struct { Pending []string; Reason string }`
-- `type HandshakeResult interface {}`
-- `type HelloOk struct { ContractVersions []string }`
-- `type HelloRefused struct { Reason string }`
-- `type HelloResult interface {}`
-- `type LineReader struct {}`
-- `var ErrFrameTooLong = errors.New("Message exceeds 1MB line limit")`
+- `const HelloMessage = "hello"` — **frozen**
+- `const IPCMaxLineBytes = 1024 * 1024` — **frozen**
+- `func (r *LineReader) Flush() (FlushResult, error)` — **frozen**
+- `func (r *LineReader) Push(chunk []byte) ([]string, error)` — **frozen**
+- `func EncodeHello(versions []string) string` — **frozen**
+- `func ParseHello(frame string) HelloResult` — **frozen**
+- `func PerformHandshake(r io.Reader, w io.Writer, cfg HandshakeConfig) (HandshakeResult, error)` — **frozen**
+- `type FlushResult struct { Frames []string; Truncated bool }` — **frozen**
+- `type HandshakeConfig struct { LocalVersions []string; Reader *LineReader }` — **frozen**
+- `type HandshakeOk struct { Pending []string; Version string }` — **frozen**
+- `type HandshakeRefused struct { Pending []string; Reason string }` — **frozen**
+- `type HandshakeResult interface {}` — **frozen**
+- `type HelloOk struct { ContractVersions []string }` — **frozen**
+- `type HelloRefused struct { Reason string }` — **frozen**
+- `type HelloResult interface {}` — **frozen**
+- `type LineReader struct {}` — **frozen**
+- `var ErrFrameTooLong = errors.New("Message exceeds 1MB line limit")` — **frozen**
 
 ## `spec`
 
 2 exports.
 
-- `func LoadCorpus(name string) ([]map[string]any, error)`
-- `func LoadSchema(name string) (map[string]any, error)`
+- `func LoadCorpus(name string) ([]map[string]any, error)` — **stable**
+- `func LoadSchema(name string) (map[string]any, error)` — **stable**

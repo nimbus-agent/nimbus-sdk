@@ -100,6 +100,8 @@ func crossOriginError(target, base string) *URLResolutionError {
 //
 // The error is always a *URLResolutionError carrying one of §7's three messages verbatim,
 // and the returned string is "" whenever the error is non-nil.
+//
+// Stability: frozen
 func ResolveURLWithBase(baseURL, pathOrURL string) (string, error) {
 	if !absoluteURLPattern.MatchString(pathOrURL) {
 		concatenated := baseURL + pathOrURL

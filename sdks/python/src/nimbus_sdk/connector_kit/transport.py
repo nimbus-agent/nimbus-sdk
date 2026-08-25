@@ -18,6 +18,8 @@ from typing import Any, Protocol
 from nimbus_sdk.connector_kit.errors import TransportError, TransportTimeoutError
 from nimbus_sdk.connector_kit.urls import should_strip_auth
 
+__stability__ = "experimental"
+
 #: The default ``headers`` for a request. A shared, read-only mapping rather than a
 #: ``field(default_factory=dict)``: the value is reachable from every request that takes
 #: the default, so a mutable one would let a single caller poison the rest.

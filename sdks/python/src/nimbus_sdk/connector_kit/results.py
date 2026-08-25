@@ -22,6 +22,8 @@ from typing import Protocol
 from nimbus_sdk.connector_kit.errors import ConnectorKitError, HttpStatusError
 from nimbus_sdk.connector_kit.types import McpTextContent, McpToolResult
 
+__stability__ = "stable"
+
 
 class TextResponse(Protocol):
     """A response whose body has been read as text."""

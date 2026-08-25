@@ -1,17 +1,38 @@
 /**
- * CI entry point for the Conventional Commit rules in `conventional-commit.ts`.
+ * CI entry point for two independent Conventional Commit rules: the carried-commits rule
+ * in `conventional-commit.ts`, and the tiered-stability rule in `stability-rules.ts`.
  *
- * Thin glue by design: everything decidable lives in the pure module next door, under unit
- * test, so this file holds only the parts that need the network and the environment — read
- * the event payload, fetch the PR's commits, print, set an exit code.
+ * Thin glue by design: everything decidable for both rules lives in the pure modules next
+ * door, under unit test, so this file holds only the parts that need the network, the
+ * filesystem and the environment — read the event payload, fetch the PR's commits and
+ * body, read `docs/rfcs/`, diff the three golden files base → head, print, set an exit
+ * code. The two rules compose by both standing: a PR must satisfy whichever demands more,
+ * which falls out of running them independently rather than out of any explicit `max`.
  *
- * Runs on `pull_request` events targeting `main`. On anything else it exits 0 with a note
- * rather than being skipped by an `if:` in the workflow: `ci-complete` treats a skipped
- * dependency as a failure, so a job that opts out of a push build must do so from the
- * inside.
+ * Carried-commits (`conventional-commit.ts`): the aggregate PR subject that lands on
+ * `main` may not declare less release impact than the commits it squashes away.
  *
- * Also usable locally against any PR, which is how the rules were checked against the
- * release this guard exists to prevent:
+ * Tiered stability (`stability-rules.ts`): a second requirement derived from the diff of
+ * `docs/api-surface.md`, `docs/api-surface-python.md` and `docs/api-surface-go.md`
+ * against `GITHUB_BASE_SHA` — see [RFC-0015](../../../docs/rfcs/0015-tiered-stability.md)
+ * for the rule table this enforces. A FLOOR, never a certificate: the diff can prove the
+ * declared type is not too small, never that it is big enough.
+ *
+ * Runs on `pull_request` events targeting `main`, from its own workflow —
+ * `.github/workflows/commit-subject.yml` (job id `commit-guard`, no `name:` key, so
+ * GitHub reports the status check as `commit-guard`, not `commit-subject`) — rather than
+ * from `ci.yml`, because this guard reads the PR *title* and must re-run on an `edited`
+ * event, which `ci.yml`'s full matrix cannot afford to re-run on every retitle. On
+ * anything else it exits 0 with a note rather than being skipped by an `if:` in the
+ * workflow: once branch protection marks `commit-guard` as a required check (RFC-0015
+ * Shipment 5's still-outstanding deployment step — see docs/ROADMAP.md), a run that
+ * never reports a check because `if:` skipped the job blocks the PR forever, since
+ * GitHub has no way to read "skipped" as "not applicable" for a required check. So the
+ * job must always report a real conclusion, and it does so by exiting 0 with an
+ * explanatory note rather than by not running at all.
+ *
+ * Also usable locally against any PR, which is how the carried-commits rule was checked
+ * against the release this guard exists to prevent:
  *
  *   GITHUB_REPOSITORY=nimbus-agent/nimbus-sdk GH_TOKEN=$(gh auth token) \
  *     bun run scripts/conventional-commit-guard.ts --pr 59
@@ -20,9 +41,21 @@
  * to the event payload, because outside CI there is no event payload and the fall-back
  * printed "nothing to check" and exited 0 — a typo that read exactly like a pass.
  *
+ * The tiered-stability half additionally needs `GITHUB_BASE_SHA` set to diff against —
+ * without it, that half is skipped with a note rather than treated as a pass.
+ *
  * Exit codes: 0 pass or not applicable, 1 a rule failed, 2 the check could not run.
  */
-import { type CarriedCommit, checkAggregate } from "./conventional-commit.ts";
+import { existsSync, readdirSync } from "node:fs";
+import {
+  type CarriedCommit,
+  checkAggregate,
+  compareImpact,
+  impactOfSubject,
+  parseConventionalSubject,
+} from "./conventional-commit.ts";
+import { joinRepo } from "./paths.ts";
+import { diffSurfaces, parseSurface, requiredFor, type SurfaceChange } from "./stability-rules.ts";
 
 const EXIT_OK = 0;
 const EXIT_VIOLATION = 1;
@@ -81,10 +114,102 @@ function encodeAnnotation(message: string): string {
   return message.replace(/%/g, "%25").replace(/\r/g, "%0D").replace(/\n/g, "%0A");
 }
 
+/** The three generated goldens the tiered-stability rule diffs. */
+const GOLDENS = [
+  { path: "docs/api-surface.md", binding: "typescript" },
+  { path: "docs/api-surface-python.md", binding: "python" },
+  { path: "docs/api-surface-go.md", binding: "go" },
+] as const;
+
+/** The golden at `revision`, or "" when it did not exist there. */
+function goldenAt(revision: string, path: string): string {
+  const shown = Bun.spawnSync(["git", "show", `${revision}:${path}`]);
+  // A file absent at the base is not an error: the first shipment to add a golden
+  // must read as an all-additions diff, not as a failure to run.
+  return shown.exitCode === 0 ? shown.stdout.toString() : "";
+}
+
+/**
+ * Make `baseSha`'s tree readable, fetching only if it is not already present.
+ *
+ * The test is `^{tree}`, NOT `git cat-file -t <sha>`. On the `--depth=1` merge-ref
+ * checkout CI uses, the base commit exists as a shallow boundary — `cat-file -t`
+ * happily answers "commit" — while its tree does not, so `git show <sha>:path` still
+ * fails and every golden would read as empty. Every export in the repository would then
+ * look newly added. Resolving the tree is what actually proves the read will work.
+ */
+function ensureBaseTree(baseSha: string): void {
+  if (Bun.spawnSync(["git", "cat-file", "-e", `${baseSha}^{tree}`]).exitCode === 0) return;
+
+  const fetched = Bun.spawnSync(["git", "fetch", "--depth=1", "origin", baseSha]);
+  if (fetched.exitCode !== 0) {
+    throw new Error(
+      `could not fetch base ${baseSha}: ${fetched.stderr.toString()}\n` +
+        "Running locally against a fork or a remote not named `origin`? Fetch the base " +
+        "commit yourself first, then re-run — this guard will then skip the fetch.",
+    );
+  }
+
+  // The fetch's exit code alone is not proof the tree is now readable: a `git fetch` that
+  // exits 0 without landing a readable `<sha>^{tree}` would otherwise fall through
+  // silently, and every `goldenAt` call below maps unreadable and absent to the same ""
+  // — so every export in the repository would read as newly added, and a PR deleting a
+  // frozen export would pass as `feat:`. Re-check rather than trust the exit code.
+  if (Bun.spawnSync(["git", "cat-file", "-e", `${baseSha}^{tree}`]).exitCode !== 0) {
+    throw new Error(
+      `fetched base ${baseSha} but its tree is still not readable — refusing to run the ` +
+        "surface-tier rule against an empty base, which would make every export look newly added.",
+    );
+  }
+}
+
+/**
+ * The surface changes across all three goldens, base → head (the current worktree).
+ *
+ * Exported so its cwd-independence is under direct test, without needing the network
+ * access the rest of `main` requires — see `conventional-commit-guard.test.ts`.
+ */
+export async function surfaceChanges(baseSha: string): Promise<SurfaceChange[]> {
+  ensureBaseTree(baseSha);
+  const changes: SurfaceChange[] = [];
+  for (const golden of GOLDENS) {
+    const base = parseSurface(goldenAt(baseSha, golden.path));
+    // Anchored to the repo root, not cwd: `git show <rev>:<path>` above already resolves
+    // `golden.path` against the tree root regardless of cwd, but `existsSync`/`Bun.file`
+    // resolve a relative path against cwd — so without this, running the guard from
+    // `sdks/typescript/` (its own documented local recipe) read the head golden as "",
+    // every export looked unchanged, and the surface-tier rule silently evaluated
+    // nothing while still printing "ok".
+    const headPath = joinRepo(golden.path);
+    const head = parseSurface(existsSync(headPath) ? await Bun.file(headPath).text() : "");
+    changes.push(...diffSurfaces(base, head, golden.binding));
+  }
+  return changes;
+}
+
+/**
+ * True when `body` cites an RFC whose file exists in the workspace.
+ *
+ * Exported so its cwd-independence is under direct test — see
+ * `conventional-commit-guard.test.ts`.
+ */
+export function citesAnExistingRfc(body: string): boolean {
+  const cited = [...body.matchAll(/RFC-(\d{4})/g)].map((match) => match[1] ?? "");
+  if (cited.length === 0) return false;
+  // Anchored to the repo root for the same reason as the golden reads above: a
+  // cwd-relative `readdirSync("docs/rfcs")` throws when run from `sdks/typescript/`
+  // rather than failing open, but it is the same class of bug — a repository-level path
+  // that only happens to work from the repo root.
+  const present = readdirSync(joinRepo("docs/rfcs"));
+  return cited.some((number) => present.some((file) => file.startsWith(`${number}-`)));
+}
+
 interface PullRequestRef {
   readonly number: number;
   readonly title: string;
   readonly baseRef: string;
+  /** The PR description. Empty string when GitHub reports no body (it may be `null`). */
+  readonly body: string;
 }
 
 async function pullRequestFromEvent(path: string): Promise<PullRequestRef | null> {
@@ -100,7 +225,7 @@ async function pullRequestFromEvent(path: string): Promise<PullRequestRef | null
   if (typeof number !== "number" || title === null || baseRef === null) {
     return null;
   }
-  return { number, title, baseRef };
+  return { number, title, baseRef, body: asString(pr["body"]) ?? "" };
 }
 
 async function pullRequestFromApi(
@@ -123,7 +248,7 @@ async function pullRequestFromApi(
   if (title === null || baseRef === null) {
     return null;
   }
-  return { number, title, baseRef };
+  return { number, title, baseRef, body: (pr === null ? null : asString(pr["body"])) ?? "" };
 }
 
 function apiHeaders(token: string): Record<string, string> {
@@ -267,7 +392,52 @@ async function main(): Promise<number> {
     }
   }
 
-  if (verdict.ok) {
+  // The tiered-stability rule: a second, independent requirement derived from the diff
+  // of the three generated goldens, base → head. It composes with the carried-commits
+  // rule above by both standing — a PR must satisfy whichever demands more, which falls
+  // out of running the two checks independently rather than out of any explicit `max`.
+  const baseSha = env["GITHUB_BASE_SHA"] ?? "";
+  const changes = baseSha === "" ? [] : await surfaceChanges(baseSha);
+  const required = requiredFor(changes);
+
+  if (baseSha === "") {
+    out("\nnote: GITHUB_BASE_SHA is not set, so this is not running on a pull request; ");
+    out("skipping the surface-tier rule.\n");
+  } else if (changes.length > 0) {
+    out(
+      `\nsurface:  ${changes.length} change(s) across the goldens, requiring at least ` +
+        `"${required.impact}"\n`,
+    );
+  }
+
+  for (const notice of required.notices) {
+    out(`::notice::${notice}\n`);
+  }
+
+  const declaredSubject = parseConventionalSubject(target.title);
+  const declared = declaredSubject === null ? "none" : impactOfSubject(declaredSubject);
+  const declaredBreaking = declaredSubject?.breaking ?? false;
+
+  const surfaceFailures: string[] = [];
+  if (compareImpact(declared, required.impact) < 0) {
+    surfaceFailures.push(
+      `the surface diff requires at least "${required.impact}" but the subject declares ` +
+        `"${declared}". Changed: ${changes.map((c) => `${c.name} (${c.kind}, ${c.tier})`).join(", ")}`,
+    );
+  }
+  if (required.breaking && !declaredBreaking) {
+    surfaceFailures.push(
+      "a stable or frozen export was removed, changed or demoted — the subject needs `!`",
+    );
+  }
+  if (required.needsRfc && !citesAnExistingRfc(target.body)) {
+    surfaceFailures.push(
+      "a frozen module's surface changed — the PR body must cite an RFC-NNNN that exists " +
+        "under docs/rfcs/",
+    );
+  }
+
+  if (verdict.ok && surfaceFailures.length === 0) {
     out("\nok — the subject declares at least what the PR carries.\n");
     return EXIT_OK;
   }
@@ -276,10 +446,26 @@ async function main(): Promise<number> {
   for (const violation of verdict.violations) {
     out(`FAIL: ${violation}\n\n`);
   }
-  out(
-    `::error title=Conventional Commit guard::${encodeAnnotation(verdict.violations.join("\n\n"))}\n`,
-  );
+  for (const failure of surfaceFailures) {
+    out(`FAIL: ${failure}\n\n`);
+  }
+  const allFailures = [...verdict.violations, ...surfaceFailures];
+  out(`::error title=Conventional Commit guard::${encodeAnnotation(allFailures.join("\n\n"))}\n`);
   return EXIT_VIOLATION;
 }
 
-process.exit(await main());
+if (import.meta.main) {
+  // `main` throwing (`ensureBaseTree` does, by design, when the base tree can't be
+  // fetched or read) is an infrastructure failure, not a rule failure — it belongs to
+  // EXIT_ERROR (2), the code this file's own docstring documents for "the check could
+  // not run". Left uncaught, an unhandled rejection exits 1, which this guard defines as
+  // "a rule failed" — reporting an infrastructure problem as though the PR itself were
+  // in violation.
+  main()
+    .then((code) => process.exit(code))
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      out(`error: ${message}\n`);
+      process.exit(EXIT_ERROR);
+    });
+}

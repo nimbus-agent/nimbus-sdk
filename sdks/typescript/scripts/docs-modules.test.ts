@@ -39,6 +39,7 @@ describe("modulesInSurface", () => {
             source: "./crypto/jwt.js",
             declaration: "",
             deprecated: null,
+            stability: "stable",
           },
           {
             name: "decodeJwt",
@@ -46,6 +47,7 @@ describe("modulesInSurface", () => {
             source: "./crypto/jwt.js",
             declaration: "",
             deprecated: null,
+            stability: "stable",
           },
           {
             name: "buildIcs",
@@ -53,6 +55,7 @@ describe("modulesInSurface", () => {
             source: "./icalendar.js",
             declaration: "",
             deprecated: null,
+            stability: "stable",
           },
         ],
       },
@@ -65,6 +68,7 @@ describe("modulesInSurface", () => {
             source: "(local)",
             declaration: "",
             deprecated: null,
+            stability: "stable",
           },
         ],
       },
@@ -84,7 +88,14 @@ describe("modulesInSurface", () => {
       {
         label: "./ghost",
         exports: [
-          { name: "x", typeOnly: false, source: "./a.js", declaration: "", deprecated: null },
+          {
+            name: "x",
+            typeOnly: false,
+            source: "./a.js",
+            declaration: "",
+            deprecated: null,
+            stability: "stable",
+          },
         ],
       },
     ];

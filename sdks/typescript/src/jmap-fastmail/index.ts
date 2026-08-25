@@ -1,6 +1,8 @@
 /**
  * Pure JMAP / Fastmail request-building and response-parsing utilities.
  *
+ * @moduleStability stable
+ *
  * Shared between `packages/gateway` (fastmail-sync connector) and
  * `packages/mcp-connectors/fastmail`. Neither package can import the other
  * (gateway ↔ mcp boundary), so the PURE, I/O-free logic lives here.

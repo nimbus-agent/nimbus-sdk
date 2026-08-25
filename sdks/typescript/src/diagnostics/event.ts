@@ -18,6 +18,8 @@
  */
 import { IPC_MAX_LINE_BYTES } from "../ipc/ndjson-line-reader.js";
 
+/** @moduleStability frozen */
+
 export const DIAGNOSTIC_LEVELS = ["debug", "info", "warn", "error"] as const;
 export type DiagnosticLevel = (typeof DIAGNOSTIC_LEVELS)[number];
 

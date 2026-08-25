@@ -1,6 +1,8 @@
 /**
  * Google service-account OAuth2 access tokens via the JWT-bearer grant.
  *
+ * @moduleStability stable
+ *
  * Google Cloud REST APIs (App Distribution, BigQuery, …) accept a short-lived
  * OAuth2 access token. This mints one from a service-account key (the JSON the
  * developer downloads) by signing an RS256 JWT assertion and exchanging it at

@@ -28,6 +28,8 @@ from nimbus_sdk.connector_kit.transport import (
 from nimbus_sdk.connector_kit.types import McpToolResult
 from nimbus_sdk.connector_kit.urls import resolve_url_with_base
 
+__stability__ = "experimental"
+
 
 @dataclass(frozen=True)
 class RestFetcherConfig:

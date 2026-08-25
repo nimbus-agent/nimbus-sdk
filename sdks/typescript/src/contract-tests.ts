@@ -1,3 +1,5 @@
+/** @moduleStability frozen */
+
 import { type AuditLogger, createScopedAuditLogger } from "./audit-logger.js";
 import { CONTRACT_VERSION_PATTERN } from "./contract-version.js";
 import { type HitlRequest, isHitlRequest } from "./hitl-request.js";

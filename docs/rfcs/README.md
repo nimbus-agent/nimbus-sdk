@@ -25,6 +25,7 @@ widening the contract.
 | [0012](./0012-go-sdk-binding.md) | A Go binding, and the release model it needs | accepted | this document and Shipment 1 of `sdks/go/`; released as `sdks/go/v0.1.0` and `v0.2.0` |
 | [0013](./0013-go-sdk-official.md) | Promote the Go SDK to official, and pin what "the full conformance suite" means | accepted | [#153](https://github.com/nimbus-agent/nimbus-sdk/pull/153) |
 | [0014](./0014-utf8-replacement-count.md) | One U+FFFD per maximal subpart | accepted | [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155) |
+| [0015](./0015-tiered-stability.md) | Tiered stability markers | accepted | this document (Shipment 1 of 5) |
 
 ## Statuses
 

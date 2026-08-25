@@ -13,6 +13,8 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ### `AGENT_KIND`
 
+**Stability:** stable
+
 From `./agents/agent-names.js`.
 
 ```ts
@@ -31,6 +33,8 @@ export declare const AGENT_KIND: {
 
 ### `AGENT_NAMES`
 
+**Stability:** stable
+
 From `./agents/agent-names.js`.
 
 ```ts
@@ -39,6 +43,8 @@ export declare const AGENT_NAMES: readonly ["expert", "impact", "catchup", "ghos
 
 ### `AgentBrief` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -46,6 +52,8 @@ export type AgentBrief = ExpertBrief | ImpactBrief | CatchupBrief | GhostBrief |
 ```
 
 ### `AgentBriefBase` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-types.js`.
 
@@ -60,6 +68,8 @@ export type AgentBriefBase = {
 
 ### `AgentName` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/agent-names.js`.
 
 ```ts
@@ -67,6 +77,8 @@ export type AgentName = (typeof AGENT_NAMES)[number];
 ```
 
 ### `AppStoreConnectJwtParams` *(type-only)*
+
+**Stability:** stable
 
 From `./crypto/app-store-connect-jwt.js`.
 
@@ -83,6 +95,8 @@ export interface AppStoreConnectJwtParams {
 
 **Deprecated:** since 1.16.0 — use `DiagnosticEmit` from `@nimbus-dev/sdk/diagnostics` (the callback `createEmitter` consumes) instead. May be removed in 2.0.0.
 
+**Stability:** stable
+
 From `./audit-logger.js`.
 
 ```ts
@@ -92,6 +106,8 @@ export type AuditEmit = (action: string, payload: Record<string, unknown>) => Pr
 ### `AuditLogger` *(type-only)*
 
 **Deprecated:** since 1.16.0 — use `DiagnosticEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0.
+
+**Stability:** stable
 
 From `./audit-logger.js`.
 
@@ -103,6 +119,8 @@ export interface AuditLogger {
 
 ### `BRIEF_GUARDS`
 
+**Stability:** stable
+
 From `./agents/brief-guards.js`.
 
 ```ts
@@ -112,6 +130,8 @@ export declare const BRIEF_GUARDS: {
 ```
 
 ### `BriefFor` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -131,6 +151,8 @@ export type BriefFor<A extends AgentName> = {
 
 ### `BriefReadyPayload` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -142,6 +164,8 @@ export type BriefReadyPayload<B extends AgentBrief> = {
 ```
 
 ### `BuildEventInput` *(type-only)*
+
+**Stability:** stable
 
 From `./icalendar.js`.
 
@@ -159,6 +183,8 @@ export interface BuildEventInput {
 
 ### `CONTRACT_HANDSHAKE_EXIT`
 
+**Stability:** frozen
+
 From `./contract-version.js`.
 
 ```ts
@@ -166,6 +192,8 @@ export declare const CONTRACT_HANDSHAKE_EXIT = 20;
 ```
 
 ### `CONTRACT_VERSIONS`
+
+**Stability:** frozen
 
 From `./contract-version.js`.
 
@@ -175,6 +203,8 @@ export declare const CONTRACT_VERSIONS: readonly string[];
 
 ### `CORE_CAPABILITY`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -182,6 +212,8 @@ export declare const CORE_CAPABILITY = "urn:ietf:params:jmap:core";
 ```
 
 ### `CatchupBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -204,6 +236,8 @@ export type CatchupBrief = AgentBriefBase & {
 
 ### `CatchupItem` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -218,6 +252,8 @@ export type CatchupItem = {
 
 ### `CatchupSection` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -229,6 +265,8 @@ export type CatchupSection = {
 ```
 
 ### `ConflictBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -244,6 +282,8 @@ export type ConflictBrief = AgentBriefBase & {
 ```
 
 ### `ConflictFinding` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -261,6 +301,8 @@ export type ConflictFinding = {
 
 ### `ConflictType` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -268,6 +310,8 @@ export type ConflictType = "open_pr" | "assigned_ticket" | "recent_commit" | "op
 ```
 
 ### `ContractNegotiationResult` *(type-only)*
+
+**Stability:** frozen
 
 From `./contract-version.js`.
 
@@ -283,6 +327,8 @@ export type ContractNegotiationResult = {
 
 ### `DataColumn` *(type-only)*
 
+**Stability:** stable
+
 From `./data-profile/index.js`.
 
 ```ts
@@ -295,6 +341,8 @@ export interface DataColumn {
 
 ### `DistributionChannel` *(type-only)*
 
+**Stability:** stable
+
 From `./distribution-channel.js`.
 
 ```ts
@@ -303,6 +351,8 @@ export type DistributionChannel = "homebrew" | "scoop" | "winget" | "apt" | "yum
 
 ### `EMAIL_PROPERTIES`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -310,6 +360,8 @@ export declare const EMAIL_PROPERTIES: readonly string[];
 ```
 
 ### `Evidence` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-types.js`.
 
@@ -326,6 +378,8 @@ export type Evidence = {
 
 ### `ExpertBrief` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -339,6 +393,8 @@ export type ExpertBrief = AgentBriefBase & {
 ```
 
 ### `ExpertFinding` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-types.js`.
 
@@ -354,6 +410,8 @@ export type ExpertFinding = {
 
 ### `ExpertiseRank` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -361,6 +419,8 @@ export type ExpertiseRank = "high" | "medium" | "low" | "none";
 ```
 
 ### `ExtensionContractError`
+
+**Stability:** frozen
 
 From `./contract-tests.js`.
 
@@ -371,6 +431,8 @@ export declare class ExtensionContractError extends Error {
 ```
 
 ### `ExtensionManifest` *(type-only)*
+
+**Stability:** frozen
 
 From `./types.js`.
 
@@ -405,6 +467,8 @@ export interface ExtensionManifest {
 
 ### `FLUX_KINDS`
 
+**Stability:** experimental
+
 From `./flux-cd/index.js`.
 
 ```ts
@@ -412,6 +476,8 @@ export declare const FLUX_KINDS: readonly FluxKindEntry[];
 ```
 
 ### `FederatedItemLite` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -426,6 +492,8 @@ export type FederatedItemLite = {
 
 ### `FetchLike` *(type-only)*
 
+**Stability:** stable
+
 From `./crypto/service-account-token.js`.
 
 ```ts
@@ -433,6 +501,8 @@ export type FetchLike = (input: string | URL, init?: RequestInit) => Promise<Res
 ```
 
 ### `FluxKindEntry` *(type-only)*
+
+**Stability:** experimental
 
 From `./flux-cd/index.js`.
 
@@ -447,6 +517,8 @@ export interface FluxKindEntry {
 
 ### `GapCategory` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -454,6 +526,8 @@ export type GapCategory = "missing_entity_type" | "missing_relation_emit" | "mis
 ```
 
 ### `GapNote` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-types.js`.
 
@@ -466,6 +540,8 @@ export type GapNote = {
 ```
 
 ### `GhostBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -482,6 +558,8 @@ export type GhostBrief = AgentBriefBase & {
 
 ### `GhostFinding` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -496,6 +574,8 @@ export type GhostFinding = {
 
 ### `GoogleServiceAccount` *(type-only)*
 
+**Stability:** stable
+
 From `./crypto/service-account-token.js`.
 
 ```ts
@@ -508,6 +588,8 @@ export interface GoogleServiceAccount {
 
 ### `HitlRequest` *(type-only)*
 
+**Stability:** frozen
+
 From `./hitl-request.js`.
 
 ```ts
@@ -519,6 +601,8 @@ export interface HitlRequest {
 ```
 
 ### `HuddleBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -534,6 +618,8 @@ export type HuddleBrief = AgentBriefBase & {
 
 ### `HuddleContribution` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -547,6 +633,8 @@ export type HuddleContribution = {
 ```
 
 ### `ImpactBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -563,6 +651,8 @@ export type ImpactBrief = AgentBriefBase & {
 
 ### `ImpactCategory` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -570,6 +660,8 @@ export type ImpactCategory = "service" | "pipeline" | "dashboard" | "oncall_rota
 ```
 
 ### `ImpactFinding` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-types.js`.
 
@@ -586,6 +678,8 @@ export type ImpactFinding = {
 
 ### `ItemType` *(type-only)*
 
+**Stability:** frozen
+
 From `./types.js`.
 
 ```ts
@@ -593,6 +687,8 @@ export type ItemType = KnownItemType | (string & {});
 ```
 
 ### `JanitorBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -613,6 +709,8 @@ export type JanitorBrief = AgentBriefBase & {
 
 ### `JanitorPeerTouch` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -625,6 +723,8 @@ export type JanitorPeerTouch = {
 
 ### `JmapAttachmentMeta` *(type-only)*
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -636,6 +736,8 @@ export interface JmapAttachmentMeta {
 ```
 
 ### `JmapEmailView` *(type-only)*
+
+**Stability:** stable
 
 From `./jmap-fastmail/index.js`.
 
@@ -655,6 +757,8 @@ export interface JmapEmailView {
 
 ### `JmapSession` *(type-only)*
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -666,6 +770,8 @@ export interface JmapSession {
 
 ### `KNOWN_ITEM_TYPES`
 
+**Stability:** frozen
+
 From `./item-types.js`.
 
 ```ts
@@ -673,6 +779,8 @@ export declare const KNOWN_ITEM_TYPES: readonly ["account", "api_endpoint", "app
 ```
 
 ### `KnownItemType` *(type-only)*
+
+**Stability:** frozen
 
 From `./item-types.js`.
 
@@ -682,6 +790,8 @@ export type KnownItemType = (typeof KNOWN_ITEM_TYPES)[number];
 
 ### `MAIL_CAPABILITY`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -690,6 +800,8 @@ export declare const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";
 
 ### `MAX_BODY_VALUE_BYTES`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -697,6 +809,8 @@ export declare const MAX_BODY_VALUE_BYTES = 2048;
 ```
 
 ### `ManifestNestedTooDeep`
+
+**Stability:** stable
 
 From `./crypto/canonical-json.js`.
 
@@ -707,6 +821,8 @@ export declare class ManifestNestedTooDeep extends Error {
 ```
 
 ### `ManifestViolation` *(type-only)*
+
+**Stability:** frozen
 
 From `./contract-tests.js`.
 
@@ -723,6 +839,8 @@ export interface ManifestViolation {
 
 ### `MockGateway`
 
+**Stability:** stable
+
 From `./testing/index.js`.
 
 ```ts
@@ -732,6 +850,8 @@ export declare class MockGateway {
 ```
 
 ### `NimbusExtensionServer`
+
+**Stability:** stable
 
 From `./server.js`.
 
@@ -747,6 +867,8 @@ export declare class NimbusExtensionServer<TClient = unknown> {
 ```
 
 ### `NimbusItem` *(type-only)*
+
+**Stability:** frozen
 
 From `./types.js`.
 
@@ -768,6 +890,8 @@ export interface NimbusItem {
 
 ### `NonIntegerNumberInManifest`
 
+**Stability:** stable
+
 From `./crypto/canonical-json.js`.
 
 ```ts
@@ -778,6 +902,8 @@ export declare class NonIntegerNumberInManifest extends Error {
 
 ### `PREVIEW_MAX_CHARS`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -785,6 +911,8 @@ export declare const PREVIEW_MAX_CHARS = 2000;
 ```
 
 ### `ParquetMetadataLike` *(type-only)*
+
+**Stability:** stable
 
 From `./data-profile/index.js`.
 
@@ -799,6 +927,8 @@ export interface ParquetMetadataLike {
 ```
 
 ### `ParsedEvent` *(type-only)*
+
+**Stability:** stable
 
 From `./icalendar.js`.
 
@@ -822,6 +952,8 @@ export interface ParsedEvent {
 
 ### `PreflightBrief` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-composites.js`.
 
 ```ts
@@ -839,6 +971,8 @@ export type PreflightBrief = AgentBriefBase & {
 
 ### `PreflightDownstream` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -852,6 +986,8 @@ export type PreflightDownstream = {
 
 ### `PublisherKeyMismatch`
 
+**Stability:** stable
+
 From `./crypto/verify-signature.js`.
 
 ```ts
@@ -862,6 +998,8 @@ export declare class PublisherKeyMismatch extends Error {
 
 ### `ROW_DATA_TOOL_SEGMENTS`
 
+**Stability:** frozen
+
 From `./contract-tests.js`.
 
 ```ts
@@ -869,6 +1007,8 @@ export declare const ROW_DATA_TOOL_SEGMENTS: ReadonlySet<string>;
 ```
 
 ### `ResolveChannelOptions` *(type-only)*
+
+**Stability:** stable
 
 From `./distribution-channel.js`.
 
@@ -885,6 +1025,8 @@ export interface ResolveChannelOptions {
 
 ### `RowDataToolCandidate` *(type-only)*
 
+**Stability:** frozen
+
 From `./contract-tests.js`.
 
 ```ts
@@ -895,6 +1037,8 @@ export interface RowDataToolCandidate {
 ```
 
 ### `RowDataViolation` *(type-only)*
+
+**Stability:** frozen
 
 From `./contract-tests.js`.
 
@@ -909,6 +1053,8 @@ export interface RowDataViolation {
 
 ### `SUBMISSION_CAPABILITY`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -916,6 +1062,8 @@ export declare const SUBMISSION_CAPABILITY = "urn:ietf:params:jmap:submission";
 ```
 
 ### `SignJwtOptions` *(type-only)*
+
+**Stability:** stable
 
 From `./crypto/jwt.js`.
 
@@ -932,6 +1080,8 @@ export interface SignJwtOptions {
 
 ### `SignatureDisableReason` *(type-only)*
 
+**Stability:** stable
+
 From `./crypto/verify-signature.js`.
 
 ```ts
@@ -939,6 +1089,8 @@ export type SignatureDisableReason = "publisher_key_missing" | "publisher_key_mi
 ```
 
 ### `SignatureInvalid`
+
+**Stability:** stable
 
 From `./crypto/verify-signature.js`.
 
@@ -950,6 +1102,8 @@ export declare class SignatureInvalid extends Error {
 
 ### `SignatureInvalidFormat`
 
+**Stability:** stable
+
 From `./crypto/verify-signature.js`.
 
 ```ts
@@ -959,6 +1113,8 @@ export declare class SignatureInvalidFormat extends Error {
 ```
 
 ### `StorybookStory` *(type-only)*
+
+**Stability:** experimental
 
 From `./storybook/index.js`.
 
@@ -975,6 +1131,8 @@ export interface StorybookStory {
 
 ### `UnsupportedManifestValueType`
 
+**Stability:** stable
+
 From `./crypto/canonical-json.js`.
 
 ```ts
@@ -984,6 +1142,8 @@ export declare class UnsupportedManifestValueType extends Error {
 ```
 
 ### `WhyBrief` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -1002,6 +1162,8 @@ export type WhyBrief = AgentBriefBase & {
 ```
 
 ### `WhyChangeSubject` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-types.js`.
 
@@ -1024,6 +1186,8 @@ export type WhyChangeSubject = {
 
 ### `WhyFinding` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -1039,6 +1203,8 @@ export type WhyFinding = {
 
 ### `WhyLane` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -1046,6 +1212,8 @@ export type WhyLane = "authorship" | "pull_request" | "ticket" | "discussion" | 
 ```
 
 ### `WhyPeek` *(type-only)*
+
+**Stability:** stable
 
 From `./agents/brief-composites.js`.
 
@@ -1077,6 +1245,8 @@ export type WhyPeek = {
 
 ### `WhySubject` *(type-only)*
 
+**Stability:** stable
+
 From `./agents/brief-types.js`.
 
 ```ts
@@ -1090,6 +1260,8 @@ export type WhySubject = {
 
 ### `asRecord`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1097,6 +1269,8 @@ export declare function asRecord(v: unknown): Record<string, unknown> | null;
 ```
 
 ### `asString`
+
+**Stability:** stable
 
 From `./jmap-fastmail/index.js`.
 
@@ -1106,6 +1280,8 @@ export declare function asString(v: unknown): string | null;
 
 ### `assertNoRowDataTools`
 
+**Stability:** frozen
+
 From `./contract-tests.js`.
 
 ```ts
@@ -1113,6 +1289,8 @@ export declare function assertNoRowDataTools(tools: ReadonlyArray<RowDataToolCan
 ```
 
 ### `base64UrlJson`
+
+**Stability:** stable
 
 From `./crypto/jwt.js`.
 
@@ -1122,6 +1300,8 @@ export declare function base64UrlJson(value: unknown): string;
 
 ### `buildGetRequest`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1129,6 +1309,8 @@ export declare function buildGetRequest(accountId: string, id: string): unknown;
 ```
 
 ### `buildListRequest`
+
+**Stability:** stable
 
 From `./jmap-fastmail/index.js`.
 
@@ -1138,6 +1320,8 @@ export declare function buildListRequest(accountId: string, limit: number): unkn
 
 ### `buildSearchRequest`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1145,6 +1329,8 @@ export declare function buildSearchRequest(accountId: string, query: string, lim
 ```
 
 ### `buildVEvent`
+
+**Stability:** stable
 
 From `./icalendar.js`.
 
@@ -1154,6 +1340,8 @@ export declare function buildVEvent(input: BuildEventInput, now: string): string
 
 ### `canonicalize`
 
+**Stability:** stable
+
 From `./crypto/canonical-json.js`.
 
 ```ts
@@ -1161,6 +1349,8 @@ export declare function canonicalize(value: unknown, depth?: number): string;
 ```
 
 ### `canonicalizeManifest`
+
+**Stability:** stable
 
 From `./crypto/canonical-json.js`.
 
@@ -1170,6 +1360,8 @@ export declare function canonicalizeManifest(manifest: object): Uint8Array;
 
 ### `capPreview`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1178,6 +1370,8 @@ export declare function capPreview(text: string): string;
 
 ### `channelUpgradeHint`
 
+**Stability:** stable
+
 From `./distribution-channel.js`.
 
 ```ts
@@ -1185,6 +1379,8 @@ export declare function channelUpgradeHint(channel: DistributionChannel): string
 ```
 
 ### `createBriefGuard`
+
+**Stability:** stable
 
 From `./agents/guard-factory.js`.
 
@@ -1198,6 +1394,8 @@ export declare function createBriefGuard<T>(kind: string, extra: (b: Record<stri
 
 **Deprecated:** since 1.16.0 — use `createEmitter` from `@nimbus-dev/sdk/diagnostics` instead. May be removed in 2.0.0.
 
+**Stability:** stable
+
 From `./audit-logger.js`.
 
 ```ts
@@ -1205,6 +1403,8 @@ export declare function createScopedAuditLogger(extensionId: string, emit: Audit
 ```
 
 ### `declaredVersionsMatch`
+
+**Stability:** frozen
 
 From `./contract-version.js`.
 
@@ -1214,6 +1414,8 @@ export declare function declaredVersionsMatch(manifestVersions: readonly unknown
 
 ### `decodeBase64`
 
+**Stability:** stable
+
 From `./crypto/verify-signature.js`.
 
 ```ts
@@ -1221,6 +1423,8 @@ export declare function decodeBase64(s: string): Uint8Array;
 ```
 
 ### `encodeBase64`
+
+**Stability:** stable
 
 From `./crypto/verify-signature.js`.
 
@@ -1230,6 +1434,8 @@ export declare function encodeBase64(bytes: Uint8Array): string;
 
 ### `errorToHardDisableReason`
 
+**Stability:** stable
+
 From `./crypto/verify-signature.js`.
 
 ```ts
@@ -1237,6 +1443,8 @@ export declare function errorToHardDisableReason(err: unknown): SignatureDisable
 ```
 
 ### `extractAttachments`
+
+**Stability:** stable
 
 From `./jmap-fastmail/index.js`.
 
@@ -1246,6 +1454,8 @@ export declare function extractAttachments(v: unknown): JmapAttachmentMeta[];
 
 ### `extractEmailList`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1254,6 +1464,8 @@ export declare function extractEmailList(parsed: unknown): unknown[];
 
 ### `findRowDataTools`
 
+**Stability:** frozen
+
 From `./contract-tests.js`.
 
 ```ts
@@ -1261,6 +1473,8 @@ export declare function findRowDataTools(tools: ReadonlyArray<RowDataToolCandida
 ```
 
 ### `firstLineAndRows`
+
+**Stability:** stable
 
 From `./data-profile/index.js`.
 
@@ -1273,6 +1487,8 @@ export declare function firstLineAndRows(text: string, truncated: boolean): {
 
 ### `formatAddress`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1281,6 +1497,8 @@ export declare function formatAddress(a: unknown): string;
 
 ### `formatAddresses`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1288,6 +1506,8 @@ export declare function formatAddresses(v: unknown): string[];
 ```
 
 ### `generateEd25519Keypair`
+
+**Stability:** stable
 
 From `./crypto/verify-signature.js`.
 
@@ -1300,6 +1520,8 @@ export declare function generateEd25519Keypair(): {
 
 ### `isCatchupBrief`
 
+**Stability:** stable
+
 From `./agents/brief-guards.js`.
 
 ```ts
@@ -1307,6 +1529,8 @@ export declare const isCatchupBrief: (x: unknown) => x is CatchupBrief;
 ```
 
 ### `isConflictBrief`
+
+**Stability:** stable
 
 From `./agents/brief-guards.js`.
 
@@ -1316,6 +1540,8 @@ export declare const isConflictBrief: (x: unknown) => x is ConflictBrief;
 
 ### `isExpertBrief`
 
+**Stability:** stable
+
 From `./agents/brief-guards.js`.
 
 ```ts
@@ -1323,6 +1549,8 @@ export declare const isExpertBrief: (x: unknown) => x is ExpertBrief;
 ```
 
 ### `isGhostBrief`
+
+**Stability:** stable
 
 From `./agents/brief-guards.js`.
 
@@ -1332,6 +1560,8 @@ export declare const isGhostBrief: (x: unknown) => x is GhostBrief;
 
 ### `isHitlRequest`
 
+**Stability:** frozen
+
 From `./hitl-request.js`.
 
 ```ts
@@ -1339,6 +1569,8 @@ export declare function isHitlRequest(value: unknown): value is HitlRequest;
 ```
 
 ### `isHuddleBrief`
+
+**Stability:** stable
 
 From `./agents/brief-guards.js`.
 
@@ -1348,6 +1580,8 @@ export declare const isHuddleBrief: (x: unknown) => x is HuddleBrief;
 
 ### `isImpactBrief`
 
+**Stability:** stable
+
 From `./agents/brief-guards.js`.
 
 ```ts
@@ -1355,6 +1589,8 @@ export declare const isImpactBrief: (x: unknown) => x is ImpactBrief;
 ```
 
 ### `isJanitorBrief`
+
+**Stability:** stable
 
 From `./agents/brief-guards.js`.
 
@@ -1364,6 +1600,8 @@ export declare const isJanitorBrief: (x: unknown) => x is JanitorBrief;
 
 ### `isKnownItemType`
 
+**Stability:** frozen
+
 From `./item-types.js`.
 
 ```ts
@@ -1371,6 +1609,8 @@ export declare function isKnownItemType(v: unknown): v is KnownItemType;
 ```
 
 ### `isPreflightBrief`
+
+**Stability:** stable
 
 From `./agents/brief-guards.js`.
 
@@ -1380,6 +1620,8 @@ export declare const isPreflightBrief: (x: unknown) => x is PreflightBrief;
 
 ### `isWhyBrief`
 
+**Stability:** stable
+
 From `./agents/brief-guards.js`.
 
 ```ts
@@ -1387,6 +1629,8 @@ export declare const isWhyBrief: (x: unknown) => x is WhyBrief;
 ```
 
 ### `jsKind`
+
+**Stability:** stable
 
 From `./data-profile/index.js`.
 
@@ -1396,6 +1640,8 @@ export declare function jsKind(v: unknown): string;
 
 ### `manifestContractVersions`
 
+**Stability:** frozen
+
 From `./contract-version.js`.
 
 ```ts
@@ -1403,6 +1649,8 @@ export declare function manifestContractVersions(manifest: unknown): readonly un
 ```
 
 ### `methodResponseArgs`
+
+**Stability:** stable
 
 From `./jmap-fastmail/index.js`.
 
@@ -1412,6 +1660,8 @@ export declare function methodResponseArgs(parsed: unknown, methodName: string):
 
 ### `mintGoogleAccessToken`
 
+**Stability:** stable
+
 From `./crypto/service-account-token.js`.
 
 ```ts
@@ -1420,6 +1670,8 @@ export declare function mintGoogleAccessToken(sa: GoogleServiceAccount, fetchFn?
 
 ### `negotiateContractVersion`
 
+**Stability:** frozen
+
 From `./contract-version.js`.
 
 ```ts
@@ -1427,6 +1679,8 @@ export declare function negotiateContractVersion(local: readonly unknown[], remo
 ```
 
 ### `parquetColumnsFromMetadata`
+
+**Stability:** stable
 
 From `./data-profile/index.js`.
 
@@ -1439,6 +1693,8 @@ export declare function parquetColumnsFromMetadata(meta: ParquetMetadataLike): {
 
 ### `parseCsvHeader`
 
+**Stability:** stable
+
 From `./data-profile/index.js`.
 
 ```ts
@@ -1447,6 +1703,8 @@ export declare function parseCsvHeader(firstLine: string): DataColumn[];
 
 ### `parseICalendar`
 
+**Stability:** stable
+
 From `./icalendar.js`.
 
 ```ts
@@ -1454,6 +1712,8 @@ export declare function parseICalendar(ics: string): ParsedEvent[];
 ```
 
 ### `parseJsonColumns`
+
+**Stability:** stable
 
 From `./data-profile/index.js`.
 
@@ -1466,6 +1726,8 @@ export declare function parseJsonColumns(parsed: unknown): {
 
 ### `parseJsonlColumns`
 
+**Stability:** stable
+
 From `./data-profile/index.js`.
 
 ```ts
@@ -1473,6 +1735,8 @@ export declare function parseJsonlColumns(firstLine: string): DataColumn[];
 ```
 
 ### `parseServiceAccountJson`
+
+**Stability:** stable
 
 From `./crypto/service-account-token.js`.
 
@@ -1482,6 +1746,8 @@ export declare function parseServiceAccountJson(json: string): GoogleServiceAcco
 
 ### `parseSession`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1489,6 +1755,8 @@ export declare function parseSession(parsed: unknown): JmapSession | null;
 ```
 
 ### `parseStorybookIndex`
+
+**Stability:** experimental
 
 From `./storybook/index.js`.
 
@@ -1498,6 +1766,8 @@ export declare function parseStorybookIndex(parsed: unknown): StorybookStory[];
 
 ### `previewFor`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1505,6 +1775,8 @@ export declare function previewFor(raw: Record<string, unknown>): string;
 ```
 
 ### `resolveDistributionChannel`
+
+**Stability:** stable
 
 From `./distribution-channel.js`.
 
@@ -1514,6 +1786,8 @@ export declare function resolveDistributionChannel(opts?: ResolveChannelOptions)
 
 ### `runContractTests`
 
+**Stability:** frozen
+
 From `./contract-tests.js`.
 
 ```ts
@@ -1521,6 +1795,8 @@ export declare function runContractTests(manifest: ExtensionManifest): Promise<v
 ```
 
 ### `signAppStoreConnectJwt`
+
+**Stability:** stable
 
 From `./crypto/app-store-connect-jwt.js`.
 
@@ -1530,6 +1806,8 @@ export declare function signAppStoreConnectJwt(params: AppStoreConnectJwtParams,
 
 ### `signJwt`
 
+**Stability:** stable
+
 From `./crypto/jwt.js`.
 
 ```ts
@@ -1537,6 +1815,8 @@ export declare function signJwt(opts: SignJwtOptions): string;
 ```
 
 ### `signManifest`
+
+**Stability:** stable
 
 From `./crypto/verify-signature.js`.
 
@@ -1546,6 +1826,8 @@ export declare function signManifest(manifest: SignedManifestShape, privkey: Uin
 
 ### `signServiceAccountAssertion`
 
+**Stability:** stable
+
 From `./crypto/service-account-token.js`.
 
 ```ts
@@ -1553,6 +1835,8 @@ export declare function signServiceAccountAssertion(sa: GoogleServiceAccount, no
 ```
 
 ### `trimTrailingSlash`
+
+**Stability:** experimental
 
 From `./flux-cd/index.js`.
 
@@ -1562,6 +1846,8 @@ export declare function trimTrailingSlash(s: string): string;
 
 ### `validateApiUrl`
 
+**Stability:** stable
+
 From `./jmap-fastmail/index.js`.
 
 ```ts
@@ -1569,6 +1855,8 @@ export declare function validateApiUrl(candidate: string, allowedBase: string): 
 ```
 
 ### `validateManifest`
+
+**Stability:** frozen
 
 From `./contract-tests.js`.
 
@@ -1578,6 +1866,8 @@ export declare function validateManifest(manifest: unknown): ManifestViolation[]
 
 ### `verifyManifestSignature`
 
+**Stability:** stable
+
 From `./crypto/verify-signature.js`.
 
 ```ts
@@ -1585,6 +1875,8 @@ export declare function verifyManifestSignature(manifest: SignedManifestShape, r
 ```
 
 ### `viewEmail`
+
+**Stability:** stable
 
 From `./jmap-fastmail/index.js`.
 
@@ -1597,6 +1889,8 @@ export declare function viewEmail(raw: unknown): JmapEmailView | null;
 39 exports.
 
 ### `BearerJsonFetchResult` *(type-only)*
+
+**Stability:** experimental
 
 From `./fetch-bearer-json.js`.
 
@@ -1611,6 +1905,8 @@ export type BearerJsonFetchResult = {
 
 ### `FieldExtractor` *(type-only)*
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1618,6 +1914,8 @@ export type FieldExtractor = (item: unknown) => readonly (string | null | undefi
 ```
 
 ### `FilterByQueryOptions` *(type-only)*
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1630,6 +1928,8 @@ export interface FilterByQueryOptions<T> {
 ```
 
 ### `HttpJsonBodyResponse` *(type-only)*
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1644,6 +1944,8 @@ export type HttpJsonBodyResponse = {
 
 ### `HttpTextResponse` *(type-only)*
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1655,6 +1957,8 @@ export type HttpTextResponse = {
 ```
 
 ### `McpListResult` *(type-only)*
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1669,6 +1973,8 @@ export type McpListResult = {
 
 ### `RegisterSimpleToolFn` *(type-only)*
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1676,6 +1982,8 @@ export type RegisterSimpleToolFn = (name: string, description: string, inputShap
 ```
 
 ### `RestFetchResult` *(type-only)*
+
+**Stability:** experimental
 
 From `./rest-tool-kit.js`.
 
@@ -1689,6 +1997,8 @@ export type RestFetchResult = {
 ```
 
 ### `RestFetcherConfig` *(type-only)*
+
+**Stability:** experimental
 
 From `./rest-tool-kit.js`.
 
@@ -1705,6 +2015,8 @@ export type RestFetcherConfig = {
 
 ### `RestToolRegistrar` *(type-only)*
 
+**Stability:** experimental
+
 From `./rest-tool-kit.js`.
 
 ```ts
@@ -1713,6 +2025,8 @@ export type RestToolRegistrar = <T>(name: string, description: string, schema: Z
 
 ### `SearchFilter` *(type-only)*
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1720,6 +2034,8 @@ export type SearchFilter = (rows: readonly unknown[], opts: SearchMatchOptions) 
 ```
 
 ### `SearchMatchOptions` *(type-only)*
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1731,6 +2047,8 @@ export interface SearchMatchOptions {
 ```
 
 ### `ZodObjectSchema` *(type-only)*
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1751,6 +2069,8 @@ export type ZodObjectSchema<T> = {
 
 ### `asObjectish`
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1758,6 +2078,8 @@ export declare function asObjectish(value: unknown): Record<string, unknown> | u
 ```
 
 ### `asRecord`
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1767,6 +2089,8 @@ export declare function asRecord(value: unknown): Record<string, unknown> | unde
 
 ### `createRegisterSimpleTool`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1774,6 +2098,8 @@ export declare function createRegisterSimpleTool(server: unknown): RegisterSimpl
 ```
 
 ### `createZodToolRegistrar`
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1783,6 +2109,8 @@ export declare function createZodToolRegistrar(registerSimpleTool: RegisterSimpl
 
 ### `encodeBasicAuthHeader`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1790,6 +2118,8 @@ export declare function encodeBasicAuthHeader(email: string, token: string): str
 ```
 
 ### `fetchBearerAuthorizedJson`
+
+**Stability:** experimental
 
 From `./fetch-bearer-json.js`.
 
@@ -1799,6 +2129,8 @@ export declare function fetchBearerAuthorizedJson(url: string, token: string, in
 
 ### `fetchWithTimeout`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1806,6 +2138,8 @@ export declare function fetchWithTimeout(url: string, init?: RequestInit, timeou
 ```
 
 ### `fieldsFromKeys`
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1817,6 +2151,8 @@ export declare function fieldsFromKeys(keys: readonly string[], opts?: {
 
 ### `filterByQuery`
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1824,6 +2160,8 @@ export declare function filterByQuery<T>(items: readonly T[], options: FilterByQ
 ```
 
 ### `makeQueryFilter`
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1833,6 +2171,8 @@ export declare function makeQueryFilter(fields: FieldExtractor): (items: readonl
 
 ### `makeRestFetcher`
 
+**Stability:** experimental
+
 From `./rest-tool-kit.js`.
 
 ```ts
@@ -1840,6 +2180,8 @@ export declare function makeRestFetcher(cfg: RestFetcherConfig): (pathOrUrl: str
 ```
 
 ### `makeRestToolRegistrar`
+
+**Stability:** experimental
 
 From `./rest-tool-kit.js`.
 
@@ -1856,6 +2198,8 @@ export declare function makeRestToolRegistrar(cfg: {
 
 ### `matchesResult`
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1864,6 +2208,8 @@ export declare function matchesResult(rows: unknown, filter: SearchFilter, opts:
 
 ### `mcpJsonResult`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1871,6 +2217,8 @@ export declare function mcpJsonResult(data: unknown): McpListResult;
 ```
 
 ### `mcpJsonResultFromTextIfOk`
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1883,6 +2231,8 @@ export declare function mcpJsonResultFromTextIfOk(serviceLabel: string, res: Htt
 
 ### `mcpJsonResultIfOk`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1890,6 +2240,8 @@ export declare function mcpJsonResultIfOk(serviceLabel: string, res: HttpJsonBod
 ```
 
 ### `nestedString`
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1899,6 +2251,8 @@ export declare function nestedString(root: Record<string, unknown>, path: readon
 
 ### `parseJsonTextIfOk`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1906,6 +2260,8 @@ export declare function parseJsonTextIfOk(serviceLabel: string, res: HttpTextRes
 ```
 
 ### `putOptionalBoolean`
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1915,6 +2271,8 @@ export declare function putOptionalBoolean(body: Record<string, unknown>, key: s
 
 ### `putOptionalNonEmptyString`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1922,6 +2280,8 @@ export declare function putOptionalNonEmptyString(body: Record<string, unknown>,
 ```
 
 ### `registerZodTool`
+
+**Stability:** stable
 
 From `./mcp-tool-kit.js`.
 
@@ -1931,6 +2291,8 @@ export declare function registerZodTool<T>(registerSimpleTool: RegisterSimpleToo
 
 ### `requireProcessEnv`
 
+**Stability:** stable
+
 From `./mcp-tool-kit.js`.
 
 ```ts
@@ -1938,6 +2300,8 @@ export declare function requireProcessEnv(envVarName: string): string;
 ```
 
 ### `resolveUrlWithBase`
+
+**Stability:** frozen
 
 From `./fetch-bearer-json.js`.
 
@@ -1947,6 +2311,8 @@ export declare function resolveUrlWithBase(baseUrl: string, pathOrUrl: string): 
 
 ### `stringField`
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1955,6 +2321,8 @@ export declare function stringField(row: Record<string, unknown>, key: string): 
 
 ### `tagNamesFromObjects`
 
+**Stability:** stable
+
 From `./search-filter.js`.
 
 ```ts
@@ -1962,6 +2330,8 @@ export declare function tagNamesFromObjects(row: Record<string, unknown>): strin
 ```
 
 ### `tagText`
+
+**Stability:** stable
 
 From `./search-filter.js`.
 
@@ -1975,6 +2345,8 @@ export declare function tagText(row: Record<string, unknown>): string;
 
 ### `DIAGNOSTIC_CORRELATION_ID_PATTERN`
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -1982,6 +2354,8 @@ export declare const DIAGNOSTIC_CORRELATION_ID_PATTERN: RegExp;
 ```
 
 ### `DIAGNOSTIC_FIELD_KEY_PATTERN`
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -1991,6 +2365,8 @@ export declare const DIAGNOSTIC_FIELD_KEY_PATTERN: RegExp;
 
 ### `DIAGNOSTIC_KINDS`
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -1998,6 +2374,8 @@ export declare const DIAGNOSTIC_KINDS: readonly ["diagnostic", "audit"];
 ```
 
 ### `DIAGNOSTIC_LEVELS`
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2007,6 +2385,8 @@ export declare const DIAGNOSTIC_LEVELS: readonly ["debug", "info", "warn", "erro
 
 ### `DIAGNOSTIC_MAX_FIELDS`
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2014,6 +2394,8 @@ export declare const DIAGNOSTIC_MAX_FIELDS = 16;
 ```
 
 ### `DIAGNOSTIC_NAME_PATTERN`
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2023,6 +2405,8 @@ export declare const DIAGNOSTIC_NAME_PATTERN: RegExp;
 
 ### `DIAGNOSTIC_TS_PATTERN`
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2031,6 +2415,8 @@ export declare const DIAGNOSTIC_TS_PATTERN: RegExp;
 
 ### `DiagnosticEmit` *(type-only)*
 
+**Stability:** experimental
+
 From `./emitter.js`.
 
 ```ts
@@ -2038,6 +2424,8 @@ export type DiagnosticEmit = (line: string) => void | Promise<void>;
 ```
 
 ### `DiagnosticEmitter` *(type-only)*
+
+**Stability:** experimental
 
 From `./emitter.js`.
 
@@ -2054,6 +2442,8 @@ export interface DiagnosticEmitter {
 
 ### `DiagnosticEncodeReason` *(type-only)*
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2061,6 +2451,8 @@ export type DiagnosticEncodeReason = "not-object" | "unknown-member" | "invalid-
 ```
 
 ### `DiagnosticError` *(type-only)*
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2072,6 +2464,8 @@ export interface DiagnosticError {
 ```
 
 ### `DiagnosticEvent` *(type-only)*
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2090,6 +2484,8 @@ export interface DiagnosticEvent {
 
 ### `DiagnosticKind` *(type-only)*
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2097,6 +2493,8 @@ export type DiagnosticKind = (typeof DIAGNOSTIC_KINDS)[number];
 ```
 
 ### `DiagnosticLevel` *(type-only)*
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2106,6 +2504,8 @@ export type DiagnosticLevel = (typeof DIAGNOSTIC_LEVELS)[number];
 
 ### `DiagnosticParseReason` *(type-only)*
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2113,6 +2513,8 @@ export type DiagnosticParseReason = Exclude<DiagnosticEncodeReason, "line-too-lo
 ```
 
 ### `EmitDetail` *(type-only)*
+
+**Stability:** experimental
 
 From `./emitter.js`.
 
@@ -2127,6 +2529,8 @@ export interface EmitDetail {
 
 ### `EmitResult` *(type-only)*
 
+**Stability:** experimental
+
 From `./emitter.js`.
 
 ```ts
@@ -2138,6 +2542,8 @@ export type EmitResult = EncodeResult | {
 ```
 
 ### `EncodeResult` *(type-only)*
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2154,6 +2560,8 @@ export type EncodeResult = {
 
 ### `ParseResult` *(type-only)*
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2169,6 +2577,8 @@ export type ParseResult = {
 
 ### `createEmitter`
 
+**Stability:** experimental
+
 From `./emitter.js`.
 
 ```ts
@@ -2176,6 +2586,8 @@ export declare function createEmitter(extensionId: string, emit: DiagnosticEmit)
 ```
 
 ### `encodeDiagnostic`
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2185,6 +2597,8 @@ export declare function encodeDiagnostic(eventInput: unknown): EncodeResult;
 
 ### `isDiagnosticEvent`
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2193,6 +2607,8 @@ export declare function isDiagnosticEvent(value: unknown): value is DiagnosticEv
 
 ### `meetsLevel`
 
+**Stability:** frozen
+
 From `./event.js`.
 
 ```ts
@@ -2200,6 +2616,8 @@ export declare function meetsLevel(level: DiagnosticLevel, threshold: Diagnostic
 ```
 
 ### `parseDiagnostic`
+
+**Stability:** frozen
 
 From `./event.js`.
 
@@ -2213,6 +2631,8 @@ export declare function parseDiagnostic(line: string): ParseResult;
 
 ### `HELLO_MESSAGE`
 
+**Stability:** frozen
+
 From `./hello.js`.
 
 ```ts
@@ -2220,6 +2640,8 @@ export declare const HELLO_MESSAGE = "hello";
 ```
 
 ### `HandshakeIo` *(type-only)*
+
+**Stability:** frozen
 
 From `./handshake.js`.
 
@@ -2231,6 +2653,8 @@ export interface HandshakeIo {
 ```
 
 ### `HandshakeOptions` *(type-only)*
+
+**Stability:** frozen
 
 From `./handshake.js`.
 
@@ -2245,6 +2669,8 @@ export interface HandshakeOptions {
 
 ### `HandshakeRefusalReason` *(type-only)*
 
+**Stability:** frozen
+
 From `./handshake.js`.
 
 ```ts
@@ -2252,6 +2678,8 @@ export type HandshakeRefusalReason = HelloRefusalReason | "no-common-version";
 ```
 
 ### `HandshakeResult` *(type-only)*
+
+**Stability:** frozen
 
 From `./handshake.js`.
 
@@ -2269,6 +2697,8 @@ export type HandshakeResult = {
 
 ### `HelloParseResult` *(type-only)*
 
+**Stability:** frozen
+
 From `./hello.js`.
 
 ```ts
@@ -2283,6 +2713,8 @@ export type HelloParseResult = {
 
 ### `HelloRefusalReason` *(type-only)*
 
+**Stability:** frozen
+
 From `./hello.js`.
 
 ```ts
@@ -2291,6 +2723,8 @@ export type HelloRefusalReason = "not-json" | "not-object" | "wrong-message" | "
 
 ### `IPC_MAX_LINE_BYTES`
 
+**Stability:** frozen
+
 From `./ndjson-line-reader.js`.
 
 ```ts
@@ -2298,6 +2732,8 @@ export declare const IPC_MAX_LINE_BYTES: number;
 ```
 
 ### `NdjsonFlushResult` *(type-only)*
+
+**Stability:** frozen
 
 From `./ndjson-line-reader.js`.
 
@@ -2310,6 +2746,8 @@ export type NdjsonFlushResult = {
 ```
 
 ### `NdjsonLineReader`
+
+**Stability:** frozen
 
 From `./ndjson-line-reader.js`.
 
@@ -2336,6 +2774,8 @@ export declare class NdjsonLineReader {
 
 ### `NdjsonLineReaderOptions` *(type-only)*
 
+**Stability:** frozen
+
 From `./ndjson-line-reader.js`.
 
 ```ts
@@ -2347,6 +2787,8 @@ export type NdjsonLineReaderOptions = {
 
 ### `encodeHello`
 
+**Stability:** frozen
+
 From `./hello.js`.
 
 ```ts
@@ -2355,6 +2797,8 @@ export declare function encodeHello(versions: readonly string[]): string;
 
 ### `parseHello`
 
+**Stability:** frozen
+
 From `./hello.js`.
 
 ```ts
@@ -2362,6 +2806,8 @@ export declare function parseHello(frame: string): HelloParseResult;
 ```
 
 ### `performHandshake`
+
+**Stability:** frozen
 
 From `./handshake.js`.
 
@@ -2375,6 +2821,8 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ### `MockGateway`
 
+**Stability:** stable
+
 From `(local)`.
 
 ```ts
@@ -2385,6 +2833,8 @@ export declare class MockGateway {
 
 ### `expectNoRejectedDiagnostics`
 
+**Stability:** stable
+
 From `./diagnostics-assert.js`.
 
 ```ts
@@ -2392,6 +2842,8 @@ export declare function expectNoRejectedDiagnostics(results: readonly EmitResult
 ```
 
 ### `runSandboxContractTests`
+
+**Stability:** frozen
 
 From `./sandbox-contract.js`.
 

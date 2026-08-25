@@ -226,6 +226,108 @@ export function collectDeprecations(rawText: string): Map<string, string> {
   return found;
 }
 
+/** The three stability tiers. No other value is valid, and there is no default. */
+export type Tier = "frozen" | "stable" | "experimental";
+
+const TIERS: readonly string[] = ["frozen", "stable", "experimental"];
+
+/** A module's default tier and its per-export overrides. */
+export type ModuleStability = { module: Tier | null; overrides: Map<string, Tier> };
+
+/**
+ * The single-word value of `tag` in a JSDoc body, or null when the tag is absent.
+ *
+ * Global, not just anchored: a body carrying `@tag` twice is not "the first one wins" —
+ * it is rejected the same way two `@moduleStability` blocks in one module already are.
+ * A non-global regex here would silently keep only the first match, which is the
+ * within-block hole that made the cross-block duplicate check (`moduleTier !== null`,
+ * below) inconsistent — two tags a line apart failed, two tags in the same block did
+ * not.
+ */
+function tagWord(body: string, tag: string): string | null {
+  const re = new RegExp(`(?<=^|\\s)@${tag}\\s+(\\S+)`, "g");
+  const words: string[] = [];
+  let match = re.exec(body);
+  while (match !== null) {
+    words.push(match[1] ?? "");
+    match = re.exec(body);
+  }
+  if (words.length > 1) {
+    throw new Error(`more than one @${tag} tag in a single JSDoc block`);
+  }
+  return words[0] ?? null;
+}
+
+function asTier(value: string, tag: string): Tier {
+  if (!TIERS.includes(value)) {
+    throw new Error(`@${tag} has unknown tier "${value}" — expected one of ${TIERS.join(", ")}`);
+  }
+  return value as Tier;
+}
+
+/**
+ * A module's `@moduleStability` default and every `@stability` override in it.
+ *
+ * TWO tags rather than one distinguished by position, and that is load-bearing. This
+ * runs on `dist/`, and `tsc` emits a module's file-level JSDoc block immediately
+ * adjacent to the first declaration with no blank line — verified against
+ * `dist/icalendar.d.ts`, where the block ends at line 14 and `export interface
+ * ParsedEvent` begins at line 15. So `declaredNameOf` returns `ParsedEvent` for the
+ * module's own docblock, and any rule of the form "a tag annotating no declaration is
+ * the module default" would silently attribute it to whichever export is declared
+ * first.
+ *
+ * A `@stability` block that sits above a from-clause re-export (rather than a
+ * declaration) is also resolved, but only when that clause exports exactly one name —
+ * mirroring `collectDeprecations`'s identical fallback to `reexportedNamesOf`, for the
+ * identical reason. `declaredNameOf` returns null for a re-export clause such as
+ * `export { Source as Public } from "./source.js";`, so without this fallback a
+ * `@stability` tag above one is silently dropped and that export quietly inherits its
+ * source module's tier instead of the override. A clause naming more than one export
+ * (`export { a, b } from "./t.js"`) is left unresolved rather than guessed: there is no
+ * way to tell which of `a` or `b` the tag was meant for.
+ */
+export function collectStability(rawText: string): ModuleStability {
+  const text = normalizeEol(rawText);
+  const overrides = new Map<string, Tier>();
+  let moduleTier: Tier | null = null;
+
+  JSDOC_BLOCK.lastIndex = 0;
+  let block = JSDOC_BLOCK.exec(text);
+  while (block !== null) {
+    const body = block[1] ?? "";
+
+    const moduleWord = tagWord(body, "moduleStability");
+    if (moduleWord !== null) {
+      if (moduleTier !== null) {
+        throw new Error("more than one @moduleStability tag in a single module");
+      }
+      moduleTier = asTier(moduleWord, "moduleStability");
+    }
+
+    const exportWord = tagWord(body, "stability");
+    if (exportWord !== null) {
+      const after = text.slice(block.index + block[0].length);
+      const declaration = after.replace(SKIPPABLE_BEFORE_DECLARATION, "");
+      const name = declaredNameOf(declaration);
+      if (name !== null) {
+        overrides.set(name, asTier(exportWord, "stability"));
+      } else {
+        const reexported = reexportedNamesOf(declaration);
+        // Exactly one name: unambiguous, attach the override. Zero or several: either
+        // this isn't a from-clause at all, or it covers multiple names — in both cases
+        // there is no single name to safely attach the override to.
+        const only = reexported.length === 1 ? reexported[0] : undefined;
+        if (only !== undefined) overrides.set(only, asTier(exportWord, "stability"));
+      }
+    }
+
+    block = JSDOC_BLOCK.exec(text);
+  }
+
+  return { module: moduleTier, overrides };
+}
+
 // A tag begins at an `@word` preceded by whitespace (including a newline) or by the
 // start of the body — never when it directly follows a non-whitespace character. That
 // is how TypeScript's own JSDoc parser recognizes a tag, which is why tsc emits these
@@ -449,6 +551,8 @@ export type SurfaceExport = {
   declaration: string;
   /** The `@deprecated` message, or null when the export is not deprecated. */
   deprecated: string | null;
+  /** The resolved tier: the module's `@moduleStability`, or a `@stability` override. */
+  stability: Tier;
 };
 
 export type EntrySurface = { label: string; exports: SurfaceExport[] };
@@ -572,17 +676,38 @@ function tidy(statement: string): string {
  */
 export const DECLARATION_NOT_FOUND = "(declaration not found)";
 
-/** One target module's declarations and deprecations, read once and reused. */
+/** One target module's declarations, deprecations, and stability, read once and reused. */
 type ModuleIndex = {
   declarations: Map<string, string>;
   deprecations: Map<string, string>;
+  stability: ModuleStability;
 };
+
+/**
+ * Resolve an export's tier: its own `@stability` override if one exists, else its
+ * module's `@moduleStability` default. Throws when neither is present — this is the
+ * no-default guard: a module reachable from the published surface must declare a tier.
+ */
+function resolveStability(modulePath: string, name: string, stability: ModuleStability): Tier {
+  const resolved = stability.overrides.get(name) ?? stability.module;
+  if (resolved === null) {
+    throw new Error(
+      `${modulePath} has no @moduleStability tag and no @stability override for "${name}".\n` +
+        "Every module reachable from the published surface must declare a tier.\n" +
+        "Fix: add `/** @moduleStability frozen|stable|experimental */` to the module in " +
+        "sdks/typescript/src/, then re-run `bun run build && bun run api:surface`.\n" +
+        "See docs/rfcs/0015-tiered-stability.md for which tier applies.",
+    );
+  }
+  return resolved;
+}
 
 export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySurface[] {
   return entries.map((entry) => {
     const barrelText = readFile(entry.file);
     const barrel = parseBarrel(barrelText);
     const barrelDeprecations = collectDeprecations(barrelText);
+    const barrelStability = collectStability(barrelText);
     const exports: SurfaceExport[] = [];
 
     for (const statement of barrel.locals) {
@@ -594,6 +719,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         source: "(local)",
         declaration: tidy(statement),
         deprecated: barrelDeprecations.get(name) ?? null,
+        stability: resolveStability(entry.file, name, barrelStability),
       });
     }
 
@@ -606,6 +732,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         index = {
           declarations: declarationsOf(text, target),
           deprecations: collectDeprecations(text),
+          stability: collectStability(text),
         };
         cache.set(target, index);
       }
@@ -621,6 +748,7 @@ export function buildSurface(entries: EntryPoint[], readFile: ReadFile): EntrySu
         declaration: index.declarations.get(ref.sourceName) ?? DECLARATION_NOT_FOUND,
         deprecated:
           index.deprecations.get(ref.sourceName) ?? barrelDeprecations.get(ref.name) ?? null,
+        stability: resolveStability(target, ref.sourceName, index.stability),
       });
     }
 
@@ -664,6 +792,8 @@ export function renderSurface(surfaces: EntrySurface[]): string {
           "",
         );
       }
+
+      lines.push(`**Stability:** ${entry.stability}`, "");
 
       lines.push(`From \`${entry.source}\`.`, "", "```ts", entry.declaration, "```", "");
     }

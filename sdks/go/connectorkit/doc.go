@@ -45,4 +45,6 @@
 // — it is the same JSON object, and any consumer that parses it is unaffected — which is
 // why disclosing beats distorting the surface. A caller who needs a specific order can
 // pass a struct instead of a map: struct fields marshal in declaration order.
+//
+// Stability: experimental
 package connectorkit

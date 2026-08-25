@@ -45,6 +45,18 @@ published package.
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
 
+**Every export also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
+`frozen`, `stable`, or `experimental` — declared with a `/** @moduleStability <tier> */`
+JSDoc tag on the module, and overridable per export with `/** @stability <tier> */` on
+that export's own JSDoc (used by exactly one export today: `resolveUrlWithBase`, tiered
+`frozen` inside the otherwise-`experimental` `connector-kit/fetch-bearer-json.js`).
+There is **no default tier** — `api-surface.ts` throws, naming the module, if a reachable
+module has neither tag, which is what makes the rule load-bearing rather than aspirational.
+`bun run api:surface` projects the resolved tier into `docs/api-surface.md` as its own
+`**Stability:** <tier>` line under each export's heading — not the trailing `— **tier**`
+form Python's and Go's goldens use (see below); the guard's parser has two different code
+paths keyed on exactly this distinction.
+
 ## Python surface (four import roots, deliberately)
 
 - `nimbus_sdk` (`sdks/python/src/nimbus_sdk/__init__.py`) — the contract-version
@@ -117,6 +129,26 @@ numbers, is declared in
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
 home for what used to be restated by hand here. **Go is narrower still, in its batteries
 rather than its corpora** — it runs the same four Python does.
+
+**Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
+declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`
+attribute, overridable per export with a `__stability_overrides__: dict[str, str]`
+attribute mapping an export name to its own tier. The mechanism is real and supported,
+but **no shipped module uses it today** — every published Python module takes its
+module-level tier as-is (`connector_kit/urls.py`'s `resolve_url_with_base` is `frozen`
+on the module's own merits, not an override; Python has no counterpart to Go's
+`IsContractVersion` demotion, since Python's own equivalent, `_is_contract_version`, is
+underscore-private and so needs no tier at all — see the Go surface section below). The
+override-wins-over-default precedence path is exercised only by
+`sdks/python/tests/test_stability.py` monkeypatching a real module in place, precisely
+because no production module exercises it. Resolving it needs two passes — an AST walk
+to find which module actually
+*defines* each published name, then a runtime read of that module's `__stability__` /
+`__stability_overrides__` — because a name's defining scope is not always the module
+whose `__all__` the surface generator reads. There is no default: `api_surface.py`
+raises, naming the module, if a published name's defining module declares neither.
+`python scripts/api_surface.py` projects the resolved tier into
+`docs/api-surface-python.md` as a trailing `— **tier**` on each export's line.
 
 ## Go surface (five packages, and nothing at the module root)
 
@@ -268,14 +300,28 @@ requires the `/v2` suffix in the **module path itself**; `go.mod` declares the u
 path today, so a `sdks/go/v2.0.0` tag could not resolve. See
 [`docs/rfcs/0012-go-sdk-binding.md`](./docs/rfcs/0012-go-sdk-binding.md).
 
-**None of the four TypeScript CI gates below apply to Go**, but Go now has an
-export-granularity gate of its own, shipped separately from the four: the generated
+**Every package also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
+declared with a `// Stability: frozen | stable | experimental` line inside the package
+doc comment (the comment block immediately above `package name`), overridable per
+declaration with the same `// Stability:` line inside that declaration's own doc comment
+(used by `connectorkit.ResolveURLWithBase`, and by `contract.IsContractVersion`, whose
+package-level `frozen` it overrides **down** to `experimental` — the one demotion in the
+whole classification, recorded in RFC-0015 §3.3). Exactly one file per package may
+declare the package-level tier — two is an error, not a first-match win, since silently
+picking one of two disagreeing tiers is exactly the failure this design exists to
+prevent — and a package with no `// Stability:` line anywhere fails the same way: the
+walker errors out naming the package, there is no default.
+`go -C sdks/go run ./internal/apisurface/cmd` projects the resolved tier into
+`docs/api-surface-go.md` as a trailing `— **tier**` on each declaration's line.
+
+**None of the five TypeScript CI checks below apply to Go**, but Go now has an
+export-granularity gate of its own, shipped separately from them: the generated
 `docs/api-surface-go.md`, gated by
 `sdks/go/internal/apisurface/cmd/golden_test.go`, which fails the pull request when the
 walker's live output no longer matches the committed snapshot. A second test in the same
 file asserts the hand-maintained `packages` list in `cmd/main.go` covers every
 non-internal package under `sdks/go`, so the gate cannot silently shrink when a package is
-added. Python still has no equivalent of its own — see the four-CI-gates bullet under
+added. Python still has no equivalent of its own — see the five-checks bullet under
 [Conventions / non-negotiables](#conventions--non-negotiables).
 
 ## How the bindings diverge
@@ -471,13 +517,16 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   binding** — a claim or a recorded reason it does not claim the corpus —
   `sdks/typescript/scripts/corpus-parity.test.ts` fails otherwise. Regenerate
   `docs/conformance-coverage.md` with `bun run conformance:coverage` after editing it.
-- **Four CI gates guard the TypeScript surface, and they fire on different things.** Do
-  not think of them as one checklist — a change can trip any subset:
+- **Five checks guard the TypeScript surface, across two workflows, and they fire on
+  different things.** Do not think of them as one checklist — a change can trip any
+  subset. Four live in `ci.yml`:
   - **A new or changed *export*** trips one: regenerate `docs/api-surface.md` with
     `bun run api:surface` (`sdks/typescript/scripts/api-surface.test.ts`). This is the
     only gate with export granularity. Note `api-surface.md` also lists `private`
     members, so an internal-only change to a published class still fails it until you
-    re-run `api:surface`.
+    re-run `api:surface`. Since [RFC-0015](./docs/rfcs/0015-tiered-stability.md), this
+    golden also records every export's resolved stability tier — see the Public surface
+    section above for the declaration mechanism.
   - **A new *module* reachable from the published surface** trips two, and both key on
     the module rather than the export — adding an export to a module that already has
     one trips neither. It needs a `docs/modules/*.md` page claiming it in a
@@ -491,16 +540,56 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
     `README.md`. Snippets in `docs/rfcs/`, `docs/spec/`, or `docs/superpowers/` are not
     compiled, so a plan or design doc can go stale without CI noticing.
 
-  All four read TypeScript only. Go now has an export-granularity gate of its own — see
-  the Go surface section above — but it is a golden-file comparison against
-  `docs/api-surface-go.md` plus a package-coverage assertion, not these four.
-  **All three bindings now gate their surface, and no two do it the same way.** Go
+  The fifth does **not** live in `ci.yml`:
+  - **A surface change whose PR title under-declares the Conventional Commit type the
+    tiered-stability rule table requires, or a `frozen` module's surface changed with no
+    RFC cited in the PR body**, trips it. It is a second, independent rule inside
+    `sdks/typescript/scripts/conventional-commit-guard.ts` — the same file that already
+    enforces the carried-commits rule (see [Stacking a multi-part
+    change](./docs/CONTRIBUTING.md#stacking-a-multi-part-change)) — implemented in the
+    pure `stability-rules.ts` next to it. It diffs `docs/api-surface.md`,
+    `docs/api-surface-python.md` and `docs/api-surface-go.md`, base → head, against
+    [RFC-0015](./docs/rfcs/0015-tiered-stability.md)'s rule table, so unlike the other
+    four this one reads all three bindings' goldens, not TypeScript's alone.
+
+    It runs from **`.github/workflows/commit-subject.yml`** (workflow name `Commit
+    Subject`), a separate lightweight workflow rather than a `ci.yml` job: the guard
+    reads the pull request's *title*, and this repo merges by squash only, so a title
+    edited after a green run must re-trigger the check — meaning the workflow needs
+    `pull_request: types: [edited]`, an event `ci.yml`'s full cross-OS/scaffold/conformance
+    matrix cannot afford to re-run on every retitle.
+
+    **Naming trap:** the job id is `commit-guard` and the job has no `name:` key, so
+    **GitHub reports the status check as `commit-guard`, not `commit-subject`.**
+    Configure branch protection to require `commit-guard` — searching for
+    `commit-subject` there finds nothing.
+
+  The four `ci.yml` checks read TypeScript only; Go now has an export-granularity gate
+  of its own — see the Go surface section above — but it is a golden-file comparison
+  against `docs/api-surface-go.md` plus a package-coverage assertion, not one of these
+  five. **All three bindings now gate their surface, and no two do it the same way.** Go
   compares `docs/api-surface-go.md` against a walker's live output and asserts its
   `packages` list covers every non-internal package. Python compares
   `docs/api-surface-python.md` against a generator that imports each published root, and
   additionally asserts that the import roots on disk are the four documented — a fifth
   root would leave the golden file matching while a whole surface went unrecorded. Neither
-  is one of the four above, which read TypeScript only.
+  is one of the five above, which read TypeScript only — except the fifth's surface-diff
+  half, which reads all three.
+- **A `@moduleStability` tag above an `import` can be silently dropped from the emitted
+  `.d.ts` by `tsc` itself, if that import turns out to be otherwise unused.** `tsc` emits
+  an import's leading trivia — including a JSDoc comment sitting on the line above it —
+  only when the import itself survives into the declaration output; an import with no
+  surviving reference is elided, and the comment goes with it. This happened for real on
+  `src/diagnostics/event.ts` during RFC-0015's implementation and was fixed by moving the
+  tag to precede the first *export* instead — the `@moduleStability frozen` line at
+  `sdks/typescript/src/diagnostics/event.ts:21` is that fix. Three other modules
+  (`contract-tests.ts`, `agents/brief-composites.ts`, `agents/brief-guards.ts`) still
+  place their tag above an import block, and survive only because that block happens to
+  retain a reference `tsc` keeps — they are one refactor away from the same elision.
+  Prefer placing `@moduleStability` immediately above the module's first export. **This
+  is survivable, not silent, only because there is no default tier**: a dropped tag
+  makes `api-surface.ts` throw and name the module, rather than the module quietly
+  resolving to some fallback — the load-bearing reason the no-default rule exists.
 - **Python reads the spec from `src/nimbus_sdk/_data/spec`, not from `docs/spec`.**
   `spec_root()` prefers that bundled copy; it is gitignored and regenerated by the
   hatch build hook. So after editing anything under `docs/spec/`, run

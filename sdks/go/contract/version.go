@@ -2,6 +2,8 @@
 //
 // This is a binding of that document, not a translation of the TypeScript or Python
 // file; where the three agree it is because they read the same spec.
+//
+// Stability: frozen
 package contract
 
 // HandshakeExit is the exit code a connector MUST terminate with when the handshake is
@@ -28,6 +30,14 @@ var v1AbsenceDefault = []string{"1"}
 // member may be any type at all, and a non-string must be refused rather than skipped.
 // Hand-rolled instead of regexp: the pattern is four lines of ASCII checks, and this
 // keeps the package free of a dependency on regexp's compilation cost at init.
+//
+// Stability: experimental
+//
+// Public only in Go: TypeScript's isContractVersion is module-private and Python's
+// _is_contract_version is underscore-private. It is exported here because the hello
+// parser lives in a different package (RFC-0012 D2) and Go's only visibility control
+// is the capital letter — a packaging decision, not a contract commitment. Tiered
+// experimental so it can be withdrawn without a major.
 func IsContractVersion(v any) bool {
 	s, ok := v.(string)
 	if !ok || s == "" || s[0] == '0' {

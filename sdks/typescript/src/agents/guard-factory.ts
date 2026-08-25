@@ -1,6 +1,8 @@
 /**
  * Build a discriminated-union runtime type guard for an agent brief.
  *
+ * @moduleStability stable
+ *
  * Every brief guard shares the same base shape check — `kind` matches,
  * `agentVersion === 1`, `gaps` is an array, and `generatedAt`/`latencyMs` are
  * numbers — plus a connector-supplied `extra` predicate for the brief-specific

@@ -37,4 +37,6 @@
 // sdks/go/ipc/utf8stream.go.
 //
 // The emitter does not recover from a panicking sink — see emitter.go.
+//
+// Stability: frozen
 package diagnostics

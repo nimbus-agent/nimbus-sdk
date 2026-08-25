@@ -1,5 +1,8 @@
 /**
  * Ed25519 sign + verify primitives for extension manifest signatures.
+ *
+ * @moduleStability stable
+ *
  * Connector authors use this to sign manifests; the gateway uses it to verify
  * at install + every startup (I16 wiring sites).
  */

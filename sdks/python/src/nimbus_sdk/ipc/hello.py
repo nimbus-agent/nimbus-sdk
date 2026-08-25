@@ -15,6 +15,8 @@ from typing import NoReturn
 
 from nimbus_sdk.contract import _is_contract_version
 
+__stability__ = "frozen"
+
 #: The frame's discriminator, so a gateway envelope can never be mistaken for a hello.
 HELLO_MESSAGE = "hello"
 

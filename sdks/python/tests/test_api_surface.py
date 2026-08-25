@@ -130,7 +130,8 @@ def test_renders_a_function_signature_as_written() -> None:
     # src/nimbus_sdk/ has `from __future__ import annotations`, so each annotation is a
     # `str` at runtime and inspect would otherwise repr it as `base_url: 'str'`.
     assert lines == [
-        "- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str`"
+        "- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str` "
+        "— **frozen**"
     ]
 
 
@@ -147,7 +148,8 @@ def test_a_default_is_elided_and_never_rendered() -> None:
     )
     rendered = render_export(export, alias_sources(), annotation_sources())[0]
     assert rendered == (
-        "- `def require_env(name: str, env: Mapping[str, str] = ...) -> str`"
+        "- `def require_env(name: str, env: Mapping[str, str] = ...) -> str` "
+        "— **stable**"
     )
 
 
@@ -167,7 +169,7 @@ def test_a_decorated_function_still_renders_its_real_signature() -> None:
     # _signature has to unwrap before inspecting.
     export = next(e for e in collect("nimbus_sdk") if e.name == "spec_root")
     assert render_export(export, alias_sources(), annotation_sources()) == [
-        "- `def spec_root() -> Path`"
+        "- `def spec_root() -> Path` — **stable**"
     ]
 
 
@@ -176,7 +178,8 @@ def test_renders_an_alias_from_its_source_text() -> None:
         e for e in collect("nimbus_sdk.connector_kit") if e.name == "FieldExtractor"
     )
     assert render_export(export, alias_sources(), annotation_sources()) == [
-        "- `FieldExtractor = Callable[[object], Sequence[str | None] | None]`",
+        "- `FieldExtractor = Callable[[object], Sequence[str | None] | None]` "
+        "— **stable**",
     ]
 
 
@@ -186,14 +189,14 @@ def test_renders_data_as_name_and_type() -> None:
     # same distinction annotation_sources() itself is tested on above.
     export = next(e for e in collect("nimbus_sdk") if e.name == "CONTRACT_VERSIONS")
     assert render_export(export, alias_sources(), annotation_sources()) == [
-        "- `CONTRACT_VERSIONS: tuple[str, ...]`"
+        "- `CONTRACT_VERSIONS: tuple[str, ...]` — **frozen**"
     ]
 
 
 def test_an_alias_missing_from_the_map_fails_loudly() -> None:
     # Rendering it as its repr would be version-dependent; rendering it as nothing would
     # hide surface. Neither is acceptable, so this raises.
-    export = Export(name="Nowhere", kind=Kind.ALIAS, obj=int | str)
+    export = Export(name="Nowhere", kind=Kind.ALIAS, obj=int | str, stability="stable")
     with pytest.raises(RuntimeError, match="Nowhere"):
         render_export(export, {}, {})
 
@@ -201,7 +204,7 @@ def test_an_alias_missing_from_the_map_fails_loudly() -> None:
 def test_renders_dataclass_fields_not_a_synthesized_init() -> None:
     export = next(e for e in collect("nimbus_sdk") if e.name == "NegotiationOk")
     lines = render_export(export, alias_sources(), annotation_sources())
-    assert lines[0] == "- `class NegotiationOk`"
+    assert lines[0] == "- `class NegotiationOk` — **frozen**"
     assert "  - `version: str`" in lines
     # The synthesized __init__ is derived from the fields; recording both would be
     # redundant and would churn whenever dataclasses changes how it builds one.
@@ -218,7 +221,7 @@ def test_renders_protocol_properties_as_attributes() -> None:
     # TextResponse is declared `class TextResponse(Protocol)`; the class bullet names
     # its bases, so `Protocol` — admitted because declaring it says "structural, not
     # nominal" — appears here too.
-    assert lines[0] == "- `class TextResponse(Protocol)`"
+    assert lines[0] == "- `class TextResponse(Protocol)` — **stable**"
     assert "  - `ok: bool`" in lines
     assert "  - `status: int`" in lines
     assert "  - `text: str`" in lines
@@ -230,7 +233,7 @@ def test_renders_a_hand_written_init() -> None:
     )
     lines = render_export(export, alias_sources(), annotation_sources())
     # HttpStatusError subclasses ConnectorKitError; the class bullet names its bases.
-    assert lines[0] == "- `class HttpStatusError(ConnectorKitError)`"
+    assert lines[0] == "- `class HttpStatusError(ConnectorKitError)` — **stable**"
     assert any(
         line.startswith("  - `def __init__(self, service: str") for line in lines
     )
@@ -241,7 +244,9 @@ def test_omits_underscore_prefixed_members() -> None:
         def public(self) -> None: ...
         def _private(self) -> None: ...
 
-    lines = render_export(Export(name="Sample", kind=Kind.CLASS, obj=Sample), {}, {})
+    lines = render_export(
+        Export(name="Sample", kind=Kind.CLASS, obj=Sample, stability="stable"), {}, {}
+    )
     assert any("public" in line for line in lines)
     assert not any("_private" in line for line in lines)
 
@@ -267,12 +272,14 @@ def test_class_bullets_name_their_bases() -> None:
     exports = {e.name: e for e in collect("nimbus_sdk.connector_kit")}
     for name in ("UrlResolutionError", "MissingEnvError", "HttpStatusError"):
         lines = render_export(exports[name], alias_sources(), annotation_sources())
-        assert lines[0] == f"- `class {name}(ConnectorKitError)`", name
+        assert lines[0] == f"- `class {name}(ConnectorKitError)` — **stable**", name
 
     protocol = render_export(
         exports["JsonBodyResponse"], alias_sources(), annotation_sources()
     )
-    assert protocol[0] == "- `class JsonBodyResponse(TextResponse, Protocol)`"
+    assert protocol[0] == (
+        "- `class JsonBodyResponse(TextResponse, Protocol)` — **stable**"
+    )
 
 
 def test_no_exported_class_is_described_by_name_alone() -> None:
@@ -285,7 +292,10 @@ def test_no_exported_class_is_described_by_name_alone() -> None:
             if export.kind is not Kind.CLASS:
                 continue
             lines = render_export(export, alias_sources(), annotation_sources())
-            described = len(lines) > 1 or lines[0].rstrip("`").endswith(")")
+            # lines[0] carries a trailing " — **tier**" now; strip it before checking
+            # whether the backtick-wrapped bullet itself names a base.
+            code = lines[0].split(" — **")[0]
+            described = len(lines) > 1 or code.rstrip("`").endswith(")")
             assert described, f"{export.name} rendered with no members and no bases"
 
 
@@ -329,31 +339,38 @@ class _SyntheticError(Exception):
 
 
 def test_format_dataclass_fields() -> None:
-    lines = render_export(
-        Export(name="Record", kind=Kind.CLASS, obj=_SyntheticRecord), {}, {}
+    record = Export(
+        name="Record", kind=Kind.CLASS, obj=_SyntheticRecord, stability="stable"
     )
-    assert lines[0] == "- `class Record`"
+    lines = render_export(record, {}, {})
+    assert lines[0] == "- `class Record` — **stable**"
     assert "  - `version: str`" in lines
     assert "  - `count: int`" in lines
 
 
 def test_format_protocol_property() -> None:
     lines = render_export(
-        Export(name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol), {}, {}
+        Export(
+            name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol, stability="stable"
+        ),
+        {},
+        {},
     )
     # _SyntheticProtocol is declared `class _SyntheticProtocol(Protocol)`; the class
     # bullet names its bases, so `Protocol` appears here too.
-    assert lines == ["- `class Proto(Protocol)`", "  - `ok: bool`"]
+    assert lines == ["- `class Proto(Protocol)` — **stable**", "  - `ok: bool`"]
 
 
 def test_format_hand_written_init_and_method_and_omitted_private() -> None:
     lines = render_export(
-        Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError), {}, {}
+        Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError, stability="stable"),
+        {},
+        {},
     )
     # _SyntheticError subclasses Exception directly, with an empty-bodied ancestor
     # (like FrameTooLongError and ConnectorKitError in the real surface) that the
     # class bullet still names — see _NAMED_EVEN_UNOWNED_BASES.
-    assert lines[0] == "- `class Err(Exception)`"
+    assert lines[0] == "- `class Err(Exception)` — **stable**"
     assert "  - `def __init__(self, service: str, status: int) -> None`" in lines
     assert "  - `def detail(self) -> str`" in lines
     assert not any("_hidden" in line for line in lines)
@@ -372,7 +389,9 @@ def test_an_unrecognised_public_member_fails_loudly() -> None:
     # `else` arm it rendered as NOTHING — the published surface would have changed with
     # a green gate, the golden file matching a generator that had quietly stopped
     # recording part of the contract. Same reasoning as _signature's RuntimeError.
-    export = Export(name="Unknown", kind=Kind.CLASS, obj=_SyntheticUnknownShape)
+    export = Export(
+        name="Unknown", kind=Kind.CLASS, obj=_SyntheticUnknownShape, stability="stable"
+    )
     with pytest.raises(RuntimeError, match="build"):
         render_export(export, {}, {})
 
@@ -381,11 +400,12 @@ def test_a_slots_dataclass_does_not_trip_the_unrecognised_member_guard() -> None
     # @dataclass(slots=True) puts a member_descriptor in vars(cls) for every field —
     # 16 across the real surface — and those fields are already emitted by the
     # dataclass branch. A naive `else: raise` would fire on every one of them.
-    lines = render_export(
-        Export(name="Record", kind=Kind.CLASS, obj=_SyntheticRecord), {}, {}
+    record = Export(
+        name="Record", kind=Kind.CLASS, obj=_SyntheticRecord, stability="stable"
     )
+    lines = render_export(record, {}, {})
     assert lines == [
-        "- `class Record`",
+        "- `class Record` — **stable**",
         "  - `version: str`",
         "  - `count: int`",
     ]

@@ -24,6 +24,8 @@ from nimbus_sdk.contract import (
 )
 from nimbus_sdk.spec import load_corpus, load_schema, spec_root
 
+__stability__ = "stable"
+
 try:
     __version__ = version("nimbus-dev-sdk")
 except PackageNotFoundError:  # running from an uninstalled source tree

@@ -1,3 +1,5 @@
+/** @moduleStability frozen */
+
 export interface HitlRequest {
   actionId: string;
   summary: string;

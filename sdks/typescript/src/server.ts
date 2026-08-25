@@ -1,6 +1,8 @@
 /**
  * NimbusExtensionServer — base class for all Nimbus MCP extension servers
  *
+ * @moduleStability stable
+ *
  * Usage:
  *   const server = new NimbusExtensionServer({ manifest, onAuth });
  *   server.registerTool("search", { description, inputSchema, handler });

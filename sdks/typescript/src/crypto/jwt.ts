@@ -1,6 +1,8 @@
 /**
  * Compact JWS (JWT) signing primitive shared by connector auth flows.
  *
+ * @moduleStability stable
+ *
  * A first-party connector that authenticates with a signed JWT must sign in
  * TWO places that cannot import each other across the package boundary — the
  * gateway-side sync handler and the connector's own MCP server. Hosting the

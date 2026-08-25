@@ -1,6 +1,8 @@
 /**
  * Pure data-profile parsing utilities (Tier-5, no-row-data).
  *
+ * @moduleStability stable
+ *
  * Shared between `packages/gateway` (data-profile-mapping / data-profile-sync)
  * and `packages/mcp-connectors/dataprofile`. Neither package can import the
  * other (gateway ↔ mcp boundary), so the PURE, I/O-free logic lives here.

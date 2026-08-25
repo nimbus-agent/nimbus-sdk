@@ -452,6 +452,22 @@ workflow, which a trusted-publisher pipeline cannot use, per the correction abov
 each SDK's stability tier is documented and enforced; the official-language
 process is written down.
 
+**"Three official SDKs" is now true strictly, and was not until 2026-08-25.** Officiality
+is defined by [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official),
+whose fourth is an accepted RFC — so it is a document, not a status anyone asserts.
+Python has [RFC-0008](./rfcs/0008-python-sdk-official.md) and Go has
+[RFC-0013](./rfcs/0013-go-sdk-official.md), but TypeScript had none: it predated the
+process, and RFC-0008 recorded that asymmetry rather than resolving it. Counted by the
+project's own definition, this repository had *two* official SDKs and a reference
+implementation exempted by seniority.
+
+[RFC-0016](./rfcs/0016-typescript-sdk-official.md) closes it — not by promoting a binding
+that was never community, but by holding the binding that defines the bar to it. It is the
+only one that meets criterion 1 under its literal wording: 275 of 275 cases across all
+eight published corpora, where RFC-0013 had to narrow "full" to make Python and Go
+satisfiable at 174 each. The clause is recorded here rather than left to the reader
+because the count previously worked only if you declined to apply the definition.
+
 ### Phase 4 — Open the ecosystem
 
 *Goal: make third parties first-class — anyone can build, publish, and trust a

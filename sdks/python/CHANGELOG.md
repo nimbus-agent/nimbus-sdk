@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.11.1...python-v0.12.0) (2026-08-25)
+
+
+### Features
+
+* tiered stability markers across all three bindings (RFC-0015) ([#175](https://github.com/nimbus-agent/nimbus-sdk/issues/175)) ([c85750a](https://github.com/nimbus-agent/nimbus-sdk/commit/c85750aa0b380a7b195c98a41727adfe3a82ccc7))
+
 ## [0.11.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.11.0...python-v0.11.1) (2026-08-25)
 
 

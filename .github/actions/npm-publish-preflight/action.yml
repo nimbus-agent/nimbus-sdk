@@ -71,11 +71,20 @@ runs:
             echo "::error::inherit the calling job's \`defaults.run.working-directory\`."
             exit 1
           fi
-          if ! declared="$(node -p "require('./package.json').version" 2>&1)"; then
+          # stderr is captured to a separate temp file, NOT folded into $declared with
+          # 2>&1. Folding it in means any Node diagnostic on stderr — an
+          # ExperimentalWarning, anything a future Node or a NODE_OPTIONS in the
+          # environment emits — becomes part of the version string being compared,
+          # failing a perfectly good publish with a garbled "package.json declares
+          # <warning text>\n0.3.1 but release-please released 0.3.1" message.
+          node_stderr="$(mktemp)"
+          if ! declared="$(node -p "require('./package.json').version" 2>"$node_stderr")"; then
             echo "::error::could not read a version from $(pwd)/package.json — malformed JSON?"
-            echo "::error::node said: ${declared}"
+            echo "::error::node said: $(cat "$node_stderr")"
+            rm -f "$node_stderr"
             exit 1
           fi
+          rm -f "$node_stderr"
           if [ "$declared" != "$EXPECTED_VERSION" ]; then
             echo "::error::package.json declares $declared but release-please released $EXPECTED_VERSION."
             exit 1

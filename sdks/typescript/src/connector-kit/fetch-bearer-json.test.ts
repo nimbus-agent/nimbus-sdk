@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { restoreGlobalFetch, stubGlobalFetch } from "../test-support/global-fetch-stub.js";
 import { fetchBearerAuthorizedJson, resolveUrlWithBase } from "./fetch-bearer-json.js";
 
 // ─── resolveUrlWithBase (the SSRF chokepoint) ──────────────────────────────────
@@ -157,22 +158,11 @@ describe("resolveUrlWithBase", () => {
 // ─── fetchBearerAuthorizedJson ──────────────────────────────────────────────────
 
 describe("fetchBearerAuthorizedJson", () => {
-  const originalFetch = globalThis.fetch;
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  function stubFetch(
-    handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
-  ): void {
-    globalThis.fetch = (async (url: string, init?: RequestInit) =>
-      handler(url, init)) as typeof fetch;
-  }
+  afterEach(restoreGlobalFetch);
 
   test("sends a Bearer Authorization header derived from the token", async () => {
     const captured: { auth: string | null } = { auth: null };
-    stubFetch((_url, init) => {
+    stubGlobalFetch((_url, init) => {
       const headers = init?.headers as Headers;
       captured.auth = headers.get("authorization");
       return new Response("{}", { status: 200 });
@@ -185,7 +175,7 @@ describe("fetchBearerAuthorizedJson", () => {
 
   test("merges defaultHeaders onto the request", async () => {
     const captured: { accept: string | null } = { accept: null };
-    stubFetch((_url, init) => {
+    stubGlobalFetch((_url, init) => {
       const headers = init?.headers as Headers;
       captured.accept = headers.get("accept");
       return new Response("{}", { status: 200 });
@@ -200,7 +190,7 @@ describe("fetchBearerAuthorizedJson", () => {
 
   test("caller-supplied init.headers override both defaultHeaders and the Authorization default", async () => {
     const captured: { auth: string | null; accept: string | null } = { auth: null, accept: null };
-    stubFetch((_url, init) => {
+    stubGlobalFetch((_url, init) => {
       const headers = init?.headers as Headers;
       captured.auth = headers.get("authorization");
       captured.accept = headers.get("accept");
@@ -221,7 +211,7 @@ describe("fetchBearerAuthorizedJson", () => {
   test("forwards non-header init options (method, body) unchanged", async () => {
     let seenMethod: string | undefined;
     let seenBody: string | undefined;
-    stubFetch((_url, init) => {
+    stubGlobalFetch((_url, init) => {
       seenMethod = init?.method;
       seenBody = init?.body as string;
       return new Response("{}", { status: 200 });
@@ -237,7 +227,7 @@ describe("fetchBearerAuthorizedJson", () => {
   });
 
   test("returns ok/status/json/text from a successful JSON response", async () => {
-    stubFetch(() => new Response(JSON.stringify({ a: 1 }), { status: 200 }));
+    stubGlobalFetch(() => new Response(JSON.stringify({ a: 1 }), { status: 200 }));
 
     const result = await fetchBearerAuthorizedJson("https://api.example.com/x", "tok");
 
@@ -250,7 +240,7 @@ describe("fetchBearerAuthorizedJson", () => {
   });
 
   test("propagates ok:false and the status from a non-2xx response", async () => {
-    stubFetch(() => new Response(JSON.stringify({ error: "nope" }), { status: 404 }));
+    stubGlobalFetch(() => new Response(JSON.stringify({ error: "nope" }), { status: 404 }));
 
     const result = await fetchBearerAuthorizedJson("https://api.example.com/x", "tok");
 
@@ -260,7 +250,7 @@ describe("fetchBearerAuthorizedJson", () => {
   });
 
   test("sets json to null (not throwing) on a malformed JSON body", async () => {
-    stubFetch(() => new Response("not json at all", { status: 200 }));
+    stubGlobalFetch(() => new Response("not json at all", { status: 200 }));
 
     const result = await fetchBearerAuthorizedJson("https://api.example.com/x", "tok");
 
@@ -270,7 +260,7 @@ describe("fetchBearerAuthorizedJson", () => {
   });
 
   test("sets json to null on an empty body", async () => {
-    stubFetch(() => new Response("", { status: 204 }));
+    stubGlobalFetch(() => new Response("", { status: 204 }));
 
     const result = await fetchBearerAuthorizedJson("https://api.example.com/x", "tok");
 

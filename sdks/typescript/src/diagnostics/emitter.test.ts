@@ -150,4 +150,29 @@ describe("createEmitter", () => {
     }
     expect(sawUnhandledRejection).toBe(false);
   });
+
+  test("an own __proto__ member cannot inject detail members through the prototype", async () => {
+    // `snapshotDetail` promises "own top-level members only", and the `DETAIL_KEYS`
+    // filter implements it with `key in snapshot` — which walks the prototype chain.
+    // Copying into a `{}` literal lets an own `__proto__` key (which `JSON.parse`
+    // produces, so an externally-assembled `detail` can carry one) become the snapshot's
+    // prototype via `Object.prototype`'s setter; `correlationId` and `fields` inherited
+    // from that substituted prototype then read as present and reach the encoder. Only
+    // `ts` was ever an own member here, so only `ts` may appear on the line.
+    const written: string[] = [];
+    const nimbus = createEmitter("acme-gcal", (line) => {
+      written.push(line);
+    });
+    const detail = JSON.parse(
+      `{"ts":"${TS}","__proto__":{"correlationId":"INJECTED","fields":{"pwned":true}}}`,
+    ) as EmitDetail;
+    expect(Object.keys(detail)).toContain("__proto__");
+
+    const result = await nimbus.info("sync.page", detail);
+
+    expect(result.ok).toBe(true);
+    expect(written).toEqual([
+      '{"nimbus":"diag","ts":"2026-08-01T12:00:00.000Z","level":"info","extensionId":"acme-gcal","event":"sync.page"}',
+    ]);
+  });
 });

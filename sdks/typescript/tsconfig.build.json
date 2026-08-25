@@ -18,6 +18,9 @@
   // Pinned, NOT inherited: the base include now also covers scripts/ so editors resolve
   // those files to a real project, but rootDir is ./src so they must not reach the build.
   // The *.test.ts exclude below is load-bearing — this package co-locates its tests in src/.
+  // src/test-support/ is the same rule for the helpers those tests share: they are imported
+  // only from *.test.ts files, so they are not part of the published package and must not be
+  // emitted into dist/. `tsc --noEmit` still typechecks them via the base config's include.
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/test-support"]
 }

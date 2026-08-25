@@ -1,11 +1,13 @@
 import { describe, expect, test } from "bun:test";
 
+import type { McpListResult } from "./mcp-tool-kit.js";
 import {
   asObjectish,
   asRecord,
   fieldsFromKeys,
   filterByQuery,
   makeQueryFilter,
+  matchesResult,
   nestedString,
   stringField,
   tagNamesFromObjects,
@@ -272,5 +274,39 @@ describe("makeQueryFilter", () => {
     const filter = makeQueryFilter(fieldsFromKeys(["name"]));
     const items = [{ name: "a-1" }, { name: "a-2" }, { name: "a-3" }];
     expect(filter(items, { query: "a-", limit: 2 })).toHaveLength(2);
+  });
+});
+
+describe("matchesResult", () => {
+  const filter = makeQueryFilter(fieldsFromKeys(["name"]));
+  const decode = (result: McpListResult): unknown =>
+    JSON.parse(result.content[0]?.text ?? "") as unknown;
+
+  test("wraps the filtered rows in the MCP `{ matches }` envelope", () => {
+    const result = matchesResult([{ name: "Revenue" }, { name: "Latency" }], filter, {
+      query: "rev",
+    });
+    expect(result.content).toHaveLength(1);
+    expect(result.content[0]?.type).toBe("text");
+    expect(decode(result)).toEqual({ matches: [{ name: "Revenue" }] });
+  });
+
+  test("a payload that is not an array yields an empty match set instead of throwing", () => {
+    // The reason this branch exists: a connector hands `matchesResult` whatever the remote
+    // API returned. An endpoint that answers `{"items": [...]}`, `null`, or an HTML error
+    // body must degrade to "no matches" — calling `filter` on a non-array would throw
+    // inside the tool handler and surface to the agent as a transport failure rather than
+    // an empty result.
+    const notArrays: readonly unknown[] = [undefined, null, "rows", 42, { items: [] }];
+    for (const rows of notArrays) {
+      expect(decode(matchesResult(rows, filter, { query: "rev" }))).toEqual({ matches: [] });
+    }
+  });
+
+  test("forwards the limit to the filter rather than dropping it", () => {
+    const rows = [{ name: "a-1" }, { name: "a-2" }, { name: "a-3" }];
+    expect(decode(matchesResult(rows, filter, { query: "a-", limit: 2 }))).toEqual({
+      matches: [{ name: "a-1" }, { name: "a-2" }],
+    });
   });
 });

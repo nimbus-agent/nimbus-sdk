@@ -314,7 +314,7 @@ maintained."*
   confirmed per-package before it was set, so the other three components' tags are
   provably untouched), and `release-go.yml` firing on that tag pattern.
   **The last clause is now observed rather than designed**, and repeatedly: every
-  `sdks/go` version from `v0.1.0` through `v0.6.1` has been tagged this way with
+  `sdks/go` version from `v0.1.0` onward has been tagged this way with
   `release-go.yml` green. The verify job resolves the **exact** tag — `go get
   …/sdks/go@vX.Y.Z`, retrying while the proxy catches up — so what is proven per release is
   that that version resolves and carries a `go.sum` entry, not that a moving `@latest`
@@ -331,7 +331,7 @@ maintained."*
   `git archive` of the module tree at the tag, then verifies from a scratch directory
   outside any checkout that the module resolves through `proxy.golang.org` **with a
   `go.sum` entry**. Both halves have now run for real, on every version from `v0.1.0`
-  through `v0.6.1`.
+  onward.
 
   **This box's original wording was wrong in two ways, and both are corrected here.** It
   asked for provenance "attached to the GitHub Release artifacts," giving Go "the same

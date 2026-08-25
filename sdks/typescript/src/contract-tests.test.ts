@@ -363,6 +363,18 @@ describe("validateManifest", () => {
     expect(validateManifest(null).map((v) => v.rule)).toContain("manifest.id.required");
   });
 
+  // The semver check runs on the TRIMMED value, and the trim is `trimBlank`'s scan over the
+  // `\p{White_Space}` + U+FEFF set — not `String.prototype.trim`, whose set is narrower.
+  // U+0085 NEL is the character that separates the two: `isNonBlankString` already treats it
+  // as blank (the NEL test above), so a version field padded with one has to reach the semver
+  // rule stripped, or the two halves of the same rule disagree about what "blank" means.
+  // `"\u00a0\u0085 1.2.3 \u00a0".trim()` is `"\u0085 1.2.3"` — leading NEL intact, still not
+  // semver — so this fails against a `.trim()` substitution as well as against no trim at all.
+  test("strips surrounding White_Space before the semver check, beyond what trim() removes", () => {
+    const m = { ...base(), minNimbusVersion: "\u00a0\u0085 1.2.3 \u00a0" };
+    expect(validateManifest(m)).toEqual([]);
+  });
+
   // The blank trim used to be `/^BLANK+|BLANK+$/g`, whose second alternative is unanchored
   // at the start: on an interior blank run the engine consumed it at every position and gave
   // it back a character at a time looking for `$`. That is quadratic — 64k spaces took ~3.7s,

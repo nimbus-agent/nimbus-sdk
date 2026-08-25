@@ -107,11 +107,24 @@ const DETAIL_KEYS = {
  * `error` is copied by reference here — never invoked — and is already handled by
  * `encodeDiagnostic`'s own snapshot of those nested objects; duplicating that protection
  * here would just be two places that have to agree on the same behavior.
+ *
+ * **The copy has a null prototype for the same reason `event.ts`'s `snapshot()` does,
+ * plus one that is specific to this function.** Copying into a `{}` literal routes an
+ * own `__proto__` key — which `JSON.parse` produces, so a `detail` assembled from an
+ * external payload can carry one — through `Object.prototype`'s `__proto__` setter,
+ * which replaces the COPY's prototype with the caller's object. The `DETAIL_KEYS` filter
+ * below then tests membership with `key in snapshot`, and `in` walks the prototype
+ * chain: an inherited `correlationId` / `fields` / `error` sitting on that substituted
+ * prototype reads as present and is copied into the encoder's input. That makes the
+ * "own top-level members only" scoping this comment promises false in the one case it
+ * most needs to hold, and it does so silently. `Object.create(null)` keeps `__proto__`
+ * an ordinary own key — dropped here, because it is not a declared `EmitDetail` member —
+ * and leaves `in` with nothing but own properties to find.
  */
 const snapshotDetail = (detail: EmitDetail): Record<string, unknown> | null => {
   try {
     const source = detail as unknown as Record<string, unknown>;
-    const copy: Record<string, unknown> = {};
+    const copy = Object.create(null) as Record<string, unknown>;
     for (const key of Object.keys(source)) copy[key] = source[key];
     return copy;
   } catch {

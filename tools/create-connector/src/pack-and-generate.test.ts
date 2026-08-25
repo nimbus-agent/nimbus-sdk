@@ -14,9 +14,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+
+import { walk } from "./test-support/walk.ts";
 
 /** `<repo>/tools/create-connector/src` → `<repo>/tools/create-connector`. */
 const PACKAGE_ROOT = join(import.meta.dir, "..");
@@ -42,19 +43,6 @@ function run(command: string, args: readonly string[], cwd: string): string {
     );
   }
   return result.stdout;
-}
-
-async function walk(dir: string, prefix = ""): Promise<string[]> {
-  const out: string[] = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const rel = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-    if (entry.isDirectory()) {
-      out.push(...(await walk(join(dir, entry.name), rel)));
-    } else {
-      out.push(rel);
-    }
-  }
-  return out.sort();
 }
 
 let scratch = "";

@@ -226,8 +226,8 @@ Stated so they read as decisions, not gaps:
 `connectorkit` (`sdks/go/connectorkit/`) is the Go binding of this module — **one package
 where Python has six modules**, because Python's own `__all__` already flattens that
 boundary for a caller and Go prefers fewer, larger packages. The file names match Python's
-module names one-for-one so the two read side by side. It ships Python's Shipment 1 core
-and nothing beyond it: `ResolveURLWithBase` (binding
+module names one-for-one so the two read side by side. Shipment 1 gave it the pure core:
+`ResolveURLWithBase` (binding
 [`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md), whose 28-case corpus all
 three bindings now execute), `RequireEnv`, the `MCPTextContent` / `MCPToolResult` wire
 shapes, the result builders, and the search filter. Shipment 2 added the transport

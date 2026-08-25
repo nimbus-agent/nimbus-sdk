@@ -98,10 +98,33 @@ const no = (reason: DiagnosticEncodeReason, path: string): EncodeResult => ({
  * from a malformed object, so every caller of this function converts `null` into
  * whatever "not a JSON object at this position" reason applies at its own layer, rather
  * than letting the exception itself escape `encodeDiagnostic`.
+ *
+ * **The copy has a null prototype, and that is load-bearing — not a hardening habit.**
+ * `JSON.parse` produces `__proto__` as an ordinary own data property, so it is reachable
+ * from the wire on every one of this module's three snapshot call sites. Copying into a
+ * `{}` literal instead would route `copy["__proto__"] = …` through the `__proto__`
+ * accessor `Object.prototype` defines: a primitive value is silently discarded and an
+ * object value silently becomes the copy's prototype. Either way the key vanishes from
+ * `Object.keys(copy)` and is never validated — so the member that §5 requires be
+ * REJECTED is instead accepted by omission, at all three layers at once:
+ * `/__proto__` should be `unknown-member`, `/error/__proto__` should be `invalid-error`,
+ * and `/fields/__proto__` should be `invalid-field-key` (§5's table: a key that does not
+ * match `^[a-z][a-z0-9]*$`, which `__proto__` does not).
+ *
+ * That is a cross-binding divergence of exactly the kind this file exists to prevent:
+ * Python and Go see `__proto__` as an unremarkable string key and reject it, and only
+ * JavaScript has an accessor sitting on the default prototype waiting to swallow it.
+ * `Object.create(null)` has no such accessor, so the key lands as an own property and
+ * flows into the same validation every other member gets.
+ *
+ * Nothing null-prototyped escapes this module: every success arm rebuilds its result as
+ * a fresh object literal (`validatedEvent`, `validateError`'s `{ code }`,
+ * `validateFields`' `validated`), so the null prototype is confined to the inert copy
+ * that validation reads from.
  */
 const snapshot = (source: Record<string, unknown>): Record<string, unknown> | null => {
   try {
-    const copy: Record<string, unknown> = {};
+    const copy = Object.create(null) as Record<string, unknown>;
     for (const key of Object.keys(source)) copy[key] = source[key];
     return copy;
   } catch {

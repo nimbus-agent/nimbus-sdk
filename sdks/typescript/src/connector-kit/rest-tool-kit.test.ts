@@ -1,29 +1,19 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { restoreGlobalFetch, stubGlobalFetch } from "../test-support/global-fetch-stub.js";
 import { mcpJsonResult, type ZodObjectSchema } from "./mcp-tool-kit.js";
 import { makeRestFetcher, makeRestToolRegistrar, type RestToolRegistrar } from "./rest-tool-kit.js";
 
 // ─── makeRestFetcher ─────────────────────────────────────────────────────────────
 
 describe("makeRestFetcher", () => {
-  const originalFetch = globalThis.fetch;
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  function stubFetch(
-    handler: (url: string, init?: RequestInit) => Response | Promise<Response>,
-  ): void {
-    globalThis.fetch = (async (url: string, init?: RequestInit) =>
-      handler(url, init)) as typeof fetch;
-  }
+  afterEach(restoreGlobalFetch);
 
   test("resolves a relative path against apiBase and authorizes with the Bearer token", async () => {
     const captured: { url: string | undefined; auth: string | null } = {
       url: undefined,
       auth: null,
     };
-    stubFetch((url, init) => {
+    stubGlobalFetch((url, init) => {
       captured.url = url;
       const headers = init?.headers as Headers;
       captured.auth = headers.get("authorization");
@@ -43,7 +33,7 @@ describe("makeRestFetcher", () => {
       customHeader: null,
       method: undefined,
     };
-    stubFetch((_url, init) => {
+    stubGlobalFetch((_url, init) => {
       const headers = init?.headers as Headers;
       captured.customHeader = headers.get("x-custom");
       captured.method = init?.method;
@@ -62,7 +52,7 @@ describe("makeRestFetcher", () => {
   });
 
   test("rejects a cross-origin absolute URL — the SSRF guard applies through the fetcher", async () => {
-    stubFetch(() => new Response("{}", { status: 200 }));
+    stubGlobalFetch(() => new Response("{}", { status: 200 }));
     const fetcher = makeRestFetcher({ apiBase: "https://api.example.com", token: "tok" });
 
     await expect(fetcher("https://evil.example.com/steal")).rejects.toThrow(
@@ -71,7 +61,7 @@ describe("makeRestFetcher", () => {
   });
 
   test("returns ok:false with the status on a non-2xx response, without throwing", async () => {
-    stubFetch(() => new Response(JSON.stringify({ message: "nope" }), { status: 403 }));
+    stubGlobalFetch(() => new Response(JSON.stringify({ message: "nope" }), { status: 403 }));
     const fetcher = makeRestFetcher({ apiBase: "https://api.example.com", token: "tok" });
 
     const result = await fetcher("/x");

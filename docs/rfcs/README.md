@@ -26,6 +26,7 @@ widening the contract.
 | [0013](./0013-go-sdk-official.md) | Promote the Go SDK to official, and pin what "the full conformance suite" means | accepted | [#153](https://github.com/nimbus-agent/nimbus-sdk/pull/153) |
 | [0014](./0014-utf8-replacement-count.md) | One U+FFFD per maximal subpart | accepted | [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155) |
 | [0015](./0015-tiered-stability.md) | Tiered stability markers | accepted | this document (Shipment 1 of 5) |
+| [0016](./0016-typescript-sdk-official.md) | Record the TypeScript SDK as official | accepted | this document |
 
 ## Statuses
 

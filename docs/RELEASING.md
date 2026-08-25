@@ -330,12 +330,19 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
 
   **The preflight pattern, not the code, is what generalizes.** Every publish path
-  asserts, before publishing, that the OIDC identity is present and that the version
-  about to ship is the version release-please released. npm implements it in
-  `npm-publish-preflight`, called from both npm jobs; Python implements the same check
-  inline in `publish-python`'s own preflight step, because it has exactly one caller and
-  factoring a single-use step buys indirection, not reuse. A future language adds its own
-  registry's version of the same two assertions rather than trying to call npm's.
+  asserts, before publishing, that the OIDC identity is present — and those that know
+  their version ahead of time also assert it matches the release. create-connector and
+  Python fall into that second group: `publish-create-connector`'s preflight is passed
+  `expected-version` from release-please's `cc_version` output, and `publish-python`'s
+  inline preflight compares against `py_version` the same way. `publish` (the TypeScript
+  SDK) is the one path that is not: release-please exposes no `ts_version` output, since
+  the SDK's version is resolved only *after* publishing (see "Resolve published
+  version"), so its preflight call omits `expected-version` and only the OIDC check runs.
+  npm implements the shared assertions in `npm-publish-preflight`, called from both npm
+  jobs; Python implements the same checks inline in `publish-python`'s own preflight step,
+  because it has exactly one caller and factoring a single-use step buys indirection, not
+  reuse. A future language adds its own registry's version of the same assertions rather
+  than trying to call npm's.
 - The conformance suite gates release: an SDK that fails it does not publish. See
   [SECURITY.md](./SECURITY.md#multi-language-supply-chain) for the supply-chain posture
   and [GOVERNANCE.md](./GOVERNANCE.md#how-a-language-becomes-official) for what makes a

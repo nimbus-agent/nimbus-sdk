@@ -31,8 +31,27 @@ describe("requiredFor", () => {
     expect(r.needsRfc).toBe(false);
   });
 
-  test("any frozen surface change demands an RFC, additions included", () => {
-    expect(requiredFor([change({ kind: "added", tier: "frozen" })]).needsRfc).toBe(true);
+  // RFC-0017 §4 supersedes RFC-0015's `Export added` / `frozen` cell. The test this
+  // replaced asserted the opposite — "additions included" — which is the rule that changed.
+  test("adding to a frozen module needs no RFC", () => {
+    const r = requiredFor([change({ kind: "added", tier: "frozen" })]);
+    expect(r.needsRfc).toBe(false);
+    expect(r.impact).toBe("minor");
+    expect(r.breaking).toBe(false);
+  });
+
+  test("every other frozen surface change still demands an RFC", () => {
+    for (const kind of ["removed", "signature", "demoted"] as const) {
+      expect(requiredFor([change({ kind, tier: "frozen" })]).needsRfc, kind).toBe(true);
+    }
+  });
+
+  test("a frozen addition cannot launder a frozen removal in the same diff", () => {
+    const r = requiredFor([
+      change({ kind: "added", tier: "frozen" }),
+      change({ name: "old", kind: "removed", tier: "frozen", wasDeprecated: true }),
+    ]);
+    expect(r.needsRfc).toBe(true);
   });
 
   test("demoting a tier is breaking; promoting is not", () => {

@@ -225,8 +225,11 @@ no RFC, so the promotion itself is cheap to land. What is not cheap is the promi
 is the narrow waist, and freezing `icalendar` and `jmap-fastmail` alongside `types.js` and
 the handshake is a much larger commitment than "these are ported".
 
-**This is the one decision this document does not close.** Two amendments are on the table,
-and they are not equally good.
+**Decided (2026-08-26): promote to `frozen`, and carry the narrow amendment in RFC-0017.**
+The reasoning that led there is kept below, because the rejected alternative is the one a
+later reader will propose again.
+
+Two amendments were on the table, and they are not equally good.
 
 **The wide amendment — decouple spec-and-corpus from `frozen`, leave the batteries
 `stable`.** Rejected as the recommendation, for two reasons.
@@ -258,9 +261,21 @@ Correcting it relieves the drag, keeps the mechanical definition intact, and lea
 *breaking* change to a frozen battery RFC-gated — which is what freezing is supposed to
 mean.
 
-The recommendation is therefore: **promote to `frozen`, and carry the narrow amendment in
-RFC-0017.** It should be settled before Shipment 0, because RFC-0017 either carries an
-amendment or does not.
+**What the decision commits to.** RFC-0017 amends RFC-0015's rule table so that
+`Export added` costs `feat:` at `frozen`, matching the other two tiers and matching §2's
+own opening principle. Every other `frozen` row is untouched: removing an export, changing
+a signature, or demoting a tier still costs `feat!:` plus a window plus an RFC. Then, at
+the end of each battery's shipment, all three of that battery's modules are promoted to
+`frozen` — `feat:`, no RFC, per the promotion row.
+
+The amendment is a change to a *shipped* RFC, so RFC-0017 supersedes that row of RFC-0015
+explicitly rather than editing it in place, and `docs/rfcs/README.md` records the
+supersession. `sdks/typescript/scripts/stability-rules.ts` encodes the rule table and must
+change with it; its tests are the check that the table and the code still agree.
+
+One consequence to note in the ROADMAP: the `frozen` tier stops being a synonym for "the
+contract". After these four shipments it also contains four batteries, which is what
+RFC-0015's mechanical definition always implied and what nothing had yet exercised.
 
 Per-binding tiers already exist — Go demotes `contract.IsContractVersion` below its
 package's `frozen` — so the born-`experimental` step needs no new machinery.
@@ -488,8 +503,10 @@ than by hand.
   shipped module — TypeScript's new trim helper is behaviour-identical to
   `String.prototype.trim()` today — so the RFC's job is to write the set down and pin it
   against Unicode drift, not to move anything. It also carries the narrow rule-table
-  amendment from [Stability tiers](#stability-tiers--and-the-frozen-consequence). Lands
-  with Shipment 0.
+  amendment from [Stability tiers](#stability-tiers--and-the-frozen-consequence) —
+  superseding RFC-0015's `Export added` / `frozen` cell, which means it edits
+  `sdks/typescript/scripts/stability-rules.ts` and `stability-rules.test.ts` as well as
+  prose. Lands with Shipment 0.
 - **RFC-0018 — `buildVEvent` line folding.** Pins "this builder does not fold" or adds
   folding. Lands with Shipment 3.
 

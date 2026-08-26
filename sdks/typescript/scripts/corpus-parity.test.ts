@@ -161,11 +161,14 @@ describe("CI runs every corpus guard", () => {
     const workflow = readFromRepo(join(".github", "workflows", "ci.yml"));
     const recording = readdirSync(import.meta.dir)
       .filter((name) => name.endsWith("-guard.test.ts"))
-      .filter((name) => readFileSync(join(import.meta.dir, name), "utf8").includes("createRecorder"))
+      .filter((name) =>
+        readFileSync(join(import.meta.dir, name), "utf8").includes("createRecorder"),
+      )
       .sort();
-    expect(recording.length, "no recording guards found — this would pass vacuously").toBeGreaterThan(
-      0,
-    );
+    expect(
+      recording.length,
+      "no recording guards found — this would pass vacuously",
+    ).toBeGreaterThan(0);
     const missing = recording.filter((name) => !workflow.includes(`scripts/${name}`));
     expect(missing, "a recording guard CI never runs fails reconciliation, not this suite").toEqual(
       [],

@@ -176,10 +176,28 @@ is what makes the result the *leaf* columns. Collection stops once 512 columns a
 - a number is used only if it is **finite** — `NaN` and both infinities yield `null`;
 - any other type, or absence, yields `null`.
 
-A Parquet file's row count routinely exceeds 2⁵³−1, so this is the one field in this battery
-where a binding decoding into a JSON-number type can lose precision. A binding MUST decode it
-in a way that preserves the value up to its own integer width. This is the same hazard
-`spec.LoadCorpus`'s `UseNumber` decision exists for in the Go binding.
+**`rowCountEstimate` is an IEEE-754 double, and above 2⁵³−1 it is inexact by
+specification.** A Parquet file's row count can exceed that bound, and the reference
+implementation's `Number(bigint)` conversion rounds to the nearest representable double.
+A binding MUST reproduce that value — the nearest double — rather than preserving the
+integer exactly.
+
+That is a deliberate choice between two coherent contracts, not an oversight. The
+alternative — widening the returned type to carry an exact integer — would change
+`rowCountEstimate`'s shape in all three bindings and give JavaScript no representation to
+return. Since the field is named *estimate* and its only consumers size a progress
+indicator, a double is sufficient, and one inexact answer that every binding agrees on is
+worth more here than three exact answers that disagree.
+
+The requirement is therefore observable equality, not integer fidelity: given
+`num_rows = 9007199254740993` (2⁵³+1), every binding returns the double `9007199254740992`.
+A Python binding that returned the exact `int`, or a Go binding that returned an `int64`,
+would **not** conform. The conformance corpus pins a case above the bound for exactly this
+reason.
+
+This is the same hazard `spec.LoadCorpus`'s `UseNumber` decision exists for in the Go
+binding, resolved in the opposite direction: the corpus loader needs exactness because it
+carries contract data, and this field does not because it carries an estimate.
 
 ## §7 First line and row estimate
 

@@ -186,7 +186,7 @@ Use a **JSON** probe, not a Markdown one: `.md` files are excluded from the snap
 
 Run:
 ```bash
-cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && printf '{}' > docs/spec/_drift_probe.json
+cd "$(git rev-parse --show-toplevel)" && printf '{}' > docs/spec/_drift_probe.json
 cd sdks/python && python -m pytest tests/test_spec_snapshot.py -v
 ```
 Expected: `test_bundled_snapshot_matches_docs_spec` FAILS with `in docs/spec but not in the snapshot: ['_drift_probe.json']`.
@@ -194,14 +194,14 @@ Expected: `test_bundled_snapshot_matches_docs_spec` FAILS with `in docs/spec but
 Then confirm the Markdown exclusion really is what it claims — this second probe must **not** fail:
 
 ```bash
-cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && rm docs/spec/_drift_probe.json && printf '\n' >> docs/spec/README.md
+cd "$(git rev-parse --show-toplevel)" && rm docs/spec/_drift_probe.json && printf '\n' >> docs/spec/README.md
 cd sdks/python && python -m pytest tests/test_spec_snapshot.py -v
 ```
 Expected: 3 passed — the `.md` edit is invisible to this guard by design. If it fails instead, `hatch_build.py` no longer ignores `*.md` and both this test and its sibling need rewriting.
 
 Clean up and confirm green:
 ```bash
-cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && git checkout docs/spec/README.md && git status --short docs/spec/
+cd "$(git rev-parse --show-toplevel)" && git checkout docs/spec/README.md && git status --short docs/spec/
 cd sdks/python && python -m pytest tests/test_spec_snapshot.py -v
 ```
 Expected: no output from `git status`, then 3 passed.
@@ -294,7 +294,7 @@ In `docs/rfcs/README.md`, immediately after the `0016` row:
 `docs/rfcs/` holds no compiled fences (`scripts/docs-snippets.test.ts`'s `SNIPPET_SOURCES` is `docs/modules/*.md`, `docs/README.md` and the package `README.md`), and `docs/rfcs/` is outside `sdks/go/spec/data/`'s mirror of `docs/spec/`. So no regeneration is needed. Confirm it:
 
 ```bash
-cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && git status --short
+cd "$(git rev-parse --show-toplevel)" && git status --short
 ```
 Expected: exactly two paths, both under `docs/rfcs/`.
 
@@ -670,7 +670,9 @@ Named for what it specifies — JMAP (RFC 8620 / RFC 8621) — not for the modul
 
 **§6 Response extraction.** `methodResponseArgs` and `extractEmailList`.
 
-**§7 API URL validation — the security section.** `validateApiUrl(candidate, allowedBase)`. Do **not** restate origin comparison: reference `docs/spec/connector-kit/v1/url-resolution.md` §6 normatively and state that this function MUST use the same origin definition. Document the exact refusal behaviour the implementation has today, and note that a binding MUST NOT carry credentials across an origin change, cross-referencing `url-resolution.md` §8.
+**§7 API URL validation — the security section.** `validateApiUrl(candidate, allowedBase)`. Document the exact acceptance and refusal behaviour the implementation has today, including the three refusal messages as contract text (§R5), and cross-reference `url-resolution.md` §8's rule that credentials MUST NOT cross an origin change.
+
+**Do not specify an origin comparison here.** The implementation compares **host**, not the scheme-host-port origin `url-resolution.md` §6 defines, and separately requires the *candidate* to be `https` while placing no scheme requirement on the base — so an `allowedBase` of `http://api.example.com` accepts `https://api.example.com`. Verify that against the code before writing the section, then pin it, and explain why it is pinned rather than corrected: the check is *tighter* than an origin comparison in the direction that matters, since the candidate must be `https` and the token therefore cannot go out in clear text however the base was configured. Widening it would newly reject an `http` base, which is a behaviour change to a `stable` module in the direction of breaking working callers. Reference §6 for what host normalisation must mean, and state that a binding MUST NOT substitute `resolveUrlWithBase` — different signature, different verdicts, different failure mode.
 
 - [ ] **Step 2: Verify every claim against the implementation**
 
@@ -685,7 +687,7 @@ Expected: PASS, with `sdks/go/spec/data/batteries/v1/` now holding all five docu
 Then confirm the Go mirror is complete rather than merely non-failing:
 
 ```bash
-cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && find docs/spec -type f | wc -l && find sdks/go/spec/data -type f | wc -l
+cd "$(git rev-parse --show-toplevel)" && find docs/spec -type f | wc -l && find sdks/go/spec/data -type f | wc -l
 ```
 Expected: identical counts — 320 each, the 315 that existed before this shipment plus five documents.
 

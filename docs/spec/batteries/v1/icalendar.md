@@ -306,9 +306,16 @@ implementation differs per language. RFC 5545 counts **octets**, JavaScript's `.
 counts UTF-16 code units, Python's `len()` counts code points, and Go's `len()` counts
 bytes — so `slice(0, 75)` cuts in three different places on the same string.
 
-The corpus for this battery carries at least one `build` case whose fold point would fall
-inside a multi-octet sequence, so that the rule is enforced from the moment folding exists
-rather than the moment someone remembers it.
+**No case in the current corpus enforces this rule, and none can.** §7 specifies a builder
+that does not fold, so a `build` case whose fold point falls inside a multi-octet sequence
+has no fold to assert against — it would pin the unfolded output and pass whether or not a
+future implementation aligned its folds correctly.
+
+The fixture is therefore *reserved*, not present: RFC-0018 adds it in the same change that
+adds folding, and until then this subsection constrains that RFC rather than the corpus. It
+is written now because the constraint is easiest to agree while nothing depends on it, and
+because an implementer reaching for `slice(0, 75)` needs to find the rule before writing the
+code, not after.
 
 ## §8 Whitespace
 

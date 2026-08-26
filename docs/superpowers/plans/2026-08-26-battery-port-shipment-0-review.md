@@ -8,7 +8,7 @@
 ## 1. Open Questions
 
 ### Q1.1: Row Count Estimate for Empty Inputs in `firstLineAndRows`
-* **Context:** In Task 5 (and the corresponding TS code in [`index.ts`](file:///C:/gitrep/nimbus-sdk/sdks/typescript/src/data-profile/index.ts#L153-L154)), `firstLineAndRows` estimates rows by counting `\n` and adding `1` if the text does not end with `\n`.
+* **Context:** In Task 5 (and the corresponding TS code in [`sdks/typescript/src/data-profile/index.ts`](../../../sdks/typescript/src/data-profile/index.ts)), `firstLineAndRows` estimates rows by counting `\n` and adding `1` if the text does not end with `\n`.
 * **Question:** If the input `text` is completely empty (`""`), `text.endsWith("\n")` returns `false`, resulting in an estimate of `0 + 1 = 1` row. Should an empty file/input yield a `rowCountEstimate` of `0` instead of `1`?
 * **Recommendation:** Update the specification and the TS implementation to return `0` if `text === ""`. The current plan reproduces this `1`-row behavior literally, which is likely an oversight in the original heuristic.
 

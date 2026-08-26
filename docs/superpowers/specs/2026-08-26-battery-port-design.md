@@ -130,7 +130,7 @@ pattern bites; four new corpora on one pattern is four fewer chances to hit it.
 | `data-profile` | `js-kind`, `csv-header`, `jsonl-columns`, `json-columns`, `parquet-columns` | Input is a string, or a literal JSON value for `js-kind` / `json-columns`; `expect` is the exact `DataColumn[]`. |
 | `distribution-channel` | `resolve`, `hint` | `resolve` carries `{env, execPath, realpath}` where **`realpath` is a static path→path map in the case file** — that is what turns a filesystem call into corpus data. `hint` is channel → exact string. |
 | `icalendar` | `parse`, `build` | `parse`: an ICS string (CRLF as `\r\n`) → `ParsedEvent[]`. `build`: a `BuildEventInput` plus a **fixed `now`** → the exact emitted string, byte for byte. |
-| `jmap` | `session`, `email-view`, `request`, `api-url` | `api-url` normatively references `url-resolution.md` §6's origin definition rather than restating it; its cases live here because the signature differs. |
+| `jmap` | `session`, `email-view`, `request`, `api-url` | `api-url` pins `validateApiUrl`'s **host** comparison — narrower than `url-resolution.md` §6's scheme-host-port origin, and deliberately so; it references §6 for what host normalisation means rather than restating it. Its cases live here because the signature differs. |
 
 **The document and corpus are `jmap`, not `jmap-fastmail`, and that mismatch with the
 module names is deliberate.** The module carries a vendor name for historical reasons —

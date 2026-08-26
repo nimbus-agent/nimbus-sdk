@@ -8,7 +8,7 @@
 ## 1. Open Questions
 
 ### Q1.1: Resolving the Python `spec_root` Local-Only Trap
-* **Context:** The design notes a local-only trap where Python tests execute against a gitignored snapshot in `sdks/python/src/nimbus_sdk/_data/spec` if it exists, rather than the live `docs/spec/` directory. Currently, `spec_root()` in [`spec.py`](file:///C:/gitrep/nimbus-sdk/sdks/python/src/nimbus_sdk/spec.py#L31-L34) prioritizes the bundled `_data/spec` directory over the repo's `docs/spec`.
+* **Context:** The design notes a local-only trap where Python tests execute against a gitignored snapshot in `sdks/python/src/nimbus_sdk/_data/spec` if it exists, rather than the live `docs/spec/` directory. Currently, `spec_root()` in [`sdks/python/src/nimbus_sdk/spec.py`](../../../sdks/python/src/nimbus_sdk/spec.py) prioritizes the bundled `_data/spec` directory over the repo's `docs/spec`.
 * **Question:** Why should the local development environment prefer the snapshot over the live repository spec path when both exist? If the repository layout is present (`docs/spec` is a directory), it indicates a development clone where the live files should always take precedence to prevent false greens and stale test runs.
 * **Recommendation:** Modify the precedence order in `spec_root()` to check for the repository `_REPO_SPEC` first, or check if the repository is present on disk and prefer it during test runs. This makes local tests immediately reflect changes to `docs/spec/` without requiring a reinstall of the editable package or updating the gitignored snapshot.
 

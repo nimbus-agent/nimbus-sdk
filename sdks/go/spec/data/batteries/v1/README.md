@@ -3,7 +3,7 @@
 **Status:** normative. **Contract version:** `v1`.
 
 This document is the preamble every battery specification in this directory defers to. It
-does not specify a battery itself; it settles the six questions each of them would
+does not specify a battery itself; it settles the seven questions each of them would
 otherwise answer separately, and answer differently.
 
 The batteries specified here are:
@@ -91,7 +91,7 @@ A non-JavaScript binding implements a **mapping into** the enumerated set. Where
 system has no member corresponding to one of the strings, the document says so, and that
 input falls under §R3.
 
-Two vocabularies are governed by this rule: `data-profile`'s kind names, and §R6's whitespace
+Two vocabularies are governed by this rule: `data-profile`'s kind names, and §R7's whitespace
 set.
 
 ## §R5 Builders are in scope, and pinned exactly

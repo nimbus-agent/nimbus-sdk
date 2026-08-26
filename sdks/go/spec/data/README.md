@@ -141,6 +141,29 @@ reasons, their evaluation order, and their exact messages; that credentials MUST
 origin change, on any transport a binding accepts; and what is left undefined for a
 non-ASCII or otherwise unusual host. See [RFC-0011](../rfcs/0011-url-resolution.md).
 
+### `batteries/v1/`
+
+A [preamble](./batteries/v1/README.md) and one document per battery —
+[`data-profile`](./batteries/v1/data-profile.md),
+[`distribution-channel`](./batteries/v1/distribution-channel.md),
+[`icalendar`](./batteries/v1/icalendar.md) and [`jmap`](./batteries/v1/jmap.md).
+
+Batteries are not the contract, and they are specified here for the same reason
+`connector-kit/v1/` is: **a helper that exists in three languages needs one statement of
+behaviour rather than three readings of one implementation.** The counter-example is the
+rest of `connector-kit`, whose forty un-specified names produced four cross-language
+divergences, every one found by hand and none by CI.
+
+The preamble settles what the four documents would otherwise each answer differently: that
+I/O is specified against injected inputs and never a real filesystem or clock; that where a
+document and the implementation disagree the document wins and the implementation moves;
+how an input is declared undefined; that a JavaScript-derived vocabulary must be enumerated
+as a closed set rather than named by a host operation; that builders are pinned byte for
+byte; that unparseable input yields an absence rather than an error; and the **normative
+whitespace set**, enumerated, which exists because the three runtimes' own trims disagree on
+U+FEFF, U+0085 and U+001C–U+001F. See
+[RFC-0017](../rfcs/0017-battery-specifications.md).
+
 ### `conformance/v1/`
 
 Seven corpora, because the contract has seven kinds of assertion.

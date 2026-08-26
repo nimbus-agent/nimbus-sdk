@@ -1,0 +1,13 @@
+{
+  "description": "an array of scalars yields no columns but a row count",
+  "kind": "json-columns",
+  "value": [
+    1,
+    2,
+    3
+  ],
+  "expect": {
+    "columns": [],
+    "rowCountEstimate": 3
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "description": "jsKind of a JSON string is \"string\"",
+  "kind": "js-kind",
+  "value": "x",
+  "expect": {
+    "kind": "string"
+  }
+}

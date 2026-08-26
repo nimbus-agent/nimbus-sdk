@@ -1,0 +1,10 @@
+{
+  "description": "a trailing newline does not add a line",
+  "kind": "first-line-rows",
+  "text": "a\nb\n",
+  "truncated": false,
+  "expect": {
+    "firstLine": "a",
+    "rowCountEstimate": 2
+  }
+}

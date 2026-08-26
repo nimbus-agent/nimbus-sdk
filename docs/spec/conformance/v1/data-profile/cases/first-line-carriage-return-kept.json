@@ -1,0 +1,10 @@
+{
+  "description": "a carriage return is not stripped from the first line",
+  "kind": "first-line-rows",
+  "text": "a\r\nb",
+  "truncated": false,
+  "expect": {
+    "firstLine": "a\r",
+    "rowCountEstimate": 2
+  }
+}

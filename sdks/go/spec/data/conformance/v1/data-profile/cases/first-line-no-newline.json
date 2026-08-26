@@ -1,0 +1,10 @@
+{
+  "description": "text with no newline is one line",
+  "kind": "first-line-rows",
+  "text": "id,name",
+  "truncated": false,
+  "expect": {
+    "firstLine": "id,name",
+    "rowCountEstimate": 1
+  }
+}

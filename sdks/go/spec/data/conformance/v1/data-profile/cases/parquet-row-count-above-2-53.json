@@ -1,0 +1,22 @@
+{
+  "description": "a row count above 2^53-1 is the nearest double, not the exact integer",
+  "kind": "parquet-columns",
+  "meta": {
+    "schema": [
+      {
+        "name": "id",
+        "type": "INT64"
+      }
+    ],
+    "num_rows": 9007199254740993
+  },
+  "expect": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT64"
+      }
+    ],
+    "rowCountEstimate": 9007199254740992
+  }
+}

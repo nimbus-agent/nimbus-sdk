@@ -1,0 +1,175 @@
+{
+  "spec": "../../../batteries/v1/data-profile.md",
+  "cases": [
+    {
+      "file": "cases/csv-header-column-cap.json",
+      "section": "§1.1",
+      "reason": "513 fields yield exactly 512 columns, and the truncation is silent — there is no flag and no error. Caught by 0 of the other cases: every one of them is far under the cap, so a binding that omitted the cap entirely would pass all of them."
+    },
+    {
+      "file": "cases/js-kind-null.json",
+      "section": "§2",
+      "reason": "JSON null is \"null\", not \"object\" — the first of typeof's two corrections. One of the six §2.1 kinds reachable from JSON; a binding must produce exactly these six and no others."
+    },
+    {
+      "file": "cases/js-kind-array.json",
+      "section": "§2",
+      "reason": "an array is \"array\", not \"object\" — the second correction. One of the six §2.1 kinds reachable from JSON; a binding must produce exactly these six and no others."
+    },
+    {
+      "file": "cases/js-kind-object.json",
+      "section": "§2",
+      "reason": "a JSON object is \"object\". One of the six §2.1 kinds reachable from JSON; a binding must produce exactly these six and no others."
+    },
+    {
+      "file": "cases/js-kind-string.json",
+      "section": "§2",
+      "reason": "a JSON string is \"string\". One of the six §2.1 kinds reachable from JSON; a binding must produce exactly these six and no others."
+    },
+    {
+      "file": "cases/js-kind-number.json",
+      "section": "§2",
+      "reason": "a JSON number is \"number\". One of the six §2.1 kinds reachable from JSON; a binding must produce exactly these six and no others."
+    },
+    {
+      "file": "cases/js-kind-boolean.json",
+      "section": "§2",
+      "reason": "a JSON boolean is \"boolean\". One of the six §2.1 kinds reachable from JSON; a binding must produce exactly these six and no others."
+    },
+    {
+      "file": "cases/csv-header-trailing-cr.json",
+      "section": "§3",
+      "reason": "A single trailing carriage return is removed before splitting, so a CRLF file's header does not end in a column named with a stray \\r."
+    },
+    {
+      "file": "cases/csv-header-whitespace-only.json",
+      "section": "§3",
+      "reason": "A line that is empty after trimming yields no columns at all, rather than one column with an empty name."
+    },
+    {
+      "file": "cases/csv-header-quote-then-inner-space.json",
+      "section": "§3",
+      "reason": "The second trim is not redundant: quotes are stripped before the inner whitespace, so '\" a \"' yields 'a'. Caught by 0 of the other cases — every other quoted field has no space inside its quotes, and a binding that trimmed only once would pass all of them."
+    },
+    {
+      "file": "cases/csv-header-unbalanced-quote.json",
+      "section": "§3",
+      "reason": "Quote stripping requires the field to both begin and end with a double quote. A field with only a leading quote keeps it."
+    },
+    {
+      "file": "cases/csv-header-quoted-comma-splits.json",
+      "section": "§3.1",
+      "reason": "The split is on every comma with no quote awareness, so a quoted comma splits one field into two. Specified behaviour, not a defect: a binding implementing RFC 4180 quoting would return different columns from the same file. Caught by 0 of the other cases — no other case contains a comma inside quotes."
+    },
+    {
+      "file": "cases/csv-header-bom-stripped.json",
+      "section": "§3.2",
+      "reason": "A UTF-8 BOM decodes to U+FEFF, which preamble §R7's set includes, so a BOM-prefixed header's first column is named without it. This is the case that fails a binding delegating to str.strip() or strings.TrimSpace, neither of which strips U+FEFF — and a BOM'd CSV is what Excel exports. Caught by 0 of the other cases."
+    },
+    {
+      "file": "cases/jsonl-keys-in-document-order.json",
+      "section": "§4",
+      "reason": "Columns follow the object's key order, not sorted order. Caught by 0 of the other cases: this is the only one whose keys are not already alphabetical, so a Go binding decoding into a map and sorting would pass every other case."
+    },
+    {
+      "file": "cases/jsonl-nested-kinds.json",
+      "section": "§4",
+      "reason": "A value's kind is reported without the value: a nested object and a nested array yield \"object\" and \"array\", and nothing about their contents is returned."
+    },
+    {
+      "file": "cases/jsonl-not-an-object.json",
+      "section": "§4",
+      "reason": "A line that parses to an array is not an object, so it yields no columns (§R6)."
+    },
+    {
+      "file": "cases/jsonl-invalid-json.json",
+      "section": "§4",
+      "reason": "Unparseable input yields an absence, never an error (§R6)."
+    },
+    {
+      "file": "cases/json-columns-array-of-objects.json",
+      "section": "§5",
+      "reason": "An array whose first element is an object takes its columns from that element and its row count from the array's length."
+    },
+    {
+      "file": "cases/json-columns-empty-array.json",
+      "section": "§5",
+      "reason": "The asymmetry: an empty array yields no columns but still carries a row count of 0. A binding short-circuiting to (no columns, no count) whenever it produces no columns fails here and passes everywhere else — caught by 0 of the other cases."
+    },
+    {
+      "file": "cases/json-columns-array-of-scalars.json",
+      "section": "§5",
+      "reason": "An array whose first element is not an object yields no columns, and still carries the array's length as the row count."
+    },
+    {
+      "file": "cases/json-columns-bare-object.json",
+      "section": "§5",
+      "reason": "A top-level object yields its own columns and no row count — one record is not a count of records."
+    },
+    {
+      "file": "cases/json-columns-scalar.json",
+      "section": "§5",
+      "reason": "Anything that is neither an array nor an object yields neither columns nor a count."
+    },
+    {
+      "file": "cases/parquet-leaves-only.json",
+      "section": "§6",
+      "reason": "Only elements carrying a type become columns; the root and group elements, which carry none, are skipped. That is what makes the result the leaf columns."
+    },
+    {
+      "file": "cases/parquet-no-schema.json",
+      "section": "§6",
+      "reason": "An absent schema yields no columns rather than an error (§R6)."
+    },
+    {
+      "file": "cases/parquet-name-not-a-string.json",
+      "section": "§6",
+      "reason": "An element whose name is not a string is skipped even when it carries a type — all three conditions must hold."
+    },
+    {
+      "file": "cases/parquet-row-count-above-2-53.json",
+      "section": "§6.1",
+      "reason": "2^53+1 is returned as the nearest double, 2^53. Observable equality, not integer fidelity: a Python binding returning an exact int, or a Go binding returning an int64, would preserve MORE information and fail this case — which is §6.1's point. Caught by 0 of the other cases: every other row count is small enough to be exact."
+    },
+    {
+      "file": "cases/parquet-row-count-wrong-type.json",
+      "section": "§6.1",
+      "reason": "A num_rows that is neither a number nor a wide integer yields an absence rather than a coerced zero."
+    },
+    {
+      "file": "cases/first-line-no-newline.json",
+      "section": "§7",
+      "reason": "With no newline the whole text is the first line, and the count is one."
+    },
+    {
+      "file": "cases/first-line-trailing-newline.json",
+      "section": "§7",
+      "reason": "A trailing newline does not add a line: two newlines with a trailing one is two lines, not three."
+    },
+    {
+      "file": "cases/first-line-no-trailing-newline.json",
+      "section": "§7",
+      "reason": "Without a trailing newline the final partial line still counts."
+    },
+    {
+      "file": "cases/first-line-truncated.json",
+      "section": "§7",
+      "reason": "A truncated read yields no count at all — a count over a partial read would be a wrong number rather than an estimate."
+    },
+    {
+      "file": "cases/first-line-carriage-return-kept.json",
+      "section": "§7",
+      "reason": "A trailing carriage return is NOT removed here — §3 removes it, and only for CSV. Caught by 0 of the other §7 cases, none of which contains a carriage return."
+    },
+    {
+      "file": "cases/first-line-empty-input.json",
+      "section": "§7.1",
+      "reason": "An empty input has zero lines. The reference implementation returns 1, because the count is nl + 1 whenever the text does not end with a newline and the Math.max(0, ...) floor cannot catch a sum that is never negative. This case is what fails it; the correction is registered in RFC-0017 §6.1. Caught by 0 of the other cases: every other text is non-empty."
+    },
+    {
+      "file": "cases/first-line-empty-truncated.json",
+      "section": "§7.1",
+      "reason": "truncated is checked before the empty-input rule, so an empty truncated read is an absence rather than zero. Without this case a binding could implement §7.1 by special-casing the empty string ahead of the truncation check and still pass."
+    }
+  ]
+}

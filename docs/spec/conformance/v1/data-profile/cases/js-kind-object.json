@@ -1,0 +1,10 @@
+{
+  "description": "jsKind of a JSON object is \"object\"",
+  "kind": "js-kind",
+  "value": {
+    "a": 1
+  },
+  "expect": {
+    "kind": "object"
+  }
+}

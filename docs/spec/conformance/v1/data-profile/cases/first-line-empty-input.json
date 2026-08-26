@@ -1,0 +1,10 @@
+{
+  "description": "an empty input has a row count of zero",
+  "kind": "first-line-rows",
+  "text": "",
+  "truncated": false,
+  "expect": {
+    "firstLine": "",
+    "rowCountEstimate": 0
+  }
+}

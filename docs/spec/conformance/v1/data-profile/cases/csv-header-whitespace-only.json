@@ -1,0 +1,8 @@
+{
+  "description": "a whitespace-only line yields no columns",
+  "kind": "csv-header",
+  "line": "   \t ",
+  "expect": {
+    "columns": []
+  }
+}

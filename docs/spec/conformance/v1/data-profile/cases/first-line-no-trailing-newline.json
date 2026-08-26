@@ -1,0 +1,10 @@
+{
+  "description": "a final line with no newline still counts",
+  "kind": "first-line-rows",
+  "text": "a\nb",
+  "truncated": false,
+  "expect": {
+    "firstLine": "a",
+    "rowCountEstimate": 2
+  }
+}

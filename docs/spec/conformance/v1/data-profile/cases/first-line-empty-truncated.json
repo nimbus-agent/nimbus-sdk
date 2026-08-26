@@ -1,0 +1,10 @@
+{
+  "description": "an empty truncated read yields an absence, not zero",
+  "kind": "first-line-rows",
+  "text": "",
+  "truncated": true,
+  "expect": {
+    "firstLine": "",
+    "rowCountEstimate": null
+  }
+}

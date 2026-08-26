@@ -1,0 +1,21 @@
+{
+  "description": "a quoted comma still splits the field",
+  "kind": "csv-header",
+  "line": "\"last, first\",age",
+  "expect": {
+    "columns": [
+      {
+        "name": "\"last",
+        "type": null
+      },
+      {
+        "name": "first\"",
+        "type": null
+      },
+      {
+        "name": "age",
+        "type": null
+      }
+    ]
+  }
+}

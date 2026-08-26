@@ -1,0 +1,17 @@
+{
+  "description": "quotes are stripped before the inner whitespace is trimmed",
+  "kind": "csv-header",
+  "line": "\" a \",b",
+  "expect": {
+    "columns": [
+      {
+        "name": "a",
+        "type": null
+      },
+      {
+        "name": "b",
+        "type": null
+      }
+    ]
+  }
+}

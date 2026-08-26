@@ -1,0 +1,8 @@
+{
+  "description": "jsKind of a JSON boolean is \"boolean\"",
+  "kind": "js-kind",
+  "value": true,
+  "expect": {
+    "kind": "boolean"
+  }
+}

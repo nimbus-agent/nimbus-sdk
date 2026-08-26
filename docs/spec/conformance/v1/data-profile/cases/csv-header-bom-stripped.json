@@ -1,0 +1,17 @@
+{
+  "description": "a BOM-prefixed header names its first column without the BOM",
+  "kind": "csv-header",
+  "line": "﻿id,name",
+  "expect": {
+    "columns": [
+      {
+        "name": "id",
+        "type": null
+      },
+      {
+        "name": "name",
+        "type": null
+      }
+    ]
+  }
+}

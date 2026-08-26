@@ -1,0 +1,8 @@
+{
+  "description": "an unparseable line yields no columns",
+  "kind": "jsonl-columns",
+  "line": "not json at all",
+  "expect": {
+    "columns": []
+  }
+}

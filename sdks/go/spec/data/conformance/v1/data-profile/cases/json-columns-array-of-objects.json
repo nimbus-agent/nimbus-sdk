@@ -1,0 +1,31 @@
+{
+  "description": "an array of objects yields the first element's columns",
+  "kind": "json-columns",
+  "value": [
+    {
+      "a": 1,
+      "b": "x"
+    },
+    {
+      "a": 2,
+      "b": "y"
+    },
+    {
+      "a": 3,
+      "b": "z"
+    }
+  ],
+  "expect": {
+    "columns": [
+      {
+        "name": "a",
+        "type": "number"
+      },
+      {
+        "name": "b",
+        "type": "string"
+      }
+    ],
+    "rowCountEstimate": 3
+  }
+}

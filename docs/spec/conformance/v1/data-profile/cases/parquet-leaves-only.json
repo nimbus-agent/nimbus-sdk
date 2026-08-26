@@ -1,0 +1,36 @@
+{
+  "description": "group elements are skipped and leaves become columns",
+  "kind": "parquet-columns",
+  "meta": {
+    "schema": [
+      {
+        "name": "root"
+      },
+      {
+        "name": "id",
+        "type": "INT64"
+      },
+      {
+        "name": "group"
+      },
+      {
+        "name": "label",
+        "type": "BYTE_ARRAY"
+      }
+    ],
+    "num_rows": 7
+  },
+  "expect": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT64"
+      },
+      {
+        "name": "label",
+        "type": "BYTE_ARRAY"
+      }
+    ],
+    "rowCountEstimate": 7
+  }
+}

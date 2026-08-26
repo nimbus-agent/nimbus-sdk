@@ -1,0 +1,17 @@
+{
+  "description": "a trailing carriage return is stripped",
+  "kind": "csv-header",
+  "line": "id,name\r",
+  "expect": {
+    "columns": [
+      {
+        "name": "id",
+        "type": null
+      },
+      {
+        "name": "name",
+        "type": null
+      }
+    ]
+  }
+}

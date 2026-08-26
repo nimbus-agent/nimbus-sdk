@@ -1,7 +1,11 @@
+import { trim } from "./internal/whitespace.js";
+
 /**
  * Pure, dependency-free iCalendar (RFC 5545) build/parse module.
  *
- * @moduleStability stable
+ * The `@moduleStability` tag sits on the first export below, not here: with an import
+ * above it this comment is no longer file-leading trivia, and `tsc` can elide it from the
+ * emitted `.d.ts`. See the note in CLAUDE.md.
  *
  * Lives in @nimbus-dev/sdk so both the apple connector and the gateway can
  * share one implementation without duplication (the gateway depends on the SDK
@@ -19,6 +23,11 @@
 // ParsedEvent
 // ---------------------------------------------------------------------------
 
+/**
+ * One VEVENT, reduced to the members this battery reads.
+ *
+ * @moduleStability stable
+ */
 export interface ParsedEvent {
   readonly uid: string;
   readonly recurrenceId: string | null;
@@ -130,7 +139,7 @@ function extractMailto(value: string): string | null {
   const lower = value.toLowerCase();
   const idx = lower.indexOf("mailto:");
   if (idx === -1) return null;
-  return value.slice(idx + "mailto:".length).trim();
+  return trim(value.slice(idx + "mailto:".length));
 }
 
 /**
@@ -189,17 +198,17 @@ function parseVEventBlock(block: string): ParsedEvent | null {
 
   for (const line of lines) {
     // Skip blank lines that may appear due to unfolding artifacts
-    if (!line.trim()) continue;
+    if (!trim(line)) continue;
 
     const name = extractName(line);
     const rawValue = extractValue(line);
 
     switch (name) {
       case "UID":
-        uid = rawValue.trim();
+        uid = trim(rawValue);
         break;
       case "RECURRENCE-ID":
-        recurrenceId = rawValue.trim();
+        recurrenceId = trim(rawValue);
         break;
       case "SUMMARY":
         summary = unescapeValue(rawValue);
@@ -212,15 +221,15 @@ function parseVEventBlock(block: string): ParsedEvent | null {
         break;
       case "DTSTART": {
         const isDate = hasParam(line, "VALUE=DATE");
-        start = rawValue.trim();
+        start = trim(rawValue);
         allDay = isDate;
         break;
       }
       case "DTEND":
-        end = rawValue.trim();
+        end = trim(rawValue);
         break;
       case "STATUS":
-        status = rawValue.trim();
+        status = trim(rawValue);
         break;
       case "ORGANIZER": {
         const addr = extractMailto(rawValue);
@@ -235,10 +244,10 @@ function parseVEventBlock(block: string): ParsedEvent | null {
         break;
       }
       case "RRULE":
-        rrule = rawValue.trim();
+        rrule = trim(rawValue);
         break;
       case "DTSTAMP":
-        dtstamp = rawValue.trim();
+        dtstamp = trim(rawValue);
         break;
       default:
         // Unknown properties are ignored

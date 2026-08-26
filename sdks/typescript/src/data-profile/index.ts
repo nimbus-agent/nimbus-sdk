@@ -1,7 +1,11 @@
+import { trim } from "../internal/whitespace.js";
+
 /**
  * Pure data-profile parsing utilities (Tier-5, no-row-data).
  *
- * @moduleStability stable
+ * The `@moduleStability` tag sits on the first export below, not here: this comment is
+ * leading trivia of a non-exported `const`, which `tsc` elides from the emitted `.d.ts`,
+ * taking the comment with it. See the note in CLAUDE.md.
  *
  * Shared between `packages/gateway` (data-profile-mapping / data-profile-sync)
  * and `packages/mcp-connectors/dataprofile`. Neither package can import the
@@ -13,7 +17,11 @@
 
 const MAX_COLUMNS = 512;
 
-/** A parsed column — name + its JS/Parquet kind. Type is null when unknown (e.g. CSV). */
+/**
+ * A parsed column — name + its JS/Parquet kind. Type is null when unknown (e.g. CSV).
+ *
+ * @moduleStability stable
+ */
 export interface DataColumn {
   readonly name: string;
   /** Column kind (parquet physical type, or the JS type of a JSONL/JSON field). Null when unknown (CSV). */
@@ -44,17 +52,14 @@ export function jsKind(v: unknown): string {
  */
 export function parseCsvHeader(firstLine: string): DataColumn[] {
   const line = firstLine.replace(/\r$/, "");
-  if (line.trim() === "") {
+  if (trim(line) === "") {
     return [];
   }
   return line
     .split(",")
     .slice(0, MAX_COLUMNS)
     .map((raw) => {
-      const name = raw
-        .trim()
-        .replace(/^"(.*)"$/, "$1")
-        .trim();
+      const name = trim(trim(raw).replace(/^"(.*)"$/, "$1"));
       return { name, type: null } satisfies DataColumn;
     });
 }

@@ -42,7 +42,12 @@ export function requiredFor(changes: SurfaceChange[]): Requirement {
     // and nothing smaller than that can move the surface.
     if (IMPACT_RANK[impact] < IMPACT_RANK.minor) impact = "minor";
 
-    if (change.tier === "frozen") needsRfc = true;
+    // RFC-0017 §4 supersedes RFC-0015's `Export added` / `frozen` cell. RFC-0015 §2 opens
+    // "the tier governs what it costs to break something, not what it costs to add", and
+    // then charged an RFC for a frozen addition anyway; this is that inconsistency
+    // corrected. Every other frozen row is unchanged — and the exemption is per change, so
+    // an addition cannot launder a removal in the same diff past the requirement.
+    if (change.tier === "frozen" && change.kind !== "added") needsRfc = true;
 
     const isBreaking = BREAKING_KINDS.has(change.kind) && change.tier !== "experimental";
     if (isBreaking) {

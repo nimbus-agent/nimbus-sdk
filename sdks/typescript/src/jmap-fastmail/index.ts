@@ -1,7 +1,11 @@
+import { trim } from "../internal/whitespace.js";
+
 /**
  * Pure JMAP / Fastmail request-building and response-parsing utilities.
  *
- * @moduleStability stable
+ * The `@moduleStability` tag sits on the first export below, not here: with an import
+ * above it this comment is no longer file-leading trivia, and `tsc` can elide it from the
+ * emitted `.d.ts`. See the note in CLAUDE.md.
  *
  * Shared between `packages/gateway` (fastmail-sync connector) and
  * `packages/mcp-connectors/fastmail`. Neither package can import the other
@@ -18,6 +22,11 @@
  * I/O (fetch / connectorFetch / session discovery) stays in each caller.
  */
 
+/**
+ * The JMAP core capability URN.
+ *
+ * @moduleStability stable
+ */
 export const CORE_CAPABILITY = "urn:ietf:params:jmap:core";
 export const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";
 export const SUBMISSION_CAPABILITY = "urn:ietf:params:jmap:submission";
@@ -162,11 +171,12 @@ export function extractAttachments(v: unknown): JmapAttachmentMeta[] {
 }
 
 export function capPreview(text: string): string {
-  const normalized = text
-    .replaceAll("\r\n", "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
+  const normalized = trim(
+    text
+      .replaceAll("\r\n", "\n")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{2,}/g, "\n"),
+  );
   return normalized.length > PREVIEW_MAX_CHARS
     ? normalized.slice(0, PREVIEW_MAX_CHARS)
     : normalized;

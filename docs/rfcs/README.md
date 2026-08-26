@@ -27,6 +27,7 @@ widening the contract.
 | [0014](./0014-utf8-replacement-count.md) | One U+FFFD per maximal subpart | accepted | [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155) |
 | [0015](./0015-tiered-stability.md) | Tiered stability markers | accepted | this document (Shipment 1 of 5) |
 | [0016](./0016-typescript-sdk-official.md) | Record the TypeScript SDK as official | accepted | this document |
+| [0017](./0017-battery-specifications.md) | Battery specifications, the normative whitespace set, and one amendment to RFC-0015's rule table — **supersedes** RFC-0015's `Export added` / `frozen` cell | accepted | this document (Shipment 0 of the battery port) |
 
 ## Statuses
 

@@ -97,12 +97,22 @@ One schema, six kinds, discriminated on `kind`. Required at the top level: `desc
 
 Then constrain `expect` per kind with an `allOf` block. The four shapes:
 
-- `js-kind` → `{ "kind": "<one of the ten §2 strings>" }`
+- `js-kind` → `{ "kind": "<one of the six §2.1 strings>" }`
 - `csv-header` and `jsonl-columns` → `{ "columns": [ { "name": string, "type": string|null } ] }`
 - `json-columns` and `parquet-columns` → `{ "columns": [...], "rowCountEstimate": number|null }`
 - `first-line-rows` → `{ "firstLine": string, "rowCountEstimate": number|null }`
 
 Give each `if`/`then` pair a `required` list naming that kind's inputs, so a case with a mistyped input member fails schema validation rather than running vacuously against `undefined`.
+
+**`expect` is always an object, including for `js-kind`.** A bare string would be shorter, and it is deliberately not used: every other kind needs an object, and one uniform shape means each of the three runners has one comparison path rather than a special case that only `js-kind` exercises — the special case being the one most likely to rot. So all three runners compare the **member**:
+
+| Language | The assertion |
+|---|---|
+| TypeScript | `expect(jsKind(body.value)).toBe(body.expect.kind)` |
+| Python | `assert js_kind(case["value"]) == case["expect"]["kind"]` |
+| Go | compare `JSKind(v)` against `expect["kind"].(string)`, type-asserted rather than comma-ok'd |
+
+Not `{ kind: jsKind(v) }` against the whole `expect` object — that reads the same today and starts silently ignoring members the moment `expect` grows one.
 
 - [ ] **Step 3: Write the cases**
 
@@ -399,6 +409,9 @@ Requirements that will otherwise be got wrong, each traceable to a section:
 - **`parse_json_columns` returns all four branches** of §5, including `([], len(value))` for a non-object-headed array.
 - **`first_line_and_rows`** implements §7 *including* §7.1 — `0` for the empty string. It is being written against the corrected specification, so unlike TypeScript it is never wrong.
 - **`parquet_columns_from_metadata`** — §6.1's `num_rows` becomes a **float**, not an `int`, so that Python agrees with the double every other binding returns. `float(9007199254740993)` is `9007199254740992.0`. A returned `int` would preserve the value exactly and **fail the corpus**, which is §6.1's point.
+- **Annotate every row count `float | None`**, not `int | None`. Python returns a genuine `int` from §5's `len(value)` and §7's line count, and a genuine `float` from §6.1's conversion — one annotation has to cover both, and `float` is the one that does: PEP 484's numeric tower makes `int` acceptable where `float` is declared, so returning `len(value)` type-checks under `mypy --strict` without a cast. The reverse does not.
+
+  This makes the runner's comparison load-bearing: it MUST compare **numerically**, not by type. `3 == 3.0` is `True` in Python, and a runner asserting `type(actual) is type(expected)` would fail every §5 and §7 case against a corpus that spells its counts as JSON integers.
 
 - [ ] **Step 2: Write `__init__.py`**
 
@@ -481,13 +494,101 @@ PR B title: **`feat(python): nimbus_sdk.data_profile`**.
 
 The requirements Go alone faces:
 
-- **Key order.** §8 forbids `map[string]any` for §4 and §5, and forbids sorting. Decode with `json.Decoder` and read the object's keys in document order via `Token()`, or carry an ordered slice of pairs. **A `map` plus `sort.Strings` is explicitly non-conformant** — sorted order is not input order, and the corpus's key-order case will catch it.
+- **Key order.** §8 forbids `map[string]any` for §4 and §5, and forbids sorting. **A `map` plus `sort.Strings` is explicitly non-conformant** — sorted order is not input order, and the corpus's key-order case will catch it. Use the token loop in Step 1a below.
 - **`JSKind`** maps Go's decoded JSON types into §2's six strings: `nil` → `"null"`, `[]any` → `"array"`, ordered-object → `"object"`, `string` → `"string"`, `json.Number`/`float64` → `"number"`, `bool` → `"boolean"`.
 - **`FirstLineAndRows`** returns `0` for the empty string per §7.1.
 - **Row count** is a `float64` per §6.1, not an `int64`. Returning an exact integer type fails the corpus.
-- **Absence** is the zero value plus a `bool`, or a nil slice — never an `error` (§R6). Errors stay for transport failures, which this package has none of.
+- **`RowCountEstimate` is `*float64`, and §R6's "zero value" guidance does not apply to it.** The preamble says a Go absence is the zero value — correct for the general case, and *wrong here*, because §7.1 makes `0` a real, reachable answer: `FirstLineAndRows("", false)` returns a row count of zero, which a zero-value convention could not tell apart from `null`. A pointer is the one shape that distinguishes them. Same for `ParseJSONColumns` and `ParquetColumnsFromMetadata`, whose `null` branches are §5 and §6.1.
+- **Absence elsewhere** is a nil slice (`ParseCSVHeader`, `ParseJSONLColumns` on unparseable input) — never an `error` (§R6). Errors stay for transport failures, which this package has none of.
 - **Trimming** uses §R7's set. `strings.TrimSpace` is wrong twice over: it strips U+0085 and does not strip U+FEFF.
 - **Package doc carries `// Stability: experimental`** — exactly one file per package may declare it, and a package with none fails the surface walker.
+
+- [ ] **Step 1a: The ordered-object token loop**
+
+Flat `Token()` iteration is the error-prone part, so it is written out here rather than described. The simplification that makes it tractable: **this battery never needs a nested value, only its kind.** So a composite value is identified by its opening delimiter and then skipped wholesale by depth counting — there is no recursive decode to get wrong.
+
+```go
+// The decoder MUST have UseNumber() set, so a number arrives as json.Number rather than
+// float64 — matching spec.LoadCorpus, and keeping §6.1's wide integers out of float64
+// until the one place that deliberately converts.
+
+// objectKinds reads an already-opened JSON object and returns its keys in document
+// order, each paired with the §2 kind of its value. The values themselves are never
+// retained — §1's scope constraint is structural here, not merely observed.
+func objectKinds(dec *json.Decoder) ([]DataColumn, error) {
+	cols := []DataColumn{}
+	for dec.More() {
+		keyTok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		key, ok := keyTok.(string)
+		if !ok {
+			return nil, fmt.Errorf("object key is not a string: %#v", keyTok)
+		}
+		valTok, err := dec.Token()
+		if err != nil {
+			return nil, err
+		}
+		kind, err := kindOfToken(valTok, dec)
+		if err != nil {
+			return nil, err
+		}
+		// Cap like TypeScript's .slice(0, MAX_COLUMNS): keep the first maxColumns, but
+		// keep CONSUMING, or the decoder is left mid-object for the caller.
+		if len(cols) < maxColumns {
+			cols = append(cols, DataColumn{Name: key, Type: kind})
+		}
+	}
+	_, err := dec.Token() // the closing '}'
+	return cols, err
+}
+
+func kindOfToken(tok json.Token, dec *json.Decoder) (string, error) {
+	switch v := tok.(type) {
+	case json.Delim:
+		switch v {
+		case '{':
+			return "object", skipComposite(dec)
+		case '[':
+			return "array", skipComposite(dec)
+		}
+		return "", fmt.Errorf("unexpected delimiter %v", v)
+	case nil:
+		return "null", nil
+	case string:
+		return "string", nil
+	case bool:
+		return "boolean", nil
+	case json.Number:
+		return "number", nil
+	}
+	return "", fmt.Errorf("unexpected token type %T", tok)
+}
+
+// skipComposite consumes tokens until the currently-open object or array closes.
+func skipComposite(dec *json.Decoder) error {
+	for depth := 1; depth > 0; {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		if d, ok := tok.(json.Delim); ok {
+			switch d {
+			case '{', '[':
+				depth++
+			case '}', ']':
+				depth--
+			}
+		}
+	}
+	return nil
+}
+```
+
+**Keep this in `dataprofile`, unexported.** Do not lift it into `sdks/go/internal/` for reuse: one package needs it today, `connectorkit` already carries its own fold helper rather than sharing one, and adding an internal package is a layout decision this shipment has no mandate to make. Lift it when a second caller exists.
+
+**Verified before this plan was written**, against a deliberately adversarial object — keys out of alphabetical order, a nested object containing a nested array, an array of objects, and the value `"}{"`. Document order held across all six keys. That last value is the reason `Token()` is the right tool rather than manual brace counting: a scanner tracking `{`/`}` by hand walks straight into a brace inside a string literal, and `Token()` is a real tokenizer that does not.
 
 - [ ] **Step 2: Build, vet, format**
 

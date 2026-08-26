@@ -155,6 +155,14 @@ export function firstLineAndRows(
   if (truncated) {
     return { firstLine, rowCountEstimate: null };
   }
+  // An empty input has zero lines. `nl + 1` is right for every non-empty text that does
+  // not end in a newline, and wrong only here — the `Math.max(0, …)` floor this replaced
+  // could never catch it, because the sum is never negative. Specified by
+  // `docs/spec/batteries/v1/data-profile.md` §7.1 and authorised by RFC-0017 §6.1's
+  // register of corrections; the conformance case is what found it.
+  if (text === "") {
+    return { firstLine, rowCountEstimate: 0 };
+  }
   const nl = (text.match(/\n/g) ?? []).length;
-  return { firstLine, rowCountEstimate: Math.max(0, text.endsWith("\n") ? nl : nl + 1) };
+  return { firstLine, rowCountEstimate: text.endsWith("\n") ? nl : nl + 1 };
 }

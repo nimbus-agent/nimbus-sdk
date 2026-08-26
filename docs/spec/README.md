@@ -166,7 +166,7 @@ U+FEFF, U+0085 and U+001C–U+001F. See
 
 ### `conformance/v1/`
 
-Seven corpora, because the contract has seven kinds of assertion.
+Eight corpora, because the contract has eight kinds of assertion.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -235,6 +235,15 @@ both — so two bindings are held to the same words and not merely to the same v
 binding that refuses for the right reason with different wording still fails the case,
 because the message is contract text.
 
+**Data-profile cases** — [`data-profile/`](./conformance/v1/data-profile/) is the executable
+form of [`batteries/v1/data-profile.md`](./batteries/v1/data-profile.md), with its own
+[`index.json`](./conformance/v1/data-profile/index.json) and
+[`case.schema.json`](./conformance/v1/data-profile/case.schema.json). It is the first corpus
+whose cases are discriminated by a **`kind`** rather than by an outcome: the battery is six
+functions rather than one predicate, so a case names which one it calls and carries only
+that function's inputs. The schema enforces that pairing, so a case with a mistyped input
+member fails validation rather than running vacuously against an absent argument.
+
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
 - **`equivalence`** — the schema and `runContractTests` both cover these fields and must
@@ -270,7 +279,7 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Eight guards run on every pull request as part of `bun run test` (see
+Nine guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
@@ -287,9 +296,10 @@ same SSRF chokepoint rather than the two ends of a protocol, reach the same verd
 same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Four corpora are executed by the **TypeScript** binding alone.
+whole tree. Five corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
+`data-profile` is executed by the **TypeScript** binding only *for now*, and is the one entry here that is temporary rather than structural — the Python and Go bindings land later in the same shipment, at which point it moves up to the dual-run list above.
 All four are real corpora with real guards, but no second implementation runs them, so they
 carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
 `item` run as "the reference implementation agrees with the spec", not as "the spec is
@@ -366,6 +376,22 @@ exercised. It also pins §4 specifically against relative-reference resolution: 
 protocol-relative case (`input` starting with `//`) must resolve by string concatenation,
 staying on the base's own host, rather than by `urljoin` / `new URL(input, base)`, which would
 read it as a network-authority reference and hand the fetch to a different host.
+
+`sdks/typescript/scripts/data-profile-guard.test.ts` validates the data-profile corpus
+against its schemas, holds the index and the cases directory to each other, and drives every
+case through the battery's six functions. Its cases are discriminated by `kind` rather than
+by an ok/refused outcome — the battery is six functions, not one predicate — so it asserts
+every kind is exercised in place of asserting both outcomes. Four of its checks guard a
+specific wrong implementation rather than a section: the §1.1 column cap needs a case whose
+input actually exceeds 512 fields; §7.1 needs both the truncated and the untruncated empty
+input, since a binding could otherwise satisfy it by special-casing the empty string ahead
+of the truncation check; §6.1 needs a row count above 2⁵³−1, without which a binding
+returning an exact integer type would pass every other parquet case; and at least one case
+must carry non-alphabetical keys, or a binding decoding an object into a sorted map would
+pass every object case. It also asserts §2.1 by **absence** — exactly the six kind names
+reachable from JSON are asserted and no others, because a case pinning `undefined`,
+`function`, `symbol` or `bigint` would violate the batteries preamble's §R3 rather than add
+coverage.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

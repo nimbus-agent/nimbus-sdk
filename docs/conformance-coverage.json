@@ -3,6 +3,7 @@
   "languages": {
     "typescript": {
       "claims": [
+        "data-profile",
         "diagnostics",
         "framing",
         "item",
@@ -16,22 +17,34 @@
       "deferred": {}
     },
     "python": {
-      "claims": ["diagnostics", "framing", "negotiation", "url-resolution"],
+      "claims": [
+        "diagnostics",
+        "framing",
+        "negotiation",
+        "url-resolution"
+      ],
       "unclaimed": {
-        "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",
-        "sandbox": "binds the sandbox probe protocol, which nimbus_sdk does not publish",
+        "data-profile": "the binding lands later in this shipment; the corpus is TypeScript-only until it does",
+        "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "manifest": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
-        "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written"
+        "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",
+        "sandbox": "binds the sandbox probe protocol, which nimbus_sdk does not publish"
       },
       "deferred": {}
     },
     "go": {
-      "claims": ["diagnostics", "framing", "negotiation", "url-resolution"],
+      "claims": [
+        "diagnostics",
+        "framing",
+        "negotiation",
+        "url-resolution"
+      ],
       "unclaimed": {
-        "predicates": "binds predicates no Go package publishes",
-        "sandbox": "binds the sandbox probe protocol, which no Go package publishes",
+        "data-profile": "the binding lands later in this shipment; the corpus is TypeScript-only until it does",
+        "item": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written",
         "manifest": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written",
-        "item": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written"
+        "predicates": "binds predicates no Go package publishes",
+        "sandbox": "binds the sandbox probe protocol, which no Go package publishes"
       },
       "deferred": {}
     }

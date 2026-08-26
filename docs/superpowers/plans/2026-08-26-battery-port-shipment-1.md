@@ -146,11 +146,22 @@ The §6.1 case is the one to write carefully: express `num_rows` in the case fil
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-ls docs/spec/conformance/v1/data-profile/cases | sort > /tmp/on-disk.txt
-python -c "import json;print('\n'.join(sorted(c['file'].replace('cases/','') for c in json.load(open('docs/spec/conformance/v1/data-profile/index.json'))['cases'])))" > /tmp/indexed.txt
-diff /tmp/on-disk.txt /tmp/indexed.txt && echo "[index and directory agree]"
+python -c "
+import json, os
+d = json.load(open('docs/spec/conformance/v1/data-profile/index.json', encoding='utf-8'))
+indexed = sorted(c['file'].replace('cases/', '') for c in d['cases'])
+on_disk = sorted(os.listdir('docs/spec/conformance/v1/data-profile/cases'))
+print('indexed:', len(indexed), 'on disk:', len(on_disk))
+print('only in index:', set(indexed) - set(on_disk))
+print('only on disk:', set(on_disk) - set(indexed))
+print('AGREE' if indexed == on_disk else 'DISAGREE')
+"
 ```
-Expected: no diff. Task 2's guard asserts this too; doing it here catches a typo before the guard exists to explain it.
+Expected: equal counts, two empty sets, and `AGREE`.
+
+**One process, no temporary files.** The obvious shape — two redirects into `/tmp` and a `diff` — is not portable: `/tmp` does not exist on a Windows developer machine, and the second redirect silently produces nothing while the first appears to succeed, so the `diff` fails on a missing file rather than reporting drift. Doing the comparison in the process that already has both lists avoids the temp directory, the `trap` that would have to clean it up, and the platform question entirely.
+
+Task 2's guard asserts this too; doing it here catches a typo before the guard exists to explain it.
 
 - [ ] **Step 6: Re-sync the Go mirror and commit**
 

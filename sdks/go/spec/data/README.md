@@ -166,7 +166,10 @@ U+FEFF, U+0085 and U+001C–U+001F. See
 
 ### `conformance/v1/`
 
-Eight corpora, because the contract has eight kinds of assertion.
+Eight kinds of assertion, across **nine** corpus directories — the two counts differ
+because the document fixtures cover both `manifest` and `item` from one top-level index.
+The groups below are the eight kinds; `corpusNames()` in
+`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the nine.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -300,10 +303,10 @@ whole tree. Five corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
 `data-profile` is executed by the **TypeScript** binding only *for now*, and is the one entry here that is temporary rather than structural — the Python and Go bindings land later in the same shipment, at which point it moves up to the dual-run list above.
-All four are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
-`item` run as "the reference implementation agrees with the spec", not as "the spec is
-implementable twice".
+All five are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`,
+`item` or `data-profile` run as "the reference implementation agrees with the spec", not as
+"the spec is implementable twice".
 
 Which binding runs which corpus is declared in
 [`docs/conformance-coverage.json`](../conformance-coverage.json) and rendered, with the

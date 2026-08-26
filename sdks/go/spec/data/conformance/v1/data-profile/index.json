@@ -164,7 +164,7 @@
     {
       "file": "cases/first-line-empty-input.json",
       "section": "§7.1",
-      "reason": "An empty input has zero lines. The reference implementation returns 1, because the count is nl + 1 whenever the text does not end with a newline and the Math.max(0, ...) floor cannot catch a sum that is never negative. This case is what fails it; the correction is registered in RFC-0017 §6.1. Caught by 0 of the other cases: every other text is non-empty."
+      "reason": "An empty input has zero lines. The reference implementation returned 1 until this case was added: the count is nl + 1 whenever the text does not end with a newline, and the Math.max(0, ...) floor could never catch a sum that is never negative. This case is what found it, and the correction is registered in RFC-0017 section 6.1. Caught by 0 of the other cases: every other text is non-empty."
     },
     {
       "file": "cases/first-line-empty-truncated.json",

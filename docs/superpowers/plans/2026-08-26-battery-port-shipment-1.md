@@ -104,15 +104,17 @@ Then constrain `expect` per kind with an `allOf` block. The four shapes:
 
 Give each `if`/`then` pair a `required` list naming that kind's inputs, so a case with a mistyped input member fails schema validation rather than running vacuously against `undefined`.
 
-**`expect` is always an object, including for `js-kind`.** A bare string would be shorter, and it is deliberately not used: every other kind needs an object, and one uniform shape means each of the three runners has one comparison path rather than a special case that only `js-kind` exercises — the special case being the one most likely to rot. So all three runners compare the **member**:
+**`expect` is always an object, including for `js-kind`.** A bare string would be shorter, and it is deliberately not used: every other kind needs an object, and one uniform shape means each of the three runners has one comparison path rather than a special case that only `js-kind` exercises — the special case being the one most likely to rot.
+
+So each runner builds the **whole result shape** and compares it against the whole `expect` object, `js-kind` included: a `run()` that returns `{ kind: jsKind(value) }`, compared with deep equality.
 
 | Language | The assertion |
 |---|---|
-| TypeScript | `expect(jsKind(body.value)).toBe(body.expect.kind)` |
-| Python | `assert js_kind(case["value"]) == case["expect"]["kind"]` |
-| Go | compare `JSKind(v)` against `expect["kind"].(string)`, type-asserted rather than comma-ok'd |
+| TypeScript | `expect(run(body)).toEqual(body.expect)` |
+| Python | `assert set(actual) == set(expect)`, then per-key `==` |
+| Go | compare the built map against `expect`, type-asserting each key rather than comma-ok'ing it |
 
-Not `{ kind: jsKind(v) }` against the whole `expect` object — that reads the same today and starts silently ignoring members the moment `expect` grows one.
+Not `jsKind(v)` against `expect["kind"]` alone. Deep equality on `{kind}` against an `expect` that later grows a member **fails**, naming the case; a member comparison never looks at the new member and passes. An earlier draft of this plan had that backwards and said the opposite — see the correction in the review record.
 
 - [ ] **Step 3: Write the cases**
 

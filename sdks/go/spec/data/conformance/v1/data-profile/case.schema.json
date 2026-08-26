@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/data-profile/case.schema.json",
   "title": "data-profile conformance case",
-  "description": "One call into the data-profile battery. `kind` selects the function; the input members and the shape of `expect` follow from it. `expect` is always an object, including for js-kind, so every runner has one comparison path rather than a special case only one kind exercises.",
+  "description": "One call into the data-profile battery. `kind` selects the function; the input members and the shape of `expect` follow from it. Each `then` branch both REQUIRES its own inputs and forbids every other kind's, so a case carrying a member that belongs to a different function fails validation rather than running against an absent argument. `expect` is always an object, including for js-kind, so every runner has one comparison path rather than a special case only one kind exercises.",
   "type": "object",
   "required": ["description", "kind", "expect"],
   "additionalProperties": false,
@@ -55,6 +55,21 @@
     "rowCountEstimate": {
       "type": ["number", "null"],
       "description": "An IEEE-754 double per §6.1, inexact above 2^53-1 by specification."
+    },
+    "columnsExpect": {
+      "type": "object",
+      "required": ["columns"],
+      "additionalProperties": false,
+      "properties": { "columns": { "$ref": "#/definitions/columns" } }
+    },
+    "columnsAndRowsExpect": {
+      "type": "object",
+      "required": ["columns", "rowCountEstimate"],
+      "additionalProperties": false,
+      "properties": {
+        "columns": { "$ref": "#/definitions/columns" },
+        "rowCountEstimate": { "$ref": "#/definitions/rowCountEstimate" }
+      }
     }
   },
   "allOf": [
@@ -63,6 +78,10 @@
       "then": {
         "required": ["value"],
         "properties": {
+          "line": false,
+          "meta": false,
+          "text": false,
+          "truncated": false,
           "expect": {
             "type": "object",
             "required": ["kind"],
@@ -85,12 +104,11 @@
       "then": {
         "required": ["line"],
         "properties": {
-          "expect": {
-            "type": "object",
-            "required": ["columns"],
-            "additionalProperties": false,
-            "properties": { "columns": { "$ref": "#/definitions/columns" } }
-          }
+          "value": false,
+          "meta": false,
+          "text": false,
+          "truncated": false,
+          "expect": { "$ref": "#/definitions/columnsExpect" }
         }
       }
     },
@@ -99,15 +117,11 @@
       "then": {
         "required": ["value"],
         "properties": {
-          "expect": {
-            "type": "object",
-            "required": ["columns", "rowCountEstimate"],
-            "additionalProperties": false,
-            "properties": {
-              "columns": { "$ref": "#/definitions/columns" },
-              "rowCountEstimate": { "$ref": "#/definitions/rowCountEstimate" }
-            }
-          }
+          "line": false,
+          "meta": false,
+          "text": false,
+          "truncated": false,
+          "expect": { "$ref": "#/definitions/columnsAndRowsExpect" }
         }
       }
     },
@@ -116,15 +130,11 @@
       "then": {
         "required": ["meta"],
         "properties": {
-          "expect": {
-            "type": "object",
-            "required": ["columns", "rowCountEstimate"],
-            "additionalProperties": false,
-            "properties": {
-              "columns": { "$ref": "#/definitions/columns" },
-              "rowCountEstimate": { "$ref": "#/definitions/rowCountEstimate" }
-            }
-          }
+          "value": false,
+          "line": false,
+          "text": false,
+          "truncated": false,
+          "expect": { "$ref": "#/definitions/columnsAndRowsExpect" }
         }
       }
     },
@@ -133,6 +143,9 @@
       "then": {
         "required": ["text", "truncated"],
         "properties": {
+          "value": false,
+          "line": false,
+          "meta": false,
           "expect": {
             "type": "object",
             "required": ["firstLine", "rowCountEstimate"],

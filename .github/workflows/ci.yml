@@ -357,6 +357,7 @@ jobs:
         working-directory: sdks/typescript
         run: |
           bun test \
+            scripts/data-profile-guard.test.ts \
             scripts/diagnostics-guard.test.ts \
             scripts/framing-guard.test.ts \
             scripts/negotiation-guard.test.ts \

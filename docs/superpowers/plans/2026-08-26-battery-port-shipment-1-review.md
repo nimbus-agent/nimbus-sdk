@@ -93,10 +93,27 @@ is "not applicable" rather than "could not interpret".
 
 ### S2.3 — how `js-kind` is compared
 
-Accepted that it was ambiguous, resolved **opposite** to the suggestion. The runners
-compare the member — `jsKind(value)` against `expect.kind` — not `{ kind: jsKind(value) }`
-against the whole `expect` object. Comparing whole objects reads identically today and
-starts silently ignoring members the moment `expect` grows one.
+Accepted that it was ambiguous. **The resolution recorded here was wrong, and is corrected
+below** — caught in review of PR #190, where the shipped guard did not match this record.
+
+What was written: that the runners compare the member, `jsKind(value)` against
+`expect.kind`, because comparing whole objects "starts silently ignoring members the moment
+`expect` grows one".
+
+That has it backwards. `expect(run(body)).toEqual(body.expect)` on `{kind}` against a
+grown `{kind, …}` **fails loudly** — deep equality is not satisfied by a subset. It is the
+*member* comparison that would silently ignore a new member, by never looking at it.
+
+So the shipped form is the correct one, and the record is what moves: **all three runners
+compare the whole result shape against the whole `expect` object**, with deep equality
+(`toEqual` in TypeScript, a key-set assertion plus per-key comparison in Python, and the
+same in Go). `run()` returning `{ kind: jsKind(value) }` for `js-kind` is what gives every
+kind one comparison path, which was the other half of the original reasoning and remains
+right.
+
+The one refinement worth keeping from the original instinct: the runners compare the
+**shape** first (`set(actual) == set(expect)`), so a new member in `expect` fails as a shape
+mismatch naming the case, rather than as a value diff.
 
 `expect` nonetheless stays an object for `js-kind` rather than becoming a bare string: every
 other kind needs an object, and one uniform shape gives each of the three runners a single

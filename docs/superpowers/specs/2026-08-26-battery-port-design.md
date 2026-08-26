@@ -132,6 +132,18 @@ pattern bites; four new corpora on one pattern is four fewer chances to hit it.
 | `icalendar` | `parse`, `build` | `parse`: an ICS string (CRLF as `\r\n`) → `ParsedEvent[]`. `build`: a `BuildEventInput` plus a **fixed `now`** → the exact emitted string, byte for byte. |
 | `jmap` | `session`, `email-view`, `request`, `api-url` | `api-url` normatively references `url-resolution.md` §6's origin definition rather than restating it; its cases live here because the signature differs. |
 
+**The document and corpus are `jmap`, not `jmap-fastmail`, and that mismatch with the
+module names is deliberate.** The module carries a vendor name for historical reasons —
+nothing in it is Fastmail-specific; `parseSession`, `viewEmail` and `validateApiUrl` are
+JMAP (RFC 8620 / RFC 8621) operations. A normative document should be named for what it
+specifies. The mismatch also costs nothing mechanically: every runner is hand-written per
+corpus and names its corpus directly, so there is no path mapping to keep in step — the
+existing `url-resolution` corpus already names a *document*, not the
+`connector-kit/fetch-bearer-json.js` module it executes. And spec paths are the expensive
+thing to rename later: they are referenced from `index.json`, mirrored into
+`sdks/go/spec/data/`, and embedded in Go, whereas a module rename is local. If
+`jmap-fastmail` ever sheds the vendor name, `jmap` is already correct.
+
 ### Anti-vacuity
 
 Every guard must be unable to pass vacuously. Each of the four reproduces the house set:
@@ -176,6 +188,12 @@ from 4 to 8. Four new Go packages — `icalendar`, `dataprofile`, `jmapfastmail`
 list in `sdks/go/internal/apisurface/cmd/main.go` grows with them; the existing coverage
 test fails loudly if it does not.
 
+The Go names are unabbreviated on purpose. `distributionchannel` is long, but RFC-0012's
+D4 makes Go's names follow Python's, trimming only what the package qualifier already
+supplies — and there is nothing to trim here. Abbreviating to `distchannel` would invent a
+name that appears in no other binding and no document, which is the one thing D4 exists to
+prevent. `distributionchannel.Resolve()` at the call site is the cost.
+
 **TypeScript keeps shipping all four from `.`.** The five-entry `exports` map gains no
 new entries. Adding `./icalendar` and friends would restore symmetry, but it changes the
 packaging of a `stable` surface for no consumer benefit — existing imports already work.
@@ -207,17 +225,42 @@ no RFC, so the promotion itself is cheap to land. What is not cheap is the promi
 is the narrow waist, and freezing `icalendar` and `jmap-fastmail` alongside `types.js` and
 the handshake is a much larger commitment than "these are ported".
 
-**This is the one decision this document does not close.** The alternative is for RFC-0017
-to amend RFC-0015 so that a normative document plus a corpus guard is *necessary but not
-sufficient* for `frozen` — leaving the batteries `stable` with a spec behind them, and
-making `frozen` a deliberate act rather than an automatic consequence. That amendment is
-the smaller promise but weakens a definition currently doing real work.
+**This is the one decision this document does not close.** Two amendments are on the table,
+and they are not equally good.
 
-The recommendation is to **promote**, on the grounds that RFC-0015 already made this the
-meaning of "specified and corpus-gated" and that quietly exempting the first four
-candidates would hollow out the definition on its first test. But it is the user's call,
-and it should be made before Shipment 0, because RFC-0017 either carries the amendment or
-does not.
+**The wide amendment — decouple spec-and-corpus from `frozen`, leave the batteries
+`stable`.** Rejected as the recommendation, for two reasons.
+
+First, it undoes RFC-0015's central argument. That RFC makes `frozen`'s definition
+mechanical *on purpose*: *"'Which things are core?' is a taste question that gets
+re-litigated at every proposal; 'which module does a corpus guard import?' has one answer,
+and it is greppable."* It then records the definition overruling its own authors — a first
+pass classified `contract-tests`, `hitl-request` and `sandbox-contract` as `stable` on
+intuition, and reading the guards' imports moved all three to `frozen`. Exempting the first
+four candidates that reach the bar on the grounds that freezing them feels inconvenient is
+the taste-based re-litigation the rule was written to stop.
+
+Second, and decisively: **it does not treat the disease.** The maintenance drag the review
+identifies is real — every new iCalendar property or JMAP field would need a spec section,
+corpus cases in four places, and three bindings moving together. But almost all of that
+comes from *having a normative document and a corpus*, which this design keeps under either
+amendment. `docs/GOVERNANCE.md` already classes a change to a conformance invariant as
+contract-affecting and RFC-requiring, independent of any tier. Staying `stable` buys back
+one line of the rule table and leaves the rest of the cost exactly where it was.
+
+**The narrow amendment — make `Export added` cost `feat:` at `frozen`, as it already does
+at the other two tiers.** This is the better target, and it is grounded in RFC-0015's own
+words. §2 opens by stating the principle *"The tier governs **what it costs to break
+something, not what it costs to add.**"* and then the table's `Export added` row charges an
+RFC at `frozen` anyway. That is an internal inconsistency, and it is precisely the cell the
+review's drag flows through: adding an iCalendar property is an addition, not a break.
+Correcting it relieves the drag, keeps the mechanical definition intact, and leaves every
+*breaking* change to a frozen battery RFC-gated — which is what freezing is supposed to
+mean.
+
+The recommendation is therefore: **promote to `frozen`, and carry the narrow amendment in
+RFC-0017.** It should be settled before Shipment 0, because RFC-0017 either carries an
+amendment or does not.
 
 Per-binding tiers already exist — Go demotes `contract.IsContractVersion` below its
 package's `frozen` — so the born-`experimental` step needs no new machinery.
@@ -246,8 +289,35 @@ the class of bug the `connector-kit` port found four of by hand.
 
 **Resolution:** the specification names its own whitespace set (Rule 4 applied to a second
 JS-derived vocabulary) and every binding trims against that set rather than delegating to
-its host language. Which set — TypeScript stops stripping U+FEFF, or Python and Go start —
-is the decision RFC-0017 records.
+its host language.
+
+**The set is ECMA-262's, enumerated explicitly.** That is `WhiteSpace` + `LineTerminator`:
+U+0009, U+000A, U+000B, U+000C, U+000D, U+0020, U+00A0, U+1680, U+2000–U+200A, U+2028,
+U+2029, U+202F, U+205F, U+3000, U+FEFF. It **includes** U+FEFF and **excludes** U+0085 and
+U+001C–U+001F.
+
+Three reasons, in order of weight:
+
+1. It is the only choice under which **no shipped TypeScript behaviour changes.** The
+   U+FEFF correction stops being a behaviour change to a `stable` module, which removes
+   the entire ungated-PR-(b) problem for the trim sites and shrinks RFC-0017's blast
+   radius to "write it down".
+2. Stripping a leading BOM is the behaviour a CSV parser wants; NEL and the C0 separators
+   are not whitespace anyone puts at the edge of a column name on purpose.
+3. Python and Go are new bindings here, so making them implement a helper costs nothing
+   that is already shipped.
+
+**But the set must be written out, not referenced.** ECMA-262 defines `WhiteSpace` partly
+by *Unicode general category Zs*, which is version-dependent — a future Unicode adding a
+Zs code point would silently change what `.trim()` does and drift TypeScript away from the
+document. So `batteries/v1/README.md` enumerates the code points literally (the list
+above), and **TypeScript gets its own trim helper too** rather than delegating to
+`String.prototype.trim()`. That is Rule 4 applied honestly: a closed set means closed, not
+"whatever the host does today". Today the helper is behaviour-identical to `.trim()`, so
+it ships as a refactor, not a correction.
+
+Python must additionally stop stripping U+001C–U+001F, and Go must start stripping U+FEFF
+and stop stripping U+0085 — both in code that does not exist yet.
 
 ### The second open behaviour question
 
@@ -259,6 +329,19 @@ fold, callers must" or folding is added. RFC-0018 records the choice.
 Note that folding is *also* a three-way divergence risk if it is added: RFC 5545 counts
 **octets**, while JavaScript's `.length` counts UTF-16 code units, Python's `len()` counts
 code points, and Go's `len()` counts bytes.
+
+**If folding is added, the fold boundary must be code-point aligned** — the last code-point
+boundary that keeps the line at or under 75 octets, never a blind cut at octet 75. RFC 5545
+§3.1 anticipates the failure in its own words: *"It is possible for very simple
+implementations to generate improperly folded lines in the middle of a UTF-8 multi-octet
+sequence. For this reason, implementations need to unfold lines in such a way to properly
+restore the original sequence."* The RFC puts the burden on the unfolder, but a folder that
+splits a multi-octet sequence emits individually invalid UTF-8 lines, which breaks any
+intermediary that decodes line-by-line before unfolding — and this SDK ships exactly such
+an intermediary in `ipc`'s line reader. Naïve `s.slice(0, 75)` in three languages would
+also cut at three different places. RFC-0018 pins the alignment rule alongside the
+fold-or-not decision; the corpus needs at least one `build` case whose fold point falls
+inside a multi-octet sequence.
 
 ## Guard and CI wiring
 
@@ -302,13 +385,36 @@ Without the reinstall the suite reads the previous snapshot and **passes while e
 none of the new cases**. CI never hits this, which is what makes it dangerous: it only
 ever appears as a false green locally.
 
+**Do not fix this by flipping `spec_root()`'s precedence.** Preferring `_REPO_SPEC` over
+`_BUNDLED` looks like the obvious repair and breaks a packaging guarantee: the current
+order is what makes *"a distribution built without its data raises rather than silently
+reading from somewhere else"* true, and `tests/test_spec.py`'s sdist→wheel→venv test holds
+that line. `_REPO_SPEC` is `parents[4] / "docs" / "spec"`, and for a Windows venv inside
+the checkout (`.venv/Lib/site-packages/nimbus_sdk/spec.py`) `parents[4]` **is the repository
+root** — so with the precedence flipped, an installed wheel with no bundled data would
+quietly read the neighbouring checkout and pass. That is the exact failure the ordering
+exists to prevent.
+
+**Fix it with a drift test instead**, mirroring what Go already does. Add
+`sdks/python/tests/test_spec_snapshot.py`: when `_BUNDLED` and `_REPO_SPEC` both exist,
+compare the two trees and fail on any difference; skip when `_REPO_SPEC` is absent, since
+an installed wheel has no checkout to compare against. That converts the false green into
+a red test at the moment it matters, changes no precedence, and is the direct counterpart
+of `sdks/go/spec/drift_test.go` — the same guard Go needs because its copy is committed,
+which Python needs because its copy is stale-able. It belongs in **Shipment 0**, before any
+corpus makes the trap live.
+
 ## Shipments
 
 ### Shipment 0 — the spec sweep, prose only
 
 `docs/spec/batteries/v1/README.md` plus the four normative documents. No corpora, no
-code. It still touches `sdks/go/spec/data/` (the mirror covers `.md` files too) and so
-needs `go -C sdks/go generate ./spec`, but typed `docs:` it cuts no release.
+binding code. It still touches `sdks/go/spec/data/` (the mirror covers `.md` files too)
+and so needs `go -C sdks/go generate ./spec`, but typed `docs:` it cuts no release.
+
+One piece of test code rides along in its own pull request: **`sdks/python/tests/test_spec_snapshot.py`**,
+the `_data/spec` drift test described under [The local-only trap](#the-local-only-trap).
+It lands first, before any corpus makes the trap live, and is typed `test(python):`.
 
 Every tiebreak decision is argued here, while changing one's mind costs a paragraph
 rather than four documents plus 135 cases plus twelve implementations.
@@ -341,7 +447,14 @@ Each shipment splits into four **sequential** pull requests against `main`:
 no CI at all, and retargeting the stack trips `commit-guard` instead. Each merges before
 the next opens.
 
-**PR (b) has no automated gate, and that is worth knowing before relying on one.** The
+**PR (b) is conditional, and may be empty.** It exists only when the corpus actually fails
+the shipped TypeScript. With ECMA-262 chosen as the whitespace set, the trim divergence
+costs TypeScript no behaviour change at all, so the largest known candidate for a (b) has
+already evaporated. Seventeen pull requests is therefore an upper bound; thirteen is the
+floor.
+
+**When a (b) does exist it has no automated gate, and that is worth knowing before relying
+on one.** The
 fifth check — `conventional-commit-guard.ts` plus `stability-rules.ts` — *diffs the three
 `api-surface` goldens*, and RFC-0015's rule table has rows only for an export added,
 removed, signature-changed, or re-tiered. A behaviour change behind an unchanged signature
@@ -353,7 +466,8 @@ PRs (c) and (d) *do* trip the guard — every new export is a row — and pass b
 `Export added` is `feat:` at `experimental`. The later promotion to `frozen` trips it
 again as `Tier promoted`, also `feat:`, also without an RFC.
 
-Seventeen pull requests in total. That is the honest cost of the full four-battery scope
+Fourteen to eighteen pull requests in total — Shipment 0's two, plus three or four per
+battery. That is the honest cost of the full four-battery scope
 combined with one component per pull request; the alternative is one pull request per
 shipment, which releases TypeScript, Python and Go under a single subject line —
 release-please assigns a commit to a component by the **paths** it touches, not by its
@@ -370,10 +484,12 @@ than by hand.
 
 - **RFC-0017 — battery specifications and the normative whitespace set.** Establishes
   `docs/spec/batteries/v1/`, the six preamble rules, and pins the whitespace set for all
-  13 trim sites. It is a behaviour change to `stable` modules: either TypeScript stops
-  stripping U+FEFF, or Python and Go start. It also carries the `frozen`-definition
-  decision from [Stability tiers](#stability-tiers--and-the-frozen-consequence) — either
-  the amendment, or an explicit statement that promotion follows. Lands with Shipment 0.
+  13 trim sites. With ECMA-262's set chosen, this is **not** a behaviour change to any
+  shipped module — TypeScript's new trim helper is behaviour-identical to
+  `String.prototype.trim()` today — so the RFC's job is to write the set down and pin it
+  against Unicode drift, not to move anything. It also carries the narrow rule-table
+  amendment from [Stability tiers](#stability-tiers--and-the-frozen-consequence). Lands
+  with Shipment 0.
 - **RFC-0018 — `buildVEvent` line folding.** Pins "this builder does not fold" or adds
   folding. Lands with Shipment 3.
 

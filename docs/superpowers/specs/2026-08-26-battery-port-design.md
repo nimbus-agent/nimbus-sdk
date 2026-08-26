@@ -419,6 +419,18 @@ of `sdks/go/spec/drift_test.go` — the same guard Go needs because its copy is 
 which Python needs because its copy is stale-able. It belongs in **Shipment 0**, before any
 corpus makes the trap live.
 
+**The two mirrors are not the same tree, and the guard has to know it.** `sdks/go/spec/data/`
+is a complete copy — 315 files, all 8 `.md` documents included. Python's is not:
+`hatch_build.py` copies with `ignore_patterns("*.md")`, so the snapshot holds 307 files and
+no normative document at all. That is the right split, since nothing in `nimbus_sdk` reads
+Markdown — but it means the Python comparison must exclude `.md` on the upstream side or it
+fails on a clean tree, and it means **Go's guard is the only one that sees a specification
+document change.** Shipment 0 adds five Markdown files and nothing else under `docs/spec/`,
+so Python's guard is correctly blind to the entire shipment; it starts covering this area in
+Shipment 1, when the first corpus lands as JSON. A second test pins the exclusion itself, so
+a future hook that stops ignoring `*.md` reports its own cause rather than surfacing as 8
+files of phantom drift.
+
 ## Shipments
 
 ### Shipment 0 — the spec sweep, prose only

@@ -82,6 +82,13 @@ Deliberately NOT fixed by reordering ``spec_root()``: preferring the repository 
 would break the guarantee that a wheel built without its data raises rather than reading
 somewhere else. ``_REPO_SPEC`` is ``parents[4] / "docs" / "spec"``, and for a Windows
 venv inside the checkout that resolves to the repository root itself.
+
+**The snapshot is not a whole copy.** ``hatch_build.py`` copies with
+``ignore_patterns("*.md")``, so the normative documents are absent and only the JSON --
+schemas and conformance corpora -- is bundled. That is the right split: nothing in
+``nimbus_sdk`` reads a Markdown document. It does mean this guard covers the JSON tree
+only; ``sdks/go/spec/data/`` is the complete copy, and Go's ``drift_test.go`` is the
+only guard that sees a specification document change.
 """
 
 from __future__ import annotations
@@ -94,17 +101,21 @@ from nimbus_sdk.spec import _BUNDLED, _REPO_SPEC
 
 REINSTALL = "run `python -m pip install -e .` from sdks/python/ to regenerate the snapshot"
 
-#: The spec tree has hundreds of files. A comparison over a handful means a broken
-#: build hook, not a clean tree.
+#: The JSON side of the spec tree runs to hundreds of files. A comparison over a handful
+#: means a broken build hook, not a clean tree.
 MIN_FILES = 100
 
 
-def _files(root: Path) -> dict[str, bytes]:
-    """Every file under ``root``, keyed by POSIX-style relative path."""
+def _files(root: Path, *, skip_markdown: bool) -> dict[str, bytes]:
+    """Every file under ``root``, keyed by POSIX-style relative path.
+
+    ``skip_markdown`` mirrors ``hatch_build.py``'s ``ignore_patterns("*.md")`` and is set
+    when reading upstream, so the two sides are comparable.
+    """
     return {
         path.relative_to(root).as_posix(): path.read_bytes()
         for path in sorted(root.rglob("*"))
-        if path.is_file()
+        if path.is_file() and not (skip_markdown and path.suffix == ".md")
     }
 
 
@@ -113,8 +124,8 @@ def test_bundled_snapshot_matches_docs_spec() -> None:
     if not _BUNDLED.is_dir():
         pytest.skip("no bundled snapshot -- spec_root() is reading docs/spec directly")
 
-    bundled = _files(_BUNDLED)
-    upstream = _files(_REPO_SPEC)
+    bundled = _files(_BUNDLED, skip_markdown=False)
+    upstream = _files(_REPO_SPEC, skip_markdown=True)
 
     added = sorted(set(upstream) - set(bundled))
     deleted = sorted(set(bundled) - set(upstream))
@@ -127,16 +138,35 @@ def test_bundled_snapshot_matches_docs_spec() -> None:
     assert not differing, f"differs from docs/spec: {differing} -- {REINSTALL}"
 
 
+@pytest.mark.skipif(not _BUNDLED.is_dir(), reason="no bundled snapshot")
+def test_the_snapshot_carries_no_markdown() -> None:
+    """Pins ``hatch_build.py``'s exclusion.
+
+    If the hook ever stops ignoring ``*.md``, the comparison above starts reporting every
+    document as deleted-from-the-snapshot and the failure reads as drift rather than as a
+    changed build hook. This test names the real cause first.
+    """
+    markdown = sorted(
+        name for name in _files(_BUNDLED, skip_markdown=False) if name.endswith(".md")
+    )
+    assert not markdown, (
+        f"the snapshot carries Markdown: {markdown} -- hatch_build.py's "
+        "ignore_patterns('*.md') changed, so this test's sibling needs updating too"
+    )
+
+
 @pytest.mark.skipif(not _REPO_SPEC.is_dir(), reason="not a repository checkout")
 def test_the_comparison_is_not_vacuous() -> None:
     """A guard that compares an empty tree passes for the wrong reason."""
     root = _BUNDLED if _BUNDLED.is_dir() else _REPO_SPEC
-    count = len(_files(root))
+    count = len(_files(root, skip_markdown=root is _REPO_SPEC))
     assert count >= MIN_FILES, (
         f"{root} holds {count} files; the spec has hundreds -- "
         "the build hook is not populating the snapshot"
     )
 ```
+
+**Expected counts at the time of writing:** `docs/spec/` holds 315 files, of which 8 are `.md`, so the snapshot holds 307. Do not hard-code either number — `MIN_FILES` is a floor for exactly the reason `test_spec.py`'s two exact pins had both drifted.
 
 - [ ] **Step 2: Reinstall, then run the test — it must pass on a clean tree**
 
@@ -144,24 +174,37 @@ Run:
 ```bash
 cd sdks/python && python -m pip install -e . && python -m pytest tests/test_spec_snapshot.py -v
 ```
-Expected: 2 passed.
+Expected: 3 passed.
+
+Note: `_data/spec` does not exist in this worktree yet (it is gitignored, and an editable install points at whichever worktree installed last). Without the reinstall all three tests skip — a skip is not a pass, so read the summary line rather than the exit code.
 
 - [ ] **Step 3: Prove the guard can fail**
 
 A test-only deliverable has no failing-implementation stage, so manufacture the drift instead. Without this step the guard could be vacuous and nothing would say so.
 
+Use a **JSON** probe, not a Markdown one: `.md` files are excluded from the snapshot, so editing one proves nothing. Creating a file also exercises the `added` branch, and unlike editing an existing corpus file it cannot leave a half-valid JSON behind if the step is interrupted.
+
 Run:
 ```bash
-cd sdks/python && printf '\n' >> ../../docs/spec/README.md && python -m pytest tests/test_spec_snapshot.py -v
-```
-Expected: `test_bundled_snapshot_matches_docs_spec` FAILS with `differs from docs/spec: ['README.md']`.
-
-Then revert the edit and confirm green again:
-```bash
-cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && git checkout docs/spec/README.md
+cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && printf '{}' > docs/spec/_drift_probe.json
 cd sdks/python && python -m pytest tests/test_spec_snapshot.py -v
 ```
-Expected: 2 passed.
+Expected: `test_bundled_snapshot_matches_docs_spec` FAILS with `in docs/spec but not in the snapshot: ['_drift_probe.json']`.
+
+Then confirm the Markdown exclusion really is what it claims — this second probe must **not** fail:
+
+```bash
+cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && rm docs/spec/_drift_probe.json && printf '\n' >> docs/spec/README.md
+cd sdks/python && python -m pytest tests/test_spec_snapshot.py -v
+```
+Expected: 3 passed — the `.md` edit is invisible to this guard by design. If it fails instead, `hatch_build.py` no longer ignores `*.md` and both this test and its sibling need rewriting.
+
+Clean up and confirm green:
+```bash
+cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && git checkout docs/spec/README.md && git status --short docs/spec/
+cd sdks/python && python -m pytest tests/test_spec_snapshot.py -v
+```
+Expected: no output from `git status`, then 3 passed.
 
 - [ ] **Step 4: Lint and typecheck**
 
@@ -169,9 +212,7 @@ Run:
 ```bash
 cd sdks/python && python -m ruff check . && python -m ruff format --check . && python -m mypy
 ```
-Expected: all clean.
-
-If ruff flags the private-name import (`PLC2701`, preview-only — it is not expected to fire under this repo's configuration), do **not** restructure the test to avoid the import; add `# noqa: PLC2701` on that line with a one-line comment saying the test is asserting a property of the module's own internals.
+Expected: all clean. The private-name import needs no suppression — `pyproject.toml`'s `[tool.ruff.lint] select` is `["E", "F", "I", "N", "UP", "B", "A", "C4", "PT", "RUF"]`, which includes neither `PL` nor `SLF`.
 
 - [ ] **Step 5: Run the whole Python suite for regressions**
 
@@ -179,7 +220,7 @@ Run:
 ```bash
 cd sdks/python && python -m pytest -q
 ```
-Expected: all pass, two more tests than before.
+Expected: all pass, three more tests than before.
 
 - [ ] **Step 6: Commit (PR A)**
 
@@ -230,7 +271,13 @@ Match the front-matter and heading style of `docs/rfcs/0015-tiered-stability.md`
 5. **Promotion to `frozen`** — record the decision: at the end of each battery's shipment, with its corpus green in all three bindings, all three of that battery's modules are promoted to `frozen`. Give the reason: RFC-0015 defines `frozen` mechanically as *"backed by a normative document under `docs/spec/` **and** executed by one of the conformance-corpus guards"*, which is exactly what these shipments confer. Record the rejected alternative — leaving them `stable` by decoupling spec-and-corpus from `frozen` — and both reasons it was rejected: it undoes the mechanical definition RFC-0015 defends at length, and it does not treat the drag, because the drag comes from having a spec and a corpus, which this design keeps either way (`docs/GOVERNANCE.md` already makes a conformance-invariant change RFC-requiring regardless of tier).
    Note the consequence for readers: after these shipments `frozen` is no longer a synonym for "the contract" — it also contains four batteries.
 
-6. **Consequences** — a list: `stability-rules.ts` and its test change (Task 3); `docs/spec/batteries/v1/` is created (Tasks 4–8); TypeScript gains a trim helper that is a refactor today (Task 9); the ROADMAP's Pillar 3 box and the `frozen` tier table in RFC-0015 §3 both gain entries as each shipment lands.
+6. **Consequences, and the corrections this RFC authorises** — a list: `stability-rules.ts` and its test change (Task 3); `docs/spec/batteries/v1/` is created (Tasks 4–8); TypeScript gains a trim helper that is a refactor today (Task 9); the ROADMAP's Pillar 3 box and the `frozen` tier table in RFC-0015 §3 both gain entries as each shipment lands.
+
+   This section also carries the **register of corrections** the specifications make to the TypeScript reference under preamble §2, so a later PR (b) cites this RFC rather than opening one of its own for a one-line fix. It opens with one entry, and Tasks 5–8 append to it as each document is written:
+
+   - **`firstLineAndRows("")` returns `rowCountEstimate: 1`; it must return `0`.** An empty input has zero lines. `data-profile.md` §7 specifies `0`; the correction lands in Shipment 1's PR (b), after the corpus has failed the shipped code.
+
+   Each entry must state the wrong behaviour, the right one, the document section that pins it, and the shipment that carries the fix. An entry with no shipment named is a correction nobody has agreed to make.
 
 7. **Alternatives considered** — the two rejected remedies above, plus: naming the corpus `jmap-fastmail` rather than `jmap` (rejected: nothing in the module is Fastmail-specific, and spec paths are the expensive side to rename, being referenced from `index.json`, mirrored into `sdks/go/spec/data/` and embedded in Go).
 
@@ -448,14 +495,14 @@ go -C sdks/go generate ./spec
 ```
 Expected: `sdks/go/spec/data/batteries/v1/README.md` appears.
 
-- [ ] **Step 4: Verify both drift guards agree**
+- [ ] **Step 4: Verify the drift guard**
 
-Run:
 ```bash
 NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./spec
-cd sdks/python && python -m pip install -e . && python -m pytest tests/test_spec_snapshot.py -v
 ```
-Expected: both PASS. If the Python one fails, the reinstall was skipped — that is Task 1's guard doing its job.
+Expected: PASS. Run it **before** the `go generate` too, to see it fail — a guard you have never watched fail is a guard you are trusting on faith.
+
+**Go's is the only guard that sees this change.** Everything Shipment 0 adds under `docs/spec/` is Markdown, and `hatch_build.py` copies with `ignore_patterns("*.md")`, so Python's snapshot never contains a specification document and its drift test is correctly blind to all five files. Do not treat a green Python run as confirmation here; it confirms nothing about this commit. Python's guard starts covering this area in Shipment 1, when the first corpus lands as JSON.
 
 - [ ] **Step 5: Commit**
 
@@ -501,7 +548,11 @@ Sections and the claims each must pin:
 
 **§6 Parquet columns from metadata.** `parquetColumnsFromMetadata(meta)` reads footer metadata only, never row data. A schema element contributes a column when it is a non-null object with a **string** `name` and a `type` that is neither `null` nor `undefined`; the column's `type` is that value stringified. Root and group elements carry no `type` and are skipped. Collection stops once `MAX_COLUMNS` columns are held. `rowCountEstimate` comes from `meta.num_rows`: a `bigint` is converted to a number; a number is used only when finite; anything else yields `null`. State explicitly that `num_rows` is the one place a binding must handle an integer wider than the JSON safe range — this is the same hazard `spec.LoadCorpus`'s `UseNumber` decision exists for in Go.
 
-**§7 First line and row estimate.** `firstLineAndRows(text, truncated)` splits at the first `\n`; with no `\n` the whole text is the first line. When `truncated` is true, `rowCountEstimate` is `null`. Otherwise it is the count of `\n` in the text, plus one when the text does not end with `\n`, floored at zero.
+**§7 First line and row estimate.** `firstLineAndRows(text, truncated)` splits at the first `\n`; with no `\n` the whole text is the first line. When `truncated` is true, `rowCountEstimate` is `null`. Otherwise it is the count of `\n` in the text, plus one when the text does not end with `\n`.
+
+**This section corrects the reference implementation, per preamble §2.** For `text === ""` the current TypeScript returns `rowCountEstimate: 1` — `nl` is 0, the empty string does not end with `\n`, so `0 + 1` survives the `Math.max(0, …)` floor, which cannot help because the sum is never negative. An empty input has zero lines. **Specify `0` for the empty string** and state in the document that the reference implementation returns `1` today and is corrected in Shipment 1.
+
+Do **not** change `data-profile/index.ts` in this shipment. The correction lands as Shipment 1's PR (b), after the corpus has actually failed the shipped code — that ordering is the design's whole claim about spec-first, and taking the fix early would mean the first correction this project makes is one no corpus ever caught. Record it in RFC-0017 (Task 2 §6) so PR (b) has an RFC to cite and does not need one of its own.
 
 **§8 Divergence note.** Object key order: `encoding/json` sorts a map's keys where the other two runtimes preserve insertion order, so a Go binding MUST decode into an order-preserving structure for §4 and §5, not `map[string]any`. Cross-reference the same note in `docs/modules/connector-kit.md`.
 
@@ -623,14 +674,22 @@ Named for what it specifies — JMAP (RFC 8620 / RFC 8621) — not for the modul
 
 - [ ] **Step 2: Verify every claim against the implementation**
 
-- [ ] **Step 3: Re-sync, run both drift guards, and commit (completes PR D)**
+- [ ] **Step 3: Re-sync, verify, and commit (completes PR D)**
 
 ```bash
 go -C sdks/go generate ./spec
-NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./spec
-cd sdks/python && python -m pip install -e . && python -m pytest -q
+NIMBUS_SPEC_DRIFT=required go -C sdks/go test ./...
 ```
-Expected: all PASS.
+Expected: PASS, with `sdks/go/spec/data/batteries/v1/` now holding all five documents.
+
+Then confirm the Go mirror is complete rather than merely non-failing:
+
+```bash
+cd "C:/gitrep/nimbus-sdk/.claude/worktrees/battery-port-design" && find docs/spec -type f | wc -l && find sdks/go/spec/data -type f | wc -l
+```
+Expected: identical counts — 320 each, the 315 that existed before this shipment plus five documents.
+
+The Python suite is unaffected by PR D (see Task 4 Step 4), so there is nothing to reinstall and nothing to re-run for it here.
 
 ```bash
 git add docs/spec/batteries/v1/jmap.md sdks/go/spec/data/
@@ -697,6 +756,13 @@ describe("the normative whitespace set", () => {
    * Zs, so a future Unicode adding a Zs code point would change `.trim()` while the
    * enumerated set stayed put. This test fails on that day and names the divergence,
    * which is the whole reason the set is enumerated rather than delegated.
+   *
+   * The full plane, not just the BMP. Every member of the set today is below U+10000,
+   * so the astral half can only agree — but a canary that assumes where the next
+   * disagreement will appear is not a canary. Measured on this machine under Bun:
+   * 122ms for the full sweep against 9ms for the BMP alone, so the astral half costs
+   * ~113ms. `connector-kit`'s Go case-folding sweep covers all 0x110000 for the same
+   * reason and at the same kind of cost.
    */
   test("agrees with String.prototype.trim on every code point today", () => {
     const divergent: string[] = [];
@@ -841,6 +907,7 @@ unchanged."
 
 - Any conformance corpus, any corpus guard, and any change to `docs/spec/README.md`'s guard count — those are Shipment 1 onward.
 - Any Python or Go battery binding.
+- **The `firstLineAndRows("")` correction.** `data-profile.md` §7 specifies `0` and RFC-0017 registers the correction; the code change is Shipment 1's PR (b), so that the corpus catches it rather than a reviewer having caught it first.
 - Any tier promotion. Modules stay where they are until their corpus is green; RFC-0017 records the decision, it does not execute it.
 - RFC-0018 (`buildVEvent` folding) — Shipment 3, constrained in advance by `icalendar.md` §6.
 - `docs/modules/*.md` binding sections, `CLAUDE.md`, and `docs/ROADMAP.md` — nothing they claim has changed yet.

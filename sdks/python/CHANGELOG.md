@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.15.0...python-v0.16.0) (2026-08-27)
+
+
+### Features
+
+* **python:** promote nimbus_sdk.distribution_channel to frozen ([#216](https://github.com/nimbus-agent/nimbus-sdk/issues/216)) ([9de010c](https://github.com/nimbus-agent/nimbus-sdk/commit/9de010c7204ce047b1b32e3e5746156a2e7b3e1d))
+
 ## [0.15.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.14.0...python-v0.15.0) (2026-08-27)
 
 

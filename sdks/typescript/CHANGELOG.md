@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.23.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.23.0...typescript-v1.23.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **typescript:** a failing injected realpath must not propagate ([#205](https://github.com/nimbus-agent/nimbus-sdk/issues/205)) ([5acf9e3](https://github.com/nimbus-agent/nimbus-sdk/commit/5acf9e3f4afa42e790cabe14d929b9dd13aefddc))
+
 ## [1.23.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.22.0...typescript-v1.23.0) (2026-08-27)
 
 

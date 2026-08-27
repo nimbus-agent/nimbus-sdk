@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.14.0...python-v0.15.0) (2026-08-27)
+
+
+### Features
+
+* **python:** nimbus_sdk.distribution_channel ([#208](https://github.com/nimbus-agent/nimbus-sdk/issues/208)) ([5120b3d](https://github.com/nimbus-agent/nimbus-sdk/commit/5120b3d083121bbef321ec194316c5b695d81ce8))
+
 ## [0.14.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.13.0...python-v0.14.0) (2026-08-27)
 
 

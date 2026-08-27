@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.12.0...python-v0.12.1) (2026-08-27)
+
+
+### Documentation
+
+* battery specifications and the normative whitespace set (Shipment 0) ([#188](https://github.com/nimbus-agent/nimbus-sdk/issues/188)) ([5be7acf](https://github.com/nimbus-agent/nimbus-sdk/commit/5be7acf470faf1d2350091dd1e8cf8def019cf63))
+
 ## [0.12.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.11.1...python-v0.12.0) (2026-08-25)
 
 

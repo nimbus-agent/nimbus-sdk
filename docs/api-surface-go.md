@@ -115,15 +115,15 @@ not even another package inside this module.
 
 9 exports.
 
-- `func FirstLineAndRows(text string, truncated bool) (string, *float64)` — **experimental**
-- `func JSKind(value any) string` — **experimental**
-- `func ParquetColumnsFromMetadata(meta ParquetMetadata) ([]DataColumn, *float64)` — **experimental**
-- `func ParseCSVHeader(firstLine string) []DataColumn` — **experimental**
-- `func ParseJSONColumns(document string) ([]DataColumn, *float64)` — **experimental**
-- `func ParseJSONLColumns(firstLine string) []DataColumn` — **experimental**
-- `type DataColumn struct { Known bool; Name string; Type string }` — **experimental**
-- `type ParquetMetadata struct { NumRows any; Schema []ParquetSchemaElement }` — **experimental**
-- `type ParquetSchemaElement struct { Name any; Type any }` — **experimental**
+- `func FirstLineAndRows(text string, truncated bool) (string, *float64)` — **frozen**
+- `func JSKind(value any) string` — **frozen**
+- `func ParquetColumnsFromMetadata(meta ParquetMetadata) ([]DataColumn, *float64)` — **frozen**
+- `func ParseCSVHeader(firstLine string) []DataColumn` — **frozen**
+- `func ParseJSONColumns(document string) ([]DataColumn, *float64)` — **frozen**
+- `func ParseJSONLColumns(firstLine string) []DataColumn` — **frozen**
+- `type DataColumn struct { Known bool; Name string; Type string }` — **frozen**
+- `type ParquetMetadata struct { NumRows any; Schema []ParquetSchemaElement }` — **frozen**
+- `type ParquetSchemaElement struct { Name any; Type any }` — **frozen**
 
 ## `diagnostics`
 

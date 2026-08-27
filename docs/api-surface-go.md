@@ -152,19 +152,19 @@ not even another package inside this module.
 
 13 exports.
 
-- `const Apt Channel` — **experimental**
-- `const EnvVar = "NIMBUS_DISTRIBUTION_CHANNEL"` — **experimental**
-- `const Homebrew Channel` — **experimental**
-- `const MSI Channel` — **experimental**
-- `const Pkg Channel` — **experimental**
-- `const Scoop Channel` — **experimental**
-- `const Winget Channel` — **experimental**
-- `const Yum Channel` — **experimental**
-- `func (c Config) WithEnv(env map[string]string) Config` — **experimental**
-- `func Resolve(cfg Config) (Channel, bool)` — **experimental**
-- `func UpgradeHint(channel Channel) (string, bool)` — **experimental**
-- `type Channel string` — **experimental**
-- `type Config struct { Env map[string]string; ExecPath string; Realpath func(string) (string, error) }` — **experimental**
+- `const Apt Channel` — **frozen**
+- `const EnvVar = "NIMBUS_DISTRIBUTION_CHANNEL"` — **frozen**
+- `const Homebrew Channel` — **frozen**
+- `const MSI Channel` — **frozen**
+- `const Pkg Channel` — **frozen**
+- `const Scoop Channel` — **frozen**
+- `const Winget Channel` — **frozen**
+- `const Yum Channel` — **frozen**
+- `func (c Config) WithEnv(env map[string]string) Config` — **frozen**
+- `func Resolve(cfg Config) (Channel, bool)` — **frozen**
+- `func UpgradeHint(channel Channel) (string, bool)` — **frozen**
+- `type Channel string` — **frozen**
+- `type Config struct { Env map[string]string; ExecPath string; Realpath func(string) (string, error) }` — **frozen**
 
 ## `ipc`
 

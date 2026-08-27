@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.25.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.24.0...typescript-v1.25.0) (2026-08-27)
+
+
+### Features
+
+* **go:** the distributionchannel package ([#212](https://github.com/nimbus-agent/nimbus-sdk/issues/212)) ([55a6306](https://github.com/nimbus-agent/nimbus-sdk/commit/55a630629df4ba86bc03731e689020849ea34855))
+
 ## [1.24.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.23.1...typescript-v1.24.0) (2026-08-27)
 
 

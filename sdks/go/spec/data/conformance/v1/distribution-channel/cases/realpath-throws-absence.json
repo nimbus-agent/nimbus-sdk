@@ -1,0 +1,12 @@
+{
+  "description": "a resolver that throws over an unremarkable path yields an absence",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/opt/nimbus/bin/nimbus",
+  "realpath": {
+    "/opt/nimbus/bin/nimbus": null
+  },
+  "expect": {
+    "channel": null
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "a Scoop apps path resolves to scoop",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/c/users/x/scoop/apps/nimbus/current/nimbus.exe",
+  "realpath": {},
+  "expect": {
+    "channel": "scoop"
+  }
+}

@@ -1,0 +1,85 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/distribution-channel/case.schema.json",
+  "title": "distribution-channel conformance case",
+  "description": "One call into the distribution-channel battery. `kind` selects the function; the inputs and the shape of `expect` follow from it. Each branch requires its own inputs AND forbids the other kind's, so a case carrying a member that belongs to the other function fails validation rather than running against an absent argument.",
+  "type": "object",
+  "required": ["description", "kind", "expect"],
+  "additionalProperties": false,
+  "definitions": {
+    "channel": {
+      "enum": ["homebrew", "scoop", "winget", "apt", "yum", "msi", "pkg"],
+      "description": "§1's closed set. A binding must not accept, resolve to, or emit a hint for any other value."
+    },
+    "asciiPath": {
+      "type": "string",
+      "pattern": "^[\\x20-\\x7E]*$",
+      "description": "Printable ASCII only. §3 lowercases the whole path, and Go's simple case mapping disagrees with Python's and JavaScript's full one on U+0130 — so a non-ASCII path would pin a value the three bindings do not share."
+    }
+  },
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["resolve", "hint"] },
+    "env": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "resolve: the injected environment map. Always present — never omitted — because an absent option makes the reference implementation read process.env and test the runner's own machine."
+    },
+    "execPath": { "$ref": "#/definitions/asciiPath" },
+    "realpath": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/definitions/asciiPath" },
+      "additionalProperties": {
+        "oneOf": [{ "$ref": "#/definitions/asciiPath" }, { "type": "null" }]
+      },
+      "description": "resolve: the injected symlink resolver, as data. A key maps to its resolved path; a key mapping to NULL means the resolver THROWS for that path, which is the only way §3.1 is pinnable — a map alone can express only a resolver that succeeds. A path absent from the map resolves to itself."
+    },
+    "channel": { "$ref": "#/definitions/channel" },
+    "expect": { "type": "object" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "resolve" } }, "required": ["kind"] },
+      "then": {
+        "required": ["env", "execPath", "realpath"],
+        "properties": {
+          "channel": false,
+          "expect": {
+            "type": "object",
+            "required": ["channel"],
+            "additionalProperties": false,
+            "properties": {
+              "channel": {
+                "oneOf": [{ "$ref": "#/definitions/channel" }, { "type": "null" }],
+                "description": "null is a normal, expected result (§R6): the plain direct-download install, where the self-updater stays enabled."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "hint" } }, "required": ["kind"] },
+      "then": {
+        "required": ["channel"],
+        "properties": {
+          "env": false,
+          "execPath": false,
+          "realpath": false,
+          "expect": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "§4: contract text, byte for byte. A binding returning the right meaning in different words does not conform."
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

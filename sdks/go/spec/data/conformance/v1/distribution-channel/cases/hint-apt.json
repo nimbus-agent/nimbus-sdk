@@ -1,0 +1,8 @@
+{
+  "description": "the apt upgrade hint is exact",
+  "kind": "hint",
+  "channel": "apt",
+  "expect": {
+    "text": "Installed via apt — run 'sudo apt update && sudo apt upgrade nimbus' to update."
+  }
+}

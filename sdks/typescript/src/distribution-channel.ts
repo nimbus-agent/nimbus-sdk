@@ -32,17 +32,33 @@ export interface ResolveChannelOptions {
   /**
    * Resolves symlinks so a package manager's real install path (e.g. Homebrew's
    * Cellar) is inspected rather than the `bin` symlink that launched the process.
-   * Injectable for tests; defaults to a safe `realpathSync` that falls back to the
-   * input path if resolution fails.
+   * Injectable for tests; defaults to `realpathSync`.
+   *
+   * May throw: a resolver that fails yields the input path unchanged, and that is handled
+   * here rather than expected of the function — so an injected resolver gets the same
+   * guarantee the default one does.
    */
   realpath?: (p: string) => string;
 }
 
-function safeRealpath(p: string): string {
+/**
+ * §3.1: a resolver that fails yields the input path unchanged.
+ *
+ * Wrapped at the point of USE rather than inside the default resolver, because the
+ * guarantee has to hold for an *injected* resolver too — and a conformance corpus
+ * necessarily injects one. It previously lived inside a `safeRealpath` wrapper around the
+ * DEFAULT resolver, so the guarantee held in production and failed for every caller who
+ * supplied their own; no test caught that, because none injected a throwing resolver.
+ *
+ * Failing soft is the right behaviour rather than merely the lenient one: a binary whose
+ * path cannot be resolved very often still carries the tell-tale segment, so using the
+ * unresolved path strictly increases the number of correct answers.
+ */
+function resolveSafely(execPath: string, realpath: (p: string) => string): string {
   try {
-    return realpathSync(p);
+    return realpath(execPath);
   } catch {
-    return p;
+    return execPath;
   }
 }
 
@@ -57,7 +73,7 @@ function fromEnv(env: Record<string, string | undefined>): DistributionChannel |
 function fromPath(execPath: string, realpath: (p: string) => string): DistributionChannel | null {
   // Resolve symlinks first: package managers expose the binary via a symlink whose
   // own path may not contain the tell-tale Cellar/apps segment.
-  const resolved = realpath(execPath);
+  const resolved = resolveSafely(execPath, realpath);
   const p = resolved.replaceAll("\\", "/").toLowerCase();
   // Homebrew: macOS `/opt/homebrew/Cellar/...` or `/usr/local/Cellar/...`,
   // Linuxbrew `/home/linuxbrew/.linuxbrew/...`.
@@ -82,7 +98,7 @@ export function resolveDistributionChannel(
 ): DistributionChannel | null {
   const env = opts.env ?? process.env;
   const execPath = opts.execPath ?? process.execPath;
-  const realpath = opts.realpath ?? safeRealpath;
+  const realpath = opts.realpath ?? realpathSync;
   return fromEnv(env) ?? fromPath(execPath, realpath);
 }
 

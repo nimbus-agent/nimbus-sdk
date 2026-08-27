@@ -1,0 +1,8 @@
+{
+  "description": "the yum upgrade hint is exact",
+  "kind": "hint",
+  "channel": "yum",
+  "expect": {
+    "text": "Installed via dnf/yum — run 'sudo dnf upgrade nimbus' to update."
+  }
+}

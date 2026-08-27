@@ -1,0 +1,8 @@
+{
+  "description": "the msi upgrade hint is exact",
+  "kind": "hint",
+  "channel": "msi",
+  "expect": {
+    "text": "Installed via the Windows installer — download the latest .msi from the releases page."
+  }
+}

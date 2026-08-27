@@ -1,0 +1,12 @@
+{
+  "description": "the environment marker wins over a contradicting path",
+  "kind": "resolve",
+  "env": {
+    "NIMBUS_DISTRIBUTION_CHANNEL": "scoop"
+  },
+  "execPath": "/opt/homebrew/Cellar/nimbus/1.0.0/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "scoop"
+  }
+}

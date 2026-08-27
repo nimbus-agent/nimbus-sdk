@@ -1,0 +1,10 @@
+{
+  "description": "a Linuxbrew path resolves to homebrew",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/home/linuxbrew/.linuxbrew/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "homebrew"
+  }
+}

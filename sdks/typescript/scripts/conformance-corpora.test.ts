@@ -9,10 +9,11 @@ import { describe, expect, test } from "bun:test";
 import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 
 describe("publishedCorpora", () => {
-  test("finds all nine published corpora, both shapes", () => {
+  test("finds all ten published corpora, both shapes", () => {
     expect(corpusNames()).toEqual([
       "data-profile",
       "diagnostics",
+      "distribution-channel",
       "framing",
       "item",
       "manifest",
@@ -32,6 +33,7 @@ describe("publishedCorpora", () => {
     expect(corpora.get("framing")?.length).toBeGreaterThanOrEqual(33);
     expect(corpora.get("url-resolution")?.length).toBeGreaterThanOrEqual(28);
     expect(corpora.get("data-profile")?.length).toBeGreaterThanOrEqual(30);
+    expect(corpora.get("distribution-channel")?.length).toBeGreaterThanOrEqual(24);
     expect(corpora.get("predicates")?.length).toBeGreaterThanOrEqual(33);
     expect(corpora.get("sandbox")?.length).toBeGreaterThanOrEqual(31);
   });

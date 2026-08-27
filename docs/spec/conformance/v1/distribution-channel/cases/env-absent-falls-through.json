@@ -1,0 +1,12 @@
+{
+  "description": "an absent marker falls through to the path heuristics",
+  "kind": "resolve",
+  "env": {
+    "PATH": "/usr/bin"
+  },
+  "execPath": "/home/linuxbrew/.linuxbrew/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "homebrew"
+  }
+}

@@ -12,13 +12,15 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
-#: Born experimental per RFC-0017 §5: there is nothing to freeze until the corpus passes
-#: in all three bindings. Promoted to ``frozen`` at the end of this shipment.
+#: Frozen per RFC-0015's mechanical definition: backed by a normative document under
+#: ``docs/spec/`` AND executed by a conformance-corpus guard. Both have held since the
+#: corpus went green in all three bindings, which is what RFC-0017 §5 recorded as the
+#: consequence of doing this work spec-first.
 #:
 #: Declared HERE rather than in ``__init__.py`` because ``api_surface.py`` resolves a
 #: tier from the module that DEFINES each published name, not from the root that
 #: re-exports it. ``connector_kit`` does the same, on every one of its eight modules.
-__stability__ = "experimental"
+__stability__ = "frozen"
 
 #: §1.1. Private, exactly as TypeScript's is: a binding cannot read it from the module,
 #: so the specification states the number in prose rather than pointing at a constant.

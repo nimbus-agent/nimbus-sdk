@@ -18,7 +18,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 import { LANGUAGES, readManifest } from "./conformance-manifest.ts";
-import { readFromRepo } from "./paths.ts";
+import { readFromRepo, repoRoot } from "./paths.ts";
 
 /** The corpora more than one binding executes — the basis of the neutrality claim. */
 function dualRunCorpora(): string[] {
@@ -173,5 +173,23 @@ describe("CI runs every corpus guard", () => {
     expect(missing, "a recording guard CI never runs fails reconciliation, not this suite").toEqual(
       [],
     );
+  });
+
+  test("every Python corpus runner is in the conformance job's list", () => {
+    // The same hazard one language along, and it recurred here before this assertion
+    // existed: the TypeScript half of this guard passed while `data-profile`'s Python
+    // runner sat outside `ci.yml`'s pytest list, so the corpus was claimed and never
+    // executed. A guard that covers one of three lists is a guard that teaches you to
+    // trust it further than it goes.
+    const workflow = readFromRepo(join(".github", "workflows", "ci.yml"));
+    const testsDir = join(repoRoot, "sdks", "python", "tests");
+    const runners = readdirSync(testsDir)
+      .filter((name) => name.startsWith("test_") && name.endsWith("_corpus.py"))
+      .sort();
+    expect(runners.length, "no Python runners found — this would pass vacuously").toBeGreaterThan(
+      0,
+    );
+    const missing = runners.filter((name) => !workflow.includes(`tests/${name}`));
+    expect(missing, "a Python corpus runner CI never runs fails reconciliation").toEqual([]);
   });
 });

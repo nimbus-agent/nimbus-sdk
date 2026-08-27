@@ -41,6 +41,7 @@ IMPORT_ROOTS: tuple[str, ...] = (
     "nimbus_sdk.ipc",
     "nimbus_sdk.diagnostics",
     "nimbus_sdk.connector_kit",
+    "nimbus_sdk.data_profile",
 )
 
 

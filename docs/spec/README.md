@@ -290,8 +290,9 @@ holds the contract to being **language-neutral** is that other bindings execute 
 same fixtures: `sdks/python/` and `sdks/go/` each run the `negotiation` corpus — all three
 case kinds — the `framing` corpus, the `diagnostics` corpus, and the `url-resolution`
 corpus, from the same `index.json` files the TypeScript guards read, with nothing deferred.
-A case added to any of the four therefore runs in all three languages as soon as it is
-indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
+`sdks/python/` additionally runs the `data-profile` corpus.
+A case added to any of these therefore runs in every language that claims it as soon
+as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
 `url-resolution` holds a narrower one — that `resolveUrlWithBase`,
 `resolve_url_with_base` and `ResolveURLWithBase`, three separate implementations of the
@@ -299,13 +300,12 @@ same SSRF chokepoint rather than the two ends of a protocol, reach the same verd
 same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Five corpora are executed by the **TypeScript** binding alone.
+whole tree. Four corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-`data-profile` is executed by the **TypeScript** binding only *for now*, and is the one entry here that is temporary rather than structural — the Python and Go bindings land later in the same shipment, at which point it moves up to the dual-run list above.
-All five are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`,
-`item` or `data-profile` run as "the reference implementation agrees with the spec", not as
+All four are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
+`item` run as "the reference implementation agrees with the spec", not as
 "the spec is implementable twice".
 
 Which binding runs which corpus is declared in

@@ -38,6 +38,7 @@ def test_every_import_root_is_collected() -> None:
         "nimbus_sdk.ipc": 15,
         "nimbus_sdk.diagnostics": 12,
         "nimbus_sdk.connector_kit": 27,
+        "nimbus_sdk.data_profile": 7,
     }
     for root in IMPORT_ROOTS:
         assert len(collect(root)) >= minimums[root], root

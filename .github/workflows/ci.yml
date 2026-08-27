@@ -401,7 +401,8 @@ jobs:
             tests/test_negotiation_corpus.py \
             tests/test_framing_corpus.py \
             tests/test_diagnostics_corpus.py \
-            tests/test_url_resolution_corpus.py
+            tests/test_url_resolution_corpus.py \
+            tests/test_data_profile_corpus.py
 
       # `go-version-file` rather than a literal, so this is not a third place to update when
       # the supported minors move. The policy is the two most recent stable minors with the

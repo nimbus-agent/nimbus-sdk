@@ -191,3 +191,17 @@ reworded docstring is not a change to the surface.
 - `def string_field(row: dict[str, object], key: str) -> str` — **stable**
 - `def tag_names_from_objects(row: dict[str, object]) -> str` — **stable**
 - `def tag_text(row: dict[str, object]) -> str` — **stable**
+
+## `nimbus_sdk.data_profile`
+
+7 exports.
+
+- `class DataColumn` — **experimental**
+  - `name: str`
+  - `type: str | None`
+- `def first_line_and_rows(text: str, truncated: bool) -> tuple[str, float | None]` — **experimental**
+- `def js_kind(value: object) -> str` — **experimental**
+- `def parquet_columns_from_metadata(meta: object) -> tuple[list[DataColumn], float | None]` — **experimental**
+- `def parse_csv_header(first_line: str) -> list[DataColumn]` — **experimental**
+- `def parse_json_columns(parsed: object) -> tuple[list[DataColumn], float | None]` — **experimental**
+- `def parse_jsonl_columns(first_line: str) -> list[DataColumn]` — **experimental**

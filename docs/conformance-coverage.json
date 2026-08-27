@@ -21,12 +21,12 @@
       "claims": [
         "data-profile",
         "diagnostics",
+        "distribution-channel",
         "framing",
         "negotiation",
         "url-resolution"
       ],
       "unclaimed": {
-        "distribution-channel": "the binding lands later in this shipment; the corpus is TypeScript-only until it does",
         "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "manifest": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",

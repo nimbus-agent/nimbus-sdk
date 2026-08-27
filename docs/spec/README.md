@@ -308,6 +308,10 @@ They also both run the `data-profile` corpus, which holds a third kind of claim 
 not a wire format and not a security chokepoint, but a *battery*: that three
 implementations of an ordinary helper agree on every column name, every kind and every row
 count, including the ones their host languages would each get differently.
+`sdks/python/` additionally runs the `distribution-channel` corpus, which adds a fourth
+kind: that two implementations agree about the *outside world* — the same environment map,
+executable path and symlink resolver in, the same channel out — where each language's
+obvious path and environment helpers would answer differently.
 A case added to any of these therefore runs in all three languages as soon
 as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
@@ -317,13 +321,12 @@ same SSRF chokepoint rather than the two ends of a protocol, reach the same verd
 same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Five corpora are executed by the **TypeScript** binding alone.
+whole tree. Four corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-`distribution-channel` is executed by the **TypeScript** binding only *for now* — the one entry here that is temporary rather than structural, with the Python and Go bindings landing later in the same shipment.
-All five are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`,
-`item` or `distribution-channel` run as "the reference implementation agrees with the spec", not as
+All four are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
+`item` run as "the reference implementation agrees with the spec", not as
 "the spec is implementable twice".
 
 Which binding runs which corpus is declared in

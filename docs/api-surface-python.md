@@ -205,3 +205,11 @@ reworded docstring is not a change to the surface.
 - `def parse_csv_header(first_line: str) -> list[DataColumn]` — **frozen**
 - `def parse_json_columns(parsed: object) -> tuple[list[DataColumn], float | None]` — **frozen**
 - `def parse_jsonl_columns(first_line: str) -> list[DataColumn]` — **frozen**
+
+## `nimbus_sdk.distribution_channel`
+
+3 exports.
+
+- `DistributionChannel = Literal['homebrew', 'scoop', 'winget', 'apt', 'yum', 'msi', 'pkg']` — **experimental**
+- `def channel_upgrade_hint(channel: DistributionChannel) -> str` — **experimental**
+- `def resolve_distribution_channel(env: Mapping[str, str] | None = ..., exec_path: str | None = ..., realpath: Callable[[str], str] | None = ...) -> DistributionChannel | None` — **experimental**

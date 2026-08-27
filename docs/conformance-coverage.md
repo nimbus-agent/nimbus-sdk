@@ -12,7 +12,7 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 
 | Corpus | Cases | typescript | python | go |
 |---|---:|---|---|---|
-| `data-profile` | 34 | 34 | 34 | — |
+| `data-profile` | 34 | 34 | 34 | 34 |
 | `diagnostics` | 75 | 75 | 75 | 75 |
 | `framing` | 33 | 33 | 33 | 33 |
 | `item` | 6 | 6 | — | — |
@@ -21,7 +21,7 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **309** | **309** | **208** | **174** |
+| **Total** | **309** | **309** | **208** | **208** |
 
 ## What each binding does not run, and why
 
@@ -38,7 +38,6 @@ Runs every published corpus.
 
 ### `go`
 
-- `data-profile` — the binding lands later in this shipment; the corpus is TypeScript-only until it does
 - `item` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
 - `manifest` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
 - `predicates` — binds predicates no Go package publishes

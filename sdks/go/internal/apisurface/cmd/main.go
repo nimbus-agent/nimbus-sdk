@@ -16,7 +16,7 @@ import (
 // Packages is every non-internal package of the module, in the order the
 // snapshot lists them. A new published package must be added here in the same
 // change that creates it — an omission would silently shrink the guard.
-var packages = []string{"connectorkit", "contract", "diagnostics", "ipc", "spec"}
+var packages = []string{"connectorkit", "contract", "dataprofile", "diagnostics", "ipc", "spec"}
 
 const header = `# Go public API surface
 

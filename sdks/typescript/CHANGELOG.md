@@ -1,5 +1,17 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.22.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.21.0...typescript-v1.22.0) (2026-08-27)
+
+
+### Features
+
+* **python:** nimbus_sdk.data_profile ([#193](https://github.com/nimbus-agent/nimbus-sdk/issues/193)) ([986612e](https://github.com/nimbus-agent/nimbus-sdk/commit/986612ef1b3593714133dd9e51d0b67805ce7ae5))
+
+
+### Bug Fixes
+
+* **typescript:** firstLineAndRows returns 0 for empty input ([#190](https://github.com/nimbus-agent/nimbus-sdk/issues/190)) ([6e0dce2](https://github.com/nimbus-agent/nimbus-sdk/commit/6e0dce2cffa8d990ff9eae855b8394f825255e2d))
+
 ## [1.21.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.20.1...typescript-v1.21.0) (2026-08-25)
 
 

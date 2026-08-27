@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.13.0...sdks/go/v0.14.0) (2026-08-27)
+
+
+### Features
+
+* **go:** promote distributionchannel to frozen ([#217](https://github.com/nimbus-agent/nimbus-sdk/issues/217)) ([d54d595](https://github.com/nimbus-agent/nimbus-sdk/commit/d54d5956e10d1d8776e3933fff3e919769d8d37c))
+
 ## [0.13.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.12.1...sdks/go/v0.13.0) (2026-08-27)
 
 

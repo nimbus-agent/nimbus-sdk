@@ -1,5 +1,13 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.23.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.22.0...typescript-v1.23.0) (2026-08-27)
+
+
+### Features
+
+* **go:** the dataprofile package ([#195](https://github.com/nimbus-agent/nimbus-sdk/issues/195)) ([44dd002](https://github.com/nimbus-agent/nimbus-sdk/commit/44dd002c640ed4ab8fba06814928783cc9aa1c79))
+* **typescript:** promote data-profile to frozen ([#198](https://github.com/nimbus-agent/nimbus-sdk/issues/198)) ([56442d6](https://github.com/nimbus-agent/nimbus-sdk/commit/56442d6b7f930244262f3a284e07b3e443fbb3c2))
+
 ## [1.22.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.21.0...typescript-v1.22.0) (2026-08-27)
 
 

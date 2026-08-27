@@ -150,8 +150,8 @@ def parse_json_columns(parsed: object) -> tuple[list[DataColumn], float | None]:
     if isinstance(parsed, list):
         first = parsed[0] if parsed else None
         if isinstance(first, dict):
-            return _columns_of(first), len(parsed)
-        return [], len(parsed)
+            return _columns_of(first), float(len(parsed))
+        return [], float(len(parsed))
     if isinstance(parsed, dict):
         return _columns_of(parsed), None
     return [], None
@@ -208,6 +208,6 @@ def first_line_and_rows(text: str, truncated: bool) -> tuple[str, float | None]:
     # §7.1: an empty input has zero lines. The reference implementation returned 1 here
     # until the conformance corpus caught it; see RFC-0017 §6.1.
     if text == "":
-        return first_line, 0
+        return first_line, 0.0
     newlines = text.count("\n")
-    return first_line, newlines if text.endswith("\n") else newlines + 1
+    return first_line, float(newlines if text.endswith("\n") else newlines + 1)

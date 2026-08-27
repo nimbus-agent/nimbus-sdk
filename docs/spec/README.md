@@ -290,9 +290,8 @@ holds the contract to being **language-neutral** is that other bindings execute 
 same fixtures: `sdks/python/` and `sdks/go/` each run the `negotiation` corpus — all three
 case kinds — the `framing` corpus, the `diagnostics` corpus, and the `url-resolution`
 corpus, from the same `index.json` files the TypeScript guards read, with nothing deferred.
-`sdks/python/` additionally runs the `data-profile` corpus; the Go binding for it lands in
-the same shipment, at which point that corpus joins the four above rather than trailing
-them. A case added to any of these therefore runs in every language that claims it as soon
+`sdks/python/` additionally runs the `data-profile` corpus.
+A case added to any of these therefore runs in every language that claims it as soon
 as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
 `url-resolution` holds a narrower one — that `resolveUrlWithBase`,

@@ -16,6 +16,18 @@ what is returned. Unpack at the call site::
 
     columns, row_count = parse_json_columns(parsed)
 
+**Every row-count estimate is a `float`**, never an `int` — including the small counts
+from §5's array length and §7's line count, where an `int` would be the more natural
+Python. §6.1 specifies the field as an IEEE-754 double, Go returns `*float64` and
+JavaScript has one number type, so a Python binding returning `int` on some paths and
+`float` on others would be the only one whose runtime type varies by which branch
+produced it. The annotation says `float | None` and now means it literally.
+
+The visible consequence: `json.dumps` renders these as ``3.0`` where TypeScript renders
+``3``. That divergence is in the serialisation of a value both bindings agree on, not
+in the value, and it was already unavoidable for §6.1's wide counts. A caller needing
+the JSON to match should format at the boundary.
+
 **The scope constraint is a security property** (§1): nothing here reads, retains or
 returns a cell value, a row sample, or a first-N-row preview.
 """

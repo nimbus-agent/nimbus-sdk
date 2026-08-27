@@ -210,6 +210,6 @@ reworded docstring is not a change to the surface.
 
 3 exports.
 
-- `DistributionChannel = Literal['homebrew', 'scoop', 'winget', 'apt', 'yum', 'msi', 'pkg']` — **experimental**
-- `def channel_upgrade_hint(channel: DistributionChannel) -> str` — **experimental**
-- `def resolve_distribution_channel(env: Mapping[str, str] | None = ..., exec_path: str | None = ..., realpath: Callable[[str], str] | None = ...) -> DistributionChannel | None` — **experimental**
+- `DistributionChannel = Literal['homebrew', 'scoop', 'winget', 'apt', 'yum', 'msi', 'pkg']` — **frozen**
+- `def channel_upgrade_hint(channel: DistributionChannel) -> str` — **frozen**
+- `def resolve_distribution_channel(env: Mapping[str, str] | None = ..., exec_path: str | None = ..., realpath: Callable[[str], str] | None = ...) -> DistributionChannel | None` — **frozen**

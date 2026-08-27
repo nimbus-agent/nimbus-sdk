@@ -13,13 +13,14 @@ import sys
 from collections.abc import Callable, Mapping
 from typing import Literal
 
-#: Born experimental per RFC-0017 §5: there is nothing to freeze until the corpus is
-#: green in all three bindings.
+#: Frozen per RFC-0015's mechanical definition: backed by a normative document under
+#: ``docs/spec/`` AND executed by a conformance-corpus guard. Both have held since the
+#: corpus went green in all three bindings.
 #:
 #: Declared HERE rather than in ``__init__.py`` because ``api_surface.py`` resolves a
 #: tier from the module that DEFINES each published name, not from the root that
 #: re-exports it.
-__stability__ = "experimental"
+__stability__ = "frozen"
 
 #: §1's closed set. A ``Literal`` rather than a ``str``, so ``mypy --strict`` rejects an
 #: eighth value at the call site -- which is what "closed" has to mean in a typed

@@ -1,0 +1,140 @@
+{
+  "spec": "../../../batteries/v1/distribution-channel.md",
+  "cases": [
+    {
+      "file": "cases/injection-is-honoured.json",
+      "section": "§1",
+      "reason": "All three inputs are supplied, and the answer cannot come from the host: the environment map is empty and the exec path is one no runner has. A binding that read process.env or process.execPath for any of them would answer from its own machine and differ across the three CI operating systems."
+    },
+    {
+      "file": "cases/env-exact-match-wins.json",
+      "section": "§2",
+      "reason": "A value equal to one of the seven resolves to that channel, and §3 is not consulted."
+    },
+    {
+      "file": "cases/env-wrong-case-ignored.json",
+      "section": "§2",
+      "reason": "The comparison is exact string equality: no case folding. Caught by 0 of the other cases — every other marker is already lowercase, so a binding calling .lower() would pass all of them."
+    },
+    {
+      "file": "cases/env-leading-space-ignored.json",
+      "section": "§2",
+      "reason": "The comparison is exact string equality: no trimming. Caught by 0 of the other cases — a binding calling .strip() would pass every one of them."
+    },
+    {
+      "file": "cases/env-alias-ignored.json",
+      "section": "§2",
+      "reason": "No aliasing: apt-get is not apt."
+    },
+    {
+      "file": "cases/env-empty-falls-through.json",
+      "section": "§2",
+      "reason": "An empty value falls through to §3 rather than resolving to an absence on its own."
+    },
+    {
+      "file": "cases/env-absent-falls-through.json",
+      "section": "§2",
+      "reason": "An absent variable falls through to §3."
+    },
+    {
+      "file": "cases/env-unrecognised-still-detects.json",
+      "section": "§2",
+      "reason": "The rule that distinguishes IGNORED from DISABLES DETECTION: an operator who sets the variable to 'brew' has not turned channel detection off, they have failed to set it, and the path heuristics still run. Caught by 0 of the other cases — every other unrecognised-marker case has an unremarkable exec path, so a binding that returned an absence on an unknown marker would pass them all."
+    },
+    {
+      "file": "cases/path-homebrew-macos.json",
+      "section": "§3",
+      "reason": "macOS Homebrew at /opt/homebrew/Cellar/. Matched post-lowercasing, which is why the literal is 'cellar' and not 'Cellar'."
+    },
+    {
+      "file": "cases/path-homebrew-intel.json",
+      "section": "§3",
+      "reason": "Intel-mac Homebrew at /usr/local/Cellar/ — a different prefix, the same segment."
+    },
+    {
+      "file": "cases/path-linuxbrew.json",
+      "section": "§3",
+      "reason": "Linuxbrew at /home/linuxbrew/.linuxbrew/ — the second of §3's two homebrew segments, and the only case that pins it."
+    },
+    {
+      "file": "cases/path-scoop.json",
+      "section": "§3",
+      "reason": "Scoop at ~/scoop/apps/."
+    },
+    {
+      "file": "cases/path-windows-backslashes.json",
+      "section": "§3",
+      "reason": "The normalise step in one case: backslashes become forward slashes and the path is lowercased, so a Windows path matches the same ASCII segment a POSIX one does. Caught by 0 of the other cases — every other path already uses forward slashes and is already lowercase, so a binding that skipped normalising entirely would pass them all. A binding using a PLATFORM path helper (pathlib, filepath.ToSlash, os.path.normpath) fails this case on Linux, where a backslash is an ordinary filename character, while passing it on Windows."
+    },
+    {
+      "file": "cases/path-symlink-resolved-first.json",
+      "section": "§3",
+      "reason": "Symlink resolution is step 1 and is not optional: the exec path is a bin symlink carrying no tell-tale segment, and only the RESOLVED path has one. A binding that skips realpath returns an absence and fails only here — caught by 0 of the other cases, in every one of which the exec path already carries the segment."
+    },
+    {
+      "file": "cases/path-unremarkable-is-absence.json",
+      "section": "§3",
+      "reason": "Anything matching no segment resolves to an absence — the plain direct-download install, where the self-updater stays enabled. A normal result, not a failure (§R6)."
+    },
+    {
+      "file": "cases/realpath-throws-input-still-matches.json",
+      "section": "§3.1",
+      "reason": "The case that pins §3.1: the resolver THROWS, and the unresolved input path already carries the segment, so the answer is homebrew rather than an error. A binding that lets the failure propagate raises instead of answering; one that swallows it and returns an absence answers wrongly. Caught by 0 of the other cases, none of which has a failing resolver. NOTE: this case fails the TypeScript reference at the time it was written — the try/catch lives inside safeRealpath, the DEFAULT resolver, so an injected one propagates."
+    },
+    {
+      "file": "cases/realpath-throws-absence.json",
+      "section": "§3.1",
+      "reason": "The other half of §3.1: a failing resolver over an unremarkable path yields an absence, not an error. Without this a binding could satisfy the case above by special-casing the segment before ever calling the resolver."
+    },
+    {
+      "file": "cases/path-winget-is-absence.json",
+      "section": "§3.2",
+      "reason": "§3.2 is a NEGATIVE requirement: only homebrew and scoop are path-detectable, and a binding MUST NOT add a heuristic for the other five. A winget-shaped path resolves to an absence. Caught by 0 of the other cases — without it, a binding that added a sixth heuristic would pass every one of them."
+    },
+    {
+      "file": "cases/path-apt-is-absence.json",
+      "section": "§3.2",
+      "reason": "The same negative requirement for a Debian-style install path: /usr/bin carries no segment and resolves to an absence, however strongly it suggests apt."
+    },
+    {
+      "file": "cases/hint-homebrew.json",
+      "section": "§4",
+      "reason": "§4's exact text for homebrew, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/hint-scoop.json",
+      "section": "§4",
+      "reason": "§4's exact text for scoop, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/hint-winget.json",
+      "section": "§4",
+      "reason": "§4's exact text for winget, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/hint-apt.json",
+      "section": "§4",
+      "reason": "§4's exact text for apt, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/hint-yum.json",
+      "section": "§4",
+      "reason": "§4's exact text for yum, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/hint-msi.json",
+      "section": "§4",
+      "reason": "§4's exact text for msi, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/hint-pkg.json",
+      "section": "§4",
+      "reason": "§4's exact text for pkg, which is contract text rather than merely its meaning: a binding returning the right advice in different words does not conform. Extracted from the reference implementation rather than retyped — the separator is an em dash and the quotes are ASCII apostrophes."
+    },
+    {
+      "file": "cases/env-beats-path.json",
+      "section": "§5",
+      "reason": "Both sources can answer and they disagree: the marker says scoop, the path says homebrew, and §2 wins outright. Caught by 0 of the other cases — in every other case at most one source can answer, so a binding with the precedence reversed would pass them all."
+    }
+  ]
+}

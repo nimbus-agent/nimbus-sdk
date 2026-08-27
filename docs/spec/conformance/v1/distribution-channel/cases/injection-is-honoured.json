@@ -1,0 +1,10 @@
+{
+  "description": "all three inputs are injected and the host is not consulted",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/opt/homebrew/Cellar/nimbus/1.0.0/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "homebrew"
+  }
+}

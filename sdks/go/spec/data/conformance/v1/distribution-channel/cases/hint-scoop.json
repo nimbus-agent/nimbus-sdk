@@ -1,0 +1,8 @@
+{
+  "description": "the scoop upgrade hint is exact",
+  "kind": "hint",
+  "channel": "scoop",
+  "expect": {
+    "text": "Installed via Scoop — run 'scoop update nimbus' to update."
+  }
+}

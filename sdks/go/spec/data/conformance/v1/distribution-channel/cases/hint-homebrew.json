@@ -1,0 +1,8 @@
+{
+  "description": "the homebrew upgrade hint is exact",
+  "kind": "hint",
+  "channel": "homebrew",
+  "expect": {
+    "text": "Installed via Homebrew — run 'brew upgrade nimbus' to update."
+  }
+}

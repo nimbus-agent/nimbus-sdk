@@ -1,0 +1,10 @@
+{
+  "description": "a winget-shaped path resolves to an absence, not to winget",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "C:\\Users\\Alex\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Nimbus\\nimbus.exe",
+  "realpath": {},
+  "expect": {
+    "channel": null
+  }
+}

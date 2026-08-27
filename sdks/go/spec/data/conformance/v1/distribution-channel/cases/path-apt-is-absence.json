@@ -1,0 +1,10 @@
+{
+  "description": "an apt-shaped path resolves to an absence, not to apt",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/usr/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": null
+  }
+}

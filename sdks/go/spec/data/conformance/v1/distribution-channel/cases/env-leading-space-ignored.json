@@ -1,0 +1,12 @@
+{
+  "description": "a marker with a leading space is ignored",
+  "kind": "resolve",
+  "env": {
+    "NIMBUS_DISTRIBUTION_CHANNEL": " apt"
+  },
+  "execPath": "/usr/local/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": null
+  }
+}

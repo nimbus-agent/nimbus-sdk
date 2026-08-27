@@ -1,0 +1,12 @@
+{
+  "description": "an exact marker resolves to its channel",
+  "kind": "resolve",
+  "env": {
+    "NIMBUS_DISTRIBUTION_CHANNEL": "apt"
+  },
+  "execPath": "/usr/local/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "apt"
+  }
+}

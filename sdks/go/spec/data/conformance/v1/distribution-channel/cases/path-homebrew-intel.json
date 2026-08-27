@@ -1,0 +1,10 @@
+{
+  "description": "an Intel-mac Homebrew Cellar path resolves to homebrew",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/usr/local/Cellar/nimbus/1.0.0/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "homebrew"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "an unremarkable path resolves to an absence",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/opt/nimbus/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": null
+  }
+}

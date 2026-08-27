@@ -1,0 +1,8 @@
+{
+  "description": "the pkg upgrade hint is exact",
+  "kind": "hint",
+  "channel": "pkg",
+  "expect": {
+    "text": "Installed via the macOS installer — download the latest .pkg from the releases page."
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "an unrecognised marker still lets the path heuristics answer",
+  "kind": "resolve",
+  "env": {
+    "NIMBUS_DISTRIBUTION_CHANNEL": "brew"
+  },
+  "execPath": "/opt/homebrew/Cellar/nimbus/1.0.0/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": "homebrew"
+  }
+}

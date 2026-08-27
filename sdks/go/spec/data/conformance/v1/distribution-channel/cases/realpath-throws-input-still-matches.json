@@ -1,0 +1,12 @@
+{
+  "description": "a resolver that throws yields the input path unchanged",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/opt/homebrew/Cellar/nimbus/1.0.0/bin/nimbus",
+  "realpath": {
+    "/opt/homebrew/Cellar/nimbus/1.0.0/bin/nimbus": null
+  },
+  "expect": {
+    "channel": "homebrew"
+  }
+}

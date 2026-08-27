@@ -1,0 +1,12 @@
+{
+  "description": "an upper-case marker is ignored",
+  "kind": "resolve",
+  "env": {
+    "NIMBUS_DISTRIBUTION_CHANNEL": "APT"
+  },
+  "execPath": "/usr/local/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": null
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "an aliased marker is ignored",
+  "kind": "resolve",
+  "env": {
+    "NIMBUS_DISTRIBUTION_CHANNEL": "apt-get"
+  },
+  "execPath": "/usr/local/bin/nimbus",
+  "realpath": {},
+  "expect": {
+    "channel": null
+  }
+}

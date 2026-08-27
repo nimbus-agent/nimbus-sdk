@@ -1,0 +1,10 @@
+{
+  "description": "a Windows path with backslashes and mixed case resolves to scoop",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "C:\\Users\\Alex\\scoop\\apps\\Nimbus\\current\\nimbus.exe",
+  "realpath": {},
+  "expect": {
+    "channel": "scoop"
+  }
+}

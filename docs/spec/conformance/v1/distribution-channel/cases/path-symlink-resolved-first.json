@@ -1,0 +1,12 @@
+{
+  "description": "a bin symlink is resolved before the segments are tested",
+  "kind": "resolve",
+  "env": {},
+  "execPath": "/usr/local/bin/nimbus",
+  "realpath": {
+    "/usr/local/bin/nimbus": "/opt/homebrew/Cellar/nimbus/1.0.0/bin/nimbus"
+  },
+  "expect": {
+    "channel": "homebrew"
+  }
+}

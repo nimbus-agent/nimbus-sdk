@@ -1,0 +1,8 @@
+{
+  "description": "the winget upgrade hint is exact",
+  "kind": "hint",
+  "channel": "winget",
+  "expect": {
+    "text": "Installed via winget — run 'winget upgrade NimbusAgent.Nimbus' to update."
+  }
+}

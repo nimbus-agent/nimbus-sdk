@@ -166,7 +166,7 @@ U+FEFF, U+0085 and U+001C–U+001F. See
 
 ### `conformance/v1/`
 
-Eight kinds of assertion, across **nine** corpus directories — the two counts differ
+Nine kinds of assertion, across **ten** corpus directories — the two counts differ
 because the document fixtures cover both `manifest` and `item` from one top-level index.
 The groups below are the eight kinds; `corpusNames()` in
 `sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the nine.
@@ -247,6 +247,20 @@ functions rather than one predicate, so a case names which one it calls and carr
 that function's inputs. The schema enforces that pairing, so a case with a mistyped input
 member fails validation rather than running vacuously against an absent argument.
 
+**Distribution-channel cases** — [`distribution-channel/`](./conformance/v1/distribution-channel/)
+is the executable form of
+[`batteries/v1/distribution-channel.md`](./batteries/v1/distribution-channel.md). It is the
+first corpus for a battery that reads the **outside world**: the environment, the running
+executable's path, and the filesystem. The preamble's §R1 requires all three to be injected,
+so a case supplies an environment map, an exec path, and a **realpath map** — and a key
+mapping to `null` means the resolver *throws*, which is the only way "a failure yields the
+input path unchanged" is pinnable at all. A map alone can express only a resolver that
+succeeds.
+
+Its schema also pins every path to printable ASCII. §3 lowercases the whole path, and Go's
+`strings.ToLower` applies Unicode's simple case mapping where Python and JavaScript apply
+the full one — so a case carrying `İ` would pin a value the three bindings do not share.
+
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
 - **`equivalence`** — the schema and `runContractTests` both cover these fields and must
@@ -282,7 +296,7 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Nine guards run on every pull request as part of `bun run test` (see
+Ten guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
@@ -303,12 +317,13 @@ same SSRF chokepoint rather than the two ends of a protocol, reach the same verd
 same words on every case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Four corpora are executed by the **TypeScript** binding alone.
+whole tree. Five corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-All four are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
-`item` run as "the reference implementation agrees with the spec", not as
+`distribution-channel` is executed by the **TypeScript** binding only *for now* — the one entry here that is temporary rather than structural, with the Python and Go bindings landing later in the same shipment.
+All five are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`,
+`item` or `distribution-channel` run as "the reference implementation agrees with the spec", not as
 "the spec is implementable twice".
 
 Which binding runs which corpus is declared in
@@ -398,6 +413,19 @@ pass every object case. It also asserts §2.1 by **absence** — exactly the six
 reachable from JSON are asserted and no others, because a case pinning `undefined`,
 `function`, `symbol` or `bigint` would violate the batteries preamble's §R3 rather than add
 coverage.
+
+`sdks/typescript/scripts/distribution-channel-guard.test.ts` validates the
+distribution-channel corpus against its schemas, holds the index and the cases directory to
+each other, and drives every case through `resolveDistributionChannel` and
+`channelUpgradeHint`. Its anti-vacuity checks are mostly *negative* requirements, because
+this battery's specification is full of them: a case must pin a resolver that **throws** in
+both directions, or §3.1 is untested; a case must carry a marker differing only in case or
+whitespace, or a binding folding or trimming it would pass; a case's exec path must lack the
+tell-tale segment while its *resolved* path has it, or a binding skipping symlink resolution
+would pass; and a case must supply a winget- or apt-shaped path expecting an **absence**, or
+a binding adding a sixth path heuristic would pass. It also asserts every `resolve` case
+supplies all three injected inputs — an absent one makes the reference implementation read
+the runner's own machine — and that every path in the corpus is printable ASCII.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

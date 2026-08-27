@@ -1,0 +1,9 @@
+{
+  "description": "an empty array yields no columns but a row count of 0",
+  "kind": "json-columns",
+  "value": [],
+  "expect": {
+    "columns": [],
+    "rowCountEstimate": 0
+  }
+}

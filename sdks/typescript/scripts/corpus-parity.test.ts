@@ -14,6 +14,7 @@
  * matches what the bindings are declared to run, in both directions.
  */
 import { describe, expect, test } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 import { LANGUAGES, readManifest } from "./conformance-manifest.ts";
@@ -139,5 +140,38 @@ describe("the language-neutrality claim matches the declaration", () => {
       (c) => !new RegExp(`\`${c}\`[^\\n]*TypeScript`).test(readme),
     );
     expect(undisclosed, "a single-binding corpus is never disclosed as such").toEqual([]);
+  });
+});
+
+describe("CI runs every corpus guard", () => {
+  /**
+   * `ci.yml`'s `conformance` job names the guards it runs in a hand-maintained list. A new
+   * guard left out of it never records, and the reconciler then reports the corpus as
+   * claimed-but-unexecuted — a real failure, but one that only appears in CI, several
+   * minutes after the mistake, in a job whose name gives no hint that a list needs editing.
+   *
+   * This is the same shape as Go's `cmd/main.go` packages list and the test that holds it:
+   * a hand-maintained enumeration is fine, provided something refuses to let it fall behind.
+   */
+  test("every recording guard is in the conformance job's list", () => {
+    // "Corpus guard" is defined by what it DOES, not by its name: a guard that calls
+    // `createRecorder` produces an execution record the reconciler expects to see. Guards
+    // that record nothing — conventional-commit, deprecation, release-config — are not
+    // conformance guards and correctly do not appear in that list.
+    const workflow = readFromRepo(join(".github", "workflows", "ci.yml"));
+    const recording = readdirSync(import.meta.dir)
+      .filter((name) => name.endsWith("-guard.test.ts"))
+      .filter((name) =>
+        readFileSync(join(import.meta.dir, name), "utf8").includes("createRecorder"),
+      )
+      .sort();
+    expect(
+      recording.length,
+      "no recording guards found — this would pass vacuously",
+    ).toBeGreaterThan(0);
+    const missing = recording.filter((name) => !workflow.includes(`scripts/${name}`));
+    expect(missing, "a recording guard CI never runs fails reconciliation, not this suite").toEqual(
+      [],
+    );
   });
 });

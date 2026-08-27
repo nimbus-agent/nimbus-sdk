@@ -1,0 +1,9 @@
+{
+  "description": "a scalar yields neither columns nor a row count",
+  "kind": "json-columns",
+  "value": "hello",
+  "expect": {
+    "columns": [],
+    "rowCountEstimate": null
+  }
+}

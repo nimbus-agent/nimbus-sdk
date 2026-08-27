@@ -1,0 +1,11 @@
+{
+  "description": "jsKind of a JSON array is \"array\"",
+  "kind": "js-kind",
+  "value": [
+    1,
+    2
+  ],
+  "expect": {
+    "kind": "array"
+  }
+}

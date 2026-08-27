@@ -1,0 +1,17 @@
+{
+  "description": "a field with only a leading quote keeps it",
+  "kind": "csv-header",
+  "line": "\"a,b",
+  "expect": {
+    "columns": [
+      {
+        "name": "\"a",
+        "type": null
+      },
+      {
+        "name": "b",
+        "type": null
+      }
+    ]
+  }
+}

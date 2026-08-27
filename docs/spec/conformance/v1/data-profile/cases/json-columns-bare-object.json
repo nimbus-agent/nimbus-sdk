@@ -1,0 +1,21 @@
+{
+  "description": "a bare object yields columns and no row count",
+  "kind": "json-columns",
+  "value": {
+    "a": true,
+    "b": null
+  },
+  "expect": {
+    "columns": [
+      {
+        "name": "a",
+        "type": "boolean"
+      },
+      {
+        "name": "b",
+        "type": "null"
+      }
+    ],
+    "rowCountEstimate": null
+  }
+}

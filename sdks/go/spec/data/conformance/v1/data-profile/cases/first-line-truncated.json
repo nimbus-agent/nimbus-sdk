@@ -1,0 +1,10 @@
+{
+  "description": "a truncated read yields no row count",
+  "kind": "first-line-rows",
+  "text": "a\nb",
+  "truncated": true,
+  "expect": {
+    "firstLine": "a",
+    "rowCountEstimate": null
+  }
+}

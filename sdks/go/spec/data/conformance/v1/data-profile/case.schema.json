@@ -1,0 +1,162 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/data-profile/case.schema.json",
+  "title": "data-profile conformance case",
+  "description": "One call into the data-profile battery. `kind` selects the function; the input members and the shape of `expect` follow from it. Each `then` branch both REQUIRES its own inputs and forbids every other kind's, so a case carrying a member that belongs to a different function fails validation rather than running against an absent argument. `expect` is always an object, including for js-kind, so every runner has one comparison path rather than a special case only one kind exercises.",
+  "type": "object",
+  "required": ["description", "kind", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": {
+      "enum": [
+        "js-kind",
+        "csv-header",
+        "jsonl-columns",
+        "json-columns",
+        "parquet-columns",
+        "first-line-rows"
+      ]
+    },
+    "value": {
+      "description": "js-kind and json-columns: the parsed JSON value. Deliberately unconstrained — several cases supply a value that is not an object, which is what the absence branches pin."
+    },
+    "line": {
+      "type": "string",
+      "description": "csv-header and jsonl-columns: the first line, verbatim."
+    },
+    "meta": {
+      "type": "object",
+      "description": "parquet-columns: the footer metadata."
+    },
+    "text": {
+      "type": "string",
+      "description": "first-line-rows: the already-read text."
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "first-line-rows: whether the caller stopped at its peek cap."
+    },
+    "expect": { "type": "object" }
+  },
+  "definitions": {
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "rowCountEstimate": {
+      "type": ["number", "null"],
+      "description": "An IEEE-754 double per §6.1, inexact above 2^53-1 by specification."
+    },
+    "columnsExpect": {
+      "type": "object",
+      "required": ["columns"],
+      "additionalProperties": false,
+      "properties": { "columns": { "$ref": "#/definitions/columns" } }
+    },
+    "columnsAndRowsExpect": {
+      "type": "object",
+      "required": ["columns", "rowCountEstimate"],
+      "additionalProperties": false,
+      "properties": {
+        "columns": { "$ref": "#/definitions/columns" },
+        "rowCountEstimate": { "$ref": "#/definitions/rowCountEstimate" }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "js-kind" } }, "required": ["kind"] },
+      "then": {
+        "required": ["value"],
+        "properties": {
+          "line": false,
+          "meta": false,
+          "text": false,
+          "truncated": false,
+          "expect": {
+            "type": "object",
+            "required": ["kind"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": ["null", "array", "object", "string", "number", "boolean"],
+                "description": "Only the six §2.1 kinds reachable from JSON. The other four members of §2's closed set are undefined for non-JavaScript bindings under preamble §R3, so no case may pin one."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "kind": { "enum": ["csv-header", "jsonl-columns"] } },
+        "required": ["kind"]
+      },
+      "then": {
+        "required": ["line"],
+        "properties": {
+          "value": false,
+          "meta": false,
+          "text": false,
+          "truncated": false,
+          "expect": { "$ref": "#/definitions/columnsExpect" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "json-columns" } }, "required": ["kind"] },
+      "then": {
+        "required": ["value"],
+        "properties": {
+          "line": false,
+          "meta": false,
+          "text": false,
+          "truncated": false,
+          "expect": { "$ref": "#/definitions/columnsAndRowsExpect" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "parquet-columns" } }, "required": ["kind"] },
+      "then": {
+        "required": ["meta"],
+        "properties": {
+          "value": false,
+          "line": false,
+          "text": false,
+          "truncated": false,
+          "expect": { "$ref": "#/definitions/columnsAndRowsExpect" }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "first-line-rows" } }, "required": ["kind"] },
+      "then": {
+        "required": ["text", "truncated"],
+        "properties": {
+          "value": false,
+          "line": false,
+          "meta": false,
+          "expect": {
+            "type": "object",
+            "required": ["firstLine", "rowCountEstimate"],
+            "additionalProperties": false,
+            "properties": {
+              "firstLine": { "type": "string" },
+              "rowCountEstimate": { "$ref": "#/definitions/rowCountEstimate" }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

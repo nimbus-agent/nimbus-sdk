@@ -1,0 +1,22 @@
+{
+  "description": "a non-numeric row count yields an absence",
+  "kind": "parquet-columns",
+  "meta": {
+    "schema": [
+      {
+        "name": "id",
+        "type": "INT64"
+      }
+    ],
+    "num_rows": "many"
+  },
+  "expect": {
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT64"
+      }
+    ],
+    "rowCountEstimate": null
+  }
+}

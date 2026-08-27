@@ -1,0 +1,21 @@
+{
+  "description": "columns follow the object's key order, not sorted order",
+  "kind": "jsonl-columns",
+  "line": "{\"zeta\":1,\"alpha\":\"s\",\"mid\":null}",
+  "expect": {
+    "columns": [
+      {
+        "name": "zeta",
+        "type": "number"
+      },
+      {
+        "name": "alpha",
+        "type": "string"
+      },
+      {
+        "name": "mid",
+        "type": "null"
+      }
+    ]
+  }
+}

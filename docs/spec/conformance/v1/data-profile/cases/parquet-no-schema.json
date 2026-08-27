@@ -1,0 +1,9 @@
+{
+  "description": "metadata with no schema yields no columns",
+  "kind": "parquet-columns",
+  "meta": {},
+  "expect": {
+    "columns": [],
+    "rowCountEstimate": null
+  }
+}

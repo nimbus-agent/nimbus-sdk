@@ -1,0 +1,25 @@
+{
+  "description": "an element with a non-string name is skipped",
+  "kind": "parquet-columns",
+  "meta": {
+    "schema": [
+      {
+        "name": 7,
+        "type": "INT64"
+      },
+      {
+        "name": "ok",
+        "type": "INT64"
+      }
+    ]
+  },
+  "expect": {
+    "columns": [
+      {
+        "name": "ok",
+        "type": "INT64"
+      }
+    ],
+    "rowCountEstimate": null
+  }
+}

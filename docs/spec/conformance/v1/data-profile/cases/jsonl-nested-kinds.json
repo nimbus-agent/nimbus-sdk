@@ -1,0 +1,21 @@
+{
+  "description": "nested values report their kind and nothing more",
+  "kind": "jsonl-columns",
+  "line": "{\"o\":{\"deep\":[1,2]},\"a\":[{\"x\":1}],\"b\":false}",
+  "expect": {
+    "columns": [
+      {
+        "name": "o",
+        "type": "object"
+      },
+      {
+        "name": "a",
+        "type": "array"
+      },
+      {
+        "name": "b",
+        "type": "boolean"
+      }
+    ]
+  }
+}

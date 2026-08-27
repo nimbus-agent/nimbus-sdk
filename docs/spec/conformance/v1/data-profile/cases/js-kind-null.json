@@ -1,0 +1,8 @@
+{
+  "description": "jsKind of a JSON null is \"null\"",
+  "kind": "js-kind",
+  "value": null,
+  "expect": {
+    "kind": "null"
+  }
+}

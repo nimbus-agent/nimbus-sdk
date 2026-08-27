@@ -1,0 +1,8 @@
+{
+  "description": "a JSON array line yields no columns",
+  "kind": "jsonl-columns",
+  "line": "[1,2]",
+  "expect": {
+    "columns": []
+  }
+}

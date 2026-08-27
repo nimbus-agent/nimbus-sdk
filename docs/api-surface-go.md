@@ -111,6 +111,20 @@ not even another package inside this module.
 - `type NegotiationResult interface {}` — **frozen**
 - `var ContractVersions = []string{"1"}` — **frozen**
 
+## `dataprofile`
+
+9 exports.
+
+- `func FirstLineAndRows(text string, truncated bool) (string, *float64)` — **experimental**
+- `func JSKind(value any) string` — **experimental**
+- `func ParquetColumnsFromMetadata(meta ParquetMetadata) ([]DataColumn, *float64)` — **experimental**
+- `func ParseCSVHeader(firstLine string) []DataColumn` — **experimental**
+- `func ParseJSONColumns(document string) ([]DataColumn, *float64)` — **experimental**
+- `func ParseJSONLColumns(firstLine string) []DataColumn` — **experimental**
+- `type DataColumn struct { Known bool; Name string; Type string }` — **experimental**
+- `type ParquetMetadata struct { NumRows any; Schema []ParquetSchemaElement }` — **experimental**
+- `type ParquetSchemaElement struct { Name any; Type any }` — **experimental**
+
 ## `diagnostics`
 
 18 exports.

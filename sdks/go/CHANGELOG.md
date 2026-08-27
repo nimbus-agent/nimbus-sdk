@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.10.0...sdks/go/v0.11.0) (2026-08-27)
+
+
+### Features
+
+* **go:** the dataprofile package ([#195](https://github.com/nimbus-agent/nimbus-sdk/issues/195)) ([44dd002](https://github.com/nimbus-agent/nimbus-sdk/commit/44dd002c640ed4ab8fba06814928783cc9aa1c79))
+
 ## [0.10.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.9.0...sdks/go/v0.10.0) (2026-08-27)
 
 

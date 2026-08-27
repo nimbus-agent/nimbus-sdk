@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.12.1...sdks/go/v0.13.0) (2026-08-27)
+
+
+### Features
+
+* **go:** the distributionchannel package ([#212](https://github.com/nimbus-agent/nimbus-sdk/issues/212)) ([55a6306](https://github.com/nimbus-agent/nimbus-sdk/commit/55a630629df4ba86bc03731e689020849ea34855))
+* **python:** nimbus_sdk.distribution_channel ([#208](https://github.com/nimbus-agent/nimbus-sdk/issues/208)) ([5120b3d](https://github.com/nimbus-agent/nimbus-sdk/commit/5120b3d083121bbef321ec194316c5b695d81ce8))
+
 ## [0.12.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.12.0...sdks/go/v0.12.1) (2026-08-27)
 
 

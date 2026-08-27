@@ -37,5 +37,10 @@
 // which the set includes. A UTF-8 BOM is what Excel writes at the front of an exported
 // CSV, so delegating names the first column U+FEFF + "id".
 //
-// Stability: experimental
+// Frozen per RFC-0015's mechanical definition: backed by a normative document under
+// docs/spec/ and executed by a conformance-corpus guard. Both have held since the corpus
+// went green in all three bindings, which RFC-0017 §5 recorded as the consequence of doing
+// this work spec-first rather than as a separate judgement.
+//
+// Stability: frozen
 package dataprofile

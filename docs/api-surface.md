@@ -341,7 +341,7 @@ export interface DataColumn {
 
 ### `DistributionChannel` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./distribution-channel.js`.
 
@@ -1008,7 +1008,7 @@ export declare const ROW_DATA_TOOL_SEGMENTS: ReadonlySet<string>;
 
 ### `ResolveChannelOptions` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./distribution-channel.js`.
 
@@ -1370,7 +1370,7 @@ export declare function capPreview(text: string): string;
 
 ### `channelUpgradeHint`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./distribution-channel.js`.
 
@@ -1776,7 +1776,7 @@ export declare function previewFor(raw: Record<string, unknown>): string;
 
 ### `resolveDistributionChannel`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./distribution-channel.js`.
 

@@ -5,7 +5,7 @@ import { realpathSync } from "node:fs";
  * package-manager install, the self-updater steps aside so the package manager
  * owns updates.
  *
- * @moduleStability stable
+ * @moduleStability frozen
  *
  * Lives in the SDK so the gateway and CLI share one copy: the `cli` package
  * reaches the gateway over IPC only (no source imports), so a shared pure helper

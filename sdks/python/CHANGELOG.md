@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.13.0...python-v0.14.0) (2026-08-27)
+
+
+### Features
+
+* **python:** promote nimbus_sdk.data_profile to frozen ([#200](https://github.com/nimbus-agent/nimbus-sdk/issues/200)) ([554ce60](https://github.com/nimbus-agent/nimbus-sdk/commit/554ce60e8fecc04f7f9f0ae6e1276d12e0f5ee36))
+
 ## [0.13.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.12.1...python-v0.13.0) (2026-08-27)
 
 

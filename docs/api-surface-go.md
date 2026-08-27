@@ -148,6 +148,24 @@ not even another package inside this module.
 - `var DiagnosticKinds = []string{"diagnostic", "audit"}` — **frozen**
 - `var DiagnosticLevels = []string{"debug", "info", "warn", "error"}` — **frozen**
 
+## `distributionchannel`
+
+13 exports.
+
+- `const Apt Channel` — **experimental**
+- `const EnvVar = "NIMBUS_DISTRIBUTION_CHANNEL"` — **experimental**
+- `const Homebrew Channel` — **experimental**
+- `const MSI Channel` — **experimental**
+- `const Pkg Channel` — **experimental**
+- `const Scoop Channel` — **experimental**
+- `const Winget Channel` — **experimental**
+- `const Yum Channel` — **experimental**
+- `func (c Config) WithEnv(env map[string]string) Config` — **experimental**
+- `func Resolve(cfg Config) (Channel, bool)` — **experimental**
+- `func UpgradeHint(channel Channel) (string, bool)` — **experimental**
+- `type Channel string` — **experimental**
+- `type Config struct { Env map[string]string; ExecPath string; Realpath func(string) (string, error) }` — **experimental**
+
 ## `ipc`
 
 17 exports.

@@ -308,15 +308,15 @@ They also both run the `data-profile` corpus, which holds a third kind of claim 
 not a wire format and not a security chokepoint, but a *battery*: that three
 implementations of an ordinary helper agree on every column name, every kind and every row
 count, including the ones their host languages would each get differently.
-`sdks/python/` additionally runs the `distribution-channel` corpus, which adds a fourth
-kind of claim: that implementations agree about the *outside world* — the same environment
-map, executable path and symlink resolver in, the same channel out — where each language's
-obvious path and environment helpers would answer differently. **That one's parity is
-Python–TypeScript only**, because its Go binding lands in a later pull request of the same
-shipment.
-A case added to any of the **five both bindings run** therefore runs in all three languages
-as soon as it is indexed — and one added to `distribution-channel` runs in two, until Go
-joins it. A claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
+They also both run the `distribution-channel` corpus, which adds a fourth kind of claim:
+that three implementations agree about the *outside world* — the same environment map,
+executable path and symlink resolver in, the same channel out — where each language's
+obvious path and environment helpers would answer differently. `str.replace` against
+`PurePath.as_posix`, and `strings.ReplaceAll` against `filepath.ToSlash`, are the same trap
+twice: each pair agrees on Windows and diverges on Linux, so only a corpus that runs in
+every language catches it.
+A case added to any of these six therefore runs in all three languages as soon
+as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
 `url-resolution` holds a narrower one — that `resolveUrlWithBase`,
 `resolve_url_with_base` and `ResolveURLWithBase`, three separate implementations of the

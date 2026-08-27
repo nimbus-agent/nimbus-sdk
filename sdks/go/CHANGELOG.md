@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.1](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.12.0...sdks/go/v0.12.1) (2026-08-27)
+
+
+### Bug Fixes
+
+* **typescript:** a failing injected realpath must not propagate ([#205](https://github.com/nimbus-agent/nimbus-sdk/issues/205)) ([5acf9e3](https://github.com/nimbus-agent/nimbus-sdk/commit/5acf9e3f4afa42e790cabe14d929b9dd13aefddc))
+
 ## [0.12.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.11.0...sdks/go/v0.12.0) (2026-08-27)
 
 

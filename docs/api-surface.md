@@ -327,7 +327,7 @@ export type ContractNegotiationResult = {
 
 ### `DataColumn` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -912,7 +912,7 @@ export declare const PREVIEW_MAX_CHARS = 2000;
 
 ### `ParquetMetadataLike` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -1474,7 +1474,7 @@ export declare function findRowDataTools(tools: ReadonlyArray<RowDataToolCandida
 
 ### `firstLineAndRows`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -1630,7 +1630,7 @@ export declare const isWhyBrief: (x: unknown) => x is WhyBrief;
 
 ### `jsKind`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -1680,7 +1680,7 @@ export declare function negotiateContractVersion(local: readonly unknown[], remo
 
 ### `parquetColumnsFromMetadata`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -1693,7 +1693,7 @@ export declare function parquetColumnsFromMetadata(meta: ParquetMetadataLike): {
 
 ### `parseCsvHeader`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -1713,7 +1713,7 @@ export declare function parseICalendar(ics: string): ParsedEvent[];
 
 ### `parseJsonColumns`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 
@@ -1726,7 +1726,7 @@ export declare function parseJsonColumns(parsed: unknown): {
 
 ### `parseJsonlColumns`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./data-profile/index.js`.
 

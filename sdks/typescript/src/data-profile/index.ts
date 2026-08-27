@@ -20,7 +20,7 @@ const MAX_COLUMNS = 512;
 /**
  * A parsed column — name + its JS/Parquet kind. Type is null when unknown (e.g. CSV).
  *
- * @moduleStability stable
+ * @moduleStability frozen
  */
 export interface DataColumn {
   readonly name: string;

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.11.0...sdks/go/v0.12.0) (2026-08-27)
+
+
+### Features
+
+* **go:** promote dataprofile to frozen ([#201](https://github.com/nimbus-agent/nimbus-sdk/issues/201)) ([67c69ca](https://github.com/nimbus-agent/nimbus-sdk/commit/67c69ca16f09ea405035cbaee8a58e4e6af33772))
+
 ## [0.11.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.10.0...sdks/go/v0.11.0) (2026-08-27)
 
 

@@ -14,7 +14,7 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 |---|---:|---|---|---|
 | `data-profile` | 34 | 34 | 34 | 34 |
 | `diagnostics` | 75 | 75 | 75 | 75 |
-| `distribution-channel` | 27 | 27 | — | — |
+| `distribution-channel` | 27 | 27 | 27 | — |
 | `framing` | 33 | 33 | 33 | 33 |
 | `item` | 6 | 6 | — | — |
 | `manifest` | 31 | 31 | — | — |
@@ -22,7 +22,7 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **336** | **336** | **208** | **208** |
+| **Total** | **336** | **336** | **235** | **208** |
 
 ## What each binding does not run, and why
 
@@ -32,7 +32,6 @@ Runs every published corpus.
 
 ### `python`
 
-- `distribution-channel` — the binding lands later in this shipment; the corpus is TypeScript-only until it does
 - `item` — needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written
 - `manifest` — needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written
 - `predicates` — binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish

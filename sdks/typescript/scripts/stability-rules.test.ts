@@ -322,7 +322,7 @@ describe("parseSurface against the real goldens", () => {
   });
 
   test("docs/api-surface-python.md", () => {
-    expect(parseSurface(readFromRepo("docs/api-surface-python.md")).size).toBe(89);
+    expect(parseSurface(readFromRepo("docs/api-surface-python.md")).size).toBe(92);
   });
 
   test("docs/api-surface-go.md", () => {

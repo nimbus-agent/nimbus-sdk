@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.12.1...python-v0.13.0) (2026-08-27)
+
+
+### Features
+
+* **python:** nimbus_sdk.data_profile ([#193](https://github.com/nimbus-agent/nimbus-sdk/issues/193)) ([986612e](https://github.com/nimbus-agent/nimbus-sdk/commit/986612ef1b3593714133dd9e51d0b67805ce7ae5))
+
 ## [0.12.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.12.0...python-v0.12.1) (2026-08-27)
 
 

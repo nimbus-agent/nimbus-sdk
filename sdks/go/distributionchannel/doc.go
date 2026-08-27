@@ -35,5 +35,9 @@
 // heuristics still run — an operator who set NIMBUS_DISTRIBUTION_CHANNEL to "brew" has
 // failed to set it, not disabled anything.
 //
-// Stability: experimental
+// Frozen per RFC-0015's mechanical definition: backed by a normative document under
+// docs/spec/ and executed by a conformance-corpus guard. Both have held since the corpus
+// went green in all three bindings.
+//
+// Stability: frozen
 package distributionchannel

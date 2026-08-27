@@ -359,6 +359,7 @@ jobs:
           bun test \
             scripts/data-profile-guard.test.ts \
             scripts/diagnostics-guard.test.ts \
+            scripts/distribution-channel-guard.test.ts \
             scripts/framing-guard.test.ts \
             scripts/negotiation-guard.test.ts \
             scripts/predicates-guard.test.ts \

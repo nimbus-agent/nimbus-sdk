@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.24.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.23.1...typescript-v1.24.0) (2026-08-27)
+
+
+### Features
+
+* **python:** nimbus_sdk.distribution_channel ([#208](https://github.com/nimbus-agent/nimbus-sdk/issues/208)) ([5120b3d](https://github.com/nimbus-agent/nimbus-sdk/commit/5120b3d083121bbef321ec194316c5b695d81ce8))
+
 ## [1.23.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.23.0...typescript-v1.23.1) (2026-08-27)
 
 

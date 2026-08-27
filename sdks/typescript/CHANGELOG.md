@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.26.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.25.0...typescript-v1.26.0) (2026-08-27)
+
+
+### Features
+
+* **typescript:** promote distribution-channel to frozen ([#214](https://github.com/nimbus-agent/nimbus-sdk/issues/214)) ([bf47c8d](https://github.com/nimbus-agent/nimbus-sdk/commit/bf47c8d841c559265261d2ab454808d40672fd1d))
+
 ## [1.25.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.24.0...typescript-v1.25.0) (2026-08-27)
 
 

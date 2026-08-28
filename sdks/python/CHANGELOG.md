@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.17.0...python-v0.18.0) (2026-08-28)
+
+
+### Features
+
+* **python:** promote nimbus_sdk.icalendar to frozen ([#230](https://github.com/nimbus-agent/nimbus-sdk/issues/230)) ([4239239](https://github.com/nimbus-agent/nimbus-sdk/commit/4239239b78e2afd4849ca2d050a0a95646c3c08d))
+
 ## [0.17.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.16.0...python-v0.17.0) (2026-08-28)
 
 

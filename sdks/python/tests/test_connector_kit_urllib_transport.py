@@ -20,12 +20,37 @@ from nimbus_sdk.connector_kit import (
 #: Set by the handler on each request so a test can assert what the server saw.
 SEEN: dict[str, str | None] = {}
 
+#: The request BODY the handler read, per path. Separate from SEEN rather than
+#: widening its value to a tuple, which would touch every existing assertion for
+#: one test's benefit.
+#:
+#: Module-level and unlocked, deliberately. pytest-xdist parallelises across
+#: PROCESSES, so each worker gets its own globals and these cannot race under it.
+#: The one cross-thread hand-off -- the daemon serve_forever thread writes, the
+#: test reads -- is already ordered by the request/response round trip: the test
+#: reads only after send() has returned, which is after the handler wrote. A lock
+#: would earn its place only if this suite ever ran tests concurrently WITHIN a
+#: process, which it does not.
+SEEN_BODY: dict[str, bytes] = {}
+
 
 class _Handler(BaseHTTPRequestHandler):
     """Routes by path. ``/redirect-cross/<port>`` 302s to another origin."""
 
     def do_GET(self) -> None:
         SEEN[self.path] = self.headers.get("Authorization")
+        # Drain the request body BEFORE responding, on every route, even though
+        # only one test reads it back. Closing a socket that still has unread
+        # received data forces an ABORTIVE close (RST) on Windows rather than a
+        # graceful FIN, and a client still reading the response then sees
+        # [WinError 10053] "connection was aborted". That race is what made this
+        # file flaky: do_POST = do_GET and do_GET never read rfile, so the one test
+        # that sends a body was the one that failed. Whether the client finished
+        # reading before the RST arrived was timing -- hence intermittent, and
+        # Windows-only.
+        length = int(self.headers.get("Content-Length") or 0)
+        if length:
+            SEEN_BODY[self.path] = self.rfile.read(length)
         if self.path.startswith("/redirect-cross/"):
             port = self.path.rsplit("/", 1)[1]
             self._send(302, b"", location=f"http://127.0.0.1:{port}/landed")
@@ -104,8 +129,10 @@ def origin_b() -> Iterator[tuple[str, int]]:
 @pytest.fixture(autouse=True)
 def _clear_seen() -> Iterator[None]:
     SEEN.clear()
+    SEEN_BODY.clear()
     yield
     SEEN.clear()
+    SEEN_BODY.clear()
 
 
 def test_a_2xx_body_is_parsed(origin_a: str) -> None:
@@ -201,6 +228,10 @@ def test_a_post_body_reaches_the_server(origin_a: str) -> None:
         HttpRequest(url=f"{origin_a}/plain", method="POST", body=b'{"a":1}')
     )
     assert res.ok is True
+    # The half this test's NAME promises. Before the handler drained rfile this was
+    # unassertable -- the server never read the body -- which is why the test
+    # checked only res.ok, and why the flake it caused had somewhere to hide.
+    assert SEEN_BODY["/plain"] == b'{"a":1}'
 
 
 def test_the_test_server_releases_its_port_on_teardown() -> None:

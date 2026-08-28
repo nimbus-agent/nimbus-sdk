@@ -166,6 +166,15 @@ not even another package inside this module.
 - `type Channel string` — **frozen**
 - `type Config struct { Env map[string]string; ExecPath string; Realpath func(string) (string, error) }` — **frozen**
 
+## `icalendar`
+
+4 exports.
+
+- `func Build(input BuildEventInput, now string) string` — **experimental**
+- `func Parse(ics string) []ParsedEvent` — **experimental**
+- `type BuildEventInput struct { Attendees []string; Description *string; End string; Location *string; Start string; Summary string; UID string }` — **experimental**
+- `type ParsedEvent struct { AllDay bool; Attendees []string; DTStamp *string; Description *string; End *string; Location *string; Organizer *string; RRule *string; RecurrenceID *string; Start *string; Status *string; Summary *string; UID string }` — **experimental**
+
 ## `ipc`
 
 17 exports.

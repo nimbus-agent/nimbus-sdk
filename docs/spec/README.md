@@ -334,18 +334,20 @@ obvious path and environment helpers would answer differently. `str.replace` aga
 `PurePath.as_posix`, and `strings.ReplaceAll` against `filepath.ToSlash`, are the same trap
 twice: each pair agrees on Windows and diverges on Linux, so only a corpus that runs in
 every language catches it.
-A case added to any of these six therefore runs in all three languages as soon
+A case added to any of these seven therefore runs in all three languages as soon
 as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
 `url-resolution` holds a narrower one — that `resolveUrlWithBase`,
 `resolve_url_with_base` and `ResolveURLWithBase`, three separate implementations of the
 same SSRF chokepoint rather than the two ends of a protocol, reach the same verdict and the
 same words on every case.
-`icalendar` is the seventh, and the one exception to "all three" for now: TypeScript and
-Python run it, Go's binding lands in the next pull request of this shipment. It holds a
-fifth kind of claim — that two implementations of an ordinary text format agree on the
-exact bytes, both the thirteen members parsed out of a document and the document built
-back, which §R5 pins byte for byte.
+They also all three run the `icalendar` corpus, the seventh, which holds a fifth kind of
+claim — that three implementations of an ordinary text format agree on the exact bytes,
+both the thirteen members parsed out of a document and the document built back, which §R5
+pins byte for byte. It is the corpus where the three languages' defaults disagree most: a
+naive `mailto:` search is wrong in opposite directions in Go and in the other two, a naive
+trim is wrong differently again, and a naive fold at "75" cuts in three different places
+because `len` counts bytes, code points and UTF-16 units respectively.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. Four corpora are executed by the **TypeScript** binding alone.

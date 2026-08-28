@@ -21,13 +21,14 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-#: Experimental until the corpus runs in all three bindings, which is RFC-0015's
-#: mechanical bar for ``frozen``. Promoted in this shipment's final Python pull request.
+#: Frozen per RFC-0015's mechanical definition: backed by a normative document under
+#: ``docs/spec/`` -- ``batteries/v1/jmap.md`` -- AND executed by a conformance-corpus
+#: guard. Both have held since the corpus went green in all three bindings.
 #:
 #: Declared HERE rather than in ``__init__.py`` because ``api_surface.py`` resolves a
 #: tier from the module that DEFINES each published name, not from the root that
 #: re-exports it.
-__stability__ = "experimental"
+__stability__ = "frozen"
 
 # ---------------------------------------------------------------------------
 # §2 Constants

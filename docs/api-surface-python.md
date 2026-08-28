@@ -247,16 +247,16 @@ reworded docstring is not a change to the surface.
 
 23 exports.
 
-- `class BuildRequest` — **experimental**
+- `class BuildRequest` — **frozen**
   - `using: tuple[str, ...]`
   - `method_calls: tuple[tuple[str, dict[str, Any], str], ...]`
-- `CORE_CAPABILITY: str` — **experimental**
-- `EMAIL_PROPERTIES: tuple[str, ...]` — **experimental**
-- `class JmapAttachmentMeta` — **experimental**
+- `CORE_CAPABILITY: str` — **frozen**
+- `EMAIL_PROPERTIES: tuple[str, ...]` — **frozen**
+- `class JmapAttachmentMeta` — **frozen**
   - `name: str | None`
   - `size_bytes: float | None`
   - `mime_type: str | None`
-- `class JmapEmailView` — **experimental**
+- `class JmapEmailView` — **frozen**
   - `id: str`
   - `message_id: str | None`
   - `subject: str | None`
@@ -266,23 +266,23 @@ reworded docstring is not a change to the surface.
   - `received_at: str | None`
   - `attachments: tuple[JmapAttachmentMeta, ...]`
   - `preview: str`
-- `class JmapSession` — **experimental**
+- `class JmapSession` — **frozen**
   - `api_url: str`
   - `account_id: str`
-- `MAIL_CAPABILITY: str` — **experimental**
-- `MAX_BODY_VALUE_BYTES: int` — **experimental**
-- `PREVIEW_MAX_CHARS: int` — **experimental**
-- `SUBMISSION_CAPABILITY: str` — **experimental**
-- `def build_get_request(account_id: str, id_: str) -> BuildRequest` — **experimental**
-- `def build_list_request(account_id: str, limit: int) -> BuildRequest` — **experimental**
-- `def build_search_request(account_id: str, query: str, limit: int) -> BuildRequest` — **experimental**
-- `def cap_preview(text: str) -> str` — **experimental**
-- `def extract_attachments(value: object) -> tuple[JmapAttachmentMeta, ...]` — **experimental**
-- `def extract_email_list(parsed: object) -> list[Any]` — **experimental**
-- `def format_address(value: object) -> str` — **experimental**
-- `def format_addresses(value: object) -> tuple[str, ...]` — **experimental**
-- `def method_response_args(parsed: object, method_name: str) -> dict[str, Any] | None` — **experimental**
-- `def parse_session(parsed: object) -> JmapSession | None` — **experimental**
-- `def preview_for(raw: dict[str, Any]) -> str` — **experimental**
-- `def validate_api_url(candidate: str, allowed_base: str) -> str` — **experimental**
-- `def view_email(raw: object) -> JmapEmailView | None` — **experimental**
+- `MAIL_CAPABILITY: str` — **frozen**
+- `MAX_BODY_VALUE_BYTES: int` — **frozen**
+- `PREVIEW_MAX_CHARS: int` — **frozen**
+- `SUBMISSION_CAPABILITY: str` — **frozen**
+- `def build_get_request(account_id: str, id_: str) -> BuildRequest` — **frozen**
+- `def build_list_request(account_id: str, limit: int) -> BuildRequest` — **frozen**
+- `def build_search_request(account_id: str, query: str, limit: int) -> BuildRequest` — **frozen**
+- `def cap_preview(text: str) -> str` — **frozen**
+- `def extract_attachments(value: object) -> tuple[JmapAttachmentMeta, ...]` — **frozen**
+- `def extract_email_list(parsed: object) -> list[Any]` — **frozen**
+- `def format_address(value: object) -> str` — **frozen**
+- `def format_addresses(value: object) -> tuple[str, ...]` — **frozen**
+- `def method_response_args(parsed: object, method_name: str) -> dict[str, Any] | None` — **frozen**
+- `def parse_session(parsed: object) -> JmapSession | None` — **frozen**
+- `def preview_for(raw: dict[str, Any]) -> str` — **frozen**
+- `def validate_api_url(candidate: str, allowed_base: str) -> str` — **frozen**
+- `def view_email(raw: object) -> JmapEmailView | None` — **frozen**

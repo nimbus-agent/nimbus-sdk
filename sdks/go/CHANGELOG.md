@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.15.0...sdks/go/v0.16.0) (2026-08-28)
+
+
+### Features
+
+* **go:** promote icalendar to frozen ([#232](https://github.com/nimbus-agent/nimbus-sdk/issues/232)) ([e3d7bdd](https://github.com/nimbus-agent/nimbus-sdk/commit/e3d7bdde026ae8994a080a006b28800db481e784))
+* **go:** the icalendar package ([#227](https://github.com/nimbus-agent/nimbus-sdk/issues/227)) ([134be95](https://github.com/nimbus-agent/nimbus-sdk/commit/134be95b978639ec64f6901d07250f5a7b77cb98))
+
 ## [0.15.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.14.0...sdks/go/v0.15.0) (2026-08-28)
 
 

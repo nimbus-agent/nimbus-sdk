@@ -165,7 +165,7 @@ export type BriefReadyPayload<B extends AgentBrief> = {
 
 ### `BuildEventInput` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./icalendar.js`.
 
@@ -928,7 +928,7 @@ export interface ParquetMetadataLike {
 
 ### `ParsedEvent` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./icalendar.js`.
 
@@ -1330,7 +1330,7 @@ export declare function buildSearchRequest(accountId: string, query: string, lim
 
 ### `buildVEvent`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./icalendar.js`.
 
@@ -1703,7 +1703,7 @@ export declare function parseCsvHeader(firstLine: string): DataColumn[];
 
 ### `parseICalendar`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./icalendar.js`.
 

@@ -299,6 +299,24 @@ correction nobody has agreed to make.**
   state the fold rather than leave it to the host. **Carried by Shipment 3's correction pull
   request**, after the corpus failed the shipped code.
 
+- **`capPreview` truncates at a UTF-16 code unit and can strand a lone surrogate; it must not
+  split a code point.** `jmap-fastmail/index.ts` sliced at `PREVIEW_MAX_CHARS` code units, so
+  a preview whose 2000th unit is the *high* half of a surrogate pair lost its low half and
+  returned **ill-formed UTF-16** — which `batteries/v1/jmap.md` §6.4 forbids outright, and
+  which no consumer can encode as UTF-8, so a Python reader calling `.encode("utf-8")` on it
+  raises. §1 makes this view JSON-safe and meant to cross a process boundary, which is what
+  makes the ill-formed string a defect rather than a curiosity. The three languages differ on
+  the same expression: TypeScript strands a surrogate, Go's byte slice cuts a multi-byte lead,
+  and Python is correct as written because its unit *is* the code point — which is why §6.4
+  says the length is measured in the binding's own units and the cut must still be
+  code-point aligned. **Carried by Shipment 4's correction pull request.**
+
+  The same change amends **§5.2** to state what its `host` comparison normalises — lowercase,
+  no userinfo, default port omitted, IPv6 brackets kept — because the three parsers'
+  own accessors disagree three ways and two of those change the accept/reject verdict. That
+  is a clarification rather than a correction: the reference was already right, and the
+  document did not say enough for a binding to match it.
+
 ## Shipments
 
 - **Shipment 0** (this document): RFC-0017, the §4 amendment in code, the five

@@ -147,6 +147,32 @@ The consequences are real and are specified as they stand:
   explicit lowercasing and last-`@` rule, so a binding MUST use a parser that normalises them
   the same way — §6's rules are the specification of what "the same way" means.
 
+**What "the same way" means, exactly, because the three parsers do not agree.** The host
+compared here is:
+
+1. **lowercased**;
+2. **without userinfo**;
+3. **with its port, except when that port is the scheme's default** — `443` for `https`, `80`
+   for `http` — which is omitted;
+4. **with an IPv6 literal's brackets retained**.
+
+That is what JavaScript's `URL.host` produces, and §R2 makes the reference the thing bindings
+match. It is spelled out because a binding reaching for its own parser's obvious accessor
+gets a different answer, measured:
+
+| Input | JavaScript `URL.host` | Python `.hostname` + `.port` | Go `URL.Host` |
+|---|---|---|---|
+| `https://x:443/` | `x` | `x:443` | `x:443` |
+| `https://API.Example.COM/` | `api.example.com` | `api.example.com` | `API.Example.COM` |
+| `https://[2001:db8::1]:8443/` | `[2001:db8::1]:8443` | `2001:db8::1:8443` | `[2001:db8::1]:8443` |
+
+A different pair agrees each time, so there is no majority to follow. **Two of the three
+change the verdict** rather than merely the string: a candidate of `https://x:443/` against a
+base of `https://x/` is accepted under rule 3 and rejected without it, and a mixed-case
+candidate is accepted under rule 1 and rejected without it. The third is worse than
+different — Python's bare `.hostname` drops the brackets, so a naive composition yields
+`2001:db8::1:8443`, in which nothing marks where the address ends.
+
 This is pinned rather than corrected because the check is *tighter* than an origin comparison
 in the direction that matters: the candidate must be `https`, so the token cannot be sent in
 clear text regardless of how the base was configured. Widening it to a full origin comparison

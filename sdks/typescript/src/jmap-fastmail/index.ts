@@ -25,7 +25,15 @@ import { trim } from "../internal/whitespace.js";
 /**
  * The JMAP core capability URN.
  *
- * @moduleStability stable
+ * Frozen per RFC-0015's mechanical definition: backed by a normative document under
+ * `docs/spec/` — `batteries/v1/jmap.md` — **and** executed by a conformance-corpus guard.
+ * Both have held since `docs/spec/conformance/v1/jmap/` went green in all three bindings.
+ *
+ * The tag sits on this export rather than on the module comment above the import: `tsc`
+ * emits an import's leading trivia only when the import survives into the `.d.ts`, and an
+ * elided import takes the comment with it. See the note in CLAUDE.md.
+ *
+ * @moduleStability frozen
  */
 export const CORE_CAPABILITY = "urn:ietf:params:jmap:core";
 export const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";

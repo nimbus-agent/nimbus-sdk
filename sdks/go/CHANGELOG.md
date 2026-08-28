@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.15.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.14.0...sdks/go/v0.15.0) (2026-08-28)
+
+
+### Features
+
+* **python:** nimbus_sdk.icalendar ([#224](https://github.com/nimbus-agent/nimbus-sdk/issues/224)) ([8141bf8](https://github.com/nimbus-agent/nimbus-sdk/commit/8141bf8f03644b4251907df58ffe3197984859b1))
+
+
+### Bug Fixes
+
+* **typescript:** extractMailto must not index a case-folded copy ([#221](https://github.com/nimbus-agent/nimbus-sdk/issues/221)) ([8a9dc38](https://github.com/nimbus-agent/nimbus-sdk/commit/8a9dc38412b8f2167f12ca200ebd8d5407f8e97e))
+
 ## [0.14.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.13.0...sdks/go/v0.14.0) (2026-08-27)
 
 

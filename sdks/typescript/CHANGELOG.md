@@ -1,5 +1,14 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.27.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.26.1...typescript-v1.27.0) (2026-08-28)
+
+
+### Features
+
+* **go:** the icalendar package ([#227](https://github.com/nimbus-agent/nimbus-sdk/issues/227)) ([134be95](https://github.com/nimbus-agent/nimbus-sdk/commit/134be95b978639ec64f6901d07250f5a7b77cb98))
+* **python:** nimbus_sdk.icalendar ([#224](https://github.com/nimbus-agent/nimbus-sdk/issues/224)) ([8141bf8](https://github.com/nimbus-agent/nimbus-sdk/commit/8141bf8f03644b4251907df58ffe3197984859b1))
+* **typescript:** promote icalendar to frozen ([#229](https://github.com/nimbus-agent/nimbus-sdk/issues/229)) ([70809a2](https://github.com/nimbus-agent/nimbus-sdk/commit/70809a2c5ad6d125e3c9fb4937a101973794d409))
+
 ## [1.26.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.26.0...typescript-v1.26.1) (2026-08-28)
 
 

@@ -242,3 +242,47 @@ reworded docstring is not a change to the surface.
   - `dtstamp: str | None`
 - `def build_vevent(event: BuildEventInput, now: str) -> str` — **frozen**
 - `def parse_icalendar(ics: str) -> list[ParsedEvent]` — **frozen**
+
+## `nimbus_sdk.jmap_fastmail`
+
+23 exports.
+
+- `class BuildRequest` — **experimental**
+  - `using: tuple[str, ...]`
+  - `method_calls: tuple[tuple[str, dict[str, Any], str], ...]`
+- `CORE_CAPABILITY: str` — **experimental**
+- `EMAIL_PROPERTIES: tuple[str, ...]` — **experimental**
+- `class JmapAttachmentMeta` — **experimental**
+  - `name: str | None`
+  - `size_bytes: float | None`
+  - `mime_type: str | None`
+- `class JmapEmailView` — **experimental**
+  - `id: str`
+  - `message_id: str | None`
+  - `subject: str | None`
+  - `from_: tuple[str, ...]`
+  - `to: tuple[str, ...]`
+  - `cc: tuple[str, ...]`
+  - `received_at: str | None`
+  - `attachments: tuple[JmapAttachmentMeta, ...]`
+  - `preview: str`
+- `class JmapSession` — **experimental**
+  - `api_url: str`
+  - `account_id: str`
+- `MAIL_CAPABILITY: str` — **experimental**
+- `MAX_BODY_VALUE_BYTES: int` — **experimental**
+- `PREVIEW_MAX_CHARS: int` — **experimental**
+- `SUBMISSION_CAPABILITY: str` — **experimental**
+- `def build_get_request(account_id: str, id_: str) -> BuildRequest` — **experimental**
+- `def build_list_request(account_id: str, limit: int) -> BuildRequest` — **experimental**
+- `def build_search_request(account_id: str, query: str, limit: int) -> BuildRequest` — **experimental**
+- `def cap_preview(text: str) -> str` — **experimental**
+- `def extract_attachments(value: object) -> tuple[JmapAttachmentMeta, ...]` — **experimental**
+- `def extract_email_list(parsed: object) -> list[Any]` — **experimental**
+- `def format_address(value: object) -> str` — **experimental**
+- `def format_addresses(value: object) -> tuple[str, ...]` — **experimental**
+- `def method_response_args(parsed: object, method_name: str) -> dict[str, Any] | None` — **experimental**
+- `def parse_session(parsed: object) -> JmapSession | None` — **experimental**
+- `def preview_for(raw: dict[str, Any]) -> str` — **experimental**
+- `def validate_api_url(candidate: str, allowed_base: str) -> str` — **experimental**
+- `def view_email(raw: object) -> JmapEmailView | None` — **experimental**

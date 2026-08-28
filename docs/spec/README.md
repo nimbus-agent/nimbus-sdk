@@ -367,17 +367,24 @@ pins byte for byte. It is the corpus where the three languages' defaults disagre
 naive `mailto:` search is wrong in opposite directions in Go and in the other two, a naive
 trim is wrong differently again, and a naive fold at "75" cuts in three different places
 because `len` counts bytes, code points and UTF-16 units respectively.
+`jmap` is the eighth, and now the one exception to "all three": TypeScript and Python
+run it, Go's binding lands in the next pull request of this shipment. It holds a sixth
+kind of claim — that independent implementations of a wire *protocol's client half*
+agree, both on the request structures they build and on the verdict for the one value a
+remote party chooses, which §5 guards because a spoofed session would otherwise redirect
+a bearer token. Its §6.4 also carries the clearest statement in the tree of why a unit
+must be named rather than inherited: the cap is code points in every binding, because
+letting each count its own gave one input two conforming answers and left the boundary
+unpinnable by any case.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Five corpora are executed by the **TypeScript** binding alone.
-`jmap` is executed by the **TypeScript** binding only, for now — its Python and Go bindings land in the next two pull requests of this shipment, and this sentence goes with them.
+whole tree. Four corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-All five are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `jmap`, `predicates`, `sandbox`,
-`manifest` or `item` run as "the reference implementation agrees with the spec", not as
-"the spec is implementable twice". `jmap` is the one of the five whose place on this list
-is temporary.
+All four are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
+`item` run as "the reference implementation agrees with the spec", not as
+"the spec is implementable twice".
 
 Which binding runs which corpus is declared in
 [`docs/conformance-coverage.json`](../conformance-coverage.json) and rendered, with the

@@ -203,7 +203,7 @@ export declare const CONTRACT_VERSIONS: readonly string[];
 
 ### `CORE_CAPABILITY`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -351,7 +351,7 @@ export type DistributionChannel = "homebrew" | "scoop" | "winget" | "apt" | "yum
 
 ### `EMAIL_PROPERTIES`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -723,7 +723,7 @@ export type JanitorPeerTouch = {
 
 ### `JmapAttachmentMeta` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -737,7 +737,7 @@ export interface JmapAttachmentMeta {
 
 ### `JmapEmailView` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -757,7 +757,7 @@ export interface JmapEmailView {
 
 ### `JmapSession` *(type-only)*
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -790,7 +790,7 @@ export type KnownItemType = (typeof KNOWN_ITEM_TYPES)[number];
 
 ### `MAIL_CAPABILITY`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -800,7 +800,7 @@ export declare const MAIL_CAPABILITY = "urn:ietf:params:jmap:mail";
 
 ### `MAX_BODY_VALUE_BYTES`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -902,7 +902,7 @@ export declare class NonIntegerNumberInManifest extends Error {
 
 ### `PREVIEW_MAX_CHARS`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1053,7 +1053,7 @@ export interface RowDataViolation {
 
 ### `SUBMISSION_CAPABILITY`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1260,7 +1260,7 @@ export type WhySubject = {
 
 ### `asRecord`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1270,7 +1270,7 @@ export declare function asRecord(v: unknown): Record<string, unknown> | null;
 
 ### `asString`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1300,7 +1300,7 @@ export declare function base64UrlJson(value: unknown): string;
 
 ### `buildGetRequest`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1310,7 +1310,7 @@ export declare function buildGetRequest(accountId: string, id: string): unknown;
 
 ### `buildListRequest`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1320,7 +1320,7 @@ export declare function buildListRequest(accountId: string, limit: number): unkn
 
 ### `buildSearchRequest`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1360,7 +1360,7 @@ export declare function canonicalizeManifest(manifest: object): Uint8Array;
 
 ### `capPreview`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1444,7 +1444,7 @@ export declare function errorToHardDisableReason(err: unknown): SignatureDisable
 
 ### `extractAttachments`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1454,7 +1454,7 @@ export declare function extractAttachments(v: unknown): JmapAttachmentMeta[];
 
 ### `extractEmailList`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1487,7 +1487,7 @@ export declare function firstLineAndRows(text: string, truncated: boolean): {
 
 ### `formatAddress`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1497,7 +1497,7 @@ export declare function formatAddress(a: unknown): string;
 
 ### `formatAddresses`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1650,7 +1650,7 @@ export declare function manifestContractVersions(manifest: unknown): readonly un
 
 ### `methodResponseArgs`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1746,7 +1746,7 @@ export declare function parseServiceAccountJson(json: string): GoogleServiceAcco
 
 ### `parseSession`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1766,7 +1766,7 @@ export declare function parseStorybookIndex(parsed: unknown): StorybookStory[];
 
 ### `previewFor`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1846,7 +1846,7 @@ export declare function trimTrailingSlash(s: string): string;
 
 ### `validateApiUrl`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 
@@ -1876,7 +1876,7 @@ export declare function verifyManifestSignature(manifest: SignedManifestShape, r
 
 ### `viewEmail`
 
-**Stability:** stable
+**Stability:** frozen
 
 From `./jmap-fastmail/index.js`.
 

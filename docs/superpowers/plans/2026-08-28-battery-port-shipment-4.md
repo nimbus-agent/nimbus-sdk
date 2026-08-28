@@ -370,6 +370,11 @@ naive binding, which is the point.
 
 - [ ] **Step 3: Run it — it MUST fail on exactly the §6.4 truncation case.**
 
+**One case, not four.** The three §5.2 host cases pin behaviour the reference already
+gets right — `URL.host` drops the default port, lowercases, and keeps IPv6 brackets on
+its own — so they pass here and exist to catch the *naive Python and Go ports* in
+Tasks 5 and 7. Only §6.4 is a defect in the shipped TypeScript.
+
 **Do not proceed if it fails on anything else, and do not proceed if it passes.** A pass means the corpus is not exercising §6.4 and this shipment's spec-first claim is untested. Shipment 3's first U+0130 case passed for exactly that reason — the input never reached the code under test.
 
 - [ ] **Step 4: Record the measurement** — run `bun test src/jmap-fastmail/index.test.ts` and confirm it is green (69 at time of writing; read the real number off the run).

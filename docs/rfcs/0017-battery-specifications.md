@@ -299,17 +299,26 @@ correction nobody has agreed to make.**
   state the fold rather than leave it to the host. **Carried by Shipment 3's correction pull
   request**, after the corpus failed the shipped code.
 
-- **`capPreview` truncates at a UTF-16 code unit and can strand a lone surrogate; it must not
-  split a code point.** `jmap-fastmail/index.ts` sliced at `PREVIEW_MAX_CHARS` code units, so
-  a preview whose 2000th unit is the *high* half of a surrogate pair lost its low half and
-  returned **ill-formed UTF-16** — which `batteries/v1/jmap.md` §6.4 forbids outright, and
-  which no consumer can encode as UTF-8, so a Python reader calling `.encode("utf-8")` on it
-  raises. §1 makes this view JSON-safe and meant to cross a process boundary, which is what
-  makes the ill-formed string a defect rather than a curiosity. The three languages differ on
-  the same expression: TypeScript strands a surrogate, Go's byte slice cuts a multi-byte lead,
-  and Python is correct as written because its unit *is* the code point — which is why §6.4
-  says the length is measured in the binding's own units and the cut must still be
-  code-point aligned. **Carried by Shipment 4's correction pull request.**
+- **`capPreview` truncates at a UTF-16 code unit and can strand a lone surrogate; the cap must
+  be 2000 *code points*, in every binding.** `jmap-fastmail/index.ts` sliced at
+  `PREVIEW_MAX_CHARS` code units, so a preview whose 2000th unit is the *high* half of a
+  surrogate pair lost its low half and returned **ill-formed UTF-16** — which no consumer can
+  encode as UTF-8, so a Python reader calling `.encode("utf-8")` on it raises. §1 makes this
+  view JSON-safe and meant to cross a process boundary, which is what makes the ill-formed
+  string a defect rather than a curiosity. **Carried by Shipment 4's correction pull request.**
+
+  **§6.4 itself moved, and that is the larger half of this entry.** As merged in #188 it made
+  the unit *per binding* — "the same units the binding's string type counts" — with
+  code-point alignment layered on top. That was inconsistent on its face, because it then had
+  to override Go back to code points anyway, leaving the freedom applying to exactly one
+  binding. Worse, it produced **two different correct answers for one input**: for 1999 ASCII
+  characters followed by U+1F600, TypeScript returned 1999 characters (keeping the astral one
+  would have needed 2001 UTF-16 units) where Python and Go returned 2000 code points including
+  it. Both conformed, and **no conformance case could pin either** — which is the one thing a
+  battery specification exists to prevent, and precisely the per-language looseness this RFC's
+  Problem section catalogues. §6.4 now says code points, full stop, and the corpus pins one
+  answer all three bindings produce. Found while writing the Python binding, by the corpus
+  case failing in a binding the specification said was conformant.
 
   The same change amends **§5.2** to state what its `host` comparison normalises — lowercase,
   no userinfo, default port omitted, IPv6 brackets kept — because the three parsers'

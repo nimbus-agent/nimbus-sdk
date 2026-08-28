@@ -251,12 +251,31 @@ Capping normalises then truncates, in this order:
 2. every run of one or more spaces or tabs becomes a single space;
 3. every run of two or more newlines becomes a single newline;
 4. the result is trimmed per §R7;
-5. if it is longer than `PREVIEW_MAX_CHARS` (2000), it is truncated to that length.
+5. if it is longer than `PREVIEW_MAX_CHARS` (2000) **code points**, it is truncated to that
+   many code points.
 
-Step 5's length is measured in the same units the binding's string type counts, and truncation
-MUST NOT split a code point. A binding whose string is a byte sequence measures code points
-here, not bytes; this differs from `icalendar` §7.1, which measures octets because RFC 5545
-does.
+**The unit is the code point in every binding**, and truncation therefore cannot split one.
+Not UTF-16 code units, not bytes: a binding MUST count code points even when its string type
+counts something else, which is all three of them at least once —
+
+| Binding | its string's own unit | what §6.4 requires |
+|---|---|---|
+| TypeScript | UTF-16 code unit | code point — `[...s]`, not `.slice` |
+| Python | code point | code point — its slice is already correct |
+| Go | byte | code point — count runes, not `s[:n]` |
+
+An earlier revision of this section made the unit *per binding* — "the same units the
+binding's string type counts" — with a code-point-alignment rule layered on top. That was
+inconsistent on its face, because it then had to override Go back to code points anyway, so
+the freedom applied to exactly one binding. It also produced two different correct answers
+for one input: for 1999 ASCII characters followed by U+1F600, TypeScript returned 1999
+characters (keeping the astral one would have needed 2001 UTF-16 units) where Python and Go
+returned 2000 code points including it. Both conformed, and no conformance case could pin
+either, which defeats the purpose of having a corpus. RFC-0017 §6.1 records the change.
+
+This differs from `icalendar` §7.1, which measures **octets** because RFC 5545 does. The
+difference is deliberate: that limit exists to satisfy a wire format, and this one exists to
+bound what a caller is handed.
 
 ## §7 Request builders
 

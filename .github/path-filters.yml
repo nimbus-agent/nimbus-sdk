@@ -1,0 +1,72 @@
+# Which paths make which CI jobs worth running.
+#
+# Read by the `changes` job in ci.yml and gated by
+# sdks/typescript/scripts/path-filters.test.ts.
+#
+# THE FAILURE MODE THIS FILE HAS IS SILENT. A filter that is too narrow means the job does
+# not run and `ci-complete` still reports green — nothing turns red to tell you. So every
+# list here is deliberately generous: the cost of running a job that did not need to run is
+# a few minutes, and the cost of skipping one that did is a defect on main.
+#
+# Two couplings are easy to miss and are therefore asserted by the guard rather than left to
+# review:
+#
+#   - `docs/spec/` is NOT documentation. It is bundled into
+#     sdks/python/src/nimbus_sdk/_data/spec by the hatch build hook, and mirrored into
+#     sdks/go/spec/data by `go generate ./spec`. A spec change must run all three suites.
+#   - a change to ci.yml or to THIS FILE must run everything they gate, or the change is
+#     untested.
+
+# Anything that changes how CI itself behaves.
+common: &common
+  - ".github/workflows/ci.yml"
+  - ".github/path-filters.yml"
+
+# The language-neutral contract. Belongs to all three bindings, not to the docs.
+spec: &spec
+  - "docs/spec/**"
+
+typescript:
+  - *common
+  - *spec
+  # `docs/**` in full, not just docs/spec: docs-snippets.test.ts typechecks every fenced ts
+  # block in docs/modules and docs/README.md against dist/, and docs-coverage.test.ts
+  # requires every published module to be claimed by a docs/modules page.
+  - "docs/**"
+  - "sdks/typescript/**"
+  - "package.json"
+  - "bun.lock"
+  - "biome.json"
+  - "tsconfig*.json"
+
+python:
+  - *common
+  - *spec
+  - "sdks/python/**"
+
+go:
+  - *common
+  - *spec
+  - "sdks/go/**"
+
+scaffold:
+  - *common
+  # NOT obvious, and caught by evaluating this file against real change sets rather than by
+  # reading it: scaffold-python "builds the SDK wheel from this commit" and installs it into
+  # the generated project, and that wheel BUNDLES docs/spec via the hatch build hook. So a
+  # spec change reaches the scaffolder even though nothing under tools/ mentions it.
+  - *spec
+  # docs-excerpts.test.ts pins the generated templates to the README and quickstarts that
+  # quote them, so a change to either side is a change to the scaffolder's tests. The
+  # scaffold jobs also pack the SDK itself, so its sources are in scope too.
+  - "tools/create-connector/**"
+  - "sdks/typescript/**"
+  - "sdks/python/**"
+  - "docs/quickstart-*.md"
+
+# The conformance job runs all three bindings' corpus guards, so anything under sdks/ or the
+# spec is in scope.
+conformance:
+  - *common
+  - *spec
+  - "sdks/**"

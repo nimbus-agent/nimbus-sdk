@@ -18,13 +18,13 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `framing` | 33 | 33 | 33 | 33 |
 | `icalendar` | 59 | 59 | 59 | 59 |
 | `item` | 6 | 6 | — | — |
-| `jmap` | 61 | 61 | 61 | — |
+| `jmap` | 61 | 61 | 61 | 61 |
 | `manifest` | 31 | 31 | — | — |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **456** | **456** | **355** | **294** |
+| **Total** | **456** | **456** | **355** | **355** |
 
 ## What each binding does not run, and why
 
@@ -42,7 +42,6 @@ Runs every published corpus.
 ### `go`
 
 - `item` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
-- `jmap` — binding lands in this shipment's next pull request
 - `manifest` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
 - `predicates` — binds predicates no Go package publishes
 - `sandbox` — binds the sandbox probe protocol, which no Go package publishes

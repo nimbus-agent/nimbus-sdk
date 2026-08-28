@@ -353,7 +353,7 @@ obvious path and environment helpers would answer differently. `str.replace` aga
 `PurePath.as_posix`, and `strings.ReplaceAll` against `filepath.ToSlash`, are the same trap
 twice: each pair agrees on Windows and diverges on Linux, so only a corpus that runs in
 every language catches it.
-A case added to any of these seven therefore runs in all three languages as soon
+A case added to any of these eight therefore runs in all three languages as soon
 as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
 `url-resolution` holds a narrower one — that `resolveUrlWithBase`,
@@ -367,8 +367,7 @@ pins byte for byte. It is the corpus where the three languages' defaults disagre
 naive `mailto:` search is wrong in opposite directions in Go and in the other two, a naive
 trim is wrong differently again, and a naive fold at "75" cuts in three different places
 because `len` counts bytes, code points and UTF-16 units respectively.
-`jmap` is the eighth, and now the one exception to "all three": TypeScript and Python
-run it, Go's binding lands in the next pull request of this shipment. It holds a sixth
+They also all three run the `jmap` corpus, the eighth and last. It holds a sixth
 kind of claim — that independent implementations of a wire *protocol's client half*
 agree, both on the request structures they build and on the verdict for the one value a
 remote party chooses, which §5 guards because a spoofed session would otherwise redirect

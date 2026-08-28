@@ -197,6 +197,37 @@ not even another package inside this module.
 - `type LineReader struct {}` — **frozen**
 - `var ErrFrameTooLong = errors.New("Message exceeds 1MB line limit")` — **frozen**
 
+## `jmapfastmail`
+
+26 exports.
+
+- `const CoreCapability = "urn:ietf:params:jmap:core"` — **experimental**
+- `const MailCapability = "urn:ietf:params:jmap:mail"` — **experimental**
+- `const MaxBodyValueBytes = 2048` — **experimental**
+- `const PreviewMaxChars = 2000` — **experimental**
+- `const SubmissionCapability = "urn:ietf:params:jmap:submission"` — **experimental**
+- `func (m MethodCall) MarshalJSON() ([]byte, error)` — **experimental**
+- `func BuildGetRequest(accountID, id string) Request` — **experimental**
+- `func BuildListRequest(accountID string, limit int) Request` — **experimental**
+- `func BuildSearchRequest(accountID, query string, limit int) Request` — **experimental**
+- `func CapPreview(text string) string` — **experimental**
+- `func EmailProperties() []string` — **experimental**
+- `func ExtractAttachments(v any) []AttachmentMeta` — **experimental**
+- `func ExtractEmailList(parsed any) []any` — **experimental**
+- `func FormatAddress(v any) string` — **experimental**
+- `func FormatAddresses(v any) []string` — **experimental**
+- `func MethodResponseArgs(parsed any, methodName string) map[string]any` — **experimental**
+- `func ParseSession(parsed any) *Session` — **experimental**
+- `func PreviewFor(raw map[string]any) string` — **experimental**
+- `func ValidateAPIURL(candidate, allowedBase string) (string, error)` — **experimental**
+- `func ViewEmail(raw any) *EmailView` — **experimental**
+- `type AttachmentMeta struct { MimeType *string; Name *string; SizeBytes *float64 }` — **experimental**
+- `type EmailView struct { Attachments []AttachmentMeta; Cc []string; From []string; ID string; MessageID *string; Preview string; ReceivedAt *string; Subject *string; To []string }` — **experimental**
+- `type MethodCall struct { Args map[string]any; ClientID string; Name string }` — **experimental**
+- `` type Request struct { MethodCalls []MethodCall `json:"methodCalls"`; Using []string `json:"using"` } `` — **experimental**
+- `type Session struct { APIURL string; AccountID string }` — **experimental**
+- `var ErrInvalidAPIURL = errors.New("jmapfastmail: invalid JMAP apiUrl")` — **experimental**
+
 ## `spec`
 
 2 exports.

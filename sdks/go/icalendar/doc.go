@@ -52,8 +52,13 @@
 // contract.HandshakeExit and negotiate_contract_version into contract.Negotiate. These are
 // the third and fourth names in the module whose spelling differs from Python's.
 //
-// Experimental until the corpus runs in all three bindings, which is RFC-0015's mechanical
-// bar for frozen. Promoted in this shipment's final Go pull request.
+// Frozen per RFC-0015's mechanical definition: backed by a normative document under
+// docs/spec/ — batteries/v1/icalendar.md — and executed by a conformance-corpus guard.
+// Both have held since the corpus went green in all three bindings.
 //
-// Stability: experimental
+// Exactly one file per package may declare the package-level tier, and this is it. Two is
+// an error rather than a first-match win: silently picking one of two disagreeing tiers is
+// the failure this design exists to prevent.
+//
+// Stability: frozen
 package icalendar

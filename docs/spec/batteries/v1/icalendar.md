@@ -279,13 +279,20 @@ Four properties of this list a binding MUST reproduce exactly:
 **`buildVEvent` does not fold.** A line of any length is emitted whole.
 
 RFC 5545 §3.1 says a content line SHOULD be folded so that no line exceeds 75 octets, so this
-is a divergence from the RFC and not merely an unspecified area. It is pinned here
-**provisionally**: the behaviour is what ships, a binding MUST reproduce it, and whether to
-add folding is deferred to RFC-0018 rather than settled by an implementer.
+is a divergence from the RFC and not merely an unspecified area. It is **settled** by
+[RFC-0018](../../../rfcs/0018-icalendar-line-folding.md), which decided against folding for
+`v1`: RFC 5545 makes folding a SHOULD while making unfolding unconditional for every reader,
+so no conformant consumer can observe the difference; §6 already declines this class of
+repair for an embedded newline; and the naive implementation differs per language (§7.1).
+The behaviour is what ships, and a binding MUST reproduce it.
 
-### §7.1 What RFC-0018 is constrained to, if folding is added
+Two conformance cases pin this directly — a `SUMMARY` exceeding 75 octets in ASCII, and one
+exceeding it with multi-octet characters straddling the boundary — each expecting an output
+with no CRLF-plus-whitespace sequence anywhere. A binding that folded would fail both.
 
-Should folding be added, it MUST be code-point aligned: the fold point is the **last
+### §7.1 What a future revision is constrained to, if folding is added
+
+Should folding ever be added, it MUST be code-point aligned: the fold point is the **last
 code-point boundary at or before 75 octets**, never a blind cut at octet 75.
 
 RFC 5545 §3.1 anticipates the failure:
@@ -294,28 +301,45 @@ RFC 5545 §3.1 anticipates the failure:
 > middle of a UTF-8 multi-octet sequence. For this reason, implementations need to unfold
 > lines in such a way to properly restore the original sequence.
 
-Placing the burden on the unfolder is not sufficient here. This SDK ships an intermediary
-that decodes line by line **before** any unfolding happens — `ipc`'s NDJSON line reader — so
-a document whose fold split a multi-octet sequence presents individually invalid UTF-8 lines
-to a decoder that has no way to know a continuation is coming. The consequence is a U+FFFD
-substitution in the middle of a user's text, and, because §6 of the framing spec measures its
-limit on decoded octets, a longer line than the fold was meant to produce.
+Placing the burden on the unfolder is not sufficient here, because the prohibition is
+unconditional: RFC 5545 forbids generating such a fold in the first place, and a document
+that contains one is malformed whatever any particular reader does with it.
+
+The consequence lands on any consumer that streams raw ICS through a **line-oriented
+decoder**, which is an ordinary way to read an `.ics` file: each folded segment reaches the
+decoder as an individually invalid UTF-8 line, with no way to know a continuation is coming.
+That yields a U+FFFD substitution in the middle of a user's text, and — where the decoder
+also enforces a length limit measured on decoded octets, as `ipc`'s framing does — a longer
+line than the fold was meant to produce.
+
+> **This paragraph previously claimed the hazard was reachable through `ipc`'s own NDJSON
+> line reader.** It is not. The reader does decode before any unfolding, but an ICS document
+> travelling through this SDK is carried as a **JSON string value inside an NDJSON frame**,
+> so its own CRLFs are escaped within that string and the reader never splits on them — it
+> sees one frame, not one line per folded segment. The rule above is unchanged; only its
+> justification is corrected, by
+> [RFC-0018](../../../rfcs/0018-icalendar-line-folding.md), which records why.
 
 A second reason the alignment must be specified rather than assumed: the naive
 implementation differs per language. RFC 5545 counts **octets**, JavaScript's `.length`
 counts UTF-16 code units, Python's `len()` counts code points, and Go's `len()` counts
 bytes — so `slice(0, 75)` cuts in three different places on the same string.
 
-**No case in the current corpus enforces this rule, and none can.** §7 specifies a builder
+**No case in the corpus enforces this *alignment* rule, and none can.** §7 specifies a builder
 that does not fold, so a `build` case whose fold point falls inside a multi-octet sequence
 has no fold to assert against — it would pin the unfolded output and pass whether or not a
 future implementation aligned its folds correctly.
 
-The fixture is therefore *reserved*, not present: RFC-0018 adds it in the same change that
-adds folding, and until then this subsection constrains that RFC rather than the corpus. It
-is written now because the constraint is easiest to agree while nothing depends on it, and
+The alignment fixture is therefore *reserved*, not present: whichever change adds folding adds
+it too, and until then this subsection constrains that change rather than the corpus. It is
+written now because the constraint is easiest to agree while nothing depends on it, and
 because an implementer reaching for `slice(0, 75)` needs to find the rule before writing the
 code, not after.
+
+**This is a gap in §7.1 only, not in §7.** §7's own claim — that a long line is emitted whole
+— *is* directly assertable, and the corpus asserts it with the two cases §7 names. Do not
+read this paragraph as saying line folding is untested; read it as saying the rule for a fold
+that never happens cannot be.
 
 ## §8 Whitespace
 
@@ -335,9 +359,11 @@ does not "fix" one and break cross-language agreement. Every item is required be
 | 4 | Only VEVENT is read; VTODO, VJOURNAL, VFREEBUSY and VTIMEZONE are discarded | §5.1 |
 | 5 | Date-time values are opaque strings — never parsed, validated or converted | §1 |
 
-Items 1 and 2 are candidates for correction under §R2 and would each need an RFC — item 2 is
-RFC-0018's subject. Items 3, 4 and 5 are scope decisions: this battery reads and writes the
-calendar data a Nimbus connector exchanges, and is not a general iCalendar library.
+Item 1 is a candidate for correction under §R2 and would need an RFC of its own. Items 2, 3,
+4 and 5 are settled scope decisions: this battery reads and writes the calendar data a Nimbus
+connector exchanges, and is not a general iCalendar library. Item 2 was settled by
+[RFC-0018](../../../rfcs/0018-icalendar-line-folding.md), which decided against folding for
+`v1` and left §7.1 standing as a constraint on any future revision that adds it.
 
 Unfolding is **not** on this list. An earlier draft of §2 recorded it as a divergence, on the
 reading that only the CRLF was removed; running the implementation showed the whitespace is

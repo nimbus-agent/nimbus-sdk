@@ -166,10 +166,10 @@ U+FEFF, U+0085 and U+001C–U+001F. See
 
 ### `conformance/v1/`
 
-Ten kinds of assertion, across **eleven** corpus directories — the two counts differ
+Eleven kinds of assertion, across **twelve** corpus directories — the two counts differ
 because the document fixtures cover both `manifest` and `item` from one top-level index.
-The groups below are the ten kinds; `corpusNames()` in
-`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the eleven.
+The groups below are the eleven kinds; `corpusNames()` in
+`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the twelve.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -280,6 +280,25 @@ parameter cannot reach it at all, because §3.2 removes the parameter section al
 first colon — a corpus built on one would pin nothing, which is a mistake this corpus's first
 draft actually made.
 
+**JMAP cases** — [`jmap/`](./conformance/v1/jmap/) is the executable form of
+[`batteries/v1/jmap.md`](./batteries/v1/jmap.md). It carries **ten case kinds**, the most
+of any corpus — not to be confused with the eleven *groups* counted above — because §1's
+surface is ten operations rather than one or two, and
+one of them is unlike anything else in the tree: `validateApiUrl` **raises** where every
+other function in every battery returns an absence. §5.1 says why, and it is a control
+rather than a style: an absence is a value a caller can ignore, and the one thing a
+caller must not do with a rejected `apiUrl` is carry on. Its cases follow
+`url-resolution`'s `{ ok, message }` shape, since that corpus already models a throwing
+function — but without its `reason` token, which `jmap.md` does not define and a corpus
+may not invent.
+
+The corpus is named `jmap` where the modules are `jmap-fastmail`; RFC-0017 §2 settles
+that a document is named for what it specifies, and nothing here is Fastmail-specific.
+
+`request` cases compare a **parsed structure**, never serialised bytes. §9 records why:
+Go's `encoding/json` sorts a map's keys on marshal where the other two emit insertion
+order, so the same conforming request serialises differently in different bindings.
+
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
 - **`equivalence`** — the schema and `runContractTests` both cover these fields and must
@@ -315,7 +334,7 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Eleven guards run on every pull request as part of `bun run test` (see
+Twelve guards run on every pull request as part of `bun run test` (see
 `.github/workflows/ci.yml`).
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
@@ -350,13 +369,15 @@ trim is wrong differently again, and a naive fold at "75" cuts in three differen
 because `len` counts bytes, code points and UTF-16 units respectively.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Four corpora are executed by the **TypeScript** binding alone.
+whole tree. Five corpora are executed by the **TypeScript** binding alone.
+`jmap` is executed by the **TypeScript** binding only, for now — its Python and Go bindings land in the next two pull requests of this shipment, and this sentence goes with them.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-All four are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
-`item` run as "the reference implementation agrees with the spec", not as
-"the spec is implementable twice".
+All five are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `jmap`, `predicates`, `sandbox`,
+`manifest` or `item` run as "the reference implementation agrees with the spec", not as
+"the spec is implementable twice". `jmap` is the one of the five whose place on this list
+is temporary.
 
 Which binding runs which corpus is declared in
 [`docs/conformance-coverage.json`](../conformance-coverage.json) and rendered, with the
@@ -473,6 +494,22 @@ not; and at least two `build` cases must exceed 75 octets — one of them multi-
 "75 octets" is never distinguished from "75 characters" — with no `build` case's expected
 output containing a fold sequence anywhere, which is what makes §7 executable rather than
 merely settled.
+
+`sdks/typescript/scripts/jmap-guard.test.ts` validates the jmap corpus against its
+schemas, holds the index and the cases directory to each other, and drives every case
+through one of ten entry points. Its anti-vacuity checks are shaped by what this battery
+gets wrong when ported: each of §5's three rejection messages must be pinned verbatim, or
+two of the three branches go untested; a case must expect a **raise** and another an
+acceptance, or §5.1's whole distinction is unexercised; all three §5.2 host hazards must be
+present — an explicit default port, a mixed-case host, an IPv6 literal — because the three
+URL parsers disagree on each and a *different pair* agrees each time; a §6.4 case must
+carry an astral character straddling the cap, without which a naive slice passes, as the
+reference's did; §6.1's dropping rule and §6.2's never-drop rule must each be pinned,
+since a binding sharing one helper between them fails whichever it did not implement; and
+the list request must expect a query object with **no `filter` key at all**, an absence
+that is only assertable if a case states it. One check is corpus-wide rather than
+per-case: no expected preview may be ill-formed UTF-16, so a future case cannot quietly
+pin a value a Python consumer raises on.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

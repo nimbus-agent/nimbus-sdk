@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.26.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.26.0...typescript-v1.26.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **typescript:** extractMailto must not index a case-folded copy ([#221](https://github.com/nimbus-agent/nimbus-sdk/issues/221)) ([8a9dc38](https://github.com/nimbus-agent/nimbus-sdk/commit/8a9dc38412b8f2167f12ca200ebd8d5407f8e97e))
+
 ## [1.26.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.25.0...typescript-v1.26.0) (2026-08-27)
 
 

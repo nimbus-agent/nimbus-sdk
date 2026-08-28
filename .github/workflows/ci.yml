@@ -14,7 +14,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Which paths changed, and therefore which jobs are worth running. The filters live in
+  # .github/path-filters.yml so a guard can read them; see that file for why every list is
+  # deliberately generous, and sdks/typescript/scripts/path-filters.test.ts for what holds
+  # them honest.
+  #
+  # This job must SUCCEED for a skip downstream to mean anything, which ci-complete asserts.
+  changes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      typescript: ${{ steps.filter.outputs.typescript }}
+      python: ${{ steps.filter.outputs.python }}
+      go: ${{ steps.filter.outputs.go }}
+      scaffold: ${{ steps.filter.outputs.scaffold }}
+      conformance: ${{ steps.filter.outputs.conformance }}
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        with:
+          egress-policy: ${{ runner.os == 'Linux' && 'block' || 'audit' }}
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            codeload.github.com:443
+            objects.githubusercontent.com:443
+            release-assets.githubusercontent.com:443
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Filter
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: .github/path-filters.yml
+          # On a push there is no base to diff against the way a pull request has, so every
+          # filter reports true and nothing is skipped. That is the right default for main:
+          # strict_required_status_checks_policy is FALSE, so a merged tree can differ from
+          # the one CI tested, and this run is the only thing that tests it.
+          base: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
+
   build-test:
+    needs: changes
+    if: needs.changes.outputs.typescript == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -103,7 +148,8 @@ jobs:
           retention-days: 1
 
   node-smoke:
-    needs: build-test
+    needs: [changes, build-test]
+    if: needs.changes.outputs.typescript == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -159,6 +205,8 @@ jobs:
         run: node sdks/typescript/scripts/framing-node.mjs
 
   python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -237,6 +285,8 @@ jobs:
         run: python -m pytest -q
 
   go:
+    needs: changes
+    if: needs.changes.outputs.go == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -324,6 +374,8 @@ jobs:
   # jobs — making a local `pytest -q` a weaker check than CI — or having no job whose axis is
   # language at all.
   conformance:
+    needs: changes
+    if: needs.changes.outputs.conformance == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -396,6 +448,7 @@ jobs:
             scripts/icalendar-guard.test.ts \
             scripts/jmap-guard.test.ts \
             scripts/negotiation-guard.test.ts \
+            scripts/path-filters.test.ts \
             scripts/predicates-guard.test.ts \
             scripts/sandbox-guard.test.ts \
             scripts/schema-guard.test.ts \
@@ -540,6 +593,8 @@ jobs:
   # 3.11, which is the Python template's `requires-python`. A floor nothing executes is a
   # promise nobody is keeping, and an unpinned toolchain quietly changes what is being tested.
   scaffold-typescript:
+    needs: changes
+    if: needs.changes.outputs.scaffold == 'true'
     runs-on: ubuntu-24.04
     # A broken template does not hang, it crawls: the generated suite's split-frame case
     # takes its full 10 s timeout to fail. Most of this budget is `npm install`.
@@ -669,6 +724,8 @@ jobs:
           fi
 
   scaffold-python:
+    needs: changes
+    if: needs.changes.outputs.scaffold == 'true'
     runs-on: ubuntu-24.04
     # Same shape as scaffold-typescript; here the slow part is resolving `mcp` and pydantic.
     timeout-minutes: 20
@@ -861,7 +918,7 @@ jobs:
   # dependency fails, the required check would never report, and PRs would hang
   # waiting for a status that never arrives.
   ci-complete:
-    needs: [build-test, node-smoke, python, go, conformance, conformance-report, scaffold-typescript, scaffold-python]
+    needs: [changes, build-test, node-smoke, python, go, conformance, conformance-report, scaffold-typescript, scaffold-python]
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 5
@@ -874,6 +931,18 @@ jobs:
             github.com:443
             api.github.com:443
 
-      - name: Fail unless every CI job succeeded
-        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
-        run: echo "::error::CI did not fully succeed — build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} conformance=${{ needs.conformance.result }} conformance-report=${{ needs.conformance-report.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1
+      # `skipped` used to be a failure here, and that blanket rule was what made this gate
+      # trustworthy. Path filtering removes it — a job skipped because its paths did not
+      # change is a normal outcome now. These two steps put back a narrower guarantee.
+      #
+      # THIS ONE FIRST, and it is the important one: a skip only means "the filter said so"
+      # if the filter actually ran and succeeded. Without it, a `changes` job that failed or
+      # was cancelled would skip every downstream job and this gate would report green — the
+      # exact silent pass path filtering introduces.
+      - name: A skip means nothing unless the filter succeeded
+        if: needs.changes.result != 'success'
+        run: echo "::error::the changes filter did not succeed (${{ needs.changes.result }}) — every downstream skip is untrustworthy, so CI cannot be called complete" && exit 1
+
+      - name: Fail unless every CI job succeeded or was filtered out
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
+        run: echo "::error::CI did not fully succeed — changes=${{ needs.changes.result }} build-test=${{ needs.build-test.result }} node-smoke=${{ needs.node-smoke.result }} python=${{ needs.python.result }} go=${{ needs.go.result }} conformance=${{ needs.conformance.result }} conformance-report=${{ needs.conformance-report.result }} scaffold-typescript=${{ needs.scaffold-typescript.result }} scaffold-python=${{ needs.scaffold-python.result }}" && exit 1

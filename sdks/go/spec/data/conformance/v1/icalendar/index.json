@@ -42,6 +42,11 @@
       "reason": "A line with no colon at all: the name is the whole line and the value is empty. Pinned on SUMMARY so the result is observable -- summary becomes the empty string, not an absence. On an unknown name the rule would be untestable, since both readings ignore the line."
     },
     {
+      "file": "cases/name-no-colon-keeps-the-semicolon.json",
+      "section": "§3.1",
+      "reason": "§3.1's two sentences are in tension and the second one wins: with no colon anywhere, the name is the ENTIRE line, semicolon and all, so this selects no member and SUMMARY stays an absence. Reading only the first sentence -- 'before the first ; or :' -- gives the name SUMMARY and an empty-string summary instead. Caught by 0 of the 58 cases that existed before it: its sibling name-line-with-no-colon carries no semicolon, so both readings agree on it. Found by review of the Python binding, where a reviewer proposed exactly the losing reading."
+    },
+    {
       "file": "cases/name-semicolon-after-colon-is-not-a-separator.json",
       "section": "§3.1",
       "reason": "The name ends at the first ';' or ':' *whichever comes first*. Here the ';' is inside the value, so it must not shorten the name. A binding splitting on ';' unconditionally produces the name 'SUMMARY:A' and drops the property."

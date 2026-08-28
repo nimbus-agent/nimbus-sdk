@@ -93,6 +93,15 @@ case-insensitively, because the uppercased form is what §5's table is keyed by.
 If the line contains no `:` at all, the name is the entire line, uppercased, and its value is
 the empty string.
 
+**The second rule wins over the first where they disagree, and they do.** A line such as
+`SUMMARY;LANGUAGE=en` has a `;` but no `:`. Read by the first rule alone the name would be
+`SUMMARY`, selecting a member and giving it an empty value; read by the second it is
+`SUMMARY;LANGUAGE=EN`, which matches nothing in §5.2's table, so the line is ignored and the
+member stays absent. **The second is correct**: a `;` only delimits parameters on a line that
+has a value to delimit them from, and a line with no colon is not a content line at all. Both
+readings agree on a line with neither character, so a corpus case must carry the semicolon to
+tell them apart — one does.
+
 ### §3.2 The value
 
 Everything after the **first `:` in the line**.

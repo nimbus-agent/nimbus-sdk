@@ -62,8 +62,13 @@
 // icalendar.ParseICalendar stutters, while "jmapfastmail" supplies neither Session nor Email
 // nor Request and jmapfastmail.Parse would name nothing. Same rule, opposite outcome.
 //
-// Experimental until the corpus runs in all three bindings, which is RFC-0015's mechanical
-// bar for frozen. Promoted in this shipment's final Go pull request.
+// Frozen per RFC-0015's mechanical definition: backed by a normative document under
+// docs/spec/ — batteries/v1/jmap.md — and executed by a conformance-corpus guard. Both have
+// held since the corpus went green in all three bindings.
 //
-// Stability: experimental
+// Exactly one file per package may declare the package-level tier, and this is it. Two is an
+// error rather than a first-match win: silently picking one of two disagreeing tiers is the
+// failure this design exists to prevent.
+//
+// Stability: frozen
 package jmapfastmail

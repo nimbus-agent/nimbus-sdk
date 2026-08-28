@@ -170,10 +170,10 @@ not even another package inside this module.
 
 4 exports.
 
-- `func Build(input BuildEventInput, now string) string` — **experimental**
-- `func Parse(ics string) []ParsedEvent` — **experimental**
-- `type BuildEventInput struct { Attendees []string; Description *string; End string; Location *string; Start string; Summary string; UID string }` — **experimental**
-- `type ParsedEvent struct { AllDay bool; Attendees []string; DTStamp *string; Description *string; End *string; Location *string; Organizer *string; RRule *string; RecurrenceID *string; Start *string; Status *string; Summary *string; UID string }` — **experimental**
+- `func Build(input BuildEventInput, now string) string` — **frozen**
+- `func Parse(ics string) []ParsedEvent` — **frozen**
+- `type BuildEventInput struct { Attendees []string; Description *string; End string; Location *string; Start string; Summary string; UID string }` — **frozen**
+- `type ParsedEvent struct { AllDay bool; Attendees []string; DTStamp *string; Description *string; End *string; Location *string; Organizer *string; RRule *string; RecurrenceID *string; Start *string; Status *string; Summary *string; UID string }` — **frozen**
 
 ## `ipc`
 

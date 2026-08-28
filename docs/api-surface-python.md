@@ -213,3 +213,32 @@ reworded docstring is not a change to the surface.
 - `DistributionChannel = Literal['homebrew', 'scoop', 'winget', 'apt', 'yum', 'msi', 'pkg']` — **frozen**
 - `def channel_upgrade_hint(channel: DistributionChannel) -> str` — **frozen**
 - `def resolve_distribution_channel(env: Mapping[str, str] | None = ..., exec_path: str | None = ..., realpath: Callable[[str], str] | None = ...) -> DistributionChannel | None` — **frozen**
+
+## `nimbus_sdk.icalendar`
+
+4 exports.
+
+- `class BuildEventInput` — **experimental**
+  - `uid: str`
+  - `summary: str`
+  - `start: str`
+  - `end: str`
+  - `description: str | None`
+  - `location: str | None`
+  - `attendees: tuple[str, ...] | None`
+- `class ParsedEvent` — **experimental**
+  - `uid: str`
+  - `recurrence_id: str | None`
+  - `summary: str | None`
+  - `description: str | None`
+  - `location: str | None`
+  - `start: str | None`
+  - `end: str | None`
+  - `all_day: bool`
+  - `status: str | None`
+  - `organizer: str | None`
+  - `attendees: tuple[str, ...]`
+  - `rrule: str | None`
+  - `dtstamp: str | None`
+- `def build_vevent(event: BuildEventInput, now: str) -> str` — **experimental**
+- `def parse_icalendar(ics: str) -> list[ParsedEvent]` — **experimental**

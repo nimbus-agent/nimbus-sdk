@@ -24,11 +24,11 @@
         "diagnostics",
         "distribution-channel",
         "framing",
+        "icalendar",
         "negotiation",
         "url-resolution"
       ],
       "unclaimed": {
-        "icalendar": "binding lands in this shipment's next pull request",
         "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "manifest": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",

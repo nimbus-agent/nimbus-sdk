@@ -109,6 +109,15 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
         node: ["22", "24"]
+        # macOS runs the newer Node only. This job's claim is that the PUBLISHED
+        # tarball loads and decodes correctly on each OS's Node, and one version is
+        # enough to make that claim per OS -- the two-version axis exists to catch a
+        # Node-version regression, which is OS-independent and still covered twice.
+        # macOS queues ~7 min per job against ~1.5 min elsewhere, so a job dropped
+        # there is worth four dropped anywhere else.
+        exclude:
+          - os: macos-15
+            node: "22"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
@@ -155,6 +164,22 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
         python: ["3.11", "3.12", "3.13", "3.14"]
+        # Every supported version runs on Ubuntu; macOS and Windows run the OLDEST and
+        # NEWEST only. The two axes test different things and do not need multiplying:
+        # a language-semantics difference between 3.12 and 3.13 is OS-independent, and
+        # the OS-dependent behaviour this package has -- urllib's transport, and
+        # distribution-channel's path handling -- does not vary by minor version. 3.11
+        # and 3.14 bracket requires-python on every OS, so a version-gated syntax or
+        # stdlib change still fails on the edge that would ship broken.
+        exclude:
+          - os: macos-15
+            python: "3.12"
+          - os: macos-15
+            python: "3.13"
+          - os: windows-2025
+            python: "3.12"
+          - os: windows-2025
+            python: "3.13"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     defaults:
@@ -217,6 +242,13 @@ jobs:
       matrix:
         os: [ubuntu-24.04, macos-15, windows-2025]
         go: ["1.26", "1.27"]
+        # macOS runs the newer minor only. Go's two-minor policy is about the LANGUAGE
+        # and toolchain, which is OS-independent, and both minors still run on Ubuntu
+        # and Windows. The OS axis is what this module actually needs on macOS: the
+        # go:embed spec mirror and the filepath handling in connectorkit.
+        exclude:
+          - os: macos-15
+            go: "1.26"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     defaults:

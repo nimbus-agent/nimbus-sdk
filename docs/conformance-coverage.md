@@ -16,14 +16,14 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `diagnostics` | 75 | 75 | 75 | 75 |
 | `distribution-channel` | 27 | 27 | 27 | 27 |
 | `framing` | 33 | 33 | 33 | 33 |
-| `icalendar` | 59 | 59 | 59 | — |
+| `icalendar` | 59 | 59 | 59 | 59 |
 | `item` | 6 | 6 | — | — |
 | `manifest` | 31 | 31 | — | — |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **395** | **395** | **294** | **235** |
+| **Total** | **395** | **395** | **294** | **294** |
 
 ## What each binding does not run, and why
 
@@ -40,7 +40,6 @@ Runs every published corpus.
 
 ### `go`
 
-- `icalendar` — binding lands in this shipment's next pull request
 - `item` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
 - `manifest` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
 - `predicates` — binds predicates no Go package publishes

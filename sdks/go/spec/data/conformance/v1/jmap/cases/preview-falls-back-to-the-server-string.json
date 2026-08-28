@@ -1,0 +1,16 @@
+{
+  "description": "no usable body part falls back to the server preview",
+  "kind": "preview",
+  "raw": {
+    "textBody": [
+      {
+        "partId": "missing"
+      }
+    ],
+    "bodyValues": {},
+    "preview": "server preview"
+  },
+  "expect": {
+    "preview": "server preview"
+  }
+}

@@ -177,9 +177,21 @@ export function capPreview(text: string): string {
       .replace(/[ \t]+/g, " ")
       .replace(/\n{2,}/g, "\n"),
   );
-  return normalized.length > PREVIEW_MAX_CHARS
-    ? normalized.slice(0, PREVIEW_MAX_CHARS)
-    : normalized;
+  if (normalized.length <= PREVIEW_MAX_CHARS) {
+    return normalized;
+  }
+  // §6.4: truncation MUST NOT split a code point. `.slice` cuts at a UTF-16 code UNIT, so
+  // when unit PREVIEW_MAX_CHARS-1 is a HIGH surrogate its pair straddles the boundary and a
+  // blind slice strands it — leaving ill-formed UTF-16 that cannot be encoded as UTF-8 at
+  // all, which matters because §1 makes this view JSON-safe and meant to cross a boundary.
+  // Keep one unit fewer and drop the straddling character whole.
+  //
+  // The other two bindings need different code for the same rule: Python's unit IS the code
+  // point, so its slice is correct as written, and Go's is the BYTE, so it must count runes.
+  // §6.4 says as much — "measured in the same units the binding's string type counts".
+  const last = normalized.charCodeAt(PREVIEW_MAX_CHARS - 1);
+  const end = last >= 0xd800 && last <= 0xdbff ? PREVIEW_MAX_CHARS - 1 : PREVIEW_MAX_CHARS;
+  return normalized.slice(0, end);
 }
 
 /**

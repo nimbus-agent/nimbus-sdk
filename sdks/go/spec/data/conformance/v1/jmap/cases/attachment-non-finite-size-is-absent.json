@@ -1,0 +1,34 @@
+{
+  "description": "a non-finite size is absent, not zero",
+  "kind": "attachments",
+  "value": [
+    {
+      "size": 0
+    },
+    {
+      "size": 1e400
+    },
+    {
+      "size": -1e400
+    }
+  ],
+  "expect": {
+    "attachments": [
+      {
+        "name": null,
+        "sizeBytes": 0,
+        "mimeType": null
+      },
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": null
+      },
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": null
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "description": "three malformed addresses yield an empty list",
+  "kind": "addresses",
+  "value": [
+    1,
+    "nope",
+    null
+  ],
+  "expect": {
+    "formatted": []
+  }
+}

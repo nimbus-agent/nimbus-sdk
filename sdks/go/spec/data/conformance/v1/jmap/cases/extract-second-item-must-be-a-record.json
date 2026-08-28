@@ -1,0 +1,17 @@
+{
+  "description": "a non-record second item yields an absence",
+  "kind": "extract",
+  "parsed": {
+    "methodResponses": [
+      [
+        "Email/get",
+        "not a record",
+        "e"
+      ]
+    ]
+  },
+  "methodName": "Email/get",
+  "expect": {
+    "args": null
+  }
+}

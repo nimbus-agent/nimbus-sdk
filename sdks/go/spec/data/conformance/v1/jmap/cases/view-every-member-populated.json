@@ -1,0 +1,61 @@
+{
+  "description": "every member of the view is populated",
+  "kind": "view-email",
+  "raw": {
+    "id": "m1",
+    "messageId": [
+      "<a@b>"
+    ],
+    "subject": "Hello",
+    "from": [
+      {
+        "name": "Ann",
+        "email": "ann@example.com"
+      }
+    ],
+    "to": [
+      {
+        "email": "bob@example.com"
+      }
+    ],
+    "cc": [
+      {
+        "name": "Cid"
+      }
+    ],
+    "receivedAt": "2026-06-01T09:00:00Z",
+    "attachments": [
+      {
+        "name": "a.pdf",
+        "size": 12,
+        "type": "application/pdf"
+      }
+    ],
+    "preview": "hi there"
+  },
+  "expect": {
+    "view": {
+      "id": "m1",
+      "messageId": "<a@b>",
+      "subject": "Hello",
+      "from": [
+        "Ann <ann@example.com>"
+      ],
+      "to": [
+        "bob@example.com"
+      ],
+      "cc": [
+        "Cid"
+      ],
+      "receivedAt": "2026-06-01T09:00:00Z",
+      "attachments": [
+        {
+          "name": "a.pdf",
+          "sizeBytes": 12,
+          "mimeType": "application/pdf"
+        }
+      ],
+      "preview": "hi there"
+    }
+  }
+}

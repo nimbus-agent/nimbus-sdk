@@ -1,0 +1,23 @@
+{
+  "description": "an absent id becomes the empty string when messageId is present",
+  "kind": "view-email",
+  "raw": {
+    "messageId": [
+      "<only@id>"
+    ],
+    "subject": "No id"
+  },
+  "expect": {
+    "view": {
+      "id": "",
+      "messageId": "<only@id>",
+      "subject": "No id",
+      "from": [],
+      "to": [],
+      "cc": [],
+      "receivedAt": null,
+      "attachments": [],
+      "preview": ""
+    }
+  }
+}

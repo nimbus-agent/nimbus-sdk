@@ -1,0 +1,10 @@
+{
+  "description": "a mismatched host raises, naming both hosts",
+  "kind": "validate-url",
+  "candidate": "https://evil.example.net/jmap",
+  "allowedBase": "https://api.example.com",
+  "expect": {
+    "ok": false,
+    "message": "JMAP apiUrl host 'evil.example.net' does not match configured 'api.example.com'"
+  }
+}

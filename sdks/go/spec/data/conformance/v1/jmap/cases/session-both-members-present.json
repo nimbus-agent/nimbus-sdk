@@ -1,0 +1,17 @@
+{
+  "description": "a complete session parses",
+  "kind": "session",
+  "parsed": {
+    "apiUrl": "https://api.example.com/jmap",
+    "primaryAccounts": {
+      "urn:ietf:params:jmap:mail": "u1",
+      "urn:ietf:params:jmap:core": "ignored"
+    }
+  },
+  "expect": {
+    "session": {
+      "apiUrl": "https://api.example.com/jmap",
+      "accountId": "u1"
+    }
+  }
+}

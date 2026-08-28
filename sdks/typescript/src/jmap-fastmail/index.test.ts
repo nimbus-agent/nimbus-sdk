@@ -235,6 +235,23 @@ describe("extractAttachments", () => {
 // ─── capPreview ───────────────────────────────────────────────────────────────
 
 describe("capPreview", () => {
+  // §6.4 forbids truncation splitting a code point. `.slice` cuts at a UTF-16 code UNIT, so
+  // an astral character whose surrogate pair straddles the cap was stranded as a lone high
+  // surrogate — ill-formed UTF-16, which cannot be encoded as UTF-8 by any consumer. Here in
+  // the fast suite as well as the corpus, because this survives a rewrite of either one.
+  test("does not split an astral character at the cap", () => {
+    const straddling = `${"a".repeat(PREVIEW_MAX_CHARS - 1)}\u{1F600}tail`;
+    const out = capPreview(straddling);
+    expect(out).toBe("a".repeat(PREVIEW_MAX_CHARS - 1));
+    expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(out)).toBe(false);
+    // Encodable as UTF-8, which a stranded surrogate is not.
+    expect(new TextDecoder().decode(new TextEncoder().encode(out))).toBe(out);
+  });
+
+  test("truncates at the cap when the boundary is not a surrogate", () => {
+    expect(capPreview("a".repeat(PREVIEW_MAX_CHARS + 50))).toBe("a".repeat(PREVIEW_MAX_CHARS));
+  });
+
   test("collapses multiple spaces and tabs", () => {
     expect(capPreview("a   b\t\tc")).toBe("a b c");
   });

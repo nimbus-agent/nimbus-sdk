@@ -1,0 +1,15 @@
+{
+  "description": "a name and email format as 'Name <email>'",
+  "kind": "addresses",
+  "value": [
+    {
+      "name": "Ann",
+      "email": "ann@example.com"
+    }
+  ],
+  "expect": {
+    "formatted": [
+      "Ann <ann@example.com>"
+    ]
+  }
+}

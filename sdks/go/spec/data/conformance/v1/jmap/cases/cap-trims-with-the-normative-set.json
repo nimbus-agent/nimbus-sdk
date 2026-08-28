@@ -1,0 +1,10 @@
+{
+  "description": "a leading U+FEFF is trimmed from the preview",
+  "kind": "preview",
+  "raw": {
+    "preview": "﻿hello"
+  },
+  "expect": {
+    "preview": "hello"
+  }
+}

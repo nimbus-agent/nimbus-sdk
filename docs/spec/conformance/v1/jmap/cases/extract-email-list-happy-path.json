@@ -1,0 +1,32 @@
+{
+  "description": "the Email/get list is returned",
+  "kind": "extract-list",
+  "parsed": {
+    "methodResponses": [
+      [
+        "Email/get",
+        {
+          "list": [
+            {
+              "id": "a"
+            },
+            {
+              "id": "b"
+            }
+          ]
+        },
+        "e"
+      ]
+    ]
+  },
+  "expect": {
+    "list": [
+      {
+        "id": "a"
+      },
+      {
+        "id": "b"
+      }
+    ]
+  }
+}

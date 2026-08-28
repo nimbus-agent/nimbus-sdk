@@ -1,0 +1,13 @@
+{
+  "description": "a numeric apiUrl is an absence",
+  "kind": "session",
+  "parsed": {
+    "apiUrl": 42,
+    "primaryAccounts": {
+      "urn:ietf:params:jmap:mail": "u1"
+    }
+  },
+  "expect": {
+    "session": null
+  }
+}

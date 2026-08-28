@@ -1,0 +1,13 @@
+{
+  "description": "primaryAccounts without the mail capability yields an absence",
+  "kind": "session",
+  "parsed": {
+    "apiUrl": "https://api.example.com/jmap",
+    "primaryAccounts": {
+      "urn:ietf:params:jmap:core": "u1"
+    }
+  },
+  "expect": {
+    "session": null
+  }
+}

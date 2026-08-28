@@ -1,0 +1,19 @@
+{
+  "description": "a JMAP error response yields an absence",
+  "kind": "extract",
+  "parsed": {
+    "methodResponses": [
+      [
+        "error",
+        {
+          "type": "unknownMethod"
+        },
+        "e"
+      ]
+    ]
+  },
+  "methodName": "Email/get",
+  "expect": {
+    "args": null
+  }
+}

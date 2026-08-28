@@ -1,0 +1,10 @@
+{
+  "description": "a record with neither id nor messageId is an absence",
+  "kind": "view-email",
+  "raw": {
+    "subject": "Anonymous"
+  },
+  "expect": {
+    "view": null
+  }
+}

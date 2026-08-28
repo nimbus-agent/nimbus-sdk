@@ -1,0 +1,54 @@
+{
+  "description": "the get request carries ids and client id e",
+  "kind": "request",
+  "form": "get",
+  "accountId": "u1",
+  "id": "m1",
+  "expect": {
+    "request": {
+      "using": [
+        "urn:ietf:params:jmap:core",
+        "urn:ietf:params:jmap:mail"
+      ],
+      "methodCalls": [
+        [
+          "Email/get",
+          {
+            "accountId": "u1",
+            "ids": [
+              "m1"
+            ],
+            "properties": [
+              "id",
+              "blobId",
+              "threadId",
+              "subject",
+              "from",
+              "to",
+              "cc",
+              "receivedAt",
+              "sentAt",
+              "messageId",
+              "hasAttachment",
+              "preview",
+              "attachments",
+              "textBody",
+              "bodyValues"
+            ],
+            "fetchTextBodyValues": true,
+            "maxBodyValueBytes": 2048,
+            "bodyProperties": [
+              "partId",
+              "blobId",
+              "size",
+              "name",
+              "type",
+              "disposition"
+            ]
+          },
+          "e"
+        ]
+      ]
+    }
+  }
+}

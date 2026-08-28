@@ -1,0 +1,11 @@
+{
+  "description": "an array is not a record",
+  "kind": "session",
+  "parsed": [
+    1,
+    2
+  ],
+  "expect": {
+    "session": null
+  }
+}

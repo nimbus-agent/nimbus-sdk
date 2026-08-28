@@ -334,8 +334,16 @@ correction nobody has agreed to make.**
 - **Shipment 1**: `data-profile` — corpus, guards, the §6.1 correction, Python and Go
   bindings, promotion.
 - **Shipment 2**: `distribution-channel`.
-- **Shipment 3**: `icalendar`, and RFC-0018 on line folding.
-- **Shipment 4**: `jmap-fastmail`.
+- **Shipment 3**: `icalendar`, and RFC-0018 on line folding. **Done** — corpus, three
+  bindings, three promotions.
+- **Shipment 4**: `jmap-fastmail`. **Done** — corpus, three bindings, three promotions,
+  and the wrap-up every earlier shipment deferred.
+
+**All five are complete.** Each of the four batteries now has a normative document, a
+conformance corpus every binding executes, and a `frozen` tier in all three goldens. The
+count this RFC set out to change: `connector-kit` had one corpus-gated name out of roughly
+forty and four divergences found by hand; the batteries have four corpora, 181 cases, and
+every divergence found by CI.
 
 ## Alternatives considered
 

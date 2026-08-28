@@ -57,7 +57,7 @@ module has neither tag, which is what makes the rule load-bearing rather than as
 form Python's and Go's goldens use (see below); the guard's parser has two different code
 paths keyed on exactly this distinction.
 
-## Python surface (four import roots, deliberately)
+## Python surface (eight import roots, deliberately)
 
 - `nimbus_sdk` (`sdks/python/src/nimbus_sdk/__init__.py`) — the contract-version
   constants, the negotiation algorithm, and `load_schema` / `load_corpus` / `spec_root`.
@@ -150,7 +150,7 @@ raises, naming the module, if a published name's defining module declares neithe
 `python scripts/api_surface.py` projects the resolved tier into
 `docs/api-surface-python.md` as a trailing `— **tier**` on each export's line.
 
-## Go surface (five packages, and nothing at the module root)
+## Go surface (nine packages, and nothing at the module root)
 
 Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require` lines**.
 The module root holds only `go.mod`: a package there would have an import path ending in

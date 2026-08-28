@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.17.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.16.0...sdks/go/v0.17.0) (2026-08-28)
+
+
+### Features
+
+* **python:** nimbus_sdk.jmap_fastmail ([#239](https://github.com/nimbus-agent/nimbus-sdk/issues/239)) ([874e419](https://github.com/nimbus-agent/nimbus-sdk/commit/874e419dea3c2b3934b2379b121275da9ffc3fbe))
+
+
+### Bug Fixes
+
+* **typescript:** capPreview counts code points, not UTF-16 units ([#238](https://github.com/nimbus-agent/nimbus-sdk/issues/238)) ([c6e8e99](https://github.com/nimbus-agent/nimbus-sdk/commit/c6e8e9946b17dcbe5173efe28e23078adf67bc13))
+* **typescript:** capPreview must not split a code point ([#235](https://github.com/nimbus-agent/nimbus-sdk/issues/235)) ([e67adf6](https://github.com/nimbus-agent/nimbus-sdk/commit/e67adf66682eee2f070d79a488f4a6222d5449dc))
+
 ## [0.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.15.0...sdks/go/v0.16.0) (2026-08-28)
 
 

@@ -341,17 +341,20 @@ stream, a handshake frame, a diagnostic envelope decoded the same way by both pe
 `resolve_url_with_base` and `ResolveURLWithBase`, three separate implementations of the
 same SSRF chokepoint rather than the two ends of a protocol, reach the same verdict and the
 same words on every case.
+`icalendar` is the seventh, and the one exception to "all three" for now: TypeScript and
+Python run it, Go's binding lands in the next pull request of this shipment. It holds a
+fifth kind of claim — that two implementations of an ordinary text format agree on the
+exact bytes, both the thirteen members parsed out of a document and the document built
+back, which §R5 pins byte for byte.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Five corpora are executed by the **TypeScript** binding alone.
-`icalendar` is executed by the **TypeScript** binding only, for now — its Python and Go bindings land in the next two pull requests of this shipment, and this sentence goes with them.
+whole tree. Four corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-All five are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `icalendar`, `predicates`, `sandbox`,
-`manifest` or `item` run as "the reference implementation agrees with the spec", not as
-"the spec is implementable twice". `icalendar` is the one of the five whose place on this
-list is temporary.
+All four are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest` or
+`item` run as "the reference implementation agrees with the spec", not as
+"the spec is implementable twice".
 
 Which binding runs which corpus is declared in
 [`docs/conformance-coverage.json`](../conformance-coverage.json) and rendered, with the

@@ -218,7 +218,7 @@ reworded docstring is not a change to the surface.
 
 4 exports.
 
-- `class BuildEventInput` — **experimental**
+- `class BuildEventInput` — **frozen**
   - `uid: str`
   - `summary: str`
   - `start: str`
@@ -226,7 +226,7 @@ reworded docstring is not a change to the surface.
   - `description: str | None`
   - `location: str | None`
   - `attendees: tuple[str, ...] | None`
-- `class ParsedEvent` — **experimental**
+- `class ParsedEvent` — **frozen**
   - `uid: str`
   - `recurrence_id: str | None`
   - `summary: str | None`
@@ -240,5 +240,5 @@ reworded docstring is not a change to the surface.
   - `attendees: tuple[str, ...]`
   - `rrule: str | None`
   - `dtstamp: str | None`
-- `def build_vevent(event: BuildEventInput, now: str) -> str` — **experimental**
-- `def parse_icalendar(ics: str) -> list[ParsedEvent]` — **experimental**
+- `def build_vevent(event: BuildEventInput, now: str) -> str` — **frozen**
+- `def parse_icalendar(ics: str) -> list[ParsedEvent]` — **frozen**

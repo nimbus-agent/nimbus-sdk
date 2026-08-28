@@ -41,6 +41,7 @@ def test_every_import_root_is_collected() -> None:
         "nimbus_sdk.data_profile": 7,
         "nimbus_sdk.distribution_channel": 3,
         "nimbus_sdk.icalendar": 4,
+        "nimbus_sdk.jmap_fastmail": 20,
     }
     for root in IMPORT_ROOTS:
         assert len(collect(root)) >= minimums[root], root

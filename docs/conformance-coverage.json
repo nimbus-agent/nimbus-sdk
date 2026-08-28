@@ -26,12 +26,12 @@
         "distribution-channel",
         "framing",
         "icalendar",
+        "jmap",
         "negotiation",
         "url-resolution"
       ],
       "unclaimed": {
         "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
-        "jmap": "binding lands in this shipment's next pull request",
         "manifest": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",
         "sandbox": "binds the sandbox probe protocol, which nimbus_sdk does not publish"

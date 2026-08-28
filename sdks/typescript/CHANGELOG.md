@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.30.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.29.0...typescript-v1.30.0) (2026-08-28)
+
+
+### Features
+
+* **typescript:** promote jmap-fastmail to frozen ([#247](https://github.com/nimbus-agent/nimbus-sdk/issues/247)) ([b96069a](https://github.com/nimbus-agent/nimbus-sdk/commit/b96069ab871282d5a01af120e835aa1867c7ef83))
+
 ## [1.29.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.28.0...typescript-v1.29.0) (2026-08-28)
 
 

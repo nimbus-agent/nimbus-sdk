@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.16.0...python-v0.17.0) (2026-08-28)
+
+
+### Features
+
+* **python:** nimbus_sdk.icalendar ([#224](https://github.com/nimbus-agent/nimbus-sdk/issues/224)) ([8141bf8](https://github.com/nimbus-agent/nimbus-sdk/commit/8141bf8f03644b4251907df58ffe3197984859b1))
+
 ## [0.16.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.15.0...python-v0.16.0) (2026-08-27)
 
 

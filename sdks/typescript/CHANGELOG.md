@@ -1,5 +1,13 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.27.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.27.0...typescript-v1.27.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **typescript:** capPreview counts code points, not UTF-16 units ([#238](https://github.com/nimbus-agent/nimbus-sdk/issues/238)) ([c6e8e99](https://github.com/nimbus-agent/nimbus-sdk/commit/c6e8e9946b17dcbe5173efe28e23078adf67bc13))
+* **typescript:** capPreview must not split a code point ([#235](https://github.com/nimbus-agent/nimbus-sdk/issues/235)) ([e67adf6](https://github.com/nimbus-agent/nimbus-sdk/commit/e67adf66682eee2f070d79a488f4a6222d5449dc))
+
 ## [1.27.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.26.1...typescript-v1.27.0) (2026-08-28)
 
 

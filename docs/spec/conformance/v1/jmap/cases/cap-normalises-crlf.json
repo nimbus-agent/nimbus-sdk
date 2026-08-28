@@ -1,0 +1,10 @@
+{
+  "description": "CRLF becomes LF",
+  "kind": "preview",
+  "raw": {
+    "preview": "a\r\nb"
+  },
+  "expect": {
+    "preview": "a\nb"
+  }
+}

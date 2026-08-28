@@ -1,0 +1,21 @@
+{
+  "description": "a non-array messageId is an absence",
+  "kind": "view-email",
+  "raw": {
+    "id": "m3",
+    "messageId": "<not-an-array>"
+  },
+  "expect": {
+    "view": {
+      "id": "m3",
+      "messageId": null,
+      "subject": null,
+      "from": [],
+      "to": [],
+      "cc": [],
+      "receivedAt": null,
+      "attachments": [],
+      "preview": ""
+    }
+  }
+}

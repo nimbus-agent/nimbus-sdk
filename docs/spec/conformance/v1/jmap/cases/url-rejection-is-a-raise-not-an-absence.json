@@ -1,0 +1,10 @@
+{
+  "description": "a rejected apiUrl raises rather than returning an absence",
+  "kind": "validate-url",
+  "candidate": "https://evil.example.net/",
+  "allowedBase": "https://api.example.com",
+  "expect": {
+    "ok": false,
+    "message": "JMAP apiUrl host 'evil.example.net' does not match configured 'api.example.com'"
+  }
+}

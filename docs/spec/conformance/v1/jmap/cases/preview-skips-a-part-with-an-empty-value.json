@@ -1,0 +1,25 @@
+{
+  "description": "a part with an empty value is skipped",
+  "kind": "preview",
+  "raw": {
+    "textBody": [
+      {
+        "partId": "1"
+      },
+      {
+        "partId": "2"
+      }
+    ],
+    "bodyValues": {
+      "1": {
+        "value": ""
+      },
+      "2": {
+        "value": "second"
+      }
+    }
+  },
+  "expect": {
+    "preview": "second"
+  }
+}

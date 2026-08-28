@@ -1,0 +1,11 @@
+{
+  "description": "a non-record primaryAccounts yields an absence",
+  "kind": "session",
+  "parsed": {
+    "apiUrl": "https://api.example.com/jmap",
+    "primaryAccounts": "nope"
+  },
+  "expect": {
+    "session": null
+  }
+}

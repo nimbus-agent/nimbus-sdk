@@ -1,0 +1,26 @@
+{
+  "description": "a boolean or string size is absent",
+  "kind": "attachments",
+  "value": [
+    {
+      "size": true
+    },
+    {
+      "size": "12"
+    }
+  ],
+  "expect": {
+    "attachments": [
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": null
+      },
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": null
+      }
+    ]
+  }
+}

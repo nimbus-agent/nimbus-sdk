@@ -1,0 +1,12 @@
+{
+  "description": "a session with no apiUrl is an absence, not a partial",
+  "kind": "session",
+  "parsed": {
+    "primaryAccounts": {
+      "urn:ietf:params:jmap:mail": "u1"
+    }
+  },
+  "expect": {
+    "session": null
+  }
+}

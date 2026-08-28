@@ -1,0 +1,14 @@
+{
+  "description": "a name with no email formats as the name",
+  "kind": "addresses",
+  "value": [
+    {
+      "name": "Ann"
+    }
+  ],
+  "expect": {
+    "formatted": [
+      "Ann"
+    ]
+  }
+}

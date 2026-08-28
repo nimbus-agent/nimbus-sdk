@@ -1,0 +1,10 @@
+{
+  "description": "an http candidate raises about the scheme",
+  "kind": "validate-url",
+  "candidate": "http://elsewhere.example.net/jmap",
+  "allowedBase": "https://api.example.com",
+  "expect": {
+    "ok": false,
+    "message": "JMAP apiUrl must use https"
+  }
+}

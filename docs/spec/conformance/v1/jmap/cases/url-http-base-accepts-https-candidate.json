@@ -1,0 +1,10 @@
+{
+  "description": "an http allowedBase accepts an https candidate",
+  "kind": "validate-url",
+  "candidate": "https://api.example.com/jmap",
+  "allowedBase": "http://api.example.com/",
+  "expect": {
+    "ok": true,
+    "url": "https://api.example.com/jmap"
+  }
+}

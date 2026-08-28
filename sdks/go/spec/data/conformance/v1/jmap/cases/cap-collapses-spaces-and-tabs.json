@@ -1,0 +1,10 @@
+{
+  "description": "runs of spaces and tabs collapse to one space",
+  "kind": "preview",
+  "raw": {
+    "preview": "a   \t b"
+  },
+  "expect": {
+    "preview": "a b"
+  }
+}

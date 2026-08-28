@@ -1,0 +1,310 @@
+{
+  "spec": "../../../batteries/v1/jmap.md",
+  "cases": [
+    {
+      "file": "cases/constants-capability-urns.json",
+      "section": "§2",
+      "reason": "The three capability URNs are contract text. A binding inventing its own spelling builds a request every JMAP server rejects."
+    },
+    {
+      "file": "cases/constants-numeric-bounds.json",
+      "section": "§2",
+      "reason": "MAX_BODY_VALUE_BYTES bounds what is asked of the server and PREVIEW_MAX_CHARS bounds what is returned to the caller. SS1.1 makes both a security property, not a tuning knob."
+    },
+    {
+      "file": "cases/constants-email-properties-order.json",
+      "section": "§2",
+      "reason": "EMAIL_PROPERTIES is ORDERED and SS7 emits it verbatim, so the order is contract. A binding storing it in a set, or sorting it, builds a different request."
+    },
+    {
+      "file": "cases/as-record-rejects-an-array.json",
+      "section": "§3",
+      "reason": "An array is NOT a record. This is what stops a JSON array being read as an object with numeric keys -- in JavaScript typeof [] is 'object', so the Array.isArray arm is load bearing; in Python isinstance(v, dict) gets it free."
+    },
+    {
+      "file": "cases/as-record-rejects-null.json",
+      "section": "§3",
+      "reason": "typeof null is 'object' in JavaScript, so a null check is required and not implied."
+    },
+    {
+      "file": "cases/as-string-rejects-the-empty-string.json",
+      "section": "§3",
+      "reason": "THE rule SS3 predicts will be missed: absent and present-but-empty are the same condition. A binding whose as_string returns \"\" builds a session with apiUrl \"\" and then fetches it."
+    },
+    {
+      "file": "cases/as-string-rejects-a-number.json",
+      "section": "§3",
+      "reason": "A JSON number is not a string. A binding coercing with str() or String() accepts it."
+    },
+    {
+      "file": "cases/session-both-members-present.json",
+      "section": "§4",
+      "reason": "The happy path: apiUrl from the root, accountId from primaryAccounts[MAIL]."
+    },
+    {
+      "file": "cases/session-primary-accounts-not-a-record.json",
+      "section": "§4",
+      "reason": "primaryAccounts must be a record; when it is not, the account id is an absence and so is the whole session."
+    },
+    {
+      "file": "cases/session-missing-mail-capability.json",
+      "section": "§4",
+      "reason": "A server offering core but not mail has no mail account to name."
+    },
+    {
+      "file": "cases/session-is-all-or-nothing.json",
+      "section": "§4",
+      "reason": "There is no partially-populated session. A binding returning {apiUrl, accountId: None} hands the caller something it cannot use and will not notice until the POST."
+    },
+    {
+      "file": "cases/session-root-not-a-record.json",
+      "section": "§4",
+      "reason": "Step 1: the value must be a record."
+    },
+    {
+      "file": "cases/url-accepted-is-reserialised.json",
+      "section": "§5",
+      "reason": "The return value is the PARSER'S serialisation, not the input string, so the value handed to a fetch is one this function actually inspected. Note the trailing slash the parser adds to a bare authority -- a binding returning the input fails here."
+    },
+    {
+      "file": "cases/url-rejects-unparseable.json",
+      "section": "§5",
+      "reason": "First of the three conditions, in evaluation order. The message is contract text (SSR5)."
+    },
+    {
+      "file": "cases/url-rejects-non-https.json",
+      "section": "§5",
+      "reason": "Second condition. Evaluated BEFORE the host check, so a non-https candidate on a mismatched host reports the scheme -- a binding checking host first reports the wrong one and fails this case."
+    },
+    {
+      "file": "cases/url-rejects-host-mismatch.json",
+      "section": "§5",
+      "reason": "Third condition, and the message interpolates BOTH hosts. A binding reporting only one, or reporting the full URLs, fails."
+    },
+    {
+      "file": "cases/url-rejection-is-a-raise-not-an-absence.json",
+      "section": "§5.1",
+      "reason": "SSR6 says an absence; SS5.1 says this function is the exception and MUST raise. The distinction is the control: an absence is a value a caller can ignore, and the one thing a caller must not do with a rejected apiUrl is carry on. A binding returning None here passes every other §5 case -- they only compare messages -- and fails this one."
+    },
+    {
+      "file": "cases/url-http-base-accepts-https-candidate.json",
+      "section": "§5.2",
+      "reason": "SS5.2 compares HOST only and requires https of the candidate alone, so an http base accepts an https candidate. Under an origin comparison -- scheme, host and port together, which url-resolution.md §6 uses -- this would be rejected. Pinned rather than corrected: the check is TIGHTER where it matters, since the candidate must be https regardless."
+    },
+    {
+      "file": "cases/url-default-port-is-dropped.json",
+      "section": "§5.2",
+      "reason": "MEASURED cross-language hazard. JavaScript's URL.host DROPS a default port (:443 on https), while Python's .hostname + .port compose and Go's URL.Host both KEEP it. So this candidate is accepted by the reference and rejected by both naive ports -- a different verdict, not merely a different string. Caught by 0 of the other §5 cases, none of which carries an explicit port."
+    },
+    {
+      "file": "cases/url-host-is-lowercased.json",
+      "section": "§5.2",
+      "reason": "MEASURED cross-language hazard, and a DIFFERENT pair agrees than in the port case. JavaScript and Python lowercase the host; Go's URL.Host does NOT -- it returns API.Example.COM verbatim. So a naive Go rejects a candidate the other two accept."
+    },
+    {
+      "file": "cases/url-ipv6-keeps-its-brackets.json",
+      "section": "§5.2",
+      "reason": "MEASURED, and a third pairing again. JavaScript and Go keep the brackets around an IPv6 literal; Python's .hostname STRIPS them, so a naive compose yields 2001:db8::1:8443 -- not merely different but ambiguous, since nothing marks where the address ends."
+    },
+    {
+      "file": "cases/url-port-mismatch-is-a-host-mismatch.json",
+      "section": "§5.2",
+      "reason": "The port is PART of the host for this comparison, so a genuine port difference rejects. The counterweight to the default-port case: a binding that dropped every port to make that one pass would accept this one."
+    },
+    {
+      "file": "cases/view-every-member-populated.json",
+      "section": "§6",
+      "reason": "One record exercising all nine members at once, so a binding dropping one fails here rather than only in whichever single-member case covers it."
+    },
+    {
+      "file": "cases/view-id-absent-becomes-empty-string.json",
+      "section": "§6",
+      "reason": "THE asymmetry SS6 calls out: everywhere else an empty string becomes an absence, and here an absence becomes an empty string. A binding rejecting a record with no id -- the reasonable-looking choice -- fails this case."
+    },
+    {
+      "file": "cases/view-both-identifiers-absent-is-rejected.json",
+      "section": "§6",
+      "reason": "The record is rejected ONLY when id and messageId are both absent. This is the boundary its sibling cases sit either side of."
+    },
+    {
+      "file": "cases/view-message-id-absent-is-fine.json",
+      "section": "§6",
+      "reason": "The other side of the boundary: id alone is enough."
+    },
+    {
+      "file": "cases/view-message-id-must-be-an-array.json",
+      "section": "§6",
+      "reason": "messageId is as-string of messageId[0] WHEN messageId is an array; a bare string is not an array and yields an absence. A binding accepting a string here reports a messageId the other two do not."
+    },
+    {
+      "file": "cases/address-name-and-email.json",
+      "section": "§6.1",
+      "reason": "Both present: name, a space, and the email in angle brackets."
+    },
+    {
+      "file": "cases/address-name-only.json",
+      "section": "§6.1",
+      "reason": "Name present, email empty: the result is the name alone, with no empty angle brackets."
+    },
+    {
+      "file": "cases/address-email-only.json",
+      "section": "§6.1",
+      "reason": "Name absent: the result is the email."
+    },
+    {
+      "file": "cases/address-empty-results-are-dropped.json",
+      "section": "§6.1",
+      "reason": "THE dropping rule, stated by SS6.1 with this exact shape: three malformed entries yield an EMPTY list, not three empty strings. A binding mapping without filtering returns three. This is the opposite of SS6.2's rule for attachments, which is the next case's point."
+    },
+    {
+      "file": "cases/address-non-array-is-empty.json",
+      "section": "§6.1",
+      "reason": "A value that is not an array yields an empty list rather than raising."
+    },
+    {
+      "file": "cases/attachment-entries-are-never-dropped.json",
+      "section": "§6.2",
+      "reason": "The MIRROR of SS6.1's rule, and the reason both exist: attachments keep one entry per element INCLUDING non-records, so the returned length always equals the input length and a caller can rely on positional correspondence. A binding sharing one filtering helper between addresses and attachments fails one of these two whichever way it chooses."
+    },
+    {
+      "file": "cases/attachment-mime-type-comes-from-type.json",
+      "section": "§6.2",
+      "reason": "The JMAP member is `type`; the view member is `mimeType`. A binding reading `mimeType` from the input finds nothing and reports an absence for every attachment."
+    },
+    {
+      "file": "cases/attachment-non-finite-size-is-absent.json",
+      "section": "§6.2",
+      "reason": "Both infinities are ABSENT, not zero. A binding coercing with int(v or 0) reports 0 and loses the distinction between 'no size' and 'zero bytes'. Written as the literal 1e400, the convention the diagnostics corpus already set: JSON has no Infinity token, and a bare one is rejected by JSON.parse and by encoding/json even though Python accepts it as an extension. NaN cannot be written in JSON at all, so §6.2's NaN clause is unreachable from a case and stays with the bindings' own unit tests."
+    },
+    {
+      "file": "cases/attachment-non-numeric-size-is-absent.json",
+      "section": "§6.2",
+      "reason": "size must be a NUMBER. A JSON true is not a size -- and in Python bool is a subclass of int and math.isfinite(True) is True, so a binding checking finiteness before type reports sizeBytes 1 here."
+    },
+    {
+      "file": "cases/attachment-non-array-is-empty.json",
+      "section": "§6.2",
+      "reason": "A value that is not an array yields an empty list."
+    },
+    {
+      "file": "cases/preview-first-usable-body-part-wins.json",
+      "section": "§6.3",
+      "reason": "textBody is walked IN ORDER and the first part whose bodyValues entry has a non-empty value wins."
+    },
+    {
+      "file": "cases/preview-skips-a-part-with-an-empty-value.json",
+      "section": "§6.3",
+      "reason": "A part whose value is the empty string is not usable, so the walk continues. A binding stopping at the first part that EXISTS returns \"\" and never reaches the second."
+    },
+    {
+      "file": "cases/preview-falls-back-to-the-server-string.json",
+      "section": "§6.3",
+      "reason": "With no usable body part the result is as-string of preview."
+    },
+    {
+      "file": "cases/preview-non-record-body-values-falls-back.json",
+      "section": "§6.3",
+      "reason": "Step 1 requires bodyValues to be a RECORD and textBody to be an ARRAY; failing either goes straight to the fallback."
+    },
+    {
+      "file": "cases/preview-is-never-absent.json",
+      "section": "§6.3",
+      "reason": "With nothing available the preview is the EMPTY STRING, never an absence -- the one member of the view that is a plain string rather than a nullable one."
+    },
+    {
+      "file": "cases/cap-normalises-crlf.json",
+      "section": "§6.4",
+      "reason": "Step 1 of five, in order."
+    },
+    {
+      "file": "cases/cap-collapses-spaces-and-tabs.json",
+      "section": "§6.4",
+      "reason": "Step 2: a run of spaces or tabs becomes ONE space. A binding collapsing all whitespace including newlines destroys the paragraph structure step 3 preserves."
+    },
+    {
+      "file": "cases/cap-collapses-blank-lines.json",
+      "section": "§6.4",
+      "reason": "Step 3: two or more newlines become one."
+    },
+    {
+      "file": "cases/cap-trims-with-the-normative-set.json",
+      "section": "§6.4",
+      "reason": "Step 4 trims per SSR7, which INCLUDES U+FEFF -- Python's str.strip() and Go's strings.TrimSpace do not remove it, so a delegating binding returns it in the preview."
+    },
+    {
+      "file": "cases/cap-truncates-at-the-limit.json",
+      "section": "§6.4",
+      "reason": "Step 5: longer than PREVIEW_MAX_CHARS is truncated to it."
+    },
+    {
+      "file": "cases/cap-must-not-split-a-code-point.json",
+      "section": "§6.4",
+      "reason": "THE case this corpus exists for. SS6.4 forbids truncation splitting a code point, and the reference slices at UTF-16 code unit 2000 -- which here is the LOW half of a surrogate pair, leaving a lone high surrogate and an ill-formed string that cannot be encoded as UTF-8 at all. The three languages fail differently on the same expression: TypeScript strands a surrogate, Go's byte slice cuts a 4-byte lead, and Python is correct by construction because its unit IS the code point. Expected output keeps 1999 units and drops the straddling character whole. Caught by 0 of the 69 existing jmap unit tests."
+    },
+    {
+      "file": "cases/request-list-omits-filter.json",
+      "section": "§7.2",
+      "reason": "The list form omits filter ENTIRELY -- not null, not {}. A binding emitting filter: null sends a request the server may reject or interpret differently, and the difference is invisible in a structural comparison unless a case pins the absence."
+    },
+    {
+      "file": "cases/request-search-includes-filter.json",
+      "section": "§7.2",
+      "reason": "The search form differs from list in exactly one member."
+    },
+    {
+      "file": "cases/request-back-reference-client-ids-agree.json",
+      "section": "§7.2",
+      "reason": "\"q\" appears twice -- the query's client id and the get's resultOf -- and they MUST agree. A mismatch produces an unresolved-reference error from the server at runtime against a live account, which is the worst place to find it. Pinned structurally so a rename in one copy fails here instead."
+    },
+    {
+      "file": "cases/request-is-one-round-trip.json",
+      "section": "§7.2",
+      "reason": "TWO method calls in ONE request. A binding issuing the get separately doubles the round trips and loses the back-reference entirely."
+    },
+    {
+      "file": "cases/request-get-by-id.json",
+      "section": "§7.3",
+      "reason": "The get form: ids as a one-element array, client id \"e\", and no query call."
+    },
+    {
+      "file": "cases/request-shared-args-are-exact.json",
+      "section": "§7.1",
+      "reason": "The shared Email/get arguments, including bodyProperties in order. maxBodyValueBytes is what bounds the body the server sends, so SS1.1 makes it a security property."
+    },
+    {
+      "file": "cases/extract-first-match-in-order-wins.json",
+      "section": "§8",
+      "reason": "methodResponses is scanned IN ORDER for the first element whose first item equals the name. A binding scanning backwards, or building a dict keyed by name, returns the last."
+    },
+    {
+      "file": "cases/extract-no-match-is-an-absence.json",
+      "section": "§8",
+      "reason": "No match yields an absence rather than raising."
+    },
+    {
+      "file": "cases/extract-error-response-matches-nothing.json",
+      "section": "§8",
+      "reason": "A JMAP error response carries the method name `error`, so it simply does not match -- the tolerant path SSR6 requires, with no special-casing."
+    },
+    {
+      "file": "cases/extract-second-item-must-be-a-record.json",
+      "section": "§8",
+      "reason": "A matching name whose second item is not a record yields an absence."
+    },
+    {
+      "file": "cases/extract-email-list-non-array-is-empty.json",
+      "section": "§8",
+      "reason": "extractEmailList returns an EMPTY LIST, not an absence, when list is not an array -- the one place in SS8 where the two differ."
+    },
+    {
+      "file": "cases/extract-email-list-happy-path.json",
+      "section": "§8",
+      "reason": "The ordinary case, so the empty-list case above is not the only coverage."
+    },
+    {
+      "file": "cases/extract-method-responses-not-an-array.json",
+      "section": "§8",
+      "reason": "methodResponses must be an array; when it is not, an absence."
+    }
+  ]
+}

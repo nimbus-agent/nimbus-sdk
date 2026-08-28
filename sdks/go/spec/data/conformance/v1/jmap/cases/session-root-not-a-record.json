@@ -1,0 +1,8 @@
+{
+  "description": "a string session document yields an absence",
+  "kind": "session",
+  "parsed": "not a session",
+  "expect": {
+    "session": null
+  }
+}

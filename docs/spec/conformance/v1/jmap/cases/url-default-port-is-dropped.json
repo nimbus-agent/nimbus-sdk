@@ -1,0 +1,10 @@
+{
+  "description": "an explicit default port still matches a portless base",
+  "kind": "validate-url",
+  "candidate": "https://api.example.com:443/jmap",
+  "allowedBase": "https://api.example.com/",
+  "expect": {
+    "ok": true,
+    "url": "https://api.example.com/jmap"
+  }
+}

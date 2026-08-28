@@ -1,0 +1,18 @@
+{
+  "description": "a non-array list yields an empty list",
+  "kind": "extract-list",
+  "parsed": {
+    "methodResponses": [
+      [
+        "Email/get",
+        {
+          "list": "nope"
+        },
+        "e"
+      ]
+    ]
+  },
+  "expect": {
+    "list": []
+  }
+}

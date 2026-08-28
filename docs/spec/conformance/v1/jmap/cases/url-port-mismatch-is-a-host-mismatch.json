@@ -1,0 +1,10 @@
+{
+  "description": "a differing non-default port is a host mismatch",
+  "kind": "validate-url",
+  "candidate": "https://api.example.com:8443/jmap",
+  "allowedBase": "https://api.example.com/",
+  "expect": {
+    "ok": false,
+    "message": "JMAP apiUrl host 'api.example.com:8443' does not match configured 'api.example.com'"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "the first usable text body part becomes the preview",
+  "kind": "preview",
+  "raw": {
+    "textBody": [
+      {
+        "partId": "1"
+      },
+      {
+        "partId": "2"
+      }
+    ],
+    "bodyValues": {
+      "1": {
+        "value": "first"
+      },
+      "2": {
+        "value": "second"
+      }
+    },
+    "preview": "server preview"
+  },
+  "expect": {
+    "preview": "first"
+  }
+}

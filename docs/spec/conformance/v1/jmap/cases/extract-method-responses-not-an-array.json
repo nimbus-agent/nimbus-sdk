@@ -1,0 +1,11 @@
+{
+  "description": "a non-array methodResponses yields an absence",
+  "kind": "extract",
+  "parsed": {
+    "methodResponses": {}
+  },
+  "methodName": "Email/get",
+  "expect": {
+    "args": null
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "description": "a non-array attachments value yields an empty list",
+  "kind": "attachments",
+  "value": "nope",
+  "expect": {
+    "attachments": []
+  }
+}

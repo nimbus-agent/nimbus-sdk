@@ -1,0 +1,272 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/jmap/case.schema.json",
+  "title": "jmap conformance case",
+  "description": "One call into the jmap battery. `kind` selects the function; the input members and the shape of `expect` follow from it. Ten kinds, because §1's surface is ten operations rather than one or two.",
+  "type": "object",
+  "required": ["description", "kind", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": {
+      "enum": [
+        "constants",
+        "session",
+        "validate-url",
+        "view-email",
+        "addresses",
+        "attachments",
+        "preview",
+        "request",
+        "extract",
+        "extract-list"
+      ]
+    },
+    "parsed": { "description": "session and extract/extract-list: the parsed JSON value, unconstrained." },
+    "candidate": { "type": "string", "description": "validate-url: the server-supplied apiUrl." },
+    "allowedBase": { "type": "string", "description": "validate-url: the configured base." },
+    "raw": { "description": "view-email and preview: the raw JMAP Email, unconstrained." },
+    "value": { "description": "addresses and attachments: the member's raw value, unconstrained." },
+    "form": { "enum": ["list", "search", "get"], "description": "request: which builder." },
+    "accountId": { "type": "string", "description": "request: the account id." },
+    "limit": { "type": "integer", "description": "request: list and search only." },
+    "query": { "type": "string", "description": "request: search only." },
+    "id": { "type": "string", "description": "request: get only." },
+    "methodName": { "type": "string", "description": "extract: the method name to scan for." },
+    "expect": {}
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "session" } }, "required": ["kind"] },
+      "then": {
+        "required": ["parsed"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["session"],
+            "additionalProperties": false,
+            "properties": {
+              "session": {
+                "oneOf": [
+                  { "type": "null" },
+                  {
+                    "type": "object",
+                    "required": ["apiUrl", "accountId"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "apiUrl": { "type": "string" },
+                      "accountId": { "type": "string" }
+                    }
+                  }
+                ],
+                "description": "§4 — all-or-nothing. There is no partially-populated session, so the object branch requires both members."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "validate-url" } }, "required": ["kind"] },
+      "then": {
+        "required": ["candidate", "allowedBase"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["ok"],
+            "additionalProperties": false,
+            "description": "Follows url-resolution's shape — `ok` as the discriminator, the message as contract text — because resolveUrlWithBase throws too and that corpus already models a throwing function this way. It does NOT copy url-resolution's `reason` member: that corpus has one because its §7 names three reason tokens, and jmap.md §5.1 names three messages and no tokens. Inventing a vocabulary here is what preamble §R4 forbids.\n\n`ok: false` means the function RAISED, not that it returned an absence. §5.1 is the one place in this battery where those differ, and a reader coming from the other kinds will assume absence.",
+            "properties": {
+              "ok": { "type": "boolean" },
+              "url": { "type": "string", "description": "On acceptance: the RE-SERIALISED candidate (§5), never the input string." },
+              "message": { "type": "string", "description": "On refusal: the exact §5 message. A binding that refuses for the right reason in different words fails the case, which is the point." }
+            },
+            "allOf": [
+              {
+                "if": { "properties": { "ok": { "const": true } } },
+                "then": { "required": ["url"] }
+              },
+              {
+                "if": { "properties": { "ok": { "const": false } } },
+                "then": { "required": ["message"] }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "view-email" } }, "required": ["kind"] },
+      "then": {
+        "required": ["raw"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["view"],
+            "additionalProperties": false,
+            "properties": {
+              "view": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/emailView" }] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "addresses" } }, "required": ["kind"] },
+      "then": {
+        "required": ["value"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["formatted"],
+            "additionalProperties": false,
+            "properties": {
+              "formatted": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "attachments" } }, "required": ["kind"] },
+      "then": {
+        "required": ["value"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["attachments"],
+            "additionalProperties": false,
+            "properties": {
+              "attachments": { "type": "array", "items": { "$ref": "#/definitions/attachment" } }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "preview" } }, "required": ["kind"] },
+      "then": {
+        "required": ["raw"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["preview"],
+            "additionalProperties": false,
+            "properties": {
+              "preview": { "type": "string", "description": "§6.3 — never absent; the empty string when nothing is available." }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "request" } }, "required": ["kind"] },
+      "then": {
+        "required": ["form", "accountId"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["request"],
+            "additionalProperties": false,
+            "properties": {
+              "request": {
+                "type": "object",
+                "description": "§9 — a PARSED structure, never a serialised string. Go's encoding/json sorts a map's keys where the other two emit insertion order, so comparing bytes across bindings is not possible; every runner compares structurally."
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "extract" } }, "required": ["kind"] },
+      "then": {
+        "required": ["parsed", "methodName"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["args"],
+            "additionalProperties": false,
+            "properties": { "args": { "type": ["object", "null"] } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "extract-list" } }, "required": ["kind"] },
+      "then": {
+        "required": ["parsed"],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["list"],
+            "additionalProperties": false,
+            "properties": {
+              "list": { "type": "array", "description": "§8 — an empty LIST, never an absence. The one place in §8 where the two extractors differ." }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "constants" } }, "required": ["kind"] },
+      "then": {
+        "properties": {
+          "expect": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": false,
+            "properties": {
+              "constants": { "type": "object", "description": "Name → exact value, for the §2 scalars." },
+              "emailProperties": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "§2 — ORDERED, because §7 emits it verbatim into a request."
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "attachment": {
+      "description": "§6.2 — all three members always present. Entries are never dropped, so the list length always equals the input array's length and a caller can rely on positional correspondence.",
+      "type": "object",
+      "required": ["name", "sizeBytes", "mimeType"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "sizeBytes": { "type": ["number", "null"], "description": "Absent for a non-finite or non-numeric size — never zero." },
+        "mimeType": { "type": ["string", "null"], "description": "Read from the JMAP `type` member, not from `mimeType`." }
+      }
+    },
+    "emailView": {
+      "description": "§6 — all nine members are present on every returned view, so a case must state all nine. Nothing defaults: a schema that let a case omit `preview` would let a case silently stop asserting the one member §6.3 makes a plain string rather than a nullable one.",
+      "type": "object",
+      "required": [
+        "id",
+        "messageId",
+        "subject",
+        "from",
+        "to",
+        "cc",
+        "receivedAt",
+        "attachments",
+        "preview"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "§6 — the EMPTY STRING when absent, the one place an absence becomes \"\" rather than the reverse." },
+        "messageId": { "type": ["string", "null"] },
+        "subject": { "type": ["string", "null"] },
+        "from": { "type": "array", "items": { "type": "string" } },
+        "to": { "type": "array", "items": { "type": "string" } },
+        "cc": { "type": "array", "items": { "type": "string" } },
+        "receivedAt": { "type": ["string", "null"] },
+        "attachments": { "type": "array", "items": { "$ref": "#/definitions/attachment" } },
+        "preview": { "type": "string", "description": "§6.3 — never absent." }
+      }
+    }
+  }
+}

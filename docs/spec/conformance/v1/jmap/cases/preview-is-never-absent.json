@@ -1,0 +1,8 @@
+{
+  "description": "nothing available yields the empty string",
+  "kind": "preview",
+  "raw": {},
+  "expect": {
+    "preview": ""
+  }
+}

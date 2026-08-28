@@ -1,0 +1,10 @@
+{
+  "description": "a mixed-case host matches a lowercase base",
+  "kind": "validate-url",
+  "candidate": "https://API.Example.COM/jmap",
+  "allowedBase": "https://api.example.com/",
+  "expect": {
+    "ok": true,
+    "url": "https://api.example.com/jmap"
+  }
+}

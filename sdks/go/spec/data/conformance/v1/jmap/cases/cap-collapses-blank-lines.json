@@ -1,0 +1,10 @@
+{
+  "description": "runs of newlines collapse to one",
+  "kind": "preview",
+  "raw": {
+    "preview": "a\n\n\nb"
+  },
+  "expect": {
+    "preview": "a\nb"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "description": "the search request carries a text filter",
+  "kind": "request",
+  "form": "search",
+  "accountId": "u1",
+  "query": "invoice",
+  "limit": 10,
+  "expect": {
+    "request": {
+      "using": [
+        "urn:ietf:params:jmap:core",
+        "urn:ietf:params:jmap:mail"
+      ],
+      "methodCalls": [
+        [
+          "Email/query",
+          {
+            "accountId": "u1",
+            "filter": {
+              "text": "invoice"
+            },
+            "sort": [
+              {
+                "property": "receivedAt",
+                "isAscending": false
+              }
+            ],
+            "collapseThreads": false,
+            "limit": 10
+          },
+          "q"
+        ],
+        [
+          "Email/get",
+          {
+            "accountId": "u1",
+            "#ids": {
+              "resultOf": "q",
+              "name": "Email/query",
+              "path": "/ids"
+            },
+            "properties": [
+              "id",
+              "blobId",
+              "threadId",
+              "subject",
+              "from",
+              "to",
+              "cc",
+              "receivedAt",
+              "sentAt",
+              "messageId",
+              "hasAttachment",
+              "preview",
+              "attachments",
+              "textBody",
+              "bodyValues"
+            ],
+            "fetchTextBodyValues": true,
+            "maxBodyValueBytes": 2048,
+            "bodyProperties": [
+              "partId",
+              "blobId",
+              "size",
+              "name",
+              "type",
+              "disposition"
+            ]
+          },
+          "e"
+        ]
+      ]
+    }
+  }
+}

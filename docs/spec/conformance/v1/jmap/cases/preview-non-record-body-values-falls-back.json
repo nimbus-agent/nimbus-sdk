@@ -1,0 +1,16 @@
+{
+  "description": "a non-record bodyValues falls back",
+  "kind": "preview",
+  "raw": {
+    "textBody": [
+      {
+        "partId": "1"
+      }
+    ],
+    "bodyValues": "nope",
+    "preview": "fallback"
+  },
+  "expect": {
+    "preview": "fallback"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "description": "an empty apiUrl is an absence, not a value",
+  "kind": "session",
+  "parsed": {
+    "apiUrl": "",
+    "primaryAccounts": {
+      "urn:ietf:params:jmap:mail": "u1"
+    }
+  },
+  "expect": {
+    "session": null
+  }
+}

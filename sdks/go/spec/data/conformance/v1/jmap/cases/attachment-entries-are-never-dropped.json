@@ -1,0 +1,32 @@
+{
+  "description": "a non-record attachment yields an all-absent entry, not a drop",
+  "kind": "attachments",
+  "value": [
+    {
+      "name": "a.pdf",
+      "size": 1,
+      "type": "application/pdf"
+    },
+    "nope",
+    null
+  ],
+  "expect": {
+    "attachments": [
+      {
+        "name": "a.pdf",
+        "sizeBytes": 1,
+        "mimeType": "application/pdf"
+      },
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": null
+      },
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": null
+      }
+    ]
+  }
+}

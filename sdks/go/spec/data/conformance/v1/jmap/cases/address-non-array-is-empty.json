@@ -1,0 +1,10 @@
+{
+  "description": "a non-array address value yields an empty list",
+  "kind": "addresses",
+  "value": {
+    "email": "ann@example.com"
+  },
+  "expect": {
+    "formatted": []
+  }
+}

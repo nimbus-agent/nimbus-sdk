@@ -1,0 +1,10 @@
+{
+  "description": "the numeric constants are exact",
+  "kind": "constants",
+  "expect": {
+    "constants": {
+      "MAX_BODY_VALUE_BYTES": 2048,
+      "PREVIEW_MAX_CHARS": 2000
+    }
+  }
+}

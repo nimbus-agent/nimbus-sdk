@@ -1,0 +1,19 @@
+{
+  "description": "an unmatched method name yields an absence",
+  "kind": "extract",
+  "parsed": {
+    "methodResponses": [
+      [
+        "Email/query",
+        {
+          "ids": []
+        },
+        "q"
+      ]
+    ]
+  },
+  "methodName": "Email/get",
+  "expect": {
+    "args": null
+  }
+}

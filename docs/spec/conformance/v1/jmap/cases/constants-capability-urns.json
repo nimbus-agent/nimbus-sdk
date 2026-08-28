@@ -1,0 +1,11 @@
+{
+  "description": "the capability URNs are exact",
+  "kind": "constants",
+  "expect": {
+    "constants": {
+      "CORE_CAPABILITY": "urn:ietf:params:jmap:core",
+      "MAIL_CAPABILITY": "urn:ietf:params:jmap:mail",
+      "SUBMISSION_CAPABILITY": "urn:ietf:params:jmap:submission"
+    }
+  }
+}

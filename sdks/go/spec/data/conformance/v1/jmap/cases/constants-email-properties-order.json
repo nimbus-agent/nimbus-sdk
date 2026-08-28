@@ -1,0 +1,23 @@
+{
+  "description": "EMAIL_PROPERTIES is exact and ordered",
+  "kind": "constants",
+  "expect": {
+    "emailProperties": [
+      "id",
+      "blobId",
+      "threadId",
+      "subject",
+      "from",
+      "to",
+      "cc",
+      "receivedAt",
+      "sentAt",
+      "messageId",
+      "hasAttachment",
+      "preview",
+      "attachments",
+      "textBody",
+      "bodyValues"
+    ]
+  }
+}

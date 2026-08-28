@@ -1,0 +1,40 @@
+{
+  "description": "the first matching method response wins",
+  "kind": "extract",
+  "parsed": {
+    "methodResponses": [
+      [
+        "Email/get",
+        {
+          "list": [
+            {
+              "id": "first"
+            }
+          ]
+        },
+        "e"
+      ],
+      [
+        "Email/get",
+        {
+          "list": [
+            {
+              "id": "second"
+            }
+          ]
+        },
+        "e2"
+      ]
+    ]
+  },
+  "methodName": "Email/get",
+  "expect": {
+    "args": {
+      "list": [
+        {
+          "id": "first"
+        }
+      ]
+    }
+  }
+}

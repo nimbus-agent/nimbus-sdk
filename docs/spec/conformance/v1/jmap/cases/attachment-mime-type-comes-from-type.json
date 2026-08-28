@@ -1,0 +1,19 @@
+{
+  "description": "mimeType is read from the JMAP `type` member",
+  "kind": "attachments",
+  "value": [
+    {
+      "type": "image/png",
+      "mimeType": "wrong/ignored"
+    }
+  ],
+  "expect": {
+    "attachments": [
+      {
+        "name": null,
+        "sizeBytes": null,
+        "mimeType": "image/png"
+      }
+    ]
+  }
+}

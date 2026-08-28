@@ -1,0 +1,10 @@
+{
+  "description": "an unparseable candidate raises",
+  "kind": "validate-url",
+  "candidate": "not a url",
+  "allowedBase": "https://api.example.com",
+  "expect": {
+    "ok": false,
+    "message": "JMAP apiUrl is not a valid absolute URL"
+  }
+}

@@ -235,17 +235,27 @@ describe("extractAttachments", () => {
 // ─── capPreview ───────────────────────────────────────────────────────────────
 
 describe("capPreview", () => {
-  // §6.4 forbids truncation splitting a code point. `.slice` cuts at a UTF-16 code UNIT, so
-  // an astral character whose surrogate pair straddles the cap was stranded as a lone high
-  // surrogate — ill-formed UTF-16, which cannot be encoded as UTF-8 by any consumer. Here in
-  // the fast suite as well as the corpus, because this survives a rewrite of either one.
-  test("does not split an astral character at the cap", () => {
+  // §6.4's cap is PREVIEW_MAX_CHARS CODE POINTS, in every binding. `.slice` counts UTF-16
+  // code UNITS, which stranded a lone high surrogate here — ill-formed UTF-16 that no
+  // consumer can encode as UTF-8 — and also counted a different number from Python and Go,
+  // so one input had two conforming answers. Here in the fast suite as well as the corpus,
+  // because this survives a rewrite of either one.
+  test("keeps an astral character straddling the cap, whole", () => {
     const straddling = `${"a".repeat(PREVIEW_MAX_CHARS - 1)}\u{1F600}tail`;
     const out = capPreview(straddling);
-    expect(out).toBe("a".repeat(PREVIEW_MAX_CHARS - 1));
+    expect([...out]).toHaveLength(PREVIEW_MAX_CHARS);
+    expect(out).toBe(`${"a".repeat(PREVIEW_MAX_CHARS - 1)}\u{1F600}`);
     expect(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/.test(out)).toBe(false);
     // Encodable as UTF-8, which a stranded surrogate is not.
     expect(new TextDecoder().decode(new TextEncoder().encode(out))).toBe(out);
+  });
+
+  test("counts code points, not UTF-16 units", () => {
+    // 1500 astral characters is 1500 code points and 3000 UTF-16 units. A unit-counting
+    // implementation truncates; a code-point-counting one returns it whole. Nothing in the
+    // corpus distinguishes these two below the cap, so it is asserted here.
+    const astral = "\u{1F600}".repeat(1500);
+    expect([...capPreview(astral)]).toHaveLength(1500);
   });
 
   test("truncates at the cap when the boundary is not a surrogate", () => {

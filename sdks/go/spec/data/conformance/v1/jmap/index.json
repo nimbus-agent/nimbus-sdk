@@ -239,7 +239,7 @@
     {
       "file": "cases/cap-must-not-split-a-code-point.json",
       "section": "§6.4",
-      "reason": "THE case this corpus exists for. SS6.4 forbids truncation splitting a code point, and the reference slices at UTF-16 code unit 2000 -- which here is the LOW half of a surrogate pair, leaving a lone high surrogate and an ill-formed string that cannot be encoded as UTF-8 at all. The three languages fail differently on the same expression: TypeScript strands a surrogate, Go's byte slice cuts a 4-byte lead, and Python is correct by construction because its unit IS the code point. Expected output keeps 1999 units and drops the straddling character whole. Caught by 0 of the 69 existing jmap unit tests."
+      "reason": "THE case this corpus exists for. SS6.4 forbids truncation splitting a code point, and the reference slices at UTF-16 code unit 2000 -- which here is the LOW half of a surrogate pair, leaving a lone high surrogate and an ill-formed string that cannot be encoded as UTF-8 at all. The three languages fail differently on the same expression: TypeScript strands a surrogate and Go's byte slice cuts a 4-byte lead, while Python is correct by construction because its unit IS the code point. §6.4 makes the cap 2000 CODE POINTS in every binding, so the expected output is the 1999 ASCII characters plus the astral one kept whole -- one answer all three produce. An earlier §6.4 let each binding use its own unit, which gave TypeScript a different correct answer from the other two and made this boundary unpinnable. Caught by 0 of the 69 unit tests."
     },
     {
       "file": "cases/request-list-omits-filter.json",

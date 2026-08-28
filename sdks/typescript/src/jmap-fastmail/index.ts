@@ -177,21 +177,23 @@ export function capPreview(text: string): string {
       .replace(/[ \t]+/g, " ")
       .replace(/\n{2,}/g, "\n"),
   );
+  // §6.4: the cap is PREVIEW_MAX_CHARS CODE POINTS, in every binding. `.slice` cuts at a
+  // UTF-16 code UNIT, which is wrong twice over: it can strand a lone surrogate — ill-formed
+  // UTF-16 that no consumer can encode as UTF-8, and §1 makes this view JSON-safe and meant
+  // to cross a process boundary — and it counts a different number from the other two
+  // bindings, so the same input yielded two different conforming answers.
+  //
+  // `.length` counts units and is therefore always >= the code-point count, so a string
+  // within the cap by units is within it by code points too: that check is a fast path, not
+  // the rule. Only when it fails is the spread — which iterates by code point — worth its
+  // allocation.
   if (normalized.length <= PREVIEW_MAX_CHARS) {
     return normalized;
   }
-  // §6.4: truncation MUST NOT split a code point. `.slice` cuts at a UTF-16 code UNIT, so
-  // when unit PREVIEW_MAX_CHARS-1 is a HIGH surrogate its pair straddles the boundary and a
-  // blind slice strands it — leaving ill-formed UTF-16 that cannot be encoded as UTF-8 at
-  // all, which matters because §1 makes this view JSON-safe and meant to cross a boundary.
-  // Keep one unit fewer and drop the straddling character whole.
-  //
-  // The other two bindings need different code for the same rule: Python's unit IS the code
-  // point, so its slice is correct as written, and Go's is the BYTE, so it must count runes.
-  // §6.4 says as much — "measured in the same units the binding's string type counts".
-  const last = normalized.charCodeAt(PREVIEW_MAX_CHARS - 1);
-  const end = last >= 0xd800 && last <= 0xdbff ? PREVIEW_MAX_CHARS - 1 : PREVIEW_MAX_CHARS;
-  return normalized.slice(0, end);
+  const points = [...normalized];
+  return points.length > PREVIEW_MAX_CHARS
+    ? points.slice(0, PREVIEW_MAX_CHARS).join("")
+    : normalized;
 }
 
 /**

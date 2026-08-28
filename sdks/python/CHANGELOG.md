@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.20.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.19.0...python-v0.20.0) (2026-08-28)
+
+
+### Features
+
+* **python:** promote nimbus_sdk.jmap_fastmail to frozen ([#249](https://github.com/nimbus-agent/nimbus-sdk/issues/249)) ([61cf802](https://github.com/nimbus-agent/nimbus-sdk/commit/61cf802a6d63b443aec78b27b531be25e53c0807))
+
 ## [0.19.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.18.1...python-v0.19.0) (2026-08-28)
 
 

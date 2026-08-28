@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.29.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.28.0...typescript-v1.29.0) (2026-08-28)
+
+
+### Features
+
+* **go:** the jmapfastmail package ([#244](https://github.com/nimbus-agent/nimbus-sdk/issues/244)) ([2fc1c64](https://github.com/nimbus-agent/nimbus-sdk/commit/2fc1c64beef64d0ce6e9d49f481990d7c587afce))
+
 ## [1.28.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.27.1...typescript-v1.28.0) (2026-08-28)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.18.0...python-v0.18.1) (2026-08-28)
+
+
+### Bug Fixes
+
+* **python:** drain the request body in the transport test server ([#233](https://github.com/nimbus-agent/nimbus-sdk/issues/233)) ([ed7c568](https://github.com/nimbus-agent/nimbus-sdk/commit/ed7c56895c769196bf6f1bdf5e3cb4d5344db982))
+
 ## [0.18.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.17.0...python-v0.18.0) (2026-08-28)
 
 

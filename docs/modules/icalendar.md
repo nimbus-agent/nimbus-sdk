@@ -67,3 +67,49 @@ export const retro: string = buildVEvent(
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the
 published contract. They are not repeated here, so there is only ever one copy to keep
 correct.
+
+## Python binding
+
+`nimbus_sdk.icalendar` (`sdks/python/src/nimbus_sdk/icalendar/`) publishes **4** names —
+`ParsedEvent`, `BuildEventInput`, `parse_icalendar`, `build_vevent` — and runs the **59-case**
+corpus of [`batteries/v1/icalendar.md`](../spec/batteries/v1/icalendar.md).
+
+The implementation module is `events.py`, not `calendar.py`: a module named `calendar` inside
+the package would sit one relative import away from shadowing the standard library's, for no
+benefit.
+
+Three things it does not delegate to Python:
+
+- **`_fold_ascii` maps U+0041–U+005A only** (§5.3), never `str.lower()`.
+- **`_trim` implements §R7's set**, never `str.strip()`.
+- **`_unescape` is a single left-to-right pass** (§4.2). Sequential `str.replace` calls are
+  wrong at *every* ordering: the wire value `\\n` must yield the two characters `\` and `n`,
+  and a `\\`→`\` pass followed by a `\n`→newline pass collapses it to one newline.
+
+## Go binding
+
+`icalendar` (`sdks/go/icalendar/`) publishes **4** declarations, matching Python's count
+exactly — unusual among these bindings, and only because `ParsedEvent`'s members are fields
+rather than methods.
+
+**Two names are spelled differently from Python's**: `Parse` and `Build`, where Python has
+`parse_icalendar` and `build_vevent`. The rule is trim-what-the-package-says — `icalendar`
+already supplies the noun, so `icalendar.ParseICalendar` stutters. These join
+`contract.HandshakeExit` and `contract.Negotiate` as the module's only spelling divergences.
+Note `jmapfastmail` does **not** trim, for the same reason: that package name supplies neither
+Session nor Email nor Request, so `jmapfastmail.Parse` would name nothing.
+
+Two things it does that the obvious Go does not:
+
+- **`ParsedEvent`'s nine optional string members are `*string`, not `string`.** §R6's
+  zero-value rule is wrong here: `SUMMARY:` with an empty value is a reachable, real answer
+  that a zero-valued string cannot tell from no `SUMMARY` line at all. Measured: collapsing an
+  absence into `""` fails **42 of the corpus's 48 parse cases**.
+- **`foldASCII` iterates BYTES**, not runes, for §5.3's `mailto:` search. `strings.ToLower` is
+  wrong twice over: it applies simple case mapping, so `İ` becomes one byte where JavaScript
+  and Python produce two, and Go indexes bytes, so the resulting index is short rather than
+  long. UTF-8 guarantees every byte of a multi-byte sequence is ≥ 0x80, so a byte loop cannot
+  corrupt a character and is length-preserving by construction.
+
+The `İ` correction here is the **opposite** of `connectorkit`'s `foldForSearch`: there the
+goal is to *match* the other two languages' full case mapping, here it is to preserve length.

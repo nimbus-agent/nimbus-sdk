@@ -286,7 +286,7 @@ maintained."*
   recorded as met in [RFC-0013](./rfcs/0013-go-sdk-official.md), which names the SDK owner
   and pins what "the full conformance suite" means — every corpus whose surface the
   binding publishes, the reading RFC-0008 promoted Python under without writing it down.
-- [ ] The hottest batteries ported to the additional languages — *Pillar 3*
+- [x] The hottest batteries ported to the additional languages — *Pillar 3*
 - [x] A **Python `connector-kit`** — *Pillar 3*, and a Go one alongside it. TypeScript
   publishes [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md); Shipment 1 gave
   Python the pure core, and Shipment 2 closed the rest in both bindings — the transport,

@@ -96,3 +96,45 @@ published contract. They are not repeated here, so there is only ever one copy t
 correct. `parseJsonColumns` is the whole-document counterpart to `parseJsonlColumns`: it
 takes already-parsed JSON — an array of records, or a single record — and reads its keys,
 so no line of raw text passes through the caller's hands at all.
+
+## Python binding
+
+`nimbus_sdk.data_profile` (`sdks/python/src/nimbus_sdk/data_profile/`) publishes **7** names
+to this module's own set, its own import root and deliberately not re-exported from
+`nimbus_sdk`. It binds [`batteries/v1/data-profile.md`](../spec/batteries/v1/data-profile.md)
+and runs that document's **34-case** corpus alongside TypeScript and Go.
+
+Two things it does not delegate to Python:
+
+- **`_trim` implements §R7's enumerated set**, never `str.strip()`. Python strips
+  U+001C–U+001F, which the set excludes, and does not strip U+FEFF, which it includes — and a
+  UTF-8 BOM is what Excel writes at the front of every CSV it exports, so a delegating binding
+  names the first column `U+FEFF` + `id` where TypeScript names it `id`.
+- **Row counts are annotated `float | None`, not `int | None`.** §6.1 requires `num_rows` to
+  become a double so all three bindings agree on 2⁵³+1, and §5 and §7 return genuine `int`s.
+  One annotation has to cover both, and PEP 484's numeric tower makes `float` the one that
+  does. The runner therefore compares **numerically**: `3 == 3.0` is `True` in Python, and a
+  runner asserting on type would fail every §5 and §7 case.
+
+The column cap stays private in all three bindings, which is why §1.1 states the number in
+prose — a binding cannot read it from the module.
+
+## Go binding
+
+`dataprofile` (`sdks/go/dataprofile/`) publishes **9** declarations. Python's 7 become 9
+because Go spells one thing as several: a type plus its exported members counts separately in
+the surface walker.
+
+Three things it does that the obvious Go does not:
+
+- **`RowCountEstimate` is `*float64`, not `float64`.** §R6 says a Go absence is the zero
+  value, and that is wrong here: §7.1 makes `0` a real, reachable answer —
+  `FirstLineAndRows("", false)` returns a row count of zero — which a zero-value convention
+  cannot tell from `null`. A pointer is the one shape that distinguishes them.
+- **Object key order is preserved by a `Token()` loop**, never a `map` plus `sort.Strings`.
+  §8 forbids sorting, and sorted order is not input order. The loop identifies a composite
+  value by its opening delimiter and skips it by depth counting, so there is no recursive
+  decode to get wrong — and `Token()` is a real tokenizer, so a `{` inside a string literal
+  cannot fool it the way manual brace counting would.
+- **`trim` uses §R7's set**, never `strings.TrimSpace`, which strips U+0085 that the set
+  excludes and does not strip U+FEFF that it includes.

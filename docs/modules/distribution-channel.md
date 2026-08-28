@@ -69,3 +69,37 @@ export const forced: DistributionChannel | null = resolveDistributionChannel(opt
 Signatures live in [`api-surface.md`](../api-surface.md) — the generated snapshot of the
 published contract. They are not repeated here, so there is only ever one copy to keep
 correct.
+
+## Python binding
+
+`nimbus_sdk.distribution_channel` (`sdks/python/src/nimbus_sdk/distribution_channel/`)
+publishes **3** names — `DistributionChannel`, `resolve_distribution_channel`,
+`channel_upgrade_hint` — and runs the **27-case** corpus of
+[`batteries/v1/distribution-channel.md`](../spec/batteries/v1/distribution-channel.md).
+
+`DistributionChannel` is a `Literal` rather than a `str`, so `mypy --strict` rejects an eighth
+value at the call site. That is what "closed set" has to mean in a typed binding; §1 states
+the set and the type enforces it.
+
+**Everything it reads is injected** (§R1): the environment map, the executable path and the
+resolver all come from the caller. The defaults read the real process and are deliberately
+outside the corpus, because a case whose expected answer is "whatever this host happens to
+be" pins nothing — and would answer differently on each of CI's three operating systems.
+
+## Go binding
+
+`distributionchannel` (`sdks/go/distributionchannel/`) publishes **13** declarations, and the
+gap from Python's 3 is entirely Go spelling a `Config` struct and its members as separate
+names.
+
+Two things it does that the obvious Go does not:
+
+- **Backslashes are normalised with `strings.ReplaceAll`, never `filepath.ToSlash`.**
+  `ToSlash` replaces `os.PathSeparator`, which on Linux is already `/` — so it is a **no-op
+  there** and a Windows path keeps its backslashes, and §3's segment test never matches. It
+  does the right thing on Windows, so the mistake passes on a developer's machine and fails
+  in CI. Python has the same trap in `PurePath.as_posix`.
+- **A resolver that fails yields the input path unchanged** (§3.1), handled here rather than
+  expected of the resolver. The TypeScript reference had the equivalent `catch` inside its
+  *default* resolver only, so the guarantee held in production and failed for every injected
+  one. The corpus is what found that, and it is registered in RFC-0017 §6.1.

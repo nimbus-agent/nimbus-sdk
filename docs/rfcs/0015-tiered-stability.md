@@ -76,7 +76,7 @@ Three tiers. The line between them is drawn on evidence, not taste.
 
 | Tier | Definition |
 |---|---|
-| `frozen` | Backed by a normative document under `docs/spec/` **and** executed by one of the conformance-corpus guards. The narrow waist. |
+| `frozen` | Backed by a normative document under `docs/spec/` **and** executed by one of the conformance-corpus guards. The narrow waist., `icalendar.js`, `jmap-fastmail/index.js`, `data-profile/index.js`, `distribution-channel.js` |
 | `stable` | Semver-honest and battle-tested, with no spec or corpus behind it. The full deprecation window applies. |
 | `experimental` | May change or be removed without a deprecation window. New batteries enter here. |
 
@@ -166,6 +166,12 @@ binding down to the youngest one's tier.
 | `frozen` | `types.js`, `item-types.js`, `contract-version.js`, `hello.js`, `ndjson-line-reader.js`, `handshake.js`, `event.js`, `contract-tests.js`, `hitl-request.js`, `sandbox-contract.js` |
 | `stable` | `crypto/app-store-connect-jwt.js`, `crypto/canonical-json.js`, `crypto/jwt.js`, `crypto/service-account-token.js`, `crypto/verify-signature.js`, `icalendar.js`, `jmap-fastmail/index.js`, `data-profile/index.js`, `distribution-channel.js`, `audit-logger.js`, `server.js`, `testing/index.js`, `diagnostics-assert.js`, `agents/agent-names.js`, `agents/brief-types.js`, `agents/brief-composites.js`, `agents/brief-guards.js`, `agents/guard-factory.js`, `connector-kit/search-filter.js`, `connector-kit/mcp-tool-kit.js` |
 | `experimental` | `flux-cd/index.js`, `storybook/index.js`, `emitter.js`, `connector-kit/rest-tool-kit.js`, `connector-kit/fetch-bearer-json.js` |
+
+The four battery modules joined `frozen` at the end of the battery port (RFC-0017), one
+per shipment, each once its corpus ran green in all three bindings. Until then this table
+listed them as `stable`, and it stayed wrong for three shipments because every shipment
+deferred the bookkeeping to the next one — which is exactly the drift a generated golden
+does not have and a hand-written table does.
 
 The `frozen` rows are not a judgment. Each is the module a corpus guard imports:
 

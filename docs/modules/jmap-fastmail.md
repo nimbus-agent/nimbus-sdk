@@ -95,3 +95,66 @@ correct.
   `asRecord`, `asString`, `formatAddresses` (and `formatAddress` for a single
   `{ name?, email }`), `extractAttachments` for the `JmapAttachmentMeta` list, and
   `previewFor`/`capPreview` for the capped preview.
+
+## Python binding
+
+`nimbus_sdk.jmap_fastmail` (`sdks/python/src/nimbus_sdk/jmap_fastmail/`) publishes **23**
+names and runs the **61-case** corpus of [`batteries/v1/jmap.md`](../spec/batteries/v1/jmap.md).
+
+**The document and corpus are named `jmap`; the modules keep the vendor prefix.** RFC-0017 §2
+settles it: nothing specified here is Fastmail-specific — these are plain RFC 8620 / RFC 8621
+operations — and a document is named for what it specifies.
+
+Three things it does not delegate to Python:
+
+- **`_host_key` implements §5.2's normalisation.** `.netloc` carries userinfo and raw case,
+  and a bare `.hostname` + `.port` compose keeps a default `:443` the reference drops and
+  strips an IPv6 literal's brackets, yielding `2001:db8::1:8443` with nothing to mark where
+  the address ends.
+- **`_as_string` returns `None` for `""`** — §3 predicts this is the rule a binding will miss,
+  and the consequence is a session with `apiUrl=""` that the caller then tries to fetch.
+- **`_size_bytes` checks `isinstance(v, bool)` first**, because `bool` subclasses `int` and
+  `math.isfinite(True)` is `True`, so a JSON `true` would otherwise become `sizeBytes: 1`.
+
+`cap_preview`'s slice is correct as written and says so: Python's string unit *is* the code
+point, which §6.4 now requires of every binding.
+
+`validate_api_url` **raises** where everything else returns an absence (§5.1). That is a
+control rather than a style: an absence is a value a caller can ignore, and the one thing a
+caller must not do with a rejected `apiUrl` is carry on.
+
+## Go binding
+
+`jmapfastmail` (`sdks/go/jmapfastmail/`) publishes **26** declarations.
+
+Four things it does that the obvious Go does not:
+
+- **`hostKey` lowercases** (§5.2). `url.URL.Host` already excludes userinfo and keeps IPv6
+  brackets, but does **not** lowercase — measured, `https://API.Example.COM/` yields
+  `API.Example.COM` — and keeps a default `:443` the reference drops.
+- **`CapPreview` counts code points** (§6.4). Go's unit is the byte, so `s[:2000]` is wrong
+  twice over: wrong unit, and a cut that can land inside a multi-byte sequence.
+- **`trim` uses §R7's set**, never `strings.TrimSpace`.
+- **`MethodCall` marshals to a three-element array.** §9 records that these entries are
+  heterogeneous — string, object, string — which no typed struct encodes directly.
+
+**`ValidateAPIURL` carries §5's message verbatim rather than wrapping it.**
+`fmt.Errorf("%w: …", ErrInvalidAPIURL)` would put the sentinel's own sentence in *front* of
+the specified message, and §R5 makes that message contract text — a prefix is different words.
+A small error type carries the message and reports the sentinel from `Is`, so
+`errors.Is(err, ErrInvalidAPIURL)` still works.
+
+### The divergence §5.2 exists to close
+
+The three URL parsers disagree three ways, and **a different pair agrees each time**, so there
+is no majority to follow:
+
+| Input | JavaScript `URL.host` | Python `.hostname` + `.port` | Go `URL.Host` |
+|---|---|---|---|
+| `https://x:443/` | `x` | `x:443` | `x:443` |
+| `https://API.Example.COM/` | `api.example.com` | `api.example.com` | `API.Example.COM` |
+| `https://[2001:db8::1]:8443/` | `[2001:db8::1]:8443` | `2001:db8::1:8443` | `[2001:db8::1]:8443` |
+
+Two of the three change the accept/reject **verdict**, not merely the string. §5.2 now states
+all four rules — lowercase, no userinfo, default port omitted, IPv6 brackets kept — and three
+corpus cases pin them.

@@ -1,7 +1,7 @@
 {
   "description": "an I-with-dot-above before mailto: does not shift the address",
   "kind": "parse",
-  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nORGANIZER;CN=İstanbul:mailto:jane@example.com\r\nEND:VEVENT",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nORGANIZER:İstanbul mailto:jane@example.com\r\nEND:VEVENT",
   "expect": {
     "events": [
       {

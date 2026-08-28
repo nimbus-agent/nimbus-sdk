@@ -194,7 +194,12 @@
     {
       "file": "cases/address-mailto-after-u-0130.json",
       "section": "§5.3",
-      "reason": "THE case this corpus exists for. U+0130 is the one code point whose full lowercase is LONGER than itself, so a binding that searches value.toLowerCase() and then slices the ORIGINAL at the index it found is off by one from here on: TypeScript and Python both return 'ane@example.com', and Go -- whose simple case mapping SHRINKS U+0130 -- returns ':jane@example.com'. Three bindings, two wrong answers, none correct. §5.3's ASCII-only fold is what makes the index valid in the original under all three languages' indexing rules. Caught by 0 of the 29 unit tests that existed before it."
+      "reason": "THE case this corpus exists for. U+0130 is the one code point whose full lowercase is LONGER than itself, so a binding that searches value.toLowerCase() and then slices the ORIGINAL at the index it found is off by one from here on: TypeScript and Python both return 'ane@example.com', and Go -- whose simple case mapping SHRINKS U+0130 -- returns ':jane@example.com'. Three bindings, two wrong answers, none correct. §5.3's ASCII-only fold is what makes the index valid in the original under all three languages' indexing rules. The U+0130 is in PREFIX TEXT, which §5.3 explicitly tolerates, so this case does not depend on §3.2's divergence and keeps biting if divergence #1 is ever corrected. Caught by 0 of the 29 unit tests that existed before it."
+    },
+    {
+      "file": "cases/address-mailto-after-u-0130-quoted-param.json",
+      "section": "§5.3",
+      "reason": "The same defect reached the way a real document would reach it: RFC 5545 permits a colon inside a quoted parameter value, so §3.2 splits INSIDE the quotes and the rest of the parameter -- U+0130 and all -- lands in the value ahead of the mailto:. This is §3.2's divergence #1 composing with §5.3. Its sibling case pins the same rule without depending on that divergence. Note an ordinary CN=Istanbul parameter with no quoted colon does NOT reach the defect: §3.2 removes the whole parameter section along with the first colon, so the U+0130 never enters the value."
     },
     {
       "file": "cases/address-organizer-without-mailto-is-absent.json",

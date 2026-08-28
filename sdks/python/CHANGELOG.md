@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.18.1...python-v0.19.0) (2026-08-28)
+
+
+### Features
+
+* **python:** nimbus_sdk.jmap_fastmail ([#239](https://github.com/nimbus-agent/nimbus-sdk/issues/239)) ([874e419](https://github.com/nimbus-agent/nimbus-sdk/commit/874e419dea3c2b3934b2379b121275da9ffc3fbe))
+
 ## [0.18.1](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.18.0...python-v0.18.1) (2026-08-28)
 
 

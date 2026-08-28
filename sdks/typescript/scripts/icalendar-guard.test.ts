@@ -173,9 +173,7 @@ describe("the corpus cannot pass vacuously", () => {
     // the member most likely to regress — §3.3's whole-element parameter match.
     for (const { entry, body } of parses()) {
       for (const [i, event] of (body.expect.events ?? []).entries()) {
-        expect(Object.keys(event).sort(), `${entry.file}: event ${i}`).toEqual(
-          [...MEMBERS].sort(),
-        );
+        expect(Object.keys(event).sort(), `${entry.file}: event ${i}`).toEqual([...MEMBERS].sort());
       }
     }
   });
@@ -212,15 +210,24 @@ describe("the corpus cannot pass vacuously", () => {
     // removes it; U+001C is OUT of the set and Python's str.strip() does remove it. One case
     // each. They fail in opposite directions, so neither implies the other.
     const ics = parses().map(({ body }) => body.ics ?? "");
-    expect(ics.some((t) => t.includes("\ufeff")), "no case pins U+FEFF as trimmed").toBe(true);
-    expect(ics.some((t) => t.includes("\u001c")), "no case pins U+001C as kept").toBe(true);
+    expect(
+      ics.some((t) => t.includes("\ufeff")),
+      "no case pins U+FEFF as trimmed",
+    ).toBe(true);
+    expect(
+      ics.some((t) => t.includes("\u001c")),
+      "no case pins U+001C as kept",
+    ).toBe(true);
   });
 
   test("§7 is pinned by build cases that exceed 75 octets and carry no fold", () => {
     // §7 is executable only because a case supplies a value longer than the RFC 5545 limit.
     // Settled by RFC-0018: the line is emitted whole.
     const long = builds().filter(({ body }) => utf8Length(body.expect.ics ?? "") > 75);
-    expect(long.length, "no build case exceeds 75 octets, so §7 asserts nothing").toBeGreaterThanOrEqual(2);
+    expect(
+      long.length,
+      "no build case exceeds 75 octets, so §7 asserts nothing",
+    ).toBeGreaterThanOrEqual(2);
     for (const { entry, body } of builds()) {
       // A fold is CRLF followed by SPACE or HTAB. No conforming output contains one.
       expect(/\r\n[ \t]/.test(body.expect.ics ?? ""), `${entry.file} contains a fold`).toBe(false);

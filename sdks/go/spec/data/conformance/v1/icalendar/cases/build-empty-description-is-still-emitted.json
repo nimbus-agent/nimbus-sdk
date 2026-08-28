@@ -1,0 +1,15 @@
+{
+  "description": "a supplied-but-empty description still emits its line",
+  "kind": "build",
+  "input": {
+    "uid": "u1",
+    "summary": "Standup",
+    "start": "20260601T090000Z",
+    "end": "20260601T093000Z",
+    "description": ""
+  },
+  "now": "20260601T090000Z",
+  "expect": {
+    "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:u1\r\nDTSTAMP:20260601T090000Z\r\nDTSTART:20260601T090000Z\r\nDTEND:20260601T093000Z\r\nSUMMARY:Standup\r\nDESCRIPTION:\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+  }
+}

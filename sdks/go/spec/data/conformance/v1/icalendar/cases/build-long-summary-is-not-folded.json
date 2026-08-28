@@ -1,0 +1,14 @@
+{
+  "description": "a SUMMARY over 75 octets is emitted as one line",
+  "kind": "build",
+  "input": {
+    "uid": "u1",
+    "summary": "A summary deliberately far longer than seventy-five octets, so that any implementation which folded at the RFC 5545 limit would split it here.",
+    "start": "20260601T090000Z",
+    "end": "20260601T093000Z"
+  },
+  "now": "20260601T090000Z",
+  "expect": {
+    "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:u1\r\nDTSTAMP:20260601T090000Z\r\nDTSTART:20260601T090000Z\r\nDTEND:20260601T093000Z\r\nSUMMARY:A summary deliberately far longer than seventy-five octets\\, so that any implementation which folded at the RFC 5545 limit would split it here.\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+  }
+}

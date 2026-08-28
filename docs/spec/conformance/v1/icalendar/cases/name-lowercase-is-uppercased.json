@@ -1,0 +1,24 @@
+{
+  "description": "a lowercase property name selects the same member",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nuid:u1\r\nsummary:hi\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "hi",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

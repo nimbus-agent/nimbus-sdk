@@ -1,0 +1,24 @@
+{
+  "description": "a nested BEGIN:VEVENT discards what was accumulated",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:first\r\nSUMMARY:Discarded\r\nBEGIN:VEVENT\r\nUID:second\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "second",
+        "recurrenceId": null,
+        "summary": null,
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

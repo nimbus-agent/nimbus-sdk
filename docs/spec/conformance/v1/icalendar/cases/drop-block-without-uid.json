@@ -1,0 +1,8 @@
+{
+  "description": "a block with no UID is dropped",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID2:not-a-uid\r\nSUMMARY:Dropped\r\nEND:VEVENT",
+  "expect": {
+    "events": []
+  }
+}

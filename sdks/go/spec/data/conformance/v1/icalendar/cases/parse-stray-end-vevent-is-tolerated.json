@@ -1,0 +1,39 @@
+{
+  "description": "a stray END:VEVENT does not stop parsing",
+  "kind": "parse",
+  "ics": "END:VEVENT\r\nBEGIN:VEVENT\r\nUID:u1\r\nSUMMARY:First\r\nEND:VEVENT\r\ngarbage between blocks\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:u2\r\nSUMMARY:Second\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "First",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      },
+      {
+        "uid": "u2",
+        "recurrenceId": null,
+        "summary": "Second",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

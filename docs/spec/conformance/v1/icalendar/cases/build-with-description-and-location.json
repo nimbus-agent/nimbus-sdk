@@ -1,0 +1,16 @@
+{
+  "description": "description and location are emitted in order",
+  "kind": "build",
+  "input": {
+    "uid": "u1",
+    "summary": "Standup",
+    "start": "20260601T090000Z",
+    "end": "20260601T093000Z",
+    "description": "Daily sync",
+    "location": "Room 2"
+  },
+  "now": "20260601T090000Z",
+  "expect": {
+    "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:u1\r\nDTSTAMP:20260601T090000Z\r\nDTSTART:20260601T090000Z\r\nDTEND:20260601T093000Z\r\nSUMMARY:Standup\r\nDESCRIPTION:Daily sync\r\nLOCATION:Room 2\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+  }
+}

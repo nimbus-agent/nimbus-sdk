@@ -1,0 +1,24 @@
+{
+  "description": "a leading U+001C is not trimmed from UID",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:\u001cabc\r\nSUMMARY:x\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "\u001cabc",
+        "recurrenceId": null,
+        "summary": "x",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

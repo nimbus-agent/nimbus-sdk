@@ -1,0 +1,24 @@
+{
+  "description": "a repeated DTSTART recomputes allDay from the last line",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nDTSTART;VALUE=DATE:20260601\r\nDTSTART:20260602T090000Z\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": null,
+        "description": null,
+        "location": null,
+        "start": "20260602T090000Z",
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

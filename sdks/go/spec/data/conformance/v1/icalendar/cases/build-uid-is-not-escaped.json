@@ -1,0 +1,14 @@
+{
+  "description": "uid is interpolated raw, not escaped",
+  "kind": "build",
+  "input": {
+    "uid": "u;1",
+    "summary": "Standup",
+    "start": "20260601T090000Z",
+    "end": "20260601T093000Z"
+  },
+  "now": "20260601T090000Z",
+  "expect": {
+    "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:u;1\r\nDTSTAMP:20260601T090000Z\r\nDTSTART:20260601T090000Z\r\nDTEND:20260601T093000Z\r\nSUMMARY:Standup\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+  }
+}

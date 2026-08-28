@@ -1,0 +1,295 @@
+{
+  "spec": "../../../batteries/v1/icalendar.md",
+  "cases": [
+    {
+      "file": "cases/unfold-crlf-space-removes-all-three.json",
+      "section": "§2",
+      "reason": "A fold removes the CRLF *and* the whitespace after it -- all three characters. A binding removing only the CRLF yields 'Hello World', silently inserting a space into the user's text at every fold point."
+    },
+    {
+      "file": "cases/unfold-crlf-htab.json",
+      "section": "§2",
+      "reason": "HTAB is a fold character too, not just SPACE. Caught by 0 of the other §2 cases -- every one of them uses SPACE, so a binding matching /\\r\\n /  alone passes them all."
+    },
+    {
+      "file": "cases/unfold-lf-space-folds.json",
+      "section": "§2",
+      "reason": "§2 is two steps and this pins their composition: step 1 rewrites a bare LF to CRLF, so step 2 then sees a fold. A binding that unfolds on CRLF without normalising first passes every CRLF case here and fails this one -- and LF-only ICS is what real calendar servers emit."
+    },
+    {
+      "file": "cases/unfold-lone-cr-is-not-a-fold.json",
+      "section": "§2",
+      "reason": "A lone CR is not a line ending, so step 1 leaves it and step 2 never matches: the CR and the space both survive into the value. The mirror image of the LF case -- together they pin exactly which endings normalise and which do not."
+    },
+    {
+      "file": "cases/unfold-lf-only-document.json",
+      "section": "§2",
+      "reason": "An LF-only document with no fold in it at all, so step 1 is exercised on its own. Rejecting LF-only ICS would fail documents every other client reads."
+    },
+    {
+      "file": "cases/unfold-consecutive-folds.json",
+      "section": "§2",
+      "reason": "Two folds in one logical line. A binding whose replacement is not global, or which rescans from the wrong offset, joins two of the three segments and drops the third."
+    },
+    {
+      "file": "cases/name-lowercase-is-uppercased.json",
+      "section": "§3.1",
+      "reason": "Property names are case-insensitive, and §3.1 requires uppercasing rather than a case-insensitive comparison, because the uppercased form is what §5.2's table is keyed by."
+    },
+    {
+      "file": "cases/name-line-with-no-colon.json",
+      "section": "§3.1",
+      "reason": "A line with no colon at all: the name is the whole line and the value is empty. Pinned on SUMMARY so the result is observable -- summary becomes the empty string, not an absence. On an unknown name the rule would be untestable, since both readings ignore the line."
+    },
+    {
+      "file": "cases/name-semicolon-after-colon-is-not-a-separator.json",
+      "section": "§3.1",
+      "reason": "The name ends at the first ';' or ':' *whichever comes first*. Here the ';' is inside the value, so it must not shorten the name. A binding splitting on ';' unconditionally produces the name 'SUMMARY:A' and drops the property."
+    },
+    {
+      "file": "cases/value-begins-after-first-colon.json",
+      "section": "§3.2",
+      "reason": "The value is everything after the first colon, so a value containing further colons keeps them. A binding splitting on every colon truncates every URL."
+    },
+    {
+      "file": "cases/value-splits-inside-a-quoted-parameter.json",
+      "section": "§3.2",
+      "reason": "Divergence #1 in §9, pinned rather than fixed. RFC 5545 permits a colon inside a double-quoted parameter value; §3.2 takes the first colon unconditionally, so the value here begins mid-parameter. A binding implementing quoted-parameter awareness returns 'actual' and does not conform."
+    },
+    {
+      "file": "cases/param-value-date-sets-allday.json",
+      "section": "§3.3",
+      "reason": "The VALUE=DATE parameter on DTSTART sets allDay."
+    },
+    {
+      "file": "cases/param-value-date-time-does-not-set-allday.json",
+      "section": "§3.3",
+      "reason": "Whole-element matching is load-bearing: a substring test makes VALUE=DATE match VALUE=DATE-TIME and turns every timed event into an all-day one. Caught by 0 of the other cases -- no other case carries a parameter that merely starts with VALUE=DATE."
+    },
+    {
+      "file": "cases/param-semicolon-after-colon-is-not-a-parameter.json",
+      "section": "§3.3",
+      "reason": "A ';' after the first ':' is inside the value, so there are no parameters at all. A binding scanning the whole line for 'VALUE=DATE' reads one out of the value and sets allDay on a timed event."
+    },
+    {
+      "file": "cases/build-escape-backslash-first.json",
+      "section": "§4.1",
+      "reason": "Backslash is escaped first, so a literal backslash in the value becomes exactly two. Any other ordering re-escapes a backslash this function itself emitted."
+    },
+    {
+      "file": "cases/build-escape-semicolon-and-comma.json",
+      "section": "§4.1",
+      "reason": "Steps 2 and 3: ';' and ',' are escaped in TEXT values."
+    },
+    {
+      "file": "cases/build-escape-crlf-and-lf-both.json",
+      "section": "§4.1",
+      "reason": "Step 4 folds both CRLF and a bare LF to the two-character escape. A binding matching only CRLF leaves a raw newline in the value, which breaks the line structure of the document it is building."
+    },
+    {
+      "file": "cases/build-colon-is-not-escaped.json",
+      "section": "§4.1",
+      "reason": "A colon is not escaped: RFC 5545 does not require it in a TEXT value, and §3.2 splits on the first colon, which is always the property's own separator in a line this function builds."
+    },
+    {
+      "file": "cases/unescape-escaped-backslash-then-literal-n.json",
+      "section": "§4.2",
+      "reason": "THE single-pass proof. The wire value is backslash, backslash, 'n' -- three characters -- and must yield the TWO characters backslash and 'n', NOT a newline. A '\\\\'->'\\' pass followed by a '\\n'->newline pass collapses it to a newline instead, at any ordering. Only a single left-to-right pass that consumes the escaped character is correct."
+    },
+    {
+      "file": "cases/unescape-capital-n-is-a-newline.json",
+      "section": "§4.2",
+      "reason": "Both '\\n' and '\\N' map to U+000A. Deliberately lenient: this reads documents the library did not write."
+    },
+    {
+      "file": "cases/unescape-unknown-escape-yields-the-character.json",
+      "section": "§4.2",
+      "reason": "Unescaping accepts escapes escaping does not produce: '\\q' yields 'q'. A binding rejecting or preserving an unknown escape does not conform."
+    },
+    {
+      "file": "cases/unescape-trailing-backslash-is-literal.json",
+      "section": "§4.2",
+      "reason": "A backslash that is the last character has nothing to consume, so it is emitted as itself. A binding indexing past the end here reads undefined or raises."
+    },
+    {
+      "file": "cases/block-lines-outside-are-discarded.json",
+      "section": "§5.1",
+      "reason": "VCALENDAR headers and a VTIMEZONE component sit outside any VEVENT block and are discarded. This is how §9 divergence 4 -- only VEVENT is read -- is realised."
+    },
+    {
+      "file": "cases/block-unterminated-is-discarded.json",
+      "section": "§5.1",
+      "reason": "A BEGIN:VEVENT with no matching END:VEVENT is discarded, not emitted. A binding that flushes whatever it accumulated at end of input returns a truncated event."
+    },
+    {
+      "file": "cases/block-two-events.json",
+      "section": "§5.1",
+      "reason": "Two blocks yield two events, in document order -- a master plus a RECURRENCE-ID override is the shape this exists for."
+    },
+    {
+      "file": "cases/block-begin-discards-accumulation.json",
+      "section": "§5.1",
+      "reason": "A second BEGIN:VEVENT opens a block and discards anything accumulated, so the first UID never reaches an event. A binding treating BEGIN as a no-op inside a block emits one event with the FIRST uid, since §5.2's last-wins would not apply across the reset."
+    },
+    {
+      "file": "cases/block-markers-are-case-insensitive.json",
+      "section": "§5.1",
+      "reason": "A line's UPPERCASED form is compared to BEGIN:VEVENT and END:VEVENT, so lowercase markers open and close a block."
+    },
+    {
+      "file": "cases/map-all-thirteen-members.json",
+      "section": "§5.2",
+      "reason": "One block exercising every row of §5.2's table at once, so a binding that silently drops a member fails here rather than only in whichever single-member case happens to cover it."
+    },
+    {
+      "file": "cases/map-unknown-property-is-ignored.json",
+      "section": "§5.2",
+      "reason": "An unrecognised name is ignored: not an error, and not retained anywhere."
+    },
+    {
+      "file": "cases/map-summary-is-not-trimmed.json",
+      "section": "§5.2",
+      "reason": "Leading and trailing whitespace in a SUMMARY is part of the text the user typed. A binding trimming all seven trimmed properties plus the three text ones -- the obvious uniform implementation -- fails here."
+    },
+    {
+      "file": "cases/map-uid-is-trimmed.json",
+      "section": "§5.2",
+      "reason": "Whitespace around a UID is noise. The mirror of the SUMMARY case: together they pin the trimmed/not-trimmed split as deliberate rather than incidental."
+    },
+    {
+      "file": "cases/map-repeat-summary-last-wins.json",
+      "section": "§5.2",
+      "reason": "A repeated property keeps the last occurrence."
+    },
+    {
+      "file": "cases/map-repeat-dtstart-recomputes-allday.json",
+      "section": "§5.2",
+      "reason": "allDay is recomputed per DTSTART line, so it reflects the LAST one only. A binding OR-ing allDay across occurrences -- the natural way to write it if allDay is set only when the parameter is present -- reports true here."
+    },
+    {
+      "file": "cases/trim-uid-strips-u-feff.json",
+      "section": "§8",
+      "reason": "§R7's set includes U+FEFF. Python's str.strip() and Go's strings.TrimSpace do NOT strip it, so a binding delegating to its host trim returns the BOM followed by 'abc'. Catches a delegating Python and a delegating Go."
+    },
+    {
+      "file": "cases/trim-uid-keeps-u-001c.json",
+      "section": "§8",
+      "reason": "§R7's set EXCLUDES U+001C. Python's str.strip() strips it, so a delegating Python binding returns 'abc' where the specification requires the separator to survive. The mirror of the U+FEFF case -- they fail in opposite directions and neither implies the other."
+    },
+    {
+      "file": "cases/map-summary-empty-is-not-absent.json",
+      "section": "§5.2",
+      "reason": "A supplied-but-empty SUMMARY is the empty string, which §1 distinguishes from the absence a block with no SUMMARY produces. In Go this is what forces *string over §R6's zero value: a zero-valued string cannot tell these two apart."
+    },
+    {
+      "file": "cases/address-organizer-mailto.json",
+      "section": "§5.3",
+      "reason": "The organizer is everything after the first mailto:, trimmed."
+    },
+    {
+      "file": "cases/address-mailto-uppercase.json",
+      "section": "§5.3",
+      "reason": "The search is case-insensitive, so an uppercase MAILTO: is found."
+    },
+    {
+      "file": "cases/address-mailto-after-u-0130.json",
+      "section": "§5.3",
+      "reason": "THE case this corpus exists for. U+0130 is the one code point whose full lowercase is LONGER than itself, so a binding that searches value.toLowerCase() and then slices the ORIGINAL at the index it found is off by one from here on: TypeScript and Python both return 'ane@example.com', and Go -- whose simple case mapping SHRINKS U+0130 -- returns ':jane@example.com'. Three bindings, two wrong answers, none correct. §5.3's ASCII-only fold is what makes the index valid in the original under all three languages' indexing rules. The U+0130 is in PREFIX TEXT, which §5.3 explicitly tolerates, so this case does not depend on §3.2's divergence and keeps biting if divergence #1 is ever corrected. Caught by 0 of the 29 unit tests that existed before it."
+    },
+    {
+      "file": "cases/address-mailto-after-u-0130-quoted-param.json",
+      "section": "§5.3",
+      "reason": "The same defect reached the way a real document would reach it: RFC 5545 permits a colon inside a quoted parameter value, so §3.2 splits INSIDE the quotes and the rest of the parameter -- U+0130 and all -- lands in the value ahead of the mailto:. This is §3.2's divergence #1 composing with §5.3. Its sibling case pins the same rule without depending on that divergence. Note an ordinary CN=Istanbul parameter with no quoted colon does NOT reach the defect: §3.2 removes the whole parameter section along with the first colon, so the U+0130 never enters the value."
+    },
+    {
+      "file": "cases/address-organizer-without-mailto-is-absent.json",
+      "section": "§5.3",
+      "reason": "A value with no mailto: yields an absence, and organizer is set to it."
+    },
+    {
+      "file": "cases/address-organizer-empty-is-not-absent.json",
+      "section": "§5.3",
+      "reason": "'mailto:' with nothing after it yields the empty string, which §5.3 distinguishes from the absence of the previous case -- organizer takes the extraction result including an empty one. The ATTENDEE rule is the opposite, which is the next case."
+    },
+    {
+      "file": "cases/address-attendee-empty-is-skipped.json",
+      "section": "§5.3",
+      "reason": "An ATTENDEE is appended only when the extraction produced a NON-EMPTY string, so the same input that gives organizer '' contributes no attendee. A binding sharing one code path between the two members fails one of these two cases whichever way it chooses."
+    },
+    {
+      "file": "cases/address-attendee-without-mailto-is-skipped.json",
+      "section": "§5.3",
+      "reason": "attendees never contains an absence."
+    },
+    {
+      "file": "cases/address-attendees-in-document-order.json",
+      "section": "§5.3",
+      "reason": "ATTENDEE accumulates in document order, unlike every other repeated property, which keeps the last. A binding sorting or reversing fails here."
+    },
+    {
+      "file": "cases/drop-block-without-uid.json",
+      "section": "§5.4",
+      "reason": "An event with no UID cannot be correlated with an update or a cancellation, so the block is dropped and everything parsed from it discarded with it."
+    },
+    {
+      "file": "cases/drop-block-whitespace-uid-keeps-next.json",
+      "section": "§5.4",
+      "reason": "A UID that is empty after trimming drops the block, and -- the half that matters -- parsing continues with the next block. A binding returning early on a dropped block loses every later event."
+    },
+    {
+      "file": "cases/parse-garbage-returns-empty.json",
+      "section": "§5.5",
+      "reason": "A failure spanning the whole document yields an empty list, never an error (§R6)."
+    },
+    {
+      "file": "cases/parse-stray-end-vevent-is-tolerated.json",
+      "section": "§5.5",
+      "reason": "An END:VEVENT with no open block, and content between blocks, are both tolerated: malformed input produces fewer events, never an error."
+    },
+    {
+      "file": "cases/build-minimal.json",
+      "section": "§6",
+      "reason": "The eleven-line minimal document, pinned byte for byte per §R5 -- including the absence of PRODID, which RFC 5545 §3.6 requires and §9 item 3 records as a scope decision."
+    },
+    {
+      "file": "cases/build-with-description-and-location.json",
+      "section": "§6",
+      "reason": "Lines 9 and 10 appear, in that order, after SUMMARY and before any ATTENDEE."
+    },
+    {
+      "file": "cases/build-empty-description-is-still-emitted.json",
+      "section": "§6",
+      "reason": "Presence is tested, not truthiness: a supplied-but-empty description still emits 'DESCRIPTION:' with an empty value. A binding testing for a non-empty string omits the line and does not conform. Caught by 0 of the other build cases -- every other one supplies a non-empty description or none at all."
+    },
+    {
+      "file": "cases/build-empty-attendees-emits-no-lines.json",
+      "section": "§6",
+      "reason": "An empty attendees list contributes no lines, and is indistinguishable in the output from attendees being omitted -- which build-minimal is. The pair pins that."
+    },
+    {
+      "file": "cases/build-attendee-order.json",
+      "section": "§6",
+      "reason": "One ATTENDEE line per address, in the order given."
+    },
+    {
+      "file": "cases/build-uid-is-not-escaped.json",
+      "section": "§6",
+      "reason": "Only lines 8, 9 and 10 are escaped. uid, now, start, end and each attendee address are interpolated RAW, so a semicolon in the uid survives unescaped. A binding escaping uniformly emits 'UID:u\\;1' and does not conform."
+    },
+    {
+      "file": "cases/build-ends-with-crlf.json",
+      "section": "§6",
+      "reason": "Every line is terminated by CRLF including the last, so the returned string ends with CRLF. A binding joining on CRLF without appending one produces a document whose final line is unterminated."
+    },
+    {
+      "file": "cases/build-long-summary-is-not-folded.json",
+      "section": "§7",
+      "reason": "Settled by RFC-0018: a content line of any length is emitted whole. This SUMMARY line is well over 75 octets and the expected output contains no CRLF-plus-whitespace sequence anywhere, so a binding that started folding fails here. Together with the multibyte case this is what makes §7 executable rather than merely provisional."
+    },
+    {
+      "file": "cases/build-multibyte-summary-is-not-folded.json",
+      "section": "§7",
+      "reason": "The same claim where octet length and character length disagree: these are three-octet characters, so octet 75 falls mid-character. Under RFC-0018 there is no fold, so the line is emitted whole; §7.1's alignment rule is what would govern if a future revision added one, and remains unenforceable while §7 stands."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "description": "an LF+SPACE fold unfolds, because normalisation runs first",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\nUID:u1\nSUMMARY:Hello\n World\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "HelloWorld",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

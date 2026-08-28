@@ -1,0 +1,14 @@
+{
+  "description": "semicolon and comma are escaped",
+  "kind": "build",
+  "input": {
+    "uid": "u1",
+    "summary": "a;b,c",
+    "start": "20260601T090000Z",
+    "end": "20260601T100000Z"
+  },
+  "now": "20260601T090000Z",
+  "expect": {
+    "ics": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:u1\r\nDTSTAMP:20260601T090000Z\r\nDTSTART:20260601T090000Z\r\nDTEND:20260601T100000Z\r\nSUMMARY:a\\;b\\,c\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+  }
+}

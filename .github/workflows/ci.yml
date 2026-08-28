@@ -51,15 +51,22 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: .github/path-filters.yml
-          # On a push there is no base to diff against the way a pull request has, so every
-          # filter reports true and nothing is skipped. That is the right default for main:
-          # strict_required_status_checks_policy is FALSE, so a merged tree can differ from
-          # the one CI tested, and this run is the only thing that tests it.
+          # On a pull request, diff against the base branch. On a push, this is left empty
+          # and the action falls back to the default branch -- which IS the pushed branch,
+          # so it diffs against the previous commit and CAN report a filter false.
+          #
+          # That is why the job gates below carry `|| github.event_name == 'push'` rather
+          # than relying on this input to make everything true. The full matrix on main is
+          # load-bearing: strict_required_status_checks_policy is FALSE, so a merged tree
+          # can differ from the one CI tested, and the push run is the only thing that
+          # tests the tree that actually landed. A guarantee that important should not
+          # depend on a third-party action's default for an empty input.
           base: ${{ github.event_name == 'pull_request' && github.base_ref || '' }}
 
   build-test:
     needs: changes
-    if: needs.changes.outputs.typescript == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.typescript == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -149,7 +156,8 @@ jobs:
 
   node-smoke:
     needs: [changes, build-test]
-    if: needs.changes.outputs.typescript == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.typescript == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -206,7 +214,8 @@ jobs:
 
   python:
     needs: changes
-    if: needs.changes.outputs.python == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.python == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -286,7 +295,8 @@ jobs:
 
   go:
     needs: changes
-    if: needs.changes.outputs.go == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.go == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -375,7 +385,8 @@ jobs:
   # language at all.
   conformance:
     needs: changes
-    if: needs.changes.outputs.conformance == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.conformance == 'true' || github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -594,7 +605,8 @@ jobs:
   # promise nobody is keeping, and an unpinned toolchain quietly changes what is being tested.
   scaffold-typescript:
     needs: changes
-    if: needs.changes.outputs.scaffold == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.scaffold == 'true' || github.event_name == 'push'
     runs-on: ubuntu-24.04
     # A broken template does not hang, it crawls: the generated suite's split-frame case
     # takes its full 10 s timeout to fail. Most of this budget is `npm install`.
@@ -725,7 +737,8 @@ jobs:
 
   scaffold-python:
     needs: changes
-    if: needs.changes.outputs.scaffold == 'true'
+    # `|| push` forces the full matrix on main; see the changes job for why.
+    if: needs.changes.outputs.scaffold == 'true' || github.event_name == 'push'
     runs-on: ubuntu-24.04
     # Same shape as scaffold-typescript; here the slow part is resolving `mcp` and pydantic.
     timeout-minutes: 20

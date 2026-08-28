@@ -117,6 +117,34 @@ describe("path filters", () => {
     }
   });
 
+  test("every gated job still runs in full on a push to main", () => {
+    // The full matrix on main is load-bearing: strict_required_status_checks_policy is
+    // FALSE, so a merged tree can differ from the one CI tested, and the push run is the
+    // only thing that tests the tree that actually landed.
+    //
+    // An earlier draft of this change left that to `base: ''` making every filter report
+    // true. It does not — on a push the action falls back to the default branch, which IS
+    // the pushed branch, so it diffs against the previous commit and a Go-only merge would
+    // have skipped TypeScript, Python and scaffold on main. The guarantee now lives in the
+    // gate instead, where it cannot depend on a third-party action's default, and this
+    // assertion is what stops a future gate being added without it.
+    for (const job of [
+      "build-test",
+      "node-smoke",
+      "python",
+      "go",
+      "conformance",
+      "scaffold-typescript",
+      "scaffold-python",
+    ]) {
+      const block = workflow.slice(workflow.indexOf(`\n  ${job}:\n`));
+      const head = block.slice(0, block.indexOf("steps:"));
+      expect(head, `${job} would be filtered out on a push to main`).toContain(
+        "github.event_name == 'push'",
+      );
+    }
+  });
+
   test("ci-complete fails when the filter itself did not succeed", () => {
     // Path filtering makes `skipped` a normal outcome, which removes the blanket check that
     // made ci-complete trustworthy. This is the narrower one that replaces it: a skip only

@@ -77,7 +77,7 @@ provided token).
       conformance: ${{ steps.filter.outputs.conformance }}
     steps:
       # ... harden-runner + checkout ...
-      - uses: dorny/paths-filter@<sha>  # v3
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
         with:
           filters: .github/path-filters.yml
@@ -123,8 +123,13 @@ go:
 
 scaffold:
   - *common
+  # NOT obvious, and this is the correction Task 1 Step 3 actually produced: scaffold-python
+  # "builds the SDK wheel from this commit" and installs it, and that wheel BUNDLES
+  # docs/spec via the hatch hook. The draft of this plan omitted it.
+  - *spec
   - 'tools/create-connector/**'
-  - 'sdks/typescript/README.md'
+  - 'sdks/typescript/**'
+  - 'sdks/python/**'
   - 'docs/quickstart-*.md'
 
 conformance:
@@ -186,6 +191,21 @@ cancelled `changes` job would skip everything downstream and report green.
 `ci-complete` is one of four required checks and has `if: always()`, so it runs regardless.
 Verify on the pull request that it appears and passes.
 
+- [ ] **Step 4: Force the full matrix on a push to main, in the GATE**
+
+Each gate ends `|| github.event_name == 'push'`.
+
+**The draft of this plan got this wrong**, and review caught it. It assumed an empty `base`
+made every filter report true on a push, so no override was needed. It does not: on a push
+the action falls back to the repository's default branch, which *is* the pushed branch, so it
+diffs against the previous commit and can report a filter false — a Go-only merge would have
+skipped TypeScript, Python and scaffold **on main**, which is exactly the run this plan calls
+load-bearing because `strict_required_status_checks_policy` is `false`.
+
+The lesson generalises past this input: a guarantee that matters should not rest on a
+third-party action's default behaviour for an empty argument. Put it in the gate, where it is
+readable and cannot drift when the action changes.
+
 ---
 
 ## Task 3: a guard, because a wrong filter fails open
@@ -199,12 +219,12 @@ same shape of hazard and worse consequences, because it fails silently and green
 - [ ] **Step 1: Assert the couplings that are easy to forget**
 
 ```ts
-test("every binding's filter includes docs/spec", () => {
-  // The spec is bundled into Python's _data/spec and mirrored into Go's spec/data, so a
-  // spec change must run all three suites. A filter keyed on sdks/<lang>/** alone would
-  // skip the suite on exactly the change most likely to break it.
-  for (const name of ["typescript", "python", "go", "conformance"]) {
-    expect(filters[name]).toContain("docs/spec/**");
+test("every filter includes docs/spec", () => {
+  // EVERY filter, not just the three bindings' -- scaffold too, for the reason above.
+  // The draft of this plan scoped it to four named filters and would have let the
+  // scaffold gap through.
+  for (const [name, patterns] of Object.entries(filters)) {
+    expect(patterns, `${name} would skip on a docs/spec change`).toContain("docs/spec/**");
   }
 });
 
@@ -247,7 +267,8 @@ nothing complains.
 ## Definition of done
 
 - [ ] A `sdks/go` release pull request runs no Python jobs.
-- [ ] A `docs/spec/` change runs TypeScript, Python **and** Go.
+- [ ] A `docs/spec/` change runs TypeScript, Python, Go **and the scaffolder**.
+- [ ] A push to `main` runs the FULL matrix, from the gate rather than from the filter.
 - [ ] A change to `ci.yml` or `.github/path-filters.yml` runs everything.
 - [ ] `ci-complete` fails when `changes` fails or is cancelled, even though skips are now
       tolerated.

@@ -248,6 +248,26 @@ describe("parseICalendar", () => {
     expect(e?.organizer).toBeNull();
   });
 
+  // U+0130 is the one code point whose JavaScript lowercase is LONGER than itself, so an
+  // implementation that indexes a lowercased copy and slices the original drops the first
+  // character of the address. Here in the fast suite as well as the corpus, because this is
+  // the kind of defect that survives a rewrite of whichever one it is not in.
+  it("does not shift the address when the value contains U+0130 before mailto:", () => {
+    const src = ics(
+      "BEGIN:VCALENDAR",
+      "BEGIN:VEVENT",
+      "UID:org-2",
+      "SUMMARY:Turkish Dotted I",
+      "DTSTART:20260601T090000Z",
+      "DTEND:20260601T091500Z",
+      "ORGANIZER:İstanbul mailto:jane@example.com",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    );
+    const [e] = parseICalendar(src);
+    expect(e?.organizer).toBe("jane@example.com");
+  });
+
   // RRULE captured
   it("captures RRULE", () => {
     const src = ics(

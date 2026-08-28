@@ -276,6 +276,29 @@ correction nobody has agreed to make.**
   not taken earlier, so that the first correction this project ships is one a corpus
   actually caught.
 
+- **An injected `realpath` that throws propagates to the caller; it must not.** §3.1 of
+  `batteries/v1/distribution-channel.md` says a realpath failure "MUST NOT propagate". The
+  `try`/`catch` lived inside `safeRealpath`, which is only the *default* — `opts.realpath ??
+  safeRealpath` leaves an injected resolver unwrapped, and `fromPath` then calls it bare. So
+  the guarantee held in production and failed for exactly the injected resolver a conformance
+  case supplies. **Carried by Shipment 2's correction pull request**
+  ([#205](https://github.com/nimbus-agent/nimbus-sdk/pull/205)). Recorded here after the
+  fact, in Shipment 3: the register is meant to be complete, and an entry added late is worth
+  more than a register that quietly omits one.
+
+- **`extractMailto` indexes a case-folded copy and slices the original; it must fold ASCII
+  only.** `icalendar.ts` searched `value.toLowerCase()` for `mailto:` and then sliced `value`
+  at the index it found. U+0130 is the one code point whose JavaScript lowercase is longer
+  than itself, so any `İ` ahead of the address shifted every later index by one and dropped
+  the address's first character. The two obvious ports are wrong in *opposite* directions —
+  Python's `.lower()` expands U+0130 as JavaScript does, Go's simple-mapping
+  `strings.ToLower` contracts it — so the same input yields three answers and no correct one.
+  Folding only U+0041–U+005A is length-preserving in UTF-16 units, code points and bytes
+  alike, and loses no match, because no non-ASCII code point lowercases into any character of
+  `mailto:`. Pinned by `batteries/v1/icalendar.md` §5.3, which the same change amends to
+  state the fold rather than leave it to the host. **Carried by Shipment 3's correction pull
+  request**, after the corpus failed the shipped code.
+
 ## Shipments
 
 - **Shipment 0** (this document): RFC-0017, the §4 amendment in code, the five

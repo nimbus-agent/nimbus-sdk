@@ -217,13 +217,36 @@ document order.
 of `mailto:`. The address is everything after it, trimmed (§R7). If the value contains no
 `mailto:`, the result is an absence.
 
+The fold used for that search is **ASCII only**: U+0041–U+005A map to U+0061–U+007A, and
+every other code point is compared as written. A binding MUST NOT delegate to its host
+language's lowercase, for the reason §R7 gives for trimming — the three hosts disagree — and
+here they disagree about **length**, which corrupts the index the address is sliced at.
+U+0130 (`İ`) is the only code point where this is observable, and it is observable three
+different ways: JavaScript's `toLowerCase()` and Python's `.lower()` both expand it to two
+code points, while Go's `strings.ToLower` applies simple case mapping and *contracts* it to
+one byte. A binding searching a folded copy and slicing the original therefore drops a
+leading character in two languages and gains one in the third.
+
+Restricting the fold to ASCII never loses a match: no code point outside U+0041–U+005A has a
+lowercase mapping that reaches any character of `mailto:`, and the one multi-character
+lowercase expansion in Unicode inserts a combining mark that breaks the needle rather than
+completing it. An ASCII fold is also length-preserving in UTF-16 code units, in code points
+and in bytes alike, so one rule is correct under all three languages' indexing.
+
 - `organizer` is set to that result, absence included.
 - An `ATTENDEE` is appended only when the extraction produced a non-empty string. An attendee
   line with no `mailto:`, or with nothing after it, contributes nothing — `attendees` never
   contains an absence or an empty string.
 
-The search is over the whole value, so parameters preceding the address (`ATTENDEE;CN=Jane:mailto:…`,
-where §3.2 has already removed the name and parameters) and any prefix text are tolerated.
+The search is over the whole value, so prefix text ahead of the address is tolerated.
+
+Note what this does **not** mean: in `ATTENDEE;CN=Jane:mailto:…` the parameters do not reach
+this search at all, because §3.2 removes everything up to and including the first colon, and
+the parameter section sits before it. A parameter reaches the value only when the first colon
+is *not* the property separator — §9 divergence 1, a colon inside a quoted parameter value.
+That is worth stating precisely, because it decides which inputs can exercise the ASCII-fold
+rule above: an ordinary `CN=İstanbul` parameter cannot, and a corpus case built on one would
+pin nothing.
 
 ### §5.4 Dropping a block
 

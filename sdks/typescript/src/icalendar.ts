@@ -131,13 +131,35 @@ function hasParam(line: string, param: string): boolean {
 }
 
 /**
+ * Case folding for the `mailto:` search, spelled out in ASCII.
+ *
+ * `toLowerCase()` cannot be used to find an index into the ORIGINAL string. U+0130 is the one
+ * code point in Unicode whose JavaScript lowercase is longer than itself (`i` + U+0307), so
+ * every index after one is off by one — and the two obvious ports are wrong in opposite
+ * directions, Python's `.lower()` expanding it as JavaScript does and Go's simple-mapping
+ * `strings.ToLower` contracting it. Mapping only U+0041–U+005A is length-preserving in UTF-16
+ * units, in code points and in bytes, so one implementation is correct in all three.
+ *
+ * It cannot lose a match either: no code point outside ASCII has a lowercase mapping that
+ * reaches any character of `mailto:`. Specified by batteries/v1/icalendar.md §5.3 and
+ * authorised by RFC-0017 §6.1; the corpus case is what found it.
+ *
+ * The same reasoning, and the same code point, are written out at `foldAscii` in
+ * `contract-tests.ts`. Kept local rather than shared: that module is `frozen`, and lifting a
+ * helper out of it is a surface decision this change has no mandate to make.
+ */
+function foldAscii(value: string): string {
+  return value.replace(/[A-Z]/g, (c) => String.fromCodePoint((c.codePointAt(0) ?? 0) + 32));
+}
+
+/**
  * Extract a `mailto:` address from a property value (ATTENDEE/ORGANIZER lines).
  * Returns the address (without `mailto:` prefix) or null.
  */
 function extractMailto(value: string): string | null {
-  // The mailto: may appear after parameters in the VALUE part
-  const lower = value.toLowerCase();
-  const idx = lower.indexOf("mailto:");
+  // Folded copy purely to locate the needle; the index is then used against `value`, which
+  // is only sound because the fold preserves length. See foldAscii.
+  const idx = foldAscii(value).indexOf("mailto:");
   if (idx === -1) return null;
   return trim(value.slice(idx + "mailto:".length));
 }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.17.0...sdks/go/v0.18.0) (2026-08-28)
+
+
+### Features
+
+* **go:** the jmapfastmail package ([#244](https://github.com/nimbus-agent/nimbus-sdk/issues/244)) ([2fc1c64](https://github.com/nimbus-agent/nimbus-sdk/commit/2fc1c64beef64d0ce6e9d49f481990d7c587afce))
+
 ## [0.17.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.16.0...sdks/go/v0.17.0) (2026-08-28)
 
 

@@ -201,32 +201,32 @@ not even another package inside this module.
 
 26 exports.
 
-- `const CoreCapability = "urn:ietf:params:jmap:core"` — **experimental**
-- `const MailCapability = "urn:ietf:params:jmap:mail"` — **experimental**
-- `const MaxBodyValueBytes = 2048` — **experimental**
-- `const PreviewMaxChars = 2000` — **experimental**
-- `const SubmissionCapability = "urn:ietf:params:jmap:submission"` — **experimental**
-- `func (m MethodCall) MarshalJSON() ([]byte, error)` — **experimental**
-- `func BuildGetRequest(accountID, id string) Request` — **experimental**
-- `func BuildListRequest(accountID string, limit int) Request` — **experimental**
-- `func BuildSearchRequest(accountID, query string, limit int) Request` — **experimental**
-- `func CapPreview(text string) string` — **experimental**
-- `func EmailProperties() []string` — **experimental**
-- `func ExtractAttachments(v any) []AttachmentMeta` — **experimental**
-- `func ExtractEmailList(parsed any) []any` — **experimental**
-- `func FormatAddress(v any) string` — **experimental**
-- `func FormatAddresses(v any) []string` — **experimental**
-- `func MethodResponseArgs(parsed any, methodName string) map[string]any` — **experimental**
-- `func ParseSession(parsed any) *Session` — **experimental**
-- `func PreviewFor(raw map[string]any) string` — **experimental**
-- `func ValidateAPIURL(candidate, allowedBase string) (string, error)` — **experimental**
-- `func ViewEmail(raw any) *EmailView` — **experimental**
-- `type AttachmentMeta struct { MimeType *string; Name *string; SizeBytes *float64 }` — **experimental**
-- `type EmailView struct { Attachments []AttachmentMeta; Cc []string; From []string; ID string; MessageID *string; Preview string; ReceivedAt *string; Subject *string; To []string }` — **experimental**
-- `type MethodCall struct { Args map[string]any; ClientID string; Name string }` — **experimental**
-- `` type Request struct { MethodCalls []MethodCall `json:"methodCalls"`; Using []string `json:"using"` } `` — **experimental**
-- `type Session struct { APIURL string; AccountID string }` — **experimental**
-- `var ErrInvalidAPIURL = errors.New("jmapfastmail: invalid JMAP apiUrl")` — **experimental**
+- `const CoreCapability = "urn:ietf:params:jmap:core"` — **frozen**
+- `const MailCapability = "urn:ietf:params:jmap:mail"` — **frozen**
+- `const MaxBodyValueBytes = 2048` — **frozen**
+- `const PreviewMaxChars = 2000` — **frozen**
+- `const SubmissionCapability = "urn:ietf:params:jmap:submission"` — **frozen**
+- `func (m MethodCall) MarshalJSON() ([]byte, error)` — **frozen**
+- `func BuildGetRequest(accountID, id string) Request` — **frozen**
+- `func BuildListRequest(accountID string, limit int) Request` — **frozen**
+- `func BuildSearchRequest(accountID, query string, limit int) Request` — **frozen**
+- `func CapPreview(text string) string` — **frozen**
+- `func EmailProperties() []string` — **frozen**
+- `func ExtractAttachments(v any) []AttachmentMeta` — **frozen**
+- `func ExtractEmailList(parsed any) []any` — **frozen**
+- `func FormatAddress(v any) string` — **frozen**
+- `func FormatAddresses(v any) []string` — **frozen**
+- `func MethodResponseArgs(parsed any, methodName string) map[string]any` — **frozen**
+- `func ParseSession(parsed any) *Session` — **frozen**
+- `func PreviewFor(raw map[string]any) string` — **frozen**
+- `func ValidateAPIURL(candidate, allowedBase string) (string, error)` — **frozen**
+- `func ViewEmail(raw any) *EmailView` — **frozen**
+- `type AttachmentMeta struct { MimeType *string; Name *string; SizeBytes *float64 }` — **frozen**
+- `type EmailView struct { Attachments []AttachmentMeta; Cc []string; From []string; ID string; MessageID *string; Preview string; ReceivedAt *string; Subject *string; To []string }` — **frozen**
+- `type MethodCall struct { Args map[string]any; ClientID string; Name string }` — **frozen**
+- `` type Request struct { MethodCalls []MethodCall `json:"methodCalls"`; Using []string `json:"using"` } `` — **frozen**
+- `type Session struct { APIURL string; AccountID string }` — **frozen**
+- `var ErrInvalidAPIURL = errors.New("jmapfastmail: invalid JMAP apiUrl")` — **frozen**
 
 ## `spec`
 

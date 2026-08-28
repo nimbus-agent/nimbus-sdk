@@ -1,0 +1,24 @@
+{
+  "description": "a CRLF+HTAB fold unfolds like a CRLF+SPACE one",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nSUMMARY:Hello\r\n\tWorld\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "HelloWorld",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

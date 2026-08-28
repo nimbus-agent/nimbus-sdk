@@ -1,0 +1,8 @@
+{
+  "description": "an unterminated final block is discarded",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nSUMMARY:Never emitted",
+  "expect": {
+    "events": []
+  }
+}

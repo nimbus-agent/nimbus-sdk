@@ -1,0 +1,126 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/icalendar/case.schema.json",
+  "title": "icalendar conformance case",
+  "description": "One call into the icalendar battery. `kind` selects the function: `parse` supplies an ICS document and expects the events it yields; `build` supplies a BuildEventInput and an injected `now` and expects the exact string produced.",
+  "type": "object",
+  "required": ["description", "kind", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["parse", "build"] },
+    "ics": {
+      "type": "string",
+      "description": "parse: the document, verbatim. Line endings are significant and are written as escapes."
+    },
+    "input": {
+      "type": "object",
+      "description": "build: the BuildEventInput. An absent optional member means the caller omitted it, which §6 distinguishes from supplying an empty string."
+    },
+    "now": {
+      "type": "string",
+      "description": "build: the injected DTSTAMP value. §R1 — the builder never reads a clock."
+    },
+    "expect": {}
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "parse" } }, "required": ["kind"] },
+      "then": {
+        "required": ["ics"],
+        "allOf": [
+          { "not": { "required": ["input"] } },
+          { "not": { "required": ["now"] } }
+        ],
+        "properties": {
+          "expect": {
+            "type": "object",
+            "required": ["events"],
+            "additionalProperties": false,
+            "properties": {
+              "events": {
+                "type": "array",
+                "items": { "$ref": "#/definitions/parsedEvent" }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "build" } }, "required": ["kind"] },
+      "then": {
+        "required": ["input", "now"],
+        "allOf": [{ "not": { "required": ["ics"] } }],
+        "properties": {
+          "input": {
+            "type": "object",
+            "required": ["uid", "summary", "start", "end"],
+            "additionalProperties": false,
+            "properties": {
+              "uid": { "type": "string" },
+              "summary": { "type": "string" },
+              "start": { "type": "string" },
+              "end": { "type": "string" },
+              "description": { "type": "string" },
+              "location": { "type": "string" },
+              "attendees": { "type": "array", "items": { "type": "string" } }
+            }
+          },
+          "expect": {
+            "type": "object",
+            "required": ["ics"],
+            "additionalProperties": false,
+            "properties": {
+              "ics": {
+                "type": "string",
+                "description": "§R5 — pinned byte for byte, including the trailing CRLF."
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "parsedEvent": {
+      "description": "§1 — all thirteen members are present on every returned event, so a case must state all thirteen. Nothing defaults: a schema that let a case omit `allDay` would let a case silently stop asserting it, and `allDay` is the member most likely to regress (§3.3's whole-element parameter match).",
+      "type": "object",
+      "required": [
+        "uid",
+        "recurrenceId",
+        "summary",
+        "description",
+        "location",
+        "start",
+        "end",
+        "allDay",
+        "status",
+        "organizer",
+        "attendees",
+        "rrule",
+        "dtstamp"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "uid": { "type": "string", "description": "§5.4 — never absent; a block without one is dropped." },
+        "recurrenceId": { "type": ["string", "null"] },
+        "summary": { "type": ["string", "null"] },
+        "description": { "type": ["string", "null"] },
+        "location": { "type": ["string", "null"] },
+        "start": { "type": ["string", "null"] },
+        "end": { "type": ["string", "null"] },
+        "allDay": { "type": "boolean", "description": "§1 — never absent; `false` is its absence." },
+        "status": { "type": ["string", "null"] },
+        "organizer": { "type": ["string", "null"] },
+        "attendees": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "§5.3 — never absent and never contains an absence or an empty string."
+        },
+        "rrule": { "type": ["string", "null"] },
+        "dtstamp": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

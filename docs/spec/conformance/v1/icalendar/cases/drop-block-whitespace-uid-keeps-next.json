@@ -1,0 +1,24 @@
+{
+  "description": "a whitespace-only UID drops its block and the next block still returns",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:   \r\nSUMMARY:Dropped\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:u2\r\nSUMMARY:Kept\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u2",
+        "recurrenceId": null,
+        "summary": "Kept",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

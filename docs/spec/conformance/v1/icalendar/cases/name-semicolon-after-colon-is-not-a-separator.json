@@ -1,0 +1,24 @@
+{
+  "description": "a semicolon after the first colon does not shorten the name",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nSUMMARY:a;b\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "a;b",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

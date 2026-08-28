@@ -1,0 +1,39 @@
+{
+  "description": "an empty SUMMARY value is the empty string, not an absence",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nSUMMARY:\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:u2\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      },
+      {
+        "uid": "u2",
+        "recurrenceId": null,
+        "summary": null,
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

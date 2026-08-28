@@ -1,0 +1,24 @@
+{
+  "description": "an LF-only document parses",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\nUID:u1\nSUMMARY:Plain\nSTATUS:CONFIRMED\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "Plain",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": "CONFIRMED",
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

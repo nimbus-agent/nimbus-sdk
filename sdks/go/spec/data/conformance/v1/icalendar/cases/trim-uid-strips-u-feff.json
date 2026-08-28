@@ -1,0 +1,24 @@
+{
+  "description": "a leading U+FEFF is trimmed from UID",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:﻿abc\r\nSUMMARY:x\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "abc",
+        "recurrenceId": null,
+        "summary": "x",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

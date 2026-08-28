@@ -1,0 +1,8 @@
+{
+  "description": "a document with no VEVENT returns an empty list",
+  "kind": "parse",
+  "ics": "this is not an iCalendar document at all\r\n\u0000\u0001 %%% \r\n",
+  "expect": {
+    "events": []
+  }
+}

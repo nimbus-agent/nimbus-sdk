@@ -1,0 +1,27 @@
+{
+  "description": "attendees accumulate in document order",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nATTENDEE;CN=Zoe:mailto:z@example.com\r\nATTENDEE;CN=Adam:mailto:a@example.com\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": null,
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [
+          "z@example.com",
+          "a@example.com"
+        ],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

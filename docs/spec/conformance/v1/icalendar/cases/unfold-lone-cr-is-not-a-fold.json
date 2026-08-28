@@ -1,0 +1,24 @@
+{
+  "description": "a lone CR followed by a space is not a fold",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nSUMMARY:Hello\r World\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": null,
+        "summary": "Hello\r World",
+        "description": null,
+        "location": null,
+        "start": null,
+        "end": null,
+        "allDay": false,
+        "status": null,
+        "organizer": null,
+        "attendees": [],
+        "rrule": null,
+        "dtstamp": null
+      }
+    ]
+  }
+}

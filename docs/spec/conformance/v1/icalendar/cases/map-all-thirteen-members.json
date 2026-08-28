@@ -1,0 +1,27 @@
+{
+  "description": "every member of ParsedEvent is populated from its property",
+  "kind": "parse",
+  "ics": "BEGIN:VEVENT\r\nUID:u1\r\nRECURRENCE-ID:20260602T090000Z\r\nSUMMARY:Standup\r\nDESCRIPTION:Daily sync\r\nLOCATION:Room 2\r\nDTSTART;VALUE=DATE:20260601\r\nDTEND:20260602\r\nSTATUS:CONFIRMED\r\nORGANIZER:mailto:boss@example.com\r\nATTENDEE:mailto:a@example.com\r\nATTENDEE:mailto:b@example.com\r\nRRULE:FREQ=DAILY;COUNT=5\r\nDTSTAMP:20260531T235959Z\r\nEND:VEVENT",
+  "expect": {
+    "events": [
+      {
+        "uid": "u1",
+        "recurrenceId": "20260602T090000Z",
+        "summary": "Standup",
+        "description": "Daily sync",
+        "location": "Room 2",
+        "start": "20260601",
+        "end": "20260602",
+        "allDay": true,
+        "status": "CONFIRMED",
+        "organizer": "boss@example.com",
+        "attendees": [
+          "a@example.com",
+          "b@example.com"
+        ],
+        "rrule": "FREQ=DAILY;COUNT=5",
+        "dtstamp": "20260531T235959Z"
+      }
+    ]
+  }
+}

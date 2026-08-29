@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.18.0...sdks/go/v0.19.0) (2026-08-28)
+
+
+### Features
+
+* **go:** promote jmapfastmail to frozen ([#251](https://github.com/nimbus-agent/nimbus-sdk/issues/251)) ([21d76b4](https://github.com/nimbus-agent/nimbus-sdk/commit/21d76b4b2e49f36f55c76a7f87256d87256a79ba))
+
 ## [0.18.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.17.0...sdks/go/v0.18.0) (2026-08-28)
 
 

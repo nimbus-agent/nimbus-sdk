@@ -3,8 +3,15 @@
 
 # `agents`
 
-The wire shapes of the nine built-in read-only agents — their names, their brief types, the
-runtime guards that recognize a brief, and the factory those guards are built from.
+The wire shapes of nine of Nimbus's built-in read-only agents — their names, their brief
+types, the runtime guards that recognize a brief, and the factory those guards are built
+from.
+
+**Nine is this package's coverage, not Nimbus's roster.** The gateway also serves
+`ownership`, `premortem`, `glossary`, `decisions` and `negotiate` over `agents.*`; none has
+a brief type or a guard here, so `AGENT_NAMES` is not a list of what Nimbus can do and a
+picker or router built from it would silently omit those five. See `AGENT_NAMES`' own
+doc comment for why the lag is deliberate.
 
 ## When you reach for it
 

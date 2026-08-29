@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.30.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.30.0...typescript-v1.30.1) (2026-08-29)
+
+
+### Bug Fixes
+
+* **agents:** AGENT_NAMES documented itself as Nimbus's agent roster ([#254](https://github.com/nimbus-agent/nimbus-sdk/issues/254)) ([ea532c2](https://github.com/nimbus-agent/nimbus-sdk/commit/ea532c21fc3837ed3e496645ba4f1122ad213b54))
+
 ## [1.30.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.29.0...typescript-v1.30.0) (2026-08-28)
 
 

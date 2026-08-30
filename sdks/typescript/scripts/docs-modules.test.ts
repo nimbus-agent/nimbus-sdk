@@ -157,10 +157,20 @@ describe("parseCovers", () => {
   });
 
   test("is CRLF-independent", () => {
-    // Both the claim list AND the line ending are exercised here: without
-    // normalizeEol, the `\r` before the newline would ride along into the second
-    // token, giving "b" a hidden control character it should never carry —
-    // this proves the split is on the normalized text, not the raw one.
+    // The comma case alone doesn't discriminate: `split(",").map(t => t.trim())`
+    // strips a `\r` at either end of a token whether or not normalizeEol ran, since
+    // `trim()` treats `\r` as whitespace. So this puts the `\r` where `trim` cannot
+    // reach it — interior to a single claim, with no comma either side — which
+    // genuinely fails (yielding "a\r\n  b" instead of "a\n  b") if normalizeEol is
+    // removed. Verified by temporarily removing that call and watching this fail.
+    expect(parseCovers("<!-- covers: a\r\n  b -->")).toEqual({
+      typescript: ["a\n  b"],
+      python: [],
+      go: [],
+    });
+  });
+
+  test("is CRLF-independent across a wrapped, comma-separated list too", () => {
     expect(parseCovers("<!-- covers: a,\r\n  b -->\r\n")).toEqual({
       typescript: ["a", "b"],
       python: [],

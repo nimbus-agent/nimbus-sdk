@@ -114,8 +114,10 @@ export type Claims = Record<Binding, readonly string[]>;
  * A `py:` or `go:` prefix, recognized only where it starts a new clause — at the very
  * start of the body, or right after a comma or whitespace. This is what lets a prefix
  * begin a fresh source line with no comma before it (a claim list wraps by indentation,
- * not by punctuation), while still leaving `spy:` or a claim key that merely contains
- * "go:" substring-adjacent text alone — those never sit at a clause boundary.
+ * not by punctuation), while declining to match `spy:` or a claim key that merely
+ * contains "go:" substring-adjacent text — neither sits at a clause boundary. A declined
+ * match is not accepted as an ordinary claim key either: it still contains a colon, so
+ * `addClaims`'s colon check rejects it by name once it falls through unsliced.
  */
 const PREFIX_RE = /(?<=^|[,\s])(py|go):/g;
 const BINDING_OF: Record<string, Binding> = { py: "python", go: "go" };
@@ -129,7 +131,7 @@ function splitClaims(text: string): string[] {
 }
 
 /**
- * Pushes each atom of `text` onto `claims[binding]`, throwing if an atom still contains a
+ * Pushes each atom of `atoms` onto `claims[binding]`, throwing if an atom still contains a
  * colon. By the time an atom reaches here, every real `py:`/`go:` prefix has already been
  * sliced out by the caller — so a colon surviving inside one is always a mistyped prefix
  * (`python:` or `go :`, not `py:` / `go:`), never a legitimate claim key: a claim key is a

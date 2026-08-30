@@ -59,15 +59,10 @@ REST API. Converging them is the stated direction, gated on
 
 ### Supported versions
 
-The floors above are what the packages declare — `engines.node`, `requires-python`, and
-`go.mod`'s `go` directive. CI proves them on every pull request, across **Linux, macOS
-and Windows**:
-
-- **Node 22 and 24** — an ESM smoke test that imports the published entry points.
-- **Python 3.11, 3.12, 3.13 and 3.14.**
-- **Go 1.26 and 1.27** — the two most recent stable minors, which is Go's own support
-  policy. The `go` directive names the *older* of the two on purpose; see
-  [`sdks/go/README.md`](../sdks/go/README.md#supported-go-versions).
+The declared floors — read from each package's own `engines.node`, `requires-python`,
+and `go.mod` `go` directive rather than restated here — are
+[`stability-matrix.md`'s Runtime support section](./stability-matrix.md#runtime-support).
+CI proves them on every pull request, across **Linux, macOS and Windows**.
 
 The TypeScript package is **ESM-only** (`"type": "module"`); there is no CommonJS build.
 It ships its own `.d.ts` and declares no minimum TypeScript language version — if you need

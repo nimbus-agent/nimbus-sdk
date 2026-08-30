@@ -28,3 +28,42 @@ binding does not publish the capability at all.
 | [`storybook`](./modules/storybook.md) | `experimental` | — | — |
 | [`testing`](./modules/testing.md) | `stable` | `stable` | `stable` |
 | [`types`](./modules/types.md) | `frozen` | — | — |
+
+## What each tier promises
+
+| Tier | Spec- and corpus-backed | Deprecation window before removal | RFC required to break |
+|---|---|---|---|
+| `frozen` | Yes — a normative spec and a conformance corpus | Full window | Yes |
+| `stable` | No | Full window | No |
+| `experimental` | No | None — may change or be removed at any time | No |
+
+The window itself is [`DEPRECATION-POLICY.md`](./DEPRECATION-POLICY.md)'s: marked in a
+minor, surviving a later minor, removed at a major. Tier and deprecation are orthogonal —
+an export can be `stable` and `@deprecated` at once (RFC-0015 §1).
+
+## Binding status
+
+| Binding | Officiality | Package | Published through | Corpora executed |
+|---|---|---|---|---|
+| TypeScript | Official — [RFC-0016](./rfcs/0016-typescript-sdk-official.md) | `@nimbus-dev/sdk` | npm | 12 of 12 |
+| Python | Official — [RFC-0008](./rfcs/0008-python-sdk-official.md) | `nimbus-dev-sdk` | PyPI | 8 of 12 |
+| Go | Official — [RFC-0013](./rfcs/0013-go-sdk-official.md) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | module proxy (a `sdks/go/vX.Y.Z` tag) | 8 of 12 |
+
+Officiality is a governance act, not a test result — it is
+[GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official), the
+fourth of which is an accepted RFC. Which corpora each binding executes, and why it
+does not claim the rest, is [`conformance-coverage.md`](./conformance-coverage.md)'s.
+
+## Runtime support
+
+| Binding | Declared floor | Where it is declared |
+|---|---|---|
+| TypeScript | `>=22` | `engines.node` |
+| Python | `>=3.11` | `requires-python` |
+| Go | `1.26` | the `go` directive |
+
+These are read from the packages themselves on every render, so this table cannot
+drift from what the packages declare. CI proves them on every pull request across
+Linux, macOS and Windows; Go's floor names the *older* of the two supported minors on
+purpose. Dropping a runtime version is a breaking change under
+[`DEPRECATION-POLICY.md`](./DEPRECATION-POLICY.md).

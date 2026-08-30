@@ -148,6 +148,163 @@ function assertDisagreementsExplained(rows: readonly Row[]): void {
   }
 }
 
+/**
+ * A row whose bound cells now AGREE must not still carry a note.
+ *
+ * The mirror image of `assertDisagreementsExplained`: a note is a second copy of the
+ * tier, restated in prose, and this design's whole claim is that there is no second copy
+ * to go stale. Left unchecked, a tier could later change until the disagreement a note
+ * once explained no longer exists — the disagreement check stops requiring the note, and
+ * a now-false explanation lingers, checked by nothing. This closes that path from the
+ * other direction: an agreeing row with a note is itself the failure.
+ */
+function assertNoStaleNotes(rows: readonly Row[]): void {
+  for (const row of rows) {
+    if (row.note === null) continue;
+    const bound = BINDINGS.map((binding) => row.cells[binding]).filter(
+      (tier): tier is Tier => tier !== null,
+    );
+    if (new Set(bound).size > 1) continue;
+    throw new Error(
+      `docs/modules/${row.capability}.md has a "tier-note:" comment, but "${row.capability}" ` +
+        "no longer disagrees across bindings — the tiers now agree. The note is stale: " +
+        "remove it, or correct the tiers if the agreement itself is the mistake.",
+    );
+  }
+}
+
+/**
+ * What a tier buys a consumer. Sourced from RFC-0015 §1-2 and DEPRECATION-POLICY.md; a
+ * literal here rather than parsed out of them, because prose is not a data source and a
+ * regex over an RFC would break the next time someone rewords a sentence.
+ */
+const TIER_PROMISE: ReadonlyArray<readonly [Tier, string, string, string]> = [
+  ["frozen", "Yes — a normative spec and a conformance corpus", "Full window", "Yes"],
+  ["stable", "No", "Full window", "No"],
+  ["experimental", "No", "None — may change or be removed at any time", "No"],
+];
+
+function renderLegend(): string {
+  const rows = TIER_PROMISE.map(
+    ([tier, backed, window, rfc]) => `| \`${tier}\` | ${backed} | ${window} | ${rfc} |`,
+  );
+  return [
+    "## What each tier promises",
+    "",
+    "| Tier | Spec- and corpus-backed | Deprecation window before removal | RFC required to break |",
+    "|---|---|---|---|",
+    ...rows,
+    "",
+    "The window itself is [`DEPRECATION-POLICY.md`](./DEPRECATION-POLICY.md)'s: marked in a",
+    "minor, surviving a later minor, removed at a major. Tier and deprecation are orthogonal —",
+    "an export can be `stable` and `@deprecated` at once (RFC-0015 §1).",
+  ].join("\n");
+}
+
+type BindingFacts = {
+  readonly column: string;
+  readonly pkg: string;
+  readonly registry: string;
+  readonly rfc: string;
+};
+
+const BINDING_FACTS: Record<Binding, BindingFacts> = {
+  typescript: {
+    column: "TypeScript",
+    pkg: "`@nimbus-dev/sdk`",
+    registry: "npm",
+    rfc: "[RFC-0016](./rfcs/0016-typescript-sdk-official.md)",
+  },
+  python: {
+    column: "Python",
+    pkg: "`nimbus-dev-sdk`",
+    registry: "PyPI",
+    rfc: "[RFC-0008](./rfcs/0008-python-sdk-official.md)",
+  },
+  go: {
+    column: "Go",
+    pkg: "`github.com/nimbus-agent/nimbus-sdk/sdks/go`",
+    registry: "module proxy (a `sdks/go/vX.Y.Z` tag)",
+    rfc: "[RFC-0013](./rfcs/0013-go-sdk-official.md)",
+  },
+};
+
+type Coverage = {
+  languages: Record<string, { claims: string[]; unclaimed: Record<string, string> }>;
+};
+
+function renderBindingStatus(io: MatrixIO): string {
+  const coverage = JSON.parse(io.readRepo("docs/conformance-coverage.json")) as Coverage;
+  const rows = BINDINGS.map((binding) => {
+    const facts = BINDING_FACTS[binding];
+    const entry = coverage.languages[binding];
+    if (entry === undefined) {
+      throw new Error(
+        `docs/conformance-coverage.json has no "${binding}" language entry — the matrix ` +
+          "cannot state its corpora. Add it there rather than hard-coding a count here.",
+      );
+    }
+    const total = entry.claims.length + Object.keys(entry.unclaimed).length;
+    return `| ${facts.column} | Official — ${facts.rfc} | ${facts.pkg} | ${facts.registry} | ${entry.claims.length} of ${total} |`;
+  });
+
+  return [
+    "## Binding status",
+    "",
+    "| Binding | Officiality | Package | Published through | Corpora executed |",
+    "|---|---|---|---|---|",
+    ...rows,
+    "",
+    "Officiality is a governance act, not a test result — it is",
+    "[GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official), the",
+    "fourth of which is an accepted RFC. Which corpora each binding executes, and why it",
+    "does not claim the rest, is [`conformance-coverage.md`](./conformance-coverage.md)'s.",
+  ].join("\n");
+}
+
+/** The first capture of `pattern` in `text`, or a failure naming what was being read. */
+function must(text: string, pattern: RegExp, what: string): string {
+  const found = pattern.exec(text)?.[1];
+  if (found === undefined) {
+    throw new Error(`could not read ${what} — the matrix will not restate a floor it cannot find.`);
+  }
+  return found;
+}
+
+function renderRuntimeSupport(io: MatrixIO): string {
+  const node = (JSON.parse(io.readPackage("package.json")) as { engines?: { node?: string } })
+    .engines?.node;
+  if (node === undefined) {
+    throw new Error("sdks/typescript/package.json declares no engines.node");
+  }
+  const python = must(
+    io.readRepo("sdks/python/pyproject.toml"),
+    /^requires-python\s*=\s*"([^"]+)"/m,
+    "requires-python from sdks/python/pyproject.toml",
+  );
+  const go = must(
+    io.readRepo("sdks/go/go.mod"),
+    /^go\s+(\S+)/m,
+    "the go directive from sdks/go/go.mod",
+  );
+
+  return [
+    "## Runtime support",
+    "",
+    "| Binding | Declared floor | Where it is declared |",
+    "|---|---|---|",
+    `| TypeScript | \`${node}\` | \`engines.node\` |`,
+    `| Python | \`${python}\` | \`requires-python\` |`,
+    `| Go | \`${go}\` | the \`go\` directive |`,
+    "",
+    "These are read from the packages themselves on every render, so this table cannot",
+    "drift from what the packages declare. CI proves them on every pull request across",
+    "Linux, macOS and Windows; Go's floor names the *older* of the two supported minors on",
+    "purpose. Dropping a runtime version is a breaking change under",
+    "[`DEPRECATION-POLICY.md`](./DEPRECATION-POLICY.md).",
+  ].join("\n");
+}
+
 const BANNER = `# Stability and support matrix
 
 <!-- GENERATED FILE — do not edit by hand.
@@ -178,7 +335,18 @@ export function renderMatrix(io: MatrixIO): string {
     throw new Error("no capability pages resolved — the matrix would render empty");
   }
   assertDisagreementsExplained(rows);
-  return `${BANNER}\n${renderTable(rows)}\n`;
+  assertNoStaleNotes(rows);
+  return [
+    BANNER,
+    renderTable(rows),
+    "",
+    renderLegend(),
+    "",
+    renderBindingStatus(io),
+    "",
+    renderRuntimeSupport(io),
+    "",
+  ].join("\n");
 }
 
 if (import.meta.main) {

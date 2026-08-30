@@ -17,8 +17,10 @@
        package's `frozen` instead, because `sdkversion.go` declares no override of its
        own — so this is an asymmetry between the two accessors' tiers, not the two
        negotiation APIs.
-     - TypeScript is `frozen` because this module exports no predicate and no version
-       constant of its own; every export it does have is at `frozen`. -->
+     - TypeScript is `frozen` because this module exports no public predicate and no
+       SDK-version accessor like Python's `__version__` or Go's `SDKVersion()`; both
+       modules it reduces over — `contract-version` and `ipc/hello` — are uniformly
+       `frozen`. -->
 
 # `contract-version`
 

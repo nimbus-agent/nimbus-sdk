@@ -473,7 +473,19 @@ because the count previously worked only if you declined to apply the definition
 *Goal: make third parties first-class — anyone can build, publish, and trust a
 Nimbus connector or app.*
 
-- [ ] A published **stability / support matrix** per export tier and language — *Pillars 6, 7*
+- [x] A published **stability / support matrix** per export tier and language — *Pillars 6, 7*
+
+  [`docs/stability-matrix.md`](./stability-matrix.md) crosses the per-export tier axis
+  RFC-0015 classifies with the language axis: one row per capability, one column per
+  binding, the cell the weakest tier that capability's bound modules publish in that
+  language. The claim unit is the **defining source file** — the same module key
+  `docs-modules.ts` already resolves a `covers:` comment against — not the entry point,
+  because an entry point is too coarse to carry a tier: Go's `ipc` package and Python's
+  `nimbus_sdk.ipc` root each span two capabilities (`contract-version` and `ipc` itself),
+  so a tier keyed on the package would smear one capability's tier onto the other's row.
+  Every cell is **read** from the three generated API-surface goldens on every render,
+  never a second copy stored in the page — there is no cell to go stale, only a claim
+  comment that can miss a module, which `docs-coverage.test.ts` already catches.
 - [ ] The **third-party connector / app registry** design, including the trust and
   signature-verification model — *Pillar 6 (see [SECURITY.md](./SECURITY.md))*
 - [x] A lightweight **RFC process** for contract changes — *Pillar 9 (see

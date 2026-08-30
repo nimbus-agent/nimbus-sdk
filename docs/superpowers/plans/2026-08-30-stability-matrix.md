@@ -561,6 +561,15 @@ describe("language-qualified claims", () => {
     expect(() => parseCovers("<!-- covers: icalendar, py: -->")).toThrow(/empty/i);
   });
 
+  test("a mistyped prefix throws by name instead of becoming a TypeScript claim", () => {
+    expect(() => parseCovers("<!-- covers: icalendar, python: connector_kit/env -->")).toThrow(
+      /invalid claim prefix .*python: connector_kit\/env/,
+    );
+    expect(() => parseCovers("<!-- covers: icalendar, go : spec/spec -->")).toThrow(
+      /invalid claim prefix/,
+    );
+  });
+
   test("a page with no comment is still null", () => {
     expect(parseCovers("# icalendar\n")).toBeNull();
   });
@@ -612,6 +621,17 @@ Replace `parseCovers`'s body from the `const body = …` line onward:
   for (const token of tokens) {
     const prefixed = BINDING_PREFIX.exec(token);
     if (prefixed === null) {
+      // A claim key is a file path and never contains a colon, so a colon here is always
+      // a mistyped prefix — `python:` or `go :` rather than `py:` / `go:`. Caught now,
+      // by name: left alone it becomes a TypeScript claim, and the reader is told
+      // `typescript claims resolving to nothing: python: connector_kit/env`, which points
+      // at the wrong binding and hides the actual typo.
+      if (token.includes(":")) {
+        throw new Error(
+          `invalid claim prefix in "${token}" — expected "py:" or "go:". A claim key is a ` +
+            "file path and cannot contain a colon.",
+        );
+      }
       claims[active].push(token);
       continue;
     }
@@ -683,7 +703,7 @@ git commit -m "feat(docs): parse language-qualified claims in covers comments"
 
 **Interfaces:**
 - Consumes: Task 2's and Task 3's annotated goldens; Task 4's `Claims` type.
-- Produces: `export function claimKeysIn(markdown: string): Set<string>` — every defining file recorded in a bullet-form golden.
+- Produces: `export function claimKeysIn(markdown: string, source?: string): Set<string>` — every defining file recorded in a bullet-form golden. `source` labels the golden in the anti-vacuity failure, so an unregenerated file names itself; it defaults to `"this golden"`.
 
 - [ ] **Step 1: Write the failing test for the extractor**
 
@@ -745,7 +765,7 @@ Create `sdks/typescript/scripts/surface-claims.ts`:
 /** A top-level export bullet carrying its defining file. Indented sub-bullets never match. */
 const ANNOTATED = /^- .+ — \*\*(?:frozen|stable|experimental)\*\* — from `([^`]+)`\s*$/;
 
-export function claimKeysIn(markdown: string): Set<string> {
+export function claimKeysIn(markdown: string, source = "this golden"): Set<string> {
   const keys = new Set<string>();
   for (const line of markdown.split("\n")) {
     const match = ANNOTATED.exec(line);
@@ -753,7 +773,7 @@ export function claimKeysIn(markdown: string): Set<string> {
   }
   if (keys.size === 0) {
     throw new Error(
-      "no defining files found in this golden — every export bullet should end with " +
+      `no defining files found in ${source} — every export bullet should end with ` +
         '" — from `key`". Regenerate it, or the coverage guard will pass vacuously.',
     );
   }
@@ -783,9 +803,10 @@ Add these tests inside the existing `describe("doc coverage", …)` block:
 
   /** Published files per binding, keyed the way a page claims them. */
   function publishedFiles(): Record<Exclude<Binding, "typescript">, Set<string>> {
+    // The path is passed so an unregenerated golden names itself in the failure.
     return {
-      python: claimKeysIn(readFromRoot(PY_GOLDEN)),
-      go: claimKeysIn(readFromRoot(GO_GOLDEN)),
+      python: claimKeysIn(readFromRoot(PY_GOLDEN), PY_GOLDEN),
+      go: claimKeysIn(readFromRoot(GO_GOLDEN), GO_GOLDEN),
     };
   }
 
@@ -976,11 +997,11 @@ export function tiersByFile(markdown: string): Map<string, Tier[]> {
  * Throws rather than returning empty: a golden that records no files means the generator
  * was not re-run, and a silently empty set makes the coverage guard pass vacuously.
  */
-export function claimKeysIn(markdown: string): Set<string> {
+export function claimKeysIn(markdown: string, source = "this golden"): Set<string> {
   const keys = new Set(tiersByFile(markdown).keys());
   if (keys.size === 0) {
     throw new Error(
-      "no defining files found in this golden — every export bullet should end with " +
+      `no defining files found in ${source} — every export bullet should end with ` +
         '" — from `key`". Regenerate it, or the coverage guard will pass vacuously.',
     );
   }
@@ -1001,6 +1022,7 @@ Create `sdks/typescript/scripts/stability-matrix.test.ts`:
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { normalizeEol } from "./api-surface.ts";
 import { MODULES_DIR } from "./docs-modules.ts";
 import { packageRoot, repoRoot } from "./paths.ts";
 import { type MatrixIO, renderMatrix } from "./stability-matrix.ts";
@@ -1020,7 +1042,11 @@ describe("stability matrix", () => {
   });
 
   test("the committed page matches a fresh render", () => {
-    expect(io.readRepo("docs/stability-matrix.md")).toBe(renderMatrix(io));
+    // The committed file is normalised before comparing, exactly as
+    // `api-surface.test.ts` does for its own golden. Without this the Windows CI leg can
+    // fail on line endings alone while the content is identical — a red build that says
+    // nothing about the surface.
+    expect(normalizeEol(io.readRepo("docs/stability-matrix.md"))).toBe(renderMatrix(io));
   });
 
   test("every capability page appears as a row linking to itself", () => {
@@ -1070,7 +1096,7 @@ Create `sdks/typescript/scripts/stability-matrix.ts`:
  * input, for the same reason `docs-modules.ts` reads no files.
  */
 
-import { buildSurface, collectEntryPoints, type Tier } from "./api-surface.ts";
+import { buildSurface, collectEntryPoints, normalizeEol, type Tier } from "./api-surface.ts";
 import { type Binding, MODULES_DIR, moduleKeyOf, parseCovers } from "./docs-modules.ts";
 import { tiersByFile } from "./surface-claims.ts";
 
@@ -1144,7 +1170,11 @@ function buildRows(io: MatrixIO): Row[] {
 
   const rows: Row[] = [];
   for (const file of io.pages()) {
-    const text = io.readRepo(`${MODULES_DIR}/${file}`);
+    // Normalised before matching, the way `parseCovers` and `api-surface.ts` already do.
+    // `.gitattributes` sets `eol=lf`, but that governs checkout, not what an editor or a
+    // stale working tree may hand back — and the repository normalises defensively rather
+    // than trusting it.
+    const text = normalizeEol(io.readRepo(`${MODULES_DIR}/${file}`));
     const claims = parseCovers(text);
     if (claims === null) continue;
 
@@ -1154,14 +1184,31 @@ function buildRows(io: MatrixIO): Row[] {
       cells[binding] = claimed.length === 0 ? null : weakest(claimed);
     }
 
-    const noted = TIER_NOTE.exec(text);
-    rows.push({
-      capability: capabilityOf(file),
-      cells,
-      note: noted?.[1]?.trim() ?? null,
-    });
+    rows.push({ capability: capabilityOf(file), cells, note: noteIn(text, file) });
   }
   return rows;
+}
+
+/**
+ * A page's tier note, or null when it carries none.
+ *
+ * An EMPTY note throws rather than reading as absent. `<!-- tier-note: -->` is either an
+ * unfinished sentence or an attempt to quiet the gate, and both deserve the same answer
+ * `parseCovers` already gives an empty claim list: a marker that explains nothing cannot
+ * be checked. Returning null instead would fire the disagreement error, but its message
+ * would say the page has no explanation while a `tier-note` comment sits plainly in it.
+ */
+function noteIn(pageText: string, file: string): string | null {
+  const matched = TIER_NOTE.exec(pageText);
+  if (matched === null) return null;
+  const note = (matched[1] ?? "").trim();
+  if (note.length === 0) {
+    throw new Error(
+      `docs/modules/${file} has an empty "tier-note:" comment. A note that explains ` +
+        "nothing cannot be reviewed — say why the tiers differ, or delete the comment.",
+    );
+  }
+  return note;
 }
 
 /**

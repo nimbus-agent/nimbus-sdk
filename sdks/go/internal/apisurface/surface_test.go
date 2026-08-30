@@ -17,6 +17,45 @@ func writeFixture(t *testing.T, name, src string) string {
 	return dir
 }
 
+func TestClaimKey(t *testing.T) {
+	cases := []struct {
+		pkg, filename, want string
+	}{
+		{"ipc", "ipc/hello.go", "ipc/hello"},
+		{"connectorkit", "connectorkit/urls.go", "connectorkit/urls"},
+		{"ipc", filepath.FromSlash("ipc/hello.go"), "ipc/hello"},
+		// Only the base name survives — an absolute, machine-specific path must not
+		// leak into the key.
+		{"ipc", filepath.FromSlash("/home/someone/nimbus-sdk/sdks/go/ipc/hello.go"), "ipc/hello"},
+	}
+	for _, c := range cases {
+		if got := ClaimKey(c.pkg, c.filename); got != c.want {
+			t.Errorf("ClaimKey(%q, %q) = %q, want %q", c.pkg, c.filename, got, c.want)
+		}
+	}
+}
+
+func TestRenderPackageAnnotatesEveryBulletWithItsFile(t *testing.T) {
+	out, err := RenderPackage("../../ipc")
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+
+	bullets := 0
+	for _, line := range strings.Split(out, "\n") {
+		if !strings.HasPrefix(line, "- ") {
+			continue
+		}
+		bullets++
+		if !strings.Contains(line, " — from `ipc/") {
+			t.Errorf("bullet carries no defining file: %s", line)
+		}
+	}
+	if bullets == 0 {
+		t.Fatal("no bullets rendered — this guard would pass vacuously")
+	}
+}
+
 func TestRenderPackageListsOnlyExportedDeclarations(t *testing.T) {
 	dir := writeFixture(t, "x.go", `// Stability: stable
 package demo
@@ -448,12 +487,12 @@ const (
 		// its name alone — the honest limit of a walker that does not evaluate
 		// constants.
 		"- `const First = iota`",
-		"- `const Second` — **stable**\n",
+		"- `const Second` — **stable** — from `",
 		// A spec bringing its own value ends the type inheritance, exactly as
 		// the Go spec defines the repetition: AfterReset is untyped, not Kind.
 		"- `const Typed Kind`",
 		"- `const Reset = 5`",
-		"- `const AfterReset` — **stable**\n",
+		"- `const AfterReset` — **stable** — from `",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("missing %q in:\n%s", want, got)

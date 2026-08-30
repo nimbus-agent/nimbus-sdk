@@ -54,6 +54,7 @@
     "build": "tsc --project tsconfig.build.json",
     "api:surface": "bun run build && bun run scripts/api-surface.ts",
     "conformance:coverage": "bun run scripts/conformance-coverage.ts",
+    "stability:matrix": "bun run scripts/stability-matrix.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/ scripts/ examples/",
     "test": "bun test",

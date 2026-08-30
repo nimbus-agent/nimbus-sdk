@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { claimKeysIn } from "./surface-claims.ts";
+import { claimKeysIn, tiersByFile } from "./surface-claims.ts";
 
 describe("claimKeysIn", () => {
   test("collects each bullet's defining file, deduplicated", () => {
@@ -26,4 +26,19 @@ describe("claimKeysIn", () => {
   test("throws on a golden with no annotated bullets rather than returning empty", () => {
     expect(() => claimKeysIn("## `ipc`\n\n- `func F()` — **frozen**\n")).toThrow(/no defining/i);
   });
+});
+
+test("tiersByFile groups every bullet's tier under its defining file", () => {
+  const golden = [
+    "- `func A()` — **frozen** — from `ipc/hello`",
+    "- `func B()` — **stable** — from `ipc/hello`",
+    "- `func C()` — **experimental** — from `ipc/ndjson`",
+    "  - `member: str`",
+  ].join("\n");
+
+  const tiers = tiersByFile(golden);
+
+  expect(tiers.get("ipc/hello")).toEqual(["frozen", "stable"]);
+  expect(tiers.get("ipc/ndjson")).toEqual(["experimental"]);
+  expect(tiers.size).toBe(2);
 });

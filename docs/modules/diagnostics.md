@@ -2,6 +2,23 @@
      py: diagnostics/event, diagnostics/timestamp
      go: diagnostics/emitter, diagnostics/encode, diagnostics/event -->
 
+<!-- tier-note: The three bindings' weakest cell comes from a different export in each,
+     and none of the three gaps is a mistake:
+     - TypeScript is `experimental` because `diagnostics/emitter` (`createEmitter` /
+       `DiagnosticEmitter`) is tagged `@moduleStability experimental` — the encode/parse
+       contract in `diagnostics/event` is `frozen`, but the emitter sitting on top of it
+       is new authoring ergonomics, not yet proven enough to freeze.
+     - Go is `frozen` because its own emitter (`NewEmitter` / `Emitter`, in
+       `diagnostics/emitter`) inherits its package's `frozen` tier — Go shipped an
+       emitter binding at a higher tier than TypeScript's own.
+     - Python is `stable` because it ships no emitter at all — `createEmitter` /
+       `DiagnosticEmitter` has no Python counterpart (see the "How the bindings diverge"
+       section of the root CLAUDE.md and `docs/ROADMAP.md` Phase 3) — and the weakest
+       export it does have here is `format_timestamp`, a Python-only convenience
+       (`diagnostics/timestamp`) filling in for `Date#toISOString()`, deliberately tiered
+       below the `frozen` encode/parse contract in `diagnostics/event` since it is not
+       itself part of that contract. -->
+
 # `diagnostics`
 
 The structured, redaction-safe diagnostic and audit envelope. Its own entry point:

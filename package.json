@@ -11,6 +11,7 @@
     "test:coverage": "bun test --coverage --coverage-reporter=lcov sdks/typescript/src",
     "api:surface": "bun run --cwd sdks/typescript api:surface",
     "conformance:coverage": "bun run --cwd sdks/typescript conformance:coverage",
+    "stability:matrix": "bun run --cwd sdks/typescript stability:matrix",
     "scaffold:typecheck": "bun run --cwd tools/create-connector typecheck",
     "scaffold:lint": "bun run --cwd tools/create-connector lint",
     "scaffold:test": "bun run --cwd tools/create-connector test"

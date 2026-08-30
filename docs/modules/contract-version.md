@@ -2,6 +2,24 @@
      py: contract, ipc/hello, __init__
      go: contract/manifest, contract/negotiate, contract/sdkversion, contract/version, ipc/hello -->
 
+<!-- tier-note: The three bindings' weakest cell here comes from a different export in
+     each, and the gap is real rather than a mistake to fix:
+     - Go is `experimental` because `IsContractVersion` is `experimental` — the one
+       RFC-0015 §3.3 demotion. It is public only in Go (TypeScript's `isContractVersion`
+       is module-private, Python's `_is_contract_version` is underscore-private), because
+       Go's hello parser lives in a different package (RFC-0012 D2) and Go's only
+       visibility control is the capital letter. Tiered experimental so a predicate that
+       exists only as an accident of packaging can still be withdrawn without a major.
+     - Python is `stable` because `__version__` — the SDK's own version string, claimed
+       here as Python's counterpart to Go's `SDKVersion()` — is defined in the
+       `__init__` module, which carries `__stability__ = "stable"`, one tier below the
+       `contract` module's `frozen`. Go's `SDKVersion()` inherits the `contract`
+       package's `frozen` instead, because `sdkversion.go` declares no override of its
+       own — so this is an asymmetry between the two accessors' tiers, not the two
+       negotiation APIs.
+     - TypeScript is `frozen` because this module exports no predicate and no version
+       constant of its own; every export it does have is at `frozen`. -->
+
 # `contract-version`
 
 How a connector and a gateway agree on which version of the contract they speak. The normative

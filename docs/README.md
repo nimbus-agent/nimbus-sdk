@@ -59,10 +59,24 @@ REST API. Converging them is the stated direction, gated on
 
 ### Supported versions
 
-The declared floors — read from each package's own `engines.node`, `requires-python`,
-and `go.mod` `go` directive rather than restated here — are
-[`stability-matrix.md`'s Runtime support section](./stability-matrix.md#runtime-support).
-CI proves them on every pull request, across **Linux, macOS and Windows**.
+The declared floors — `engines.node`, `requires-python`, and `go.mod`'s `go`
+directive — are
+[`stability-matrix.md`'s Runtime support section](./stability-matrix.md#runtime-support),
+generated from the packages themselves; that section owns the floors and they are not
+restated here. What CI actually *tests* is a separate claim the generator cannot make —
+it is not read from any package — so it is recorded here instead, across **Linux, macOS
+and Windows**:
+
+- **Node 22 and 24** — an ESM smoke test that imports the published entry points.
+- **Python 3.11, 3.12, 3.13 and 3.14.**
+- **Go 1.26 and 1.27** — the two most recent stable minors, which is Go's own support
+  policy. The `go` directive names the *older* of the two on purpose; see
+  [`sdks/go/README.md`](../sdks/go/README.md#supported-go-versions).
+
+This is not duplication: the matrix section is generated and pins the declared floor
+value each package ships; this list is hand-maintained and pins the versions CI's
+matrix jobs actually run, per OS — which, for TypeScript and Go, does not include the
+floor on every OS (macOS runs each of those two on its newest supported version only).
 
 The TypeScript package is **ESM-only** (`"type": "module"`); there is no CommonJS build.
 It ships its own `.d.ts` and declares no minimum TypeScript language version — if you need
@@ -118,6 +132,9 @@ contract itself — then reach for a battery as you need it. Every public export
 - [Contributing](./CONTRIBUTING.md) — and
   [Discussions](https://github.com/nimbus-agent/Nimbus/discussions), where questions are
   asked, on the Nimbus board
+- [Stability and support matrix](./stability-matrix.md) — every capability crossed with
+  every binding's stability tier, plus binding status and runtime support floors, in one
+  place
 - [API surface](./api-surface.md) — the generated snapshot of every public export
 - [Python API surface](./api-surface-python.md) — the same, for every name in the
   `nimbus_sdk`, `nimbus_sdk.ipc`, `nimbus_sdk.diagnostics` and

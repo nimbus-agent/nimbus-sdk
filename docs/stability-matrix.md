@@ -63,7 +63,10 @@ does not claim the rest, is [`conformance-coverage.md`](./conformance-coverage.m
 | Go | `1.26` | the `go` directive |
 
 These are read from the packages themselves on every render, so this table cannot
-drift from what the packages declare. CI proves them on every pull request across
-Linux, macOS and Windows; Go's floor names the *older* of the two supported minors on
-purpose. Dropping a runtime version is a breaking change under
+drift from what the packages declare. CI proves each floor on Linux and Windows on
+every pull request; macOS runs only the newest supported Node and Go, not the floor
+itself, so this table's Go and TypeScript rows are unproven there (Python's floor
+runs on all three). See [docs/README.md](./README.md#supported-versions) for every
+version CI actually tests, per OS. Go's floor names the *older* of the two supported
+minors on purpose. Dropping a runtime version is a breaking change under
 [`DEPRECATION-POLICY.md`](./DEPRECATION-POLICY.md).

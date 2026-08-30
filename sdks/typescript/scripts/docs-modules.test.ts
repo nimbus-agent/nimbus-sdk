@@ -178,6 +178,10 @@ describe("parseCovers", () => {
     });
   });
 
+  test("whitespace is not a delimiter — a missing comma stays one malformed claim", () => {
+    expect(parseCovers("<!-- covers: alpha beta -->")?.typescript).toEqual(["alpha beta"]);
+  });
+
   test("returns null when the page has no covers comment", () => {
     expect(parseCovers("# A page with no marker\n")).toBeNull();
   });

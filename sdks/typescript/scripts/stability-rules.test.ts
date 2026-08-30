@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { readFromRepo } from "./paths.ts";
-import { diffSurfaces, parseSurface, requiredFor, type SurfaceChange } from "./stability-rules.ts";
+import {
+  diffSurfaces,
+  parseSurface,
+  requiredFor,
+  type SurfaceChange,
+  type SurfaceEntry,
+} from "./stability-rules.ts";
 
 const change = (over: Partial<SurfaceChange>): SurfaceChange => ({
   name: "x",
@@ -327,5 +333,34 @@ describe("parseSurface against the real goldens", () => {
 
   test("docs/api-surface-go.md", () => {
     expect(parseSurface(readFromRepo("docs/api-surface-go.md")).size).toBe(175);
+  });
+});
+
+describe("source annotations on bullets", () => {
+  const withoutSource = "## `ipc`\n\n- `func ParseHello(s string) HelloResult` — **frozen**\n";
+  const withSource =
+    "## `ipc`\n\n- `func ParseHello(s string) HelloResult` — **frozen** — from `ipc/hello`\n";
+
+  test("an annotation after the tier leaves the key and the entry identical", () => {
+    const before = parseSurface(withoutSource);
+    const after = parseSurface(withSource);
+
+    expect([...after.keys()]).toEqual([...before.keys()]);
+    expect([...after.keys()]).toEqual(["ipc::func ParseHello(s string) HelloResult"]);
+    expect(after.get("ipc::func ParseHello(s string) HelloResult")).toEqual(
+      before.get("ipc::func ParseHello(s string) HelloResult") as SurfaceEntry,
+    );
+  });
+
+  test("adding the annotation to a whole golden produces no SurfaceChange", () => {
+    expect(diffSurfaces(parseSurface(withoutSource), parseSurface(withSource), "go")).toEqual([]);
+  });
+
+  test("a doubled-backtick span (a Go struct tag) still parses with an annotation", () => {
+    const entries = parseSurface(
+      '## `connectorkit`\n\n- ``type T struct { X string `json:"x"` }`` — **experimental** — from `connectorkit/types`\n',
+    );
+    expect(entries.size).toBe(1);
+    expect([...entries.values()][0]?.tier).toBe("experimental");
   });
 });

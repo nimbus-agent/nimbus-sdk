@@ -26,6 +26,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
+from typing import NamedTuple
 
 #: The repository root. `scripts/` sits at `<repo>/sdks/python/scripts`, so three
 #: parents up. Resolved once here rather than as a relative path scattered through the
@@ -65,6 +66,7 @@ class Export:
     kind: Kind
     obj: object
     stability: str
+    claim_key: str
 
 
 #: Runtime types that mean "this name is a type alias, not data". Measured on 3.14.6
@@ -115,6 +117,7 @@ def collect(root: str) -> list[Export]:
             kind=_classify(getattr(module, name)),
             obj=getattr(module, name),
             stability=stability_of(name, defining),
+            claim_key=defining[name].claim_key,
         )
         for name in names
     ]
@@ -236,7 +239,31 @@ def _bound_names(node: ast.stmt) -> list[str]:
     return []
 
 
-def defining_modules() -> dict[str, str]:
+class Defining(NamedTuple):
+    """Where a published name is defined.
+
+    ``module`` is the dotted path the tier resolver imports to read ``__stability__``.
+    ``claim_key`` is the same file spelled the way a documentation page claims it —
+    source-root-relative, extension stripped. Both come from one walk because they are
+    two readings of the same file, and re-walking to get the second invites them to
+    disagree.
+    """
+
+    module: str
+    claim_key: str
+
+
+def _claim_key(path: Path) -> str:
+    """`src/nimbus_sdk/ipc/hello.py` -> `ipc/hello`; the root barrel -> `__init__`.
+
+    Derived from the path rather than from ``_dotted``, which collapses a package's
+    ``__init__.py`` onto the package name and so cannot distinguish ``ipc/__init__.py``
+    from a hypothetical ``ipc.py``.
+    """
+    return path.relative_to(_SRC).with_suffix("").as_posix()
+
+
+def defining_modules() -> dict[str, Defining]:
     """Map each module-level name under ``src/nimbus_sdk/`` to the module DEFINING it.
 
     The second departure from this module's import-don't-parse rule, and narrower than
@@ -251,7 +278,7 @@ def defining_modules() -> dict[str, str]:
     submodules' ``__all__`` fails too: only 5 of the 20 files declare one, and four of
     those five are re-export barrels.
     """
-    found: dict[str, str] = {}
+    found: dict[str, Defining] = {}
     for path in sorted(_SRC.rglob("*.py")):
         module = _dotted(path)
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -274,9 +301,9 @@ def defining_modules() -> dict[str, str]:
                     # try/except), which the collision check already tolerates.
                     continue
                 previous = found.get(name)
-                if previous is not None and previous != module:
+                if previous is not None and previous.module != module:
                     raise RuntimeError(
-                        f'"{name}" is defined in both {previous} and {module}.\n'
+                        f'"{name}" is defined in both {previous.module} and {module}.\n'
                         "The tier resolver requires each published name to have "
                         "exactly one defining module.\n"
                         f"Fix: rename or remove one of the two `{name}` bindings "
@@ -284,15 +311,15 @@ def defining_modules() -> dict[str, str]:
                         "`python scripts/api_surface.py`.\n"
                         "See docs/rfcs/0015-tiered-stability.md."
                     )
-                found[name] = module
+                found[name] = Defining(module=module, claim_key=_claim_key(path))
     return found
 
 
-def stability_of(name: str, defining: dict[str, str]) -> str:
+def stability_of(name: str, defining: dict[str, Defining]) -> str:
     """The tier for ``name``: its defining module's default, or that module's
     override."""
-    module_path = defining.get(name)
-    if module_path is None:
+    entry = defining.get(name)
+    if entry is None:
         raise RuntimeError(
             f'"{name}" has no defining module under src/nimbus_sdk/.\n'
             "Fix: check for a typo in the name, or add a module-level "
@@ -300,6 +327,7 @@ def stability_of(name: str, defining: dict[str, str]) -> str:
             "`python scripts/api_surface.py`.\n"
             "See docs/rfcs/0015-tiered-stability.md."
         )
+    module_path = entry.module
     module = importlib.import_module(module_path)
     overrides: dict[str, str] = getattr(module, "__stability_overrides__", {})
     default: str | None = getattr(module, "__stability__", None)
@@ -443,6 +471,11 @@ def render_export(
     wrapped in double asterisks). That exact shape is a hard contract: a later gate
     parses it with a regex, and a different separator makes it parse zero entries and
     silently pass everything.
+
+    The defining file follows the tier, in the same hard-contract shape: `` — from
+    `key` ``, backtick-delimited so the guard's pattern can terminate it. It must not
+    precede the tier — the guard keys a bullet by the declaration text, so anything
+    inserted before the tier changes every key.
     """
     if export.kind is Kind.FUNCTION:
         lines = [f"- `{_signature(export.name, export.obj)}`"]
@@ -462,7 +495,7 @@ def render_export(
         # declaration is what a consumer reads.
         declared = annotations.get(export.name)
         lines = [f"- `{export.name}: {declared or type(export.obj).__name__}`"]
-    lines[0] = f"{lines[0]} — **{export.stability}**"
+    lines[0] = f"{lines[0]} — **{export.stability}** — from `{export.claim_key}`"
     return lines
 
 

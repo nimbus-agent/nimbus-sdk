@@ -36,189 +36,189 @@ reworded docstring is not a change to the surface.
 
 13 exports.
 
-- `CONTRACT_HANDSHAKE_EXIT: int` — **frozen**
-- `CONTRACT_VERSIONS: tuple[str, ...]` — **frozen**
-- `CONTRACT_VERSION_PATTERN: Pattern` — **frozen**
-- `class NegotiationOk` — **frozen**
+- `CONTRACT_HANDSHAKE_EXIT: int` — **frozen** — from `contract`
+- `CONTRACT_VERSIONS: tuple[str, ...]` — **frozen** — from `contract`
+- `CONTRACT_VERSION_PATTERN: Pattern` — **frozen** — from `contract`
+- `class NegotiationOk` — **frozen** — from `contract`
   - `version: str`
-- `class NegotiationRefused` — **frozen**
+- `class NegotiationRefused` — **frozen** — from `contract`
   - `reason: str`
-- `NegotiationResult = NegotiationOk | NegotiationRefused` — **frozen**
-- `__version__: str` — **stable**
-- `def declared_versions_match(manifest_versions: Sequence[object], hello_versions: Sequence[str]) -> bool` — **frozen**
-- `def load_corpus(area: str) -> list[dict[str, object]]` — **stable**
-- `def load_schema(name: str) -> dict[str, object]` — **stable**
-- `def manifest_contract_versions(manifest: object) -> tuple[object, ...]` — **frozen**
-- `def negotiate_contract_version(local: Sequence[object], remote: Sequence[object]) -> NegotiationResult` — **frozen**
-- `def spec_root() -> Path` — **stable**
+- `NegotiationResult = NegotiationOk | NegotiationRefused` — **frozen** — from `contract`
+- `__version__: str` — **stable** — from `__init__`
+- `def declared_versions_match(manifest_versions: Sequence[object], hello_versions: Sequence[str]) -> bool` — **frozen** — from `contract`
+- `def load_corpus(area: str) -> list[dict[str, object]]` — **stable** — from `spec`
+- `def load_schema(name: str) -> dict[str, object]` — **stable** — from `spec`
+- `def manifest_contract_versions(manifest: object) -> tuple[object, ...]` — **frozen** — from `contract`
+- `def negotiate_contract_version(local: Sequence[object], remote: Sequence[object]) -> NegotiationResult` — **frozen** — from `contract`
+- `def spec_root() -> Path` — **stable** — from `spec`
 
 ## `nimbus_sdk.ipc`
 
 15 exports.
 
-- `class FlushResult` — **frozen**
+- `class FlushResult` — **frozen** — from `ipc/ndjson`
   - `frames: tuple[str, ...]`
   - `truncated: bool`
-- `class FrameTooLongError(Exception)` — **frozen**
-- `HELLO_MESSAGE: str` — **frozen**
-- `class HandshakeIO(Protocol)` — **frozen**
+- `class FrameTooLongError(Exception)` — **frozen** — from `ipc/ndjson`
+- `HELLO_MESSAGE: str` — **frozen** — from `ipc/hello`
+- `class HandshakeIO(Protocol)` — **frozen** — from `ipc/handshake`
   - `def read(self) -> bytes | None`
   - `def write(self, chunk: bytes) -> None`
-- `class HandshakeOk` — **frozen**
+- `class HandshakeOk` — **frozen** — from `ipc/handshake`
   - `version: str`
   - `pending: tuple[str, ...]`
-- `class HandshakeRefused` — **frozen**
+- `class HandshakeRefused` — **frozen** — from `ipc/handshake`
   - `reason: str`
   - `pending: tuple[str, ...]`
-- `HandshakeResult = HandshakeOk | HandshakeRefused` — **frozen**
-- `class HelloOk` — **frozen**
+- `HandshakeResult = HandshakeOk | HandshakeRefused` — **frozen** — from `ipc/handshake`
+- `class HelloOk` — **frozen** — from `ipc/hello`
   - `contract_versions: tuple[str, ...]`
-- `class HelloRefused` — **frozen**
+- `class HelloRefused` — **frozen** — from `ipc/hello`
   - `reason: str`
-- `HelloResult = HelloOk | HelloRefused` — **frozen**
-- `IPC_MAX_LINE_BYTES: int` — **frozen**
-- `class NdjsonLineReader` — **frozen**
+- `HelloResult = HelloOk | HelloRefused` — **frozen** — from `ipc/hello`
+- `IPC_MAX_LINE_BYTES: int` — **frozen** — from `ipc/ndjson`
+- `class NdjsonLineReader` — **frozen** — from `ipc/ndjson`
   - `def __init__(self) -> None`
   - `def flush_frames(self) -> FlushResult`
   - `def push(self, chunk: bytes) -> list[str]`
-- `def encode_hello(versions: Sequence[str]) -> str` — **frozen**
-- `def parse_hello(frame: str) -> HelloResult` — **frozen**
-- `def perform_handshake(io: HandshakeIO, *, local_versions: Sequence[str] = ..., reader: NdjsonLineReader | None = ...) -> HandshakeResult` — **frozen**
+- `def encode_hello(versions: Sequence[str]) -> str` — **frozen** — from `ipc/hello`
+- `def parse_hello(frame: str) -> HelloResult` — **frozen** — from `ipc/hello`
+- `def perform_handshake(io: HandshakeIO, *, local_versions: Sequence[str] = ..., reader: NdjsonLineReader | None = ...) -> HandshakeResult` — **frozen** — from `ipc/handshake`
 
 ## `nimbus_sdk.diagnostics`
 
 12 exports.
 
-- `DIAGNOSTIC_KINDS: Final[tuple[str, ...]]` — **frozen**
-- `DIAGNOSTIC_LEVELS: Final[tuple[str, ...]]` — **frozen**
-- `class EncodeOk` — **frozen**
+- `DIAGNOSTIC_KINDS: Final[tuple[str, ...]]` — **frozen** — from `diagnostics/event`
+- `DIAGNOSTIC_LEVELS: Final[tuple[str, ...]]` — **frozen** — from `diagnostics/event`
+- `class EncodeOk` — **frozen** — from `diagnostics/event`
   - `line: str`
-- `class EncodeRejected` — **frozen**
+- `class EncodeRejected` — **frozen** — from `diagnostics/event`
   - `reason: str`
   - `path: str`
-- `EncodeResult = EncodeOk | EncodeRejected` — **frozen**
-- `class ParseOk` — **frozen**
+- `EncodeResult = EncodeOk | EncodeRejected` — **frozen** — from `diagnostics/event`
+- `class ParseOk` — **frozen** — from `diagnostics/event`
   - `event: dict[str, object]`
-- `class ParseRejected` — **frozen**
+- `class ParseRejected` — **frozen** — from `diagnostics/event`
   - `reason: str`
   - `path: str`
-- `ParseResult = ParseOk | ParseRejected` — **frozen**
-- `def encode_diagnostic(event: object) -> EncodeResult` — **frozen**
-- `def format_timestamp(value: datetime) -> str` — **stable**
-- `def meets_level(level: str, threshold: str) -> bool` — **frozen**
-- `def parse_diagnostic(line: str) -> ParseResult` — **frozen**
+- `ParseResult = ParseOk | ParseRejected` — **frozen** — from `diagnostics/event`
+- `def encode_diagnostic(event: object) -> EncodeResult` — **frozen** — from `diagnostics/event`
+- `def format_timestamp(value: datetime) -> str` — **stable** — from `diagnostics/timestamp`
+- `def meets_level(level: str, threshold: str) -> bool` — **frozen** — from `diagnostics/event`
+- `def parse_diagnostic(line: str) -> ParseResult` — **frozen** — from `diagnostics/event`
 
 ## `nimbus_sdk.connector_kit`
 
 42 exports.
 
-- `class ConnectorKitError(Exception)` — **stable**
-- `FieldExtractor = Callable[[object], Sequence[str | None] | None]` — **stable**
-- `class HttpRequest` — **experimental**
+- `class ConnectorKitError(Exception)` — **stable** — from `connector_kit/errors`
+- `FieldExtractor = Callable[[object], Sequence[str | None] | None]` — **stable** — from `connector_kit/search_filter`
+- `class HttpRequest` — **experimental** — from `connector_kit/transport`
   - `url: str`
   - `method: str`
   - `headers: Mapping[str, str]`
   - `body: bytes | None`
   - `timeout_s: float`
-- `class HttpResponse` — **experimental**
+- `class HttpResponse` — **experimental** — from `connector_kit/transport`
   - `status: int`
   - `text: str`
   - `json: object`
   - `ok: bool`
-- `class HttpStatusError(ConnectorKitError)` — **stable**
+- `class HttpStatusError(ConnectorKitError)` — **stable** — from `connector_kit/errors`
   - `def __init__(self, service: str, status: int, snippet: str) -> None`
-- `class JsonBodyResponse(TextResponse, Protocol)` — **stable**
+- `class JsonBodyResponse(TextResponse, Protocol)` — **stable** — from `connector_kit/results`
   - `json: object`
   - `ok: bool`
   - `status: int`
   - `text: str`
-- `class McpTextContent` — **stable**
+- `class McpTextContent` — **stable** — from `connector_kit/types`
   - `type: Literal['text']`
   - `text: str`
-- `class McpToolDescriptor` — **stable**
+- `class McpToolDescriptor` — **stable** — from `connector_kit/types`
   - `name: str`
   - `description: str`
   - `inputSchema: dict[str, Any]`
-- `class McpToolResult` — **stable**
+- `class McpToolResult` — **stable** — from `connector_kit/types`
   - `content: list[McpTextContent]`
   - `isError: NotRequired[bool]`
-- `class MissingEnvError(ConnectorKitError)` — **stable**
-- `class RestFetcher(Protocol)` — **experimental**
-- `class RestFetcherConfig` — **experimental**
+- `class MissingEnvError(ConnectorKitError)` — **stable** — from `connector_kit/errors`
+- `class RestFetcher(Protocol)` — **experimental** — from `connector_kit/rest`
+- `class RestFetcherConfig` — **experimental** — from `connector_kit/rest`
   - `api_base: str`
   - `token: str`
   - `default_headers: Mapping[str, str]`
-- `SearchFilter = Callable[..., list[object]]` — **stable**
-- `class TextResponse(Protocol)` — **stable**
+- `SearchFilter = Callable[..., list[object]]` — **stable** — from `connector_kit/search_filter`
+- `class TextResponse(Protocol)` — **stable** — from `connector_kit/results`
   - `ok: bool`
   - `status: int`
   - `text: str`
-- `ToolHandler = Callable[[dict[str, Any]], 'McpToolResult | Awaitable[McpToolResult]']` — **experimental**
-- `class ToolRouter` — **experimental**
+- `ToolHandler = Callable[[dict[str, Any]], 'McpToolResult | Awaitable[McpToolResult]']` — **experimental** — from `connector_kit/router`
+- `class ToolRouter` — **experimental** — from `connector_kit/router`
   - `def __init__(self) -> None`
   - `def add(self, name: str, description: str, input_schema: dict[str, Any], handler: ToolHandler, validate: ToolValidator | None = ...) -> None`
   - `async def call_tool(self, name: str, arguments: Mapping[str, Any] | None) -> McpToolResult`
   - `def list_tools(self) -> list[McpToolDescriptor]`
   - `def tool(self, name: str, description: str, input_schema: dict[str, Any], validate: ToolValidator | None = ...) -> Callable[[ToolHandler], ToolHandler]`
-- `ToolValidator = Callable[[dict[str, Any]], None]` — **experimental**
-- `class Transport(Protocol)` — **experimental**
+- `ToolValidator = Callable[[dict[str, Any]], None]` — **experimental** — from `connector_kit/router`
+- `class Transport(Protocol)` — **experimental** — from `connector_kit/transport`
   - `def send(self, request: HttpRequest) -> HttpResponse`
-- `class TransportError(ConnectorKitError)` — **stable**
+- `class TransportError(ConnectorKitError)` — **stable** — from `connector_kit/errors`
   - `def __init__(self, method: str, url: str, reason: str) -> None`
-- `class TransportTimeoutError(TransportError)` — **stable**
+- `class TransportTimeoutError(TransportError)` — **stable** — from `connector_kit/errors`
   - `def __init__(self, method: str, url: str, reason: str) -> None`
-- `class UrlResolutionError(ConnectorKitError)` — **stable**
-- `class UrllibTransport` — **experimental**
+- `class UrlResolutionError(ConnectorKitError)` — **stable** — from `connector_kit/errors`
+- `class UrllibTransport` — **experimental** — from `connector_kit/transport`
   - `def __init__(self) -> None`
   - `def send(self, request: HttpRequest) -> HttpResponse`
-- `def as_objectish(value: object) -> dict[str, object] | None` — **stable**
-- `def as_record(value: object) -> dict[str, object] | None` — **stable**
-- `def error_result(message: str) -> McpToolResult` — **stable**
-- `def fields_from_keys(keys: Sequence[str], *, tags: bool = ...) -> Callable[[object], list[str] | None]` — **stable**
-- `def filter_by_query(items: Sequence[object], *, query: str, fields: FieldExtractor, limit: float | None = ...) -> list[object]` — **stable**
-- `def json_result(data: object) -> McpToolResult` — **stable**
-- `def json_result_from_text_if_ok(service_label: str, res: TextResponse, *, max_snippet: int = ..., json_parse_error_message: str | None = ...) -> McpToolResult` — **stable**
-- `def json_result_if_ok(service_label: str, res: JsonBodyResponse, snippet_max: int = ...) -> McpToolResult` — **stable**
-- `def make_query_filter(fields: FieldExtractor) -> SearchFilter` — **stable**
-- `def make_rest_fetcher(config: RestFetcherConfig, transport: Transport | None = ...) -> RestFetcher` — **experimental**
-- `def make_rest_tool(*, token_env: str, service_label: str, fetch: Callable[[str, str], HttpResponse], build_path: Callable[[dict[str, Any]], str], snippet_max: int = ..., env: Mapping[str, str] | None = ...) -> ToolHandler` — **experimental**
-- `def matches_result(rows: object, search: SearchFilter, *, query: str, limit: float | None = ...) -> McpToolResult` — **stable**
-- `def nested_string(root: dict[str, object], path: Sequence[str]) -> str` — **stable**
-- `def parse_json_text_if_ok(service_label: str, res: TextResponse, max_snippet: int = ...) -> object` — **stable**
-- `def require_env(name: str, env: Mapping[str, str] = ...) -> str` — **stable**
-- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str` — **frozen**
-- `def should_strip_auth(from_url: str, to_url: str) -> bool` — **frozen**
-- `def string_field(row: dict[str, object], key: str) -> str` — **stable**
-- `def tag_names_from_objects(row: dict[str, object]) -> str` — **stable**
-- `def tag_text(row: dict[str, object]) -> str` — **stable**
+- `def as_objectish(value: object) -> dict[str, object] | None` — **stable** — from `connector_kit/search_filter`
+- `def as_record(value: object) -> dict[str, object] | None` — **stable** — from `connector_kit/search_filter`
+- `def error_result(message: str) -> McpToolResult` — **stable** — from `connector_kit/results`
+- `def fields_from_keys(keys: Sequence[str], *, tags: bool = ...) -> Callable[[object], list[str] | None]` — **stable** — from `connector_kit/search_filter`
+- `def filter_by_query(items: Sequence[object], *, query: str, fields: FieldExtractor, limit: float | None = ...) -> list[object]` — **stable** — from `connector_kit/search_filter`
+- `def json_result(data: object) -> McpToolResult` — **stable** — from `connector_kit/results`
+- `def json_result_from_text_if_ok(service_label: str, res: TextResponse, *, max_snippet: int = ..., json_parse_error_message: str | None = ...) -> McpToolResult` — **stable** — from `connector_kit/results`
+- `def json_result_if_ok(service_label: str, res: JsonBodyResponse, snippet_max: int = ...) -> McpToolResult` — **stable** — from `connector_kit/results`
+- `def make_query_filter(fields: FieldExtractor) -> SearchFilter` — **stable** — from `connector_kit/search_filter`
+- `def make_rest_fetcher(config: RestFetcherConfig, transport: Transport | None = ...) -> RestFetcher` — **experimental** — from `connector_kit/rest`
+- `def make_rest_tool(*, token_env: str, service_label: str, fetch: Callable[[str, str], HttpResponse], build_path: Callable[[dict[str, Any]], str], snippet_max: int = ..., env: Mapping[str, str] | None = ...) -> ToolHandler` — **experimental** — from `connector_kit/rest`
+- `def matches_result(rows: object, search: SearchFilter, *, query: str, limit: float | None = ...) -> McpToolResult` — **stable** — from `connector_kit/search_filter`
+- `def nested_string(root: dict[str, object], path: Sequence[str]) -> str` — **stable** — from `connector_kit/search_filter`
+- `def parse_json_text_if_ok(service_label: str, res: TextResponse, max_snippet: int = ...) -> object` — **stable** — from `connector_kit/results`
+- `def require_env(name: str, env: Mapping[str, str] = ...) -> str` — **stable** — from `connector_kit/env`
+- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str` — **frozen** — from `connector_kit/urls`
+- `def should_strip_auth(from_url: str, to_url: str) -> bool` — **frozen** — from `connector_kit/urls`
+- `def string_field(row: dict[str, object], key: str) -> str` — **stable** — from `connector_kit/search_filter`
+- `def tag_names_from_objects(row: dict[str, object]) -> str` — **stable** — from `connector_kit/search_filter`
+- `def tag_text(row: dict[str, object]) -> str` — **stable** — from `connector_kit/search_filter`
 
 ## `nimbus_sdk.data_profile`
 
 7 exports.
 
-- `class DataColumn` — **frozen**
+- `class DataColumn` — **frozen** — from `data_profile/profile`
   - `name: str`
   - `type: str | None`
-- `def first_line_and_rows(text: str, truncated: bool) -> tuple[str, float | None]` — **frozen**
-- `def js_kind(value: object) -> str` — **frozen**
-- `def parquet_columns_from_metadata(meta: object) -> tuple[list[DataColumn], float | None]` — **frozen**
-- `def parse_csv_header(first_line: str) -> list[DataColumn]` — **frozen**
-- `def parse_json_columns(parsed: object) -> tuple[list[DataColumn], float | None]` — **frozen**
-- `def parse_jsonl_columns(first_line: str) -> list[DataColumn]` — **frozen**
+- `def first_line_and_rows(text: str, truncated: bool) -> tuple[str, float | None]` — **frozen** — from `data_profile/profile`
+- `def js_kind(value: object) -> str` — **frozen** — from `data_profile/profile`
+- `def parquet_columns_from_metadata(meta: object) -> tuple[list[DataColumn], float | None]` — **frozen** — from `data_profile/profile`
+- `def parse_csv_header(first_line: str) -> list[DataColumn]` — **frozen** — from `data_profile/profile`
+- `def parse_json_columns(parsed: object) -> tuple[list[DataColumn], float | None]` — **frozen** — from `data_profile/profile`
+- `def parse_jsonl_columns(first_line: str) -> list[DataColumn]` — **frozen** — from `data_profile/profile`
 
 ## `nimbus_sdk.distribution_channel`
 
 3 exports.
 
-- `DistributionChannel = Literal['homebrew', 'scoop', 'winget', 'apt', 'yum', 'msi', 'pkg']` — **frozen**
-- `def channel_upgrade_hint(channel: DistributionChannel) -> str` — **frozen**
-- `def resolve_distribution_channel(env: Mapping[str, str] | None = ..., exec_path: str | None = ..., realpath: Callable[[str], str] | None = ...) -> DistributionChannel | None` — **frozen**
+- `DistributionChannel = Literal['homebrew', 'scoop', 'winget', 'apt', 'yum', 'msi', 'pkg']` — **frozen** — from `distribution_channel/channel`
+- `def channel_upgrade_hint(channel: DistributionChannel) -> str` — **frozen** — from `distribution_channel/channel`
+- `def resolve_distribution_channel(env: Mapping[str, str] | None = ..., exec_path: str | None = ..., realpath: Callable[[str], str] | None = ...) -> DistributionChannel | None` — **frozen** — from `distribution_channel/channel`
 
 ## `nimbus_sdk.icalendar`
 
 4 exports.
 
-- `class BuildEventInput` — **frozen**
+- `class BuildEventInput` — **frozen** — from `icalendar/events`
   - `uid: str`
   - `summary: str`
   - `start: str`
@@ -226,7 +226,7 @@ reworded docstring is not a change to the surface.
   - `description: str | None`
   - `location: str | None`
   - `attendees: tuple[str, ...] | None`
-- `class ParsedEvent` — **frozen**
+- `class ParsedEvent` — **frozen** — from `icalendar/events`
   - `uid: str`
   - `recurrence_id: str | None`
   - `summary: str | None`
@@ -240,23 +240,23 @@ reworded docstring is not a change to the surface.
   - `attendees: tuple[str, ...]`
   - `rrule: str | None`
   - `dtstamp: str | None`
-- `def build_vevent(event: BuildEventInput, now: str) -> str` — **frozen**
-- `def parse_icalendar(ics: str) -> list[ParsedEvent]` — **frozen**
+- `def build_vevent(event: BuildEventInput, now: str) -> str` — **frozen** — from `icalendar/events`
+- `def parse_icalendar(ics: str) -> list[ParsedEvent]` — **frozen** — from `icalendar/events`
 
 ## `nimbus_sdk.jmap_fastmail`
 
 23 exports.
 
-- `class BuildRequest` — **frozen**
+- `class BuildRequest` — **frozen** — from `jmap_fastmail/jmap`
   - `using: tuple[str, ...]`
   - `method_calls: tuple[tuple[str, dict[str, Any], str], ...]`
-- `CORE_CAPABILITY: str` — **frozen**
-- `EMAIL_PROPERTIES: tuple[str, ...]` — **frozen**
-- `class JmapAttachmentMeta` — **frozen**
+- `CORE_CAPABILITY: str` — **frozen** — from `jmap_fastmail/jmap`
+- `EMAIL_PROPERTIES: tuple[str, ...]` — **frozen** — from `jmap_fastmail/jmap`
+- `class JmapAttachmentMeta` — **frozen** — from `jmap_fastmail/jmap`
   - `name: str | None`
   - `size_bytes: float | None`
   - `mime_type: str | None`
-- `class JmapEmailView` — **frozen**
+- `class JmapEmailView` — **frozen** — from `jmap_fastmail/jmap`
   - `id: str`
   - `message_id: str | None`
   - `subject: str | None`
@@ -266,23 +266,23 @@ reworded docstring is not a change to the surface.
   - `received_at: str | None`
   - `attachments: tuple[JmapAttachmentMeta, ...]`
   - `preview: str`
-- `class JmapSession` — **frozen**
+- `class JmapSession` — **frozen** — from `jmap_fastmail/jmap`
   - `api_url: str`
   - `account_id: str`
-- `MAIL_CAPABILITY: str` — **frozen**
-- `MAX_BODY_VALUE_BYTES: int` — **frozen**
-- `PREVIEW_MAX_CHARS: int` — **frozen**
-- `SUBMISSION_CAPABILITY: str` — **frozen**
-- `def build_get_request(account_id: str, id_: str) -> BuildRequest` — **frozen**
-- `def build_list_request(account_id: str, limit: int) -> BuildRequest` — **frozen**
-- `def build_search_request(account_id: str, query: str, limit: int) -> BuildRequest` — **frozen**
-- `def cap_preview(text: str) -> str` — **frozen**
-- `def extract_attachments(value: object) -> tuple[JmapAttachmentMeta, ...]` — **frozen**
-- `def extract_email_list(parsed: object) -> list[Any]` — **frozen**
-- `def format_address(value: object) -> str` — **frozen**
-- `def format_addresses(value: object) -> tuple[str, ...]` — **frozen**
-- `def method_response_args(parsed: object, method_name: str) -> dict[str, Any] | None` — **frozen**
-- `def parse_session(parsed: object) -> JmapSession | None` — **frozen**
-- `def preview_for(raw: dict[str, Any]) -> str` — **frozen**
-- `def validate_api_url(candidate: str, allowed_base: str) -> str` — **frozen**
-- `def view_email(raw: object) -> JmapEmailView | None` — **frozen**
+- `MAIL_CAPABILITY: str` — **frozen** — from `jmap_fastmail/jmap`
+- `MAX_BODY_VALUE_BYTES: int` — **frozen** — from `jmap_fastmail/jmap`
+- `PREVIEW_MAX_CHARS: int` — **frozen** — from `jmap_fastmail/jmap`
+- `SUBMISSION_CAPABILITY: str` — **frozen** — from `jmap_fastmail/jmap`
+- `def build_get_request(account_id: str, id_: str) -> BuildRequest` — **frozen** — from `jmap_fastmail/jmap`
+- `def build_list_request(account_id: str, limit: int) -> BuildRequest` — **frozen** — from `jmap_fastmail/jmap`
+- `def build_search_request(account_id: str, query: str, limit: int) -> BuildRequest` — **frozen** — from `jmap_fastmail/jmap`
+- `def cap_preview(text: str) -> str` — **frozen** — from `jmap_fastmail/jmap`
+- `def extract_attachments(value: object) -> tuple[JmapAttachmentMeta, ...]` — **frozen** — from `jmap_fastmail/jmap`
+- `def extract_email_list(parsed: object) -> list[Any]` — **frozen** — from `jmap_fastmail/jmap`
+- `def format_address(value: object) -> str` — **frozen** — from `jmap_fastmail/jmap`
+- `def format_addresses(value: object) -> tuple[str, ...]` — **frozen** — from `jmap_fastmail/jmap`
+- `def method_response_args(parsed: object, method_name: str) -> dict[str, Any] | None` — **frozen** — from `jmap_fastmail/jmap`
+- `def parse_session(parsed: object) -> JmapSession | None` — **frozen** — from `jmap_fastmail/jmap`
+- `def preview_for(raw: dict[str, Any]) -> str` — **frozen** — from `jmap_fastmail/jmap`
+- `def validate_api_url(candidate: str, allowed_base: str) -> str` — **frozen** — from `jmap_fastmail/jmap`
+- `def view_email(raw: object) -> JmapEmailView | None` — **frozen** — from `jmap_fastmail/jmap`

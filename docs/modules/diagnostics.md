@@ -1,4 +1,6 @@
-<!-- covers: diagnostics/event, diagnostics/emitter -->
+<!-- covers: diagnostics/event, diagnostics/emitter
+     py: diagnostics/event, diagnostics/timestamp
+     go: diagnostics/emitter, diagnostics/encode, diagnostics/event -->
 
 # `diagnostics`
 

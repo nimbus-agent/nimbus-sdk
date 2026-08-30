@@ -1,4 +1,6 @@
-<!-- covers: data-profile/index -->
+<!-- covers: data-profile/index
+     py: data_profile/profile
+     go: dataprofile/dataprofile -->
 
 # `data-profile`
 

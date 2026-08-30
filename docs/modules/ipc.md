@@ -1,4 +1,6 @@
-<!-- covers: ipc/ndjson-line-reader, ipc/handshake -->
+<!-- covers: ipc/ndjson-line-reader, ipc/handshake
+     py: ipc/handshake, ipc/ndjson
+     go: ipc/handshake, ipc/ndjson -->
 
 # `ipc`
 

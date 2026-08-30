@@ -1,4 +1,6 @@
-<!-- covers: icalendar -->
+<!-- covers: icalendar
+     py: icalendar/events
+     go: icalendar/icalendar -->
 
 # `icalendar`
 

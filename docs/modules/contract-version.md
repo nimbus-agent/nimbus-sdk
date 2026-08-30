@@ -1,4 +1,6 @@
-<!-- covers: contract-version, ipc/hello -->
+<!-- covers: contract-version, ipc/hello
+     py: contract, ipc/hello, __init__
+     go: contract/manifest, contract/negotiate, contract/sdkversion, contract/version, ipc/hello -->
 
 # `contract-version`
 

@@ -1,4 +1,6 @@
-<!-- covers: connector-kit/fetch-bearer-json, connector-kit/mcp-tool-kit, connector-kit/rest-tool-kit, connector-kit/search-filter -->
+<!-- covers: connector-kit/fetch-bearer-json, connector-kit/mcp-tool-kit, connector-kit/rest-tool-kit, connector-kit/search-filter
+     py: connector_kit/env, connector_kit/errors, connector_kit/rest, connector_kit/results, connector_kit/router, connector_kit/search_filter, connector_kit/transport, connector_kit/types, connector_kit/urls
+     go: connectorkit/env, connectorkit/errors, connectorkit/rest, connectorkit/results, connectorkit/router, connectorkit/searchfilter, connectorkit/transport, connectorkit/types, connectorkit/urls -->
 
 # `connector-kit`
 

@@ -83,6 +83,10 @@ func RenderPackage(dir string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("apisurface: %s: %w", dir, err)
 		}
+		key := ClaimKey(name, fset.Position(file.Pos()).Filename)
+		for i := range entries {
+			entries[i].file = key
+		}
 		lines = append(lines, entries...)
 	}
 
@@ -90,9 +94,22 @@ func RenderPackage(dir string) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "## `%s`\n\n%d exports.\n\n", name, len(lines))
 	for _, e := range lines {
-		fmt.Fprintf(&b, "- %s — **%s**\n", codeSpan(e.line), e.tier)
+		fmt.Fprintf(&b, "- %s — **%s** — from `%s`\n", codeSpan(e.line), e.tier, e.file)
 	}
 	return b.String(), nil
+}
+
+// ClaimKey is the claim key for a file in package pkg: the package name, a slash, and
+// the file's base name with the .go suffix removed — `ipc/hello` for hello.go in
+// package ipc. It is the same key a documentation page claims.
+//
+// Keyed on the PACKAGE NAME rather than the file's path on disk, so the value does not
+// depend on the working directory or on a t.TempDir() fixture's random path. Every
+// package in this module lives in a directory of its own name, one level under the
+// module root, so the result is exactly the module-root-relative path with the
+// extension stripped.
+func ClaimKey(pkg, filename string) string {
+	return pkg + "/" + strings.TrimSuffix(filepath.Base(filename), ".go")
 }
 
 // codeSpan wraps one rendered declaration in a Markdown code span. A struct tag
@@ -115,6 +132,7 @@ func codeSpan(line string) string {
 type declEntry struct {
 	line string
 	tier string
+	file string
 }
 
 // resolveTier returns the first non-empty DeclStability found among docs, in order,
@@ -171,7 +189,7 @@ func declarations(fset *token.FileSet, file *ast.File, pkgTier string) ([]declEn
 			if err != nil {
 				return nil, err
 			}
-			out = append(out, declEntry{funcSignature(fset, d), tier})
+			out = append(out, declEntry{line: funcSignature(fset, d), tier: tier})
 		case *ast.GenDecl:
 			// groupType carries a const group's implicitly repeated type across
 			// its specs: in "const ( A Kind = iota; B )", B has neither a type
@@ -220,14 +238,14 @@ func specDeclarations(fset *token.FileSet, tok token.Token, spec ast.Spec, group
 	case *ast.ValueSpec:
 		for i, ident := range s.Names {
 			if ident.IsExported() {
-				out = append(out, declEntry{fmt.Sprintf("%s %s%s", tok, ident.Name, valueSuffix(fset, s, i, groupType)), tier})
+				out = append(out, declEntry{line: fmt.Sprintf("%s %s%s", tok, ident.Name, valueSuffix(fset, s, i, groupType)), tier: tier})
 			}
 		}
 	case *ast.TypeSpec:
 		if !s.Name.IsExported() {
 			return nil
 		}
-		out = append(out, declEntry{typeDeclaration(fset, s), tier})
+		out = append(out, declEntry{line: typeDeclaration(fset, s), tier: tier})
 	}
 	return out
 }

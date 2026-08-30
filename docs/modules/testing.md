@@ -1,4 +1,6 @@
-<!-- covers: contract-tests, testing/diagnostics-assert, testing/index, testing/sandbox-contract -->
+<!-- covers: contract-tests, testing/diagnostics-assert, testing/index, testing/sandbox-contract
+     py: spec
+     go: spec/spec -->
 
 # `testing`
 

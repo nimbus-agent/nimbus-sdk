@@ -104,15 +104,78 @@ export function unclaimedModules(
   return [...modules.keys()].filter((key) => !claimedBy.has(key));
 }
 
+/** The three bindings a page may claim files in. */
+export type Binding = "typescript" | "python" | "go";
+
+/** A page's claims, partitioned by binding. Empty arrays are legitimate. */
+export type Claims = Record<Binding, readonly string[]>;
+
 /**
- * The module keys a page claims, or null if it carries no claim comment.
- *
- * Null and `[]` are deliberately different outcomes. A page with no comment is a page
- * whose author has not been asked the question yet; a page whose comment is empty is a
- * claim of nothing, which is always a mistake — so it throws rather than passing as a
- * page that documents nothing.
+ * A `py:` or `go:` prefix, recognized only where it starts a new clause — at the very
+ * start of the body, or right after a comma or whitespace. This is what lets a prefix
+ * begin a fresh source line with no comma before it (a claim list wraps by indentation,
+ * not by punctuation), while declining to match `spy:` or a claim key that merely
+ * contains "go:" substring-adjacent text — neither sits at a clause boundary. A declined
+ * match is not accepted as an ordinary claim key either: it still contains a colon, so
+ * `addClaims`'s colon check rejects it by name once it falls through unsliced.
  */
-export function parseCovers(pageText: string): string[] | null {
+const PREFIX_RE = /(?<=^|[,\s])(py|go):/g;
+const BINDING_OF: Record<string, Binding> = { py: "python", go: "go" };
+
+/** Splits one clause's text into trimmed, non-empty comma-separated claim keys. */
+function splitClaims(text: string): string[] {
+  return text
+    .split(",")
+    .map((token) => token.trim())
+    .filter((token) => token.length > 0);
+}
+
+/**
+ * Pushes each atom of `atoms` onto `claims[binding]`, throwing if an atom still contains a
+ * colon. By the time an atom reaches here, every real `py:`/`go:` prefix has already been
+ * sliced out by the caller — so a colon surviving inside one is always a mistyped prefix
+ * (`python:` or `go :`, not `py:` / `go:`), never a legitimate claim key: a claim key is a
+ * file path and never contains a colon. Caught now, by name: left alone it would become a
+ * claim in the wrong binding and hide the actual typo.
+ */
+function addClaims(
+  claims: Record<Binding, string[]>,
+  binding: Binding,
+  atoms: readonly string[],
+): void {
+  for (const atom of atoms) {
+    if (atom.includes(":")) {
+      throw new Error(
+        `invalid claim prefix in "${atom}" — expected "py:" or "go:". A claim key is a ` +
+          "file path and cannot contain a colon.",
+      );
+    }
+    claims[binding].push(atom);
+  }
+}
+
+/**
+ * The module keys a page claims, partitioned by binding, or null if it carries no claim
+ * comment.
+ *
+ * Null and all-empty are deliberately different outcomes. A page with no comment is a
+ * page whose author has not been asked the question yet; a page whose comment is empty
+ * is a claim of nothing, which is always a mistake — so it throws rather than passing as
+ * a page that documents nothing. A page *may* legitimately claim nothing in one or two
+ * of the three bindings — a `py:`/`go:`-only page has an empty `typescript` array — design
+ * §8.
+ *
+ * The grammar: a comma-separated list of claim keys, optionally interrupted by a `py:` or
+ * `go:` prefix that switches the *active* binding — `typescript` until the first prefix —
+ * for itself and every later key, until the next prefix. Everything before the first
+ * prefix is comma-split as before; splitting on whitespace in general was considered and
+ * rejected, since module keys contain no spaces and it would let a MISSING comma parse
+ * silently as two valid claims — the comma is the only thing distinguishing a well-formed
+ * list from a typo. A `py:`/`go:` prefix is the one narrow exception: it is recognized at
+ * a clause boundary (start of body, or after a comma or run of whitespace) precisely so it
+ * can start a fresh wrapped line with no comma before it.
+ */
+export function parseCovers(pageText: string): Claims | null {
   const text = normalizeEol(pageText);
   COVERS_PATTERN.lastIndex = 0;
   const matches = [...text.matchAll(COVERS_PATTERN)];
@@ -126,12 +189,36 @@ export function parseCovers(pageText: string): string[] | null {
   }
 
   const body = matches[0]?.[1] ?? "";
-  const claims = body
-    .split(",")
-    .map((claim) => claim.trim())
-    .filter((claim) => claim.length > 0);
+  const claims: Record<Binding, string[]> = { typescript: [], python: [], go: [] };
 
-  if (claims.length === 0) {
+  PREFIX_RE.lastIndex = 0;
+  const prefixes = [...body.matchAll(PREFIX_RE)];
+
+  // Everything before the first prefix (or the whole body, if there is none) is always
+  // typescript: a prefix can only switch the active binding *after* it appears, and this
+  // clause precedes all of them.
+  const firstStart = prefixes[0]?.index ?? body.length;
+  addClaims(claims, "typescript", splitClaims(body.slice(0, firstStart)));
+
+  for (const [i, match] of prefixes.entries()) {
+    const label = match[1] ?? "";
+    const binding = BINDING_OF[label];
+    if (binding === undefined) {
+      throw new Error(`unknown claim prefix "${label}:" — expected "py:" or "go:".`);
+    }
+    const clauseStart = (match.index ?? 0) + match[0].length;
+    const clauseEnd = prefixes[i + 1]?.index ?? body.length;
+    const atoms = splitClaims(body.slice(clauseStart, clauseEnd));
+    if (atoms.length === 0) {
+      throw new Error(
+        `page has an empty "${label}:" claim — a prefix that claims nothing cannot be ` +
+          "checked. Name the files it documents, or drop the prefix.",
+      );
+    }
+    addClaims(claims, binding, atoms);
+  }
+
+  if (claims.typescript.length === 0 && claims.python.length === 0 && claims.go.length === 0) {
     throw new Error(
       'page has an empty "covers:" list — a page that claims nothing cannot be checked. ' +
         "Name the modules it documents, or delete the page.",

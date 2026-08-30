@@ -14,22 +14,22 @@ def test_locates_a_constant_that_has_no_dunder_module() -> None:
     ``CONTRACT_VERSIONS`` is a tuple. Tuples carry no ``__module__``, so a resolver
     built on that attribute cannot place it — and it is a published export.
     """
-    assert defining_modules()["CONTRACT_VERSIONS"] == "nimbus_sdk.contract"
+    assert defining_modules()["CONTRACT_VERSIONS"].module == "nimbus_sdk.contract"
 
 
 def test_locates_a_class_in_the_same_module_as_that_constant() -> None:
-    assert defining_modules()["NegotiationOk"] == "nimbus_sdk.contract"
+    assert defining_modules()["NegotiationOk"].module == "nimbus_sdk.contract"
 
 
 def test_locates_a_name_from_a_module_with_no_dunder_all() -> None:
     """Only 5 of 20 files under src/nimbus_sdk/ declare __all__, and four are
     barrels."""
-    assert defining_modules()["load_schema"] == "nimbus_sdk.spec"
+    assert defining_modules()["load_schema"].module == "nimbus_sdk.spec"
 
 
 def test_a_reexport_does_not_count_as_a_definition() -> None:
     """nimbus_sdk/__init__.py imports CONTRACT_VERSIONS; it must not claim it."""
-    assert defining_modules()["CONTRACT_VERSIONS"] != "nimbus_sdk"
+    assert defining_modules()["CONTRACT_VERSIONS"].module != "nimbus_sdk"
 
 
 def test_locates_a_name_defined_inside_a_try_block() -> None:
@@ -40,7 +40,7 @@ def test_locates_a_name_defined_inside_a_try_block() -> None:
     which is why ``nimbus_sdk/__init__.py`` carries a ``__stability__`` and the other
     three barrels do not.
     """
-    assert defining_modules()["__version__"] == "nimbus_sdk"
+    assert defining_modules()["__version__"].module == "nimbus_sdk"
 
 
 def test_every_published_name_resolves_to_a_tier() -> None:

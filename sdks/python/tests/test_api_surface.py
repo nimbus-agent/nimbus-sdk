@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import ast
 import inspect
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
@@ -26,6 +27,12 @@ from api_surface import (
     collect,
     render,
     render_export,
+)
+
+#: Every export bullet, after this change, carries its defining file. Anchored at both
+#: ends so a missing or malformed annotation fails rather than partially matching.
+_EXPORT_BULLET = re.compile(
+    r"^- `.+` — \*\*(?:frozen|stable|experimental)\*\* — from `[^`]+`$"
 )
 
 
@@ -135,7 +142,7 @@ def test_renders_a_function_signature_as_written() -> None:
     # `str` at runtime and inspect would otherwise repr it as `base_url: 'str'`.
     assert lines == [
         "- `def resolve_url_with_base(base_url: str, path_or_url: str) -> str` "
-        "— **frozen**"
+        "— **frozen** — from `connector_kit/urls`"
     ]
 
 
@@ -153,7 +160,7 @@ def test_a_default_is_elided_and_never_rendered() -> None:
     rendered = render_export(export, alias_sources(), annotation_sources())[0]
     assert rendered == (
         "- `def require_env(name: str, env: Mapping[str, str] = ...) -> str` "
-        "— **stable**"
+        "— **stable** — from `connector_kit/env`"
     )
 
 
@@ -173,7 +180,7 @@ def test_a_decorated_function_still_renders_its_real_signature() -> None:
     # _signature has to unwrap before inspecting.
     export = next(e for e in collect("nimbus_sdk") if e.name == "spec_root")
     assert render_export(export, alias_sources(), annotation_sources()) == [
-        "- `def spec_root() -> Path` — **stable**"
+        "- `def spec_root() -> Path` — **stable** — from `spec`"
     ]
 
 
@@ -183,7 +190,7 @@ def test_renders_an_alias_from_its_source_text() -> None:
     )
     assert render_export(export, alias_sources(), annotation_sources()) == [
         "- `FieldExtractor = Callable[[object], Sequence[str | None] | None]` "
-        "— **stable**",
+        "— **stable** — from `connector_kit/search_filter`",
     ]
 
 
@@ -193,14 +200,20 @@ def test_renders_data_as_name_and_type() -> None:
     # same distinction annotation_sources() itself is tested on above.
     export = next(e for e in collect("nimbus_sdk") if e.name == "CONTRACT_VERSIONS")
     assert render_export(export, alias_sources(), annotation_sources()) == [
-        "- `CONTRACT_VERSIONS: tuple[str, ...]` — **frozen**"
+        "- `CONTRACT_VERSIONS: tuple[str, ...]` — **frozen** — from `contract`"
     ]
 
 
 def test_an_alias_missing_from_the_map_fails_loudly() -> None:
     # Rendering it as its repr would be version-dependent; rendering it as nothing would
     # hide surface. Neither is acceptable, so this raises.
-    export = Export(name="Nowhere", kind=Kind.ALIAS, obj=int | str, stability="stable")
+    export = Export(
+        name="Nowhere",
+        kind=Kind.ALIAS,
+        obj=int | str,
+        stability="stable",
+        claim_key="test",
+    )
     with pytest.raises(RuntimeError, match="Nowhere"):
         render_export(export, {}, {})
 
@@ -208,7 +221,7 @@ def test_an_alias_missing_from_the_map_fails_loudly() -> None:
 def test_renders_dataclass_fields_not_a_synthesized_init() -> None:
     export = next(e for e in collect("nimbus_sdk") if e.name == "NegotiationOk")
     lines = render_export(export, alias_sources(), annotation_sources())
-    assert lines[0] == "- `class NegotiationOk` — **frozen**"
+    assert lines[0] == "- `class NegotiationOk` — **frozen** — from `contract`"
     assert "  - `version: str`" in lines
     # The synthesized __init__ is derived from the fields; recording both would be
     # redundant and would churn whenever dataclasses changes how it builds one.
@@ -225,7 +238,9 @@ def test_renders_protocol_properties_as_attributes() -> None:
     # TextResponse is declared `class TextResponse(Protocol)`; the class bullet names
     # its bases, so `Protocol` — admitted because declaring it says "structural, not
     # nominal" — appears here too.
-    assert lines[0] == "- `class TextResponse(Protocol)` — **stable**"
+    assert lines[0] == (
+        "- `class TextResponse(Protocol)` — **stable** — from `connector_kit/results`"
+    )
     assert "  - `ok: bool`" in lines
     assert "  - `status: int`" in lines
     assert "  - `text: str`" in lines
@@ -237,7 +252,10 @@ def test_renders_a_hand_written_init() -> None:
     )
     lines = render_export(export, alias_sources(), annotation_sources())
     # HttpStatusError subclasses ConnectorKitError; the class bullet names its bases.
-    assert lines[0] == "- `class HttpStatusError(ConnectorKitError)` — **stable**"
+    assert lines[0] == (
+        "- `class HttpStatusError(ConnectorKitError)` — **stable** "
+        "— from `connector_kit/errors`"
+    )
     assert any(
         line.startswith("  - `def __init__(self, service: str") for line in lines
     )
@@ -249,7 +267,15 @@ def test_omits_underscore_prefixed_members() -> None:
         def _private(self) -> None: ...
 
     lines = render_export(
-        Export(name="Sample", kind=Kind.CLASS, obj=Sample, stability="stable"), {}, {}
+        Export(
+            name="Sample",
+            kind=Kind.CLASS,
+            obj=Sample,
+            stability="stable",
+            claim_key="test",
+        ),
+        {},
+        {},
     )
     assert any("public" in line for line in lines)
     assert not any("_private" in line for line in lines)
@@ -276,13 +302,17 @@ def test_class_bullets_name_their_bases() -> None:
     exports = {e.name: e for e in collect("nimbus_sdk.connector_kit")}
     for name in ("UrlResolutionError", "MissingEnvError", "HttpStatusError"):
         lines = render_export(exports[name], alias_sources(), annotation_sources())
-        assert lines[0] == f"- `class {name}(ConnectorKitError)` — **stable**", name
+        assert lines[0] == (
+            f"- `class {name}(ConnectorKitError)` — **stable** "
+            "— from `connector_kit/errors`"
+        ), name
 
     protocol = render_export(
         exports["JsonBodyResponse"], alias_sources(), annotation_sources()
     )
     assert protocol[0] == (
-        "- `class JsonBodyResponse(TextResponse, Protocol)` — **stable**"
+        "- `class JsonBodyResponse(TextResponse, Protocol)` — **stable** "
+        "— from `connector_kit/results`"
     )
 
 
@@ -344,10 +374,14 @@ class _SyntheticError(Exception):
 
 def test_format_dataclass_fields() -> None:
     record = Export(
-        name="Record", kind=Kind.CLASS, obj=_SyntheticRecord, stability="stable"
+        name="Record",
+        kind=Kind.CLASS,
+        obj=_SyntheticRecord,
+        stability="stable",
+        claim_key="test",
     )
     lines = render_export(record, {}, {})
-    assert lines[0] == "- `class Record` — **stable**"
+    assert lines[0] == "- `class Record` — **stable** — from `test`"
     assert "  - `version: str`" in lines
     assert "  - `count: int`" in lines
 
@@ -355,26 +389,39 @@ def test_format_dataclass_fields() -> None:
 def test_format_protocol_property() -> None:
     lines = render_export(
         Export(
-            name="Proto", kind=Kind.CLASS, obj=_SyntheticProtocol, stability="stable"
+            name="Proto",
+            kind=Kind.CLASS,
+            obj=_SyntheticProtocol,
+            stability="stable",
+            claim_key="test",
         ),
         {},
         {},
     )
     # _SyntheticProtocol is declared `class _SyntheticProtocol(Protocol)`; the class
     # bullet names its bases, so `Protocol` appears here too.
-    assert lines == ["- `class Proto(Protocol)` — **stable**", "  - `ok: bool`"]
+    assert lines == [
+        "- `class Proto(Protocol)` — **stable** — from `test`",
+        "  - `ok: bool`",
+    ]
 
 
 def test_format_hand_written_init_and_method_and_omitted_private() -> None:
     lines = render_export(
-        Export(name="Err", kind=Kind.CLASS, obj=_SyntheticError, stability="stable"),
+        Export(
+            name="Err",
+            kind=Kind.CLASS,
+            obj=_SyntheticError,
+            stability="stable",
+            claim_key="test",
+        ),
         {},
         {},
     )
     # _SyntheticError subclasses Exception directly, with an empty-bodied ancestor
     # (like FrameTooLongError and ConnectorKitError in the real surface) that the
     # class bullet still names — see _NAMED_EVEN_UNOWNED_BASES.
-    assert lines[0] == "- `class Err(Exception)` — **stable**"
+    assert lines[0] == "- `class Err(Exception)` — **stable** — from `test`"
     assert "  - `def __init__(self, service: str, status: int) -> None`" in lines
     assert "  - `def detail(self) -> str`" in lines
     assert not any("_hidden" in line for line in lines)
@@ -394,7 +441,11 @@ def test_an_unrecognised_public_member_fails_loudly() -> None:
     # a green gate, the golden file matching a generator that had quietly stopped
     # recording part of the contract. Same reasoning as _signature's RuntimeError.
     export = Export(
-        name="Unknown", kind=Kind.CLASS, obj=_SyntheticUnknownShape, stability="stable"
+        name="Unknown",
+        kind=Kind.CLASS,
+        obj=_SyntheticUnknownShape,
+        stability="stable",
+        claim_key="test",
     )
     with pytest.raises(RuntimeError, match="build"):
         render_export(export, {}, {})
@@ -405,11 +456,15 @@ def test_a_slots_dataclass_does_not_trip_the_unrecognised_member_guard() -> None
     # 16 across the real surface — and those fields are already emitted by the
     # dataclass branch. A naive `else: raise` would fire on every one of them.
     record = Export(
-        name="Record", kind=Kind.CLASS, obj=_SyntheticRecord, stability="stable"
+        name="Record",
+        kind=Kind.CLASS,
+        obj=_SyntheticRecord,
+        stability="stable",
+        claim_key="test",
     )
     lines = render_export(record, {}, {})
     assert lines == [
-        "- `class Record` — **stable**",
+        "- `class Record` — **stable** — from `test`",
         "  - `version: str`",
         "  - `count: int`",
     ]
@@ -543,3 +598,22 @@ def test_every_module_keeps_the_future_annotations_pragma() -> None:
         if not _has_future_annotations_import(path)
     ]
     assert missing == [], f"missing `from __future__ import annotations`: {missing}"
+
+
+def test_every_export_records_a_defining_file() -> None:
+    for root in IMPORT_ROOTS:
+        exports = collect(root)
+        assert exports, root
+        for export in exports:
+            assert export.claim_key, f"{root}.{export.name} has no claim key"
+            assert not export.claim_key.endswith(".py"), export.claim_key
+            assert not export.claim_key.startswith("nimbus_sdk"), export.claim_key
+
+
+def test_every_rendered_export_bullet_carries_its_defining_file() -> None:
+    # Top-level export bullets only: a class member renders indented, and the
+    # preamble's prose bullets start `- **`, so neither matches `- \``.
+    bullets = [line for line in render().splitlines() if line.startswith("- `")]
+    assert bullets, "no export bullets rendered — this guard would pass vacuously"
+    for line in bullets:
+        assert _EXPORT_BULLET.match(line), line

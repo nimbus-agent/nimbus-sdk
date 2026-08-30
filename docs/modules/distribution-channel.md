@@ -1,4 +1,6 @@
-<!-- covers: distribution-channel -->
+<!-- covers: distribution-channel
+     py: distribution_channel/channel
+     go: distributionchannel/distributionchannel -->
 
 # `distribution-channel`
 

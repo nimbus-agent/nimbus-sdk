@@ -1,4 +1,6 @@
-<!-- covers: jmap-fastmail/index -->
+<!-- covers: jmap-fastmail/index
+     py: jmap_fastmail/jmap
+     go: jmapfastmail/jmapfastmail -->
 
 # `jmap-fastmail`
 

@@ -134,6 +134,16 @@ resolves every export to its source module and fails the pull request unless som
 comment. If your export lives in a module that already has a page, the guard is already
 satisfied — but write the prose anyway, since that is the point of the page.
 
+This is not TypeScript-only. The `covers:` comment also carries `py:` and `go:` lines,
+and the same guard requires every published Python module and every Go file (keyed
+package-qualified, e.g. `ipc/hello`) to be claimed by exactly one page — no more and no
+fewer. Adding a Python module or a Go file therefore fails `docs-coverage.test.ts` until
+you add a `py:` or `go:` entry claiming it, the same way a new TypeScript module needs a
+plain `covers:` entry. Regenerate the cross-language stability matrix afterward with
+`bun run stability:matrix` from the repository root — `stability-matrix.test.ts` fails
+the pull request if `docs/stability-matrix.md` no longer matches what the three API-surface
+goldens and these claims resolve to.
+
 Code examples in `docs/modules/` and [`sdks/typescript/README.md`](../sdks/typescript/README.md)
 are typechecked against the built `dist/` by
 `sdks/typescript/scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,

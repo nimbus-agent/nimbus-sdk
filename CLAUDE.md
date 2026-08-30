@@ -53,9 +53,9 @@ that export's own JSDoc (used by exactly one export today: `resolveUrlWithBase`,
 There is **no default tier** — `api-surface.ts` throws, naming the module, if a reachable
 module has neither tag, which is what makes the rule load-bearing rather than aspirational.
 `bun run api:surface` projects the resolved tier into `docs/api-surface.md` as its own
-`**Stability:** <tier>` line under each export's heading — not the trailing `— **tier**`
-form Python's and Go's goldens use (see below); the guard's parser has two different code
-paths keyed on exactly this distinction.
+`**Stability:** <tier>` line under each export's heading — not the inline
+`` — **tier** — from `<module>` `` form Python's and Go's goldens use (see below); the
+guard's parser has two different code paths keyed on exactly this distinction.
 
 ## Python surface (eight import roots, deliberately)
 
@@ -148,7 +148,8 @@ to find which module actually
 whose `__all__` the surface generator reads. There is no default: `api_surface.py`
 raises, naming the module, if a published name's defining module declares neither.
 `python scripts/api_surface.py` projects the resolved tier into
-`docs/api-surface-python.md` as a trailing `— **tier**` on each export's line.
+`docs/api-surface-python.md` as `` — **tier** — from `<defining module>` `` on each
+export's line — the defining file follows the tier, not a trailing tag.
 
 ## Go surface (nine packages, and nothing at the module root)
 
@@ -312,7 +313,9 @@ picking one of two disagreeing tiers is exactly the failure this design exists t
 prevent — and a package with no `// Stability:` line anywhere fails the same way: the
 walker errors out naming the package, there is no default.
 `go -C sdks/go run ./internal/apisurface/cmd` projects the resolved tier into
-`docs/api-surface-go.md` as a trailing `— **tier**` on each declaration's line.
+`docs/api-surface-go.md` as `` — **tier** — from `<package>/<file>` `` on each
+declaration's line — the defining file, package-qualified, follows the tier, not a
+trailing tag.
 
 **None of the five TypeScript CI checks below apply to Go**, but Go now has an
 export-granularity gate of its own, shipped separately from them: the generated
@@ -473,6 +476,10 @@ bun run api:surface # regenerate docs/api-surface.md after any exports change
 bun run conformance:coverage # regenerate docs/conformance-coverage.md from docs/conformance-coverage.json
 ```
 
+`bun run stability:matrix` (from the repository root, after `bun run build` — it reads
+`dist/`) regenerates `docs/stability-matrix.md`, the same way `bun run api:surface` and
+`bun run conformance:coverage` regenerate their own goldens.
+
 The scaffolder has its own three, from the repository root:
 
 ```bash
@@ -517,6 +524,19 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   binding** — a claim or a recorded reason it does not claim the corpus —
   `sdks/typescript/scripts/corpus-parity.test.ts` fails otherwise. Regenerate
   `docs/conformance-coverage.md` with `bun run conformance:coverage` after editing it.
+- **`docs/stability-matrix.md` is generated and gated.** Regenerate it with
+  `bun run build && bun run stability:matrix` from the repository root after any surface
+  or `docs/modules/*.md` change; `stability-matrix.test.ts` fails the pull request when
+  the committed page no longer matches a fresh render. Every cell is read from the three
+  API-surface goldens on every render — never stored in the page — so there is no cell to
+  go stale, only a `covers:` claim that can miss a module.
+- **One source file maps to exactly one capability page.** The matrix's claim unit is the
+  defining module, resolved the same way `docs-coverage.test.ts` already resolves a
+  `covers:` comment — so a file claimed by two pages, or two files that both need the same
+  page's story, is a modeling error, not a matrix bug. Either remedy is legitimate:
+  split the file so each half has its own page, or merge the pages so one page claims
+  both files — a file that resists splitting usually means the two capabilities are
+  really one.
 - **Five checks guard the TypeScript surface, across two workflows, and they fire on
   different things.** Do not think of them as one checklist — a change can trip any
   subset. Four live in `ci.yml`:
@@ -539,6 +559,16 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
     `SNIPPET_SOURCES` is `docs/modules/*.md`, `docs/README.md`, and the package's own
     `README.md`. Snippets in `docs/rfcs/`, `docs/spec/`, or `docs/superpowers/` are not
     compiled, so a plan or design doc can go stale without CI noticing.
+
+  **A sixth check also lives in `ci.yml`, and is not one of the five above**:
+  `sdks/typescript/scripts/stability-matrix.test.ts` fails the pull request when a fresh
+  render of `docs/stability-matrix.md` no longer matches the committed page (see the
+  `docs/stability-matrix.md` Conventions bullet above). A tier change in *any* of the
+  three bindings trips it, not just TypeScript's — every cell it renders is read live
+  from `docs/api-surface.md`, `docs/api-surface-python.md` and `docs/api-surface-go.md`
+  — so its reach is scoped like the fifth check below rather than the four TypeScript-only
+  checks above it. Unlike the fifth, it runs inside `ci.yml`'s ordinary `bun run test`
+  step rather than the separate `commit-subject.yml` workflow.
 
   The fifth does **not** live in `ci.yml`:
   - **A surface change whose PR title under-declares the Conventional Commit type the

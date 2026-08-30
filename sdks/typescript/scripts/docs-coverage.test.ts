@@ -62,8 +62,10 @@ describe("doc coverage", () => {
         `${MODULES_DIR}/${file} has no "<!-- covers: ... -->" comment — every module page ` +
           "must declare which modules it documents",
       ).not.toBeNull();
+      // Task 5 widens this guard to all three bindings; today it checks TypeScript only.
+      const covers = claims === null ? null : claims.typescript;
 
-      for (const claim of claims ?? []) {
+      for (const claim of covers ?? []) {
         const existing = claimedBy.get(claim);
         expect(
           existing,
@@ -91,7 +93,9 @@ describe("doc coverage", () => {
 
     const stale: string[] = [];
     for (const file of pageFiles()) {
-      for (const claim of parseCovers(readFromRoot(`${MODULES_DIR}/${file}`)) ?? []) {
+      // Task 5 widens this guard to all three bindings; today it checks TypeScript only.
+      const claims = parseCovers(readFromRoot(`${MODULES_DIR}/${file}`));
+      for (const claim of claims?.typescript ?? []) {
         if (!modules.has(claim)) stale.push(`${file} claims "${claim}"`);
       }
     }

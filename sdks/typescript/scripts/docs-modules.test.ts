@@ -139,21 +139,33 @@ describe("unclaimedModules", () => {
 
 describe("parseCovers", () => {
   test("reads a single-line covers comment", () => {
-    expect(parseCovers("<!-- covers: icalendar -->\n\n# iCalendar\n")).toEqual(["icalendar"]);
+    expect(parseCovers("<!-- covers: icalendar -->\n\n# iCalendar\n")).toEqual({
+      typescript: ["icalendar"],
+      python: [],
+      go: [],
+    });
   });
 
   test("reads a multi-line covers comment and trims each entry", () => {
     const page =
       "<!-- covers: crypto/jwt, crypto/canonical-json,\n             crypto/verify-signature -->\n";
-    expect(parseCovers(page)).toEqual([
-      "crypto/jwt",
-      "crypto/canonical-json",
-      "crypto/verify-signature",
-    ]);
+    expect(parseCovers(page)).toEqual({
+      typescript: ["crypto/jwt", "crypto/canonical-json", "crypto/verify-signature"],
+      python: [],
+      go: [],
+    });
   });
 
   test("is CRLF-independent", () => {
-    expect(parseCovers("<!-- covers: a,\r\n  b -->\r\n")).toEqual(["a", "b"]);
+    // Both the claim list AND the line ending are exercised here: without
+    // normalizeEol, the `\r` before the newline would ride along into the second
+    // token, giving "b" a hidden control character it should never carry —
+    // this proves the split is on the normalized text, not the raw one.
+    expect(parseCovers("<!-- covers: a,\r\n  b -->\r\n")).toEqual({
+      typescript: ["a", "b"],
+      python: [],
+      go: [],
+    });
   });
 
   test("returns null when the page has no covers comment", () => {
@@ -167,5 +179,54 @@ describe("parseCovers", () => {
 
   test("throws on an empty covers list rather than treating it as no claim", () => {
     expect(() => parseCovers("<!-- covers: -->\n")).toThrow(/empty "covers:" list/);
+  });
+});
+
+describe("language-qualified claims", () => {
+  test("an unprefixed list is all TypeScript, unchanged from today", () => {
+    const claims = parseCovers("<!-- covers: icalendar -->");
+    expect(claims).toEqual({ typescript: ["icalendar"], python: [], go: [] });
+  });
+
+  test("a wrapped unprefixed list still parses", () => {
+    const claims = parseCovers("<!-- covers: crypto/jwt,\n     crypto/canonical-json -->");
+    expect(claims?.typescript).toEqual(["crypto/jwt", "crypto/canonical-json"]);
+  });
+
+  test("a prefix sets the active binding for itself and every later token", () => {
+    const claims = parseCovers(
+      "<!-- covers: contract-version, ipc/hello\n     py: contract, ipc/hello\n     go: contract/negotiate, contract/version -->",
+    );
+    expect(claims).toEqual({
+      typescript: ["contract-version", "ipc/hello"],
+      python: ["contract", "ipc/hello"],
+      go: ["contract/negotiate", "contract/version"],
+    });
+  });
+
+  test("a page may claim nothing in TypeScript", () => {
+    const claims = parseCovers("<!-- covers: go: spec/spec -->");
+    expect(claims).toEqual({ typescript: [], python: [], go: ["spec/spec"] });
+  });
+
+  test("a prefix with an empty remainder throws", () => {
+    expect(() => parseCovers("<!-- covers: icalendar, py: -->")).toThrow(/empty/i);
+  });
+
+  test("a mistyped prefix throws by name instead of becoming a TypeScript claim", () => {
+    expect(() => parseCovers("<!-- covers: icalendar, python: connector_kit/env -->")).toThrow(
+      /invalid claim prefix .*python: connector_kit\/env/,
+    );
+    expect(() => parseCovers("<!-- covers: icalendar, go : spec/spec -->")).toThrow(
+      /invalid claim prefix/,
+    );
+  });
+
+  test("a page with no comment is still null", () => {
+    expect(parseCovers("# icalendar\n")).toBeNull();
+  });
+
+  test("two comments still throw", () => {
+    expect(() => parseCovers("<!-- covers: a -->\n<!-- covers: b -->")).toThrow(/more than one/);
   });
 });

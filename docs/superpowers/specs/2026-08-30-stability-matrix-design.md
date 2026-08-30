@@ -77,6 +77,23 @@ TypeScript already publishes this unit: `docs/api-surface.md` records
 ``From `./agents/agent-names.js` `` on all 226 entries, and `docs-modules.ts`'s
 `moduleKeyOf` already normalises it to a module key. Python and Go do not — see §5.
 
+### 1.1 One file, one capability — an existing rule, newly extended
+
+Because a file is claimed by exactly one page, **a single source file cannot hold exports
+belonging to two capabilities.** This is not a new constraint invented here: it already
+binds TypeScript, where the module has been the claim unit since `docs-coverage.test.ts` was
+written. What changes is that it starts binding Python and Go too.
+
+It earns a line in CLAUDE.md as part of shipment 5's trailing edits, and that line must
+state **both** remedies, because stating only the first pushes authors toward busywork:
+
+- **Split the file**, when it genuinely holds two unrelated capabilities.
+- **Merge the pages**, when it does not — a file that resists splitting is often evidence
+  that the two "capabilities" are one, and that the page boundary is what is wrong.
+
+The gate cannot tell these apart, and should not try. It reports that a file is claimed
+twice; which remedy applies is a judgment about what the capability *is*.
+
 ## 2. The capability row is the existing module page
 
 `docs/modules/` already holds **18 pages**, each claiming TypeScript modules in a
@@ -168,6 +185,25 @@ the repository today stays valid. `parseCovers` grows a prefix rule and stays pu
 free of file reads, which is what its own docstring says it exists for: so that a
 documentation edit does not also become a test edit.
 
+**The parsing rule, stated as an algorithm**, because "comma-separated with prefixes" admits
+more than one implementation:
+
+1. Split the comment body on **commas** and trim each token — unchanged from today, and it
+   is what already lets a claim wrap across lines (`crypto.md` and `agents.md` both wrap).
+2. A token matching `^(py|go):\s*(.+)$` **sets the active binding** and contributes its
+   remainder as that binding's first key. Subsequent tokens inherit the active binding until
+   the next prefix token.
+3. Tokens before any prefix belong to TypeScript, which is what makes the existing 18 pages
+   parse unchanged.
+4. A prefix token with an empty remainder throws, for the same reason an empty claim list
+   throws.
+
+**Whitespace is deliberately not a delimiter.** Splitting on commas *or* whitespace was
+considered and rejected: module keys contain no spaces, so it would appear to work, but it
+would make a **missing comma** parse silently as two valid claims instead of failing. The
+comma is what distinguishes a well-formed claim list from a typo, and a parser that cannot
+see the difference cannot report it.
+
 Its two existing error behaviours are preserved and extended per language: a page with no
 comment is `null` (not yet asked the question), and a page with an empty claim list throws
 (a claim of nothing is always a mistake). A page carrying a `py:` prefix with nothing after
@@ -194,6 +230,46 @@ diff, keyed on the trailing `— **tier**` form (as distinct from TypeScript's
 distinction). Reformatting 119 Python and 175 Go bullets must produce **zero**
 `SurfaceChange`, not 294 removals plus 294 additions. That is the single riskiest part of
 this design and it gets a dedicated test, not a review pass.
+
+### 5.1 The rendered format, pinned
+
+The annotation goes **after** the tier, and the guard's bullet pattern widens to ignore it:
+
+```
+- `def encode_hello(versions: Sequence[str]) -> str` — **frozen** — from `ipc/hello`
+```
+
+```js
+// was:  /^- `(.+)` — \*\*(frozen|stable|experimental)\*\*\s*$/
+const BULLET = /^- `(.+)` — \*\*(frozen|stable|experimental)\*\*(?: — from `[^`]+`)?\s*$/;
+```
+
+**Placement is not cosmetic, and the obvious two placements both fail.** `parseSurface`
+keys a bullet by **capture group 1** — the declaration text — and `diffSurfaces` reports a
+`signature` change whenever `declaration` differs. So:
+
+- **Inside the backticks**, or anywhere before the tier, the annotation joins group 1. Every
+  key changes, and the diff reads 294 removals plus 294 additions — precisely the outcome
+  this section exists to prevent.
+- **After the tier without widening the pattern**, the `\s*$` anchor stops matching, every
+  bullet is skipped, and the diff reads 294 removals and nothing added.
+
+The form above avoids both: group 1 is untouched, the suffix is a **non-capturing** group
+that never reaches `declaration`, and the tier stays in group 2 where the rule table reads
+it. That is what makes the zero-`SurfaceChange` test of shipments 2 and 3 pass by
+construction rather than by luck.
+
+Two constraints on the annotation itself follow from the pattern: the path is
+**backtick-delimited** (so `[^`]+` terminates it unambiguously) and it is a **claim key**,
+not a file path — extension stripped, relative to the binding's source root, exactly as §4
+defines. Rendering `ipc/hello.py` rather than `ipc/hello` would make the golden and the
+claim comment disagree about the same file's name, which is a second spelling of one fact.
+
+A dotted *name* is deliberately not used in place of the declaration. Go's bullets key by
+declaration because names are not unique — `func (e *Error) Error() string` and
+`func (e *HTTPStatusError) Error() string` are both `Error`, and `connectorkit` publishes
+several such methods — so rendering names would collapse distinct entries into one key and
+silently hide changes to all but one of them.
 
 ## 6. Tier is read, never copied
 
@@ -289,12 +365,26 @@ its own shipments 3 and 4.
    golden test, the root proxy script, the disagreement rule, `docs/README.md`'s "Supported
    versions" pointed at the generated section, the Phase 4 box ticked, CLAUDE.md updated.
 
-**Shipment 2 will likely cut a `nimbus-dev-sdk` release for a documentation-rendering
-change.** release-please assigns a commit to a component by the **paths it touches, not its
-scope**, and `sdks/python/scripts/api_surface.py` sits under the Python component's path —
-the [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155) precedent recorded in
-CLAUDE.md. Verify against the component's path configuration before merging rather than
-assuming; the same question applies to shipment 3 and `sdks/go/`.
+**Shipments 2 and 3 must ship as `docs:` or `chore:`, and then they cut nothing.**
+release-please only cuts a release for a *releasing* commit type; `docs:` and `chore:`
+produce no version bump in any component. The path-assignment rule — a commit belongs to the
+component whose paths it touches, not the one its scope names — decides **which** package
+releases once a commit already releases, not **whether** one does. The
+[#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155) precedent recorded in CLAUDE.md
+is a `fix(go):`, already a releasing type, which is why it cut a Python patch.
+
+Neither shipment changes a published surface — `api_surface.py` and
+`internal/apisurface/surface.go` are generators, and the goldens they write are
+documentation — so `docs:` is the honest type and no release follows. The risk is therefore
+narrow and worth naming precisely: giving either shipment a releasing type **by reflex**,
+because it touches a language SDK's directory, would cut a `nimbus-dev-sdk` or `sdks/go`
+release for a rendering change. For `sdks/go` that matters more than for the others, since
+CLAUDE.md records that merging a Go release PR *is* publishing and a cached tag cannot be
+taken back.
+
+Reconfiguring release-please with path filters to exclude `scripts/` was considered and
+rejected: it is unnecessary once the commit type is right, and it edits the release pipeline
+to solve a problem that correct typing already solves.
 
 ## Alternatives rejected
 
@@ -322,8 +412,20 @@ the same way stops being read.
 
 ## Open questions
 
-- **Where the disagreement note lives.** A line in the page's prose is the obvious home,
-  but the gate must find it mechanically. A `<!-- tier-note: … -->` sibling to the covers
-  comment is the likely answer; settled during shipment 5, not before.
+- **Where the disagreement note lives.** Deliberately still open, with two candidates and
+  the trade-off between them recorded so shipment 5 does not start from scratch.
+
+  *A separate `<!-- tier-note: … -->` marker*, sibling to the covers comment. Keeps
+  `parseCovers` returning `string[] | null` — pure, synthetic-testable, one job — which is
+  what its own docstring says it exists for.
+
+  *A field inside the covers comment*, keeping all page metadata in one place. The
+  objection is not tidiness but shape: a note is free text attached to a **row**, where
+  every other datum in that comment is a claim key attached to a **file**. Folding it in
+  makes the return type heterogeneous and gives one parser two jobs.
+
+  The first is the current lean. It stays open because the choice is genuinely easier to
+  make with the generator written than argued in advance, and nothing else in the design
+  depends on which way it goes.
 - **Whether the matrix belongs in `docs/README.md`'s module table** as an eighteen-row
   duplicate, or is linked once from the top. Presumed linked; confirm when the page exists.

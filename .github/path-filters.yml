@@ -34,6 +34,12 @@ typescript:
   # requires every published module to be claimed by a docs/modules page.
   - "docs/**"
   - "sdks/typescript/**"
+  # The prose corpus-parity.test.ts gates lives partly OUTSIDE docs/: it reads CLAUDE.md
+  # and sdks/go/README.md as well as docs/GOVERNANCE.md. Without these two, an edit to
+  # either would skip build-test — and so skip the very guard written to catch it, green.
+  # Exactly the silent failure this file's header warns about.
+  - "CLAUDE.md"
+  - "sdks/go/README.md"
   - "package.json"
   - "bun.lock"
   - "biome.json"

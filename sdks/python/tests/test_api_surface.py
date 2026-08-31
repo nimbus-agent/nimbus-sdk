@@ -511,11 +511,15 @@ def test_the_committed_snapshot_matches_the_generator() -> None:
 def test_the_import_roots_on_disk_are_the_ones_documented() -> None:
     """The check the golden comparison cannot make.
 
-    A FIFTH import root added under src/nimbus_sdk/ and never documented would
+    A NEW import root added under src/nimbus_sdk/ and never documented would
     leave the golden file matching perfectly while a whole surface went
-    unrecorded. CLAUDE.md is explicit that the four roots are a deliberate
+    unrecorded. CLAUDE.md is explicit that the roots are a deliberate
     boundary — this is the Python counterpart of Go's hand-maintained
     `packages` list assertion.
+
+    The count is deliberately not written down here. This said "a FIFTH" and
+    "the four roots" until #257, by which point there were eight; the roots
+    IMPORT_ROOTS lists are the only statement of how many there are.
     """
     src = REPO_ROOT / "sdks" / "python" / "src" / "nimbus_sdk"
     on_disk = {"nimbus_sdk"} | {

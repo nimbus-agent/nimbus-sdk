@@ -71,6 +71,31 @@ describe("path filters", () => {
     }
   });
 
+  test("the typescript filter covers every document the prose gate reads", () => {
+    // `corpus-parity.test.ts` holds prose in CLAUDE.md, docs/GOVERNANCE.md and
+    // sdks/go/README.md to docs/conformance-coverage.json. It runs in build-test, which is
+    // gated on the `typescript` filter — so a document that filter does not name is a
+    // document whose gate SKIPS on the one change that could break it, and `ci-complete`
+    // still reports green. Only docs/GOVERNANCE.md is covered by `docs/**`; the other two
+    // are outside it, and were missed when the gate was written.
+    //
+    // Derived from the guard rather than restated, so adding a fourth document to it
+    // fails here until the filter learns about it too.
+    const guard = readRepo("sdks/typescript/scripts/corpus-parity.test.ts");
+    const gated = [...guard.matchAll(/^\s*file: "([^"]+)",$/gm)].map((m) => m[1] as string);
+    expect(gated.length, "no gated documents found — this would pass vacuously").toBeGreaterThan(0);
+
+    const patterns = filters["typescript"] ?? [];
+    const uncovered = [...new Set(gated)].filter(
+      (file) =>
+        !patterns.some((p) => p === file || (p.endsWith("/**") && file.startsWith(p.slice(0, -3)))),
+    );
+    expect(
+      uncovered,
+      "the prose gate reads a document the typescript filter does not name, so build-test skips on exactly the change that breaks it",
+    ).toEqual([]);
+  });
+
   test("every filter a job names exists and is an output of the changes job", () => {
     // `needs.changes.outputs.typescrpit` is not an error in Actions — it is the empty
     // string, which never equals 'true', so the job silently never runs again and CI stays

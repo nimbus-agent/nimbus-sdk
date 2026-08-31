@@ -100,23 +100,32 @@ guard's parser has two different code paths keyed on exactly this distinction.
   included, turning an ordinary `/api/x` → `/api/x/` into a 401 — so the transport
   installs a redirect handler that strips only on an origin change. That is why §8 has
   **two** tests in each binding rather than one.
+- `nimbus_sdk.data_profile`, `nimbus_sdk.distribution_channel`, `nimbus_sdk.icalendar`
+  and `nimbus_sdk.jmap_fastmail` (`sdks/python/src/nimbus_sdk/<name>/`) — the four battery
+  roots, each binding the TypeScript helper module of the same name and each executing the
+  conformance corpus that pins it (`data-profile`, `distribution-channel`, `icalendar` and
+  `jmap` respectively). They are what took this section from four import roots to eight,
+  and Python from four executed corpora to eight. Their exports are listed in
+  [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
 
-**The IPC, diagnostics, and connector-kit names are NOT re-exported from `nimbus_sdk`,
-and must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
+**The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and
+must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
 `./connector-kit` boundary the TypeScript `exports` map publishes. The justification is
 not uniformly "each is a separate contract" — `nimbus_sdk.connector_kit` is batteries,
 with no spec or conformance corpus of its own beyond `url-resolution` — so the actual
-claim, and the one that covers all four roots, is that **each is a separate surface**.
+claim, and the one that covers every root, is that **each is a separate surface**.
 The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 `connector-kit` its own entry point alongside the contract-bearing `./ipc` and
-`./diagnostics`. Python has no bundling reason to need a second, third, or fourth entry
-point, so the boundary is documentation — and hoisting the names to the top level as a
-convenience would erase it. **The SET of roots is now gated by a test; the no-re-export
-rule above still is not.** [`docs/api-surface-python.md`](./docs/api-surface-python.md)
-is a generated snapshot of all four, and `sdks/python/tests/test_api_surface.py` asserts
-the import roots found on disk are exactly these four — so a fifth root fails CI until
-someone adds it here and to `IMPORT_ROOTS`. Whether a name stays out of the wrong root
-is checked by review alone, as it always was.
+`./diagnostics`. Python has no bundling reason to need a second entry point at all,
+let alone an eighth, so the boundary is documentation — and hoisting the names to the top
+level as a convenience would erase it. **The SET of roots is now gated by a test; the
+no-re-export rule above still is not.**
+[`docs/api-surface-python.md`](./docs/api-surface-python.md)
+is a generated snapshot of all of them, and `sdks/python/tests/test_api_surface.py`
+asserts the import roots found on disk are exactly the eight `IMPORT_ROOTS` lists — so a
+ninth root fails CI until someone adds it there, and this section is what has to be
+updated alongside it. Whether a name stays out of the wrong root is checked by review
+alone, as it always was.
 
 Everything Python claims, TypeScript claims too, and nothing is deferred in either — so a
 new case in a corpus both claim runs in both languages the moment it is indexed. The

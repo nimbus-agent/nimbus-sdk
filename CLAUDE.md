@@ -208,6 +208,14 @@ surface is shaped this way, which the generated file, by design, does not:
   `HandshakeOk`, `HandshakeRefused` — synchronous, over `io.Reader` / `io.Writer`. See
   [`docs/api-surface-go.md`](./docs/api-surface-go.md) for the exact signatures, which
   this list does not repeat.
+- `dataprofile`, `distributionchannel`, `icalendar` and `jmapfastmail`
+  (`sdks/go/<name>/`) — the four battery packages, each binding the TypeScript helper
+  module of the same name and each executing the conformance corpus that pins it
+  (`data-profile`, `distribution-channel`, `icalendar` and `jmap` respectively, run from
+  the test-only `conformance` package). They are four of the nine this heading counts, and
+  they are what took Go from four executed corpora to eight. Their exported declarations
+  are in [`docs/api-surface-go.md`](./docs/api-surface-go.md) rather than here — the same
+  treatment the Python section gives its own four battery roots.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every

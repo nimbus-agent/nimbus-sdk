@@ -11,6 +11,7 @@ import type {
   PreflightDownstream,
   WhyChangeSubject,
   WhyFinding,
+  WhyItemSubject,
   WhySubject,
 } from "./brief-types.js";
 
@@ -145,6 +146,23 @@ export type WhyBrief = AgentBriefBase & {
    * type. That is what keeps this a minor release.
    */
   changeSubject?: WhyChangeSubject | null;
+  /**
+   * The indexed item this brief is about, when it was asked with `itemUrl` — an
+   * issue or an incident rather than a pull request or a line.
+   *
+   * The same three states as `changeSubject` above, for the same reasons:
+   * **absent** on any other arm, **`null`** when an `itemUrl` question resolved
+   * to nothing (or to an item with no `graph_entity`, which the lanes cannot
+   * answer from), and **a value** when it resolved.
+   *
+   * On this arm `subject` and `changeSubject` are both null. All three are
+   * alternatives, not a union; the type cannot enforce that and the gateway
+   * upholds it.
+   *
+   * Optional, so every brief written before this field existed still satisfies
+   * the type — the same reasoning that kept `changeSubject` a minor.
+   */
+  itemSubject?: WhyItemSubject | null;
   findings: WhyFinding[];
 };
 

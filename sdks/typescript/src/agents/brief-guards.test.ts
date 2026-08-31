@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agent-names.js";
-import type { AgentBrief, BriefFor } from "./brief-composites.js";
-import { BRIEF_GUARDS, isConflictBrief, isExpertBrief } from "./brief-guards.js";
+import type { AgentBrief, BriefFor, WhyBrief } from "./brief-composites.js";
+import { BRIEF_GUARDS, isConflictBrief, isExpertBrief, isWhyBrief } from "./brief-guards.js";
 
 const base = { agentVersion: 1 as const, generatedAt: 1, latencyMs: 1, gaps: [] };
 
@@ -164,6 +164,60 @@ describe("brief guards", () => {
       });
     });
   }
+
+  // `why` answers three input arms and carries one subject field per arm. The
+  // guard must accept every valid combination: enforcing "exactly one" here
+  // would reject a fourth arm this package has not heard of yet.
+  describe("why subject arms", () => {
+    const whyBase = {
+      ...base,
+      kind: "why" as const,
+      query: { ref: "https://acme.atlassian.net/browse/PLAT-9", line: null },
+      findings: [],
+    };
+    const itemSubject = {
+      itemId: "jira:PLAT-9",
+      entityId: "e1",
+      number: 9,
+      url: "https://acme.atlassian.net/browse/PLAT-9",
+      title: "Checkout times out",
+      modifiedAt: 1_700_000_000_000,
+      service: "jira",
+      type: "issue",
+    };
+    const changeSubject = {
+      itemId: "github:acme/web#482",
+      entityId: "e2",
+      repo: "acme/web",
+      number: 482,
+      url: "https://github.com/acme/web/pull/482",
+      title: "Cache the checkout lookup",
+      modifiedAt: 1_700_000_000_000,
+    };
+    const subject = { repoRoot: "/r", filePath: "src/a.ts", lineNo: 1, symbol: null };
+
+    test("accepts a brief carrying the item subject", () => {
+      // Typed, so `tsc --noEmit` proves `itemSubject` is part of the contract —
+      // the guard alone would accept an unknown extra field and prove nothing.
+      const brief: WhyBrief = { ...whyBase, subject: null, itemSubject };
+      expect(isWhyBrief(brief)).toBe(true);
+    });
+
+    test("accepts all four valid subject combinations", () => {
+      const refArm: WhyBrief = { ...whyBase, subject };
+      const changeArm: WhyBrief = { ...whyBase, subject: null, changeSubject };
+      const itemArm: WhyBrief = { ...whyBase, subject: null, itemSubject };
+      const unresolved: WhyBrief = {
+        ...whyBase,
+        subject: null,
+        changeSubject: null,
+        itemSubject: null,
+      };
+      for (const brief of [refArm, changeArm, itemArm, unresolved]) {
+        expect(isWhyBrief(brief)).toBe(true);
+      }
+    });
+  });
 
   test("every AGENT_KIND value matches the fixture's kind field", () => {
     for (const name of AGENT_NAMES) {

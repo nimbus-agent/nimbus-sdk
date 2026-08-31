@@ -16,8 +16,8 @@
 import { describe, expect, test } from "bun:test";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
-import { LANGUAGES, readManifest } from "./conformance-manifest.ts";
+import { corpusNames, corpusNamesByIndexShape, publishedCorpora } from "./conformance-corpora.ts";
+import { LANGUAGES, type LanguageName, readManifest } from "./conformance-manifest.ts";
 import { readFromRepo, repoRoot } from "./paths.ts";
 
 /** The corpora more than one binding executes — the basis of the neutrality claim. */
@@ -192,4 +192,254 @@ describe("CI runs every corpus guard", () => {
     const missing = runners.filter((name) => !workflow.includes(`tests/${name}`));
     expect(missing, "a Python corpus runner CI never runs fails reconciliation").toEqual([]);
   });
+});
+
+/**
+ * Gate 3: the PROSE that restates the declaration still matches it.
+ *
+ * `docs/spec/README.md` — gated by the block above since the coverage manifest landed — was
+ * the only prose in this repository holding a corpora claim, and it is the only prose that
+ * did not drift. Five other documents restated the same declaration ungated, and by #257
+ * every one of them was wrong in two dimensions at once: eight corpora published where
+ * twelve are, and four executed by Python and Go where each executes eight. The generated
+ * stability matrix rendered "12 of 12" and "8 of 12" a few lines above prose saying four.
+ *
+ * That the gated file is also the correct file is not a coincidence, and this block is the
+ * block above generalised to the rest.
+ *
+ * Two mechanisms, because the prose makes two kinds of claim:
+ *
+ *   - NAMES — a paragraph enumerating corpora must name every one the binding claims and
+ *     none it does not. Same shape as the neutrality assertions above; needs no numbers.
+ *   - COUNTS — a sentence whose argument turns on "twelve" or "eight" is rendered from the
+ *     declaration and compared against the file verbatim.
+ *
+ * Both are deliberately BRITTLE TO REWORDING. An edit that moves or rephrases a gated
+ * sentence fails here, naming it, rather than silently ceasing to check it — the same trade
+ * `neutralityParagraph` already makes, and the same reasoning as RFC-0015's no-default
+ * stability tier: a guard that quietly stops guarding is worse than one that asks to be
+ * updated.
+ *
+ * What this does NOT do is discover prose. A sixth document restating the declaration is
+ * unguarded until someone adds it to a table below. Discovery was rejected for the reason
+ * `docs-excerpts.test.ts` gives about globbing `docs/`: it would take on `docs/rfcs/` and
+ * `docs/superpowers/plans/`, whose counts are frozen historical records and MUST NOT track
+ * the current declaration. RFC-0016 says "275 of 275 across all eight" and is right to.
+ */
+
+/** Spelled cardinals — the form this prose uses. Indexed by value, so 0 is deliberate. */
+const CARDINALS = [
+  "zero",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+  "twenty",
+] as const;
+
+function spell(n: number): string {
+  const word = CARDINALS[n];
+  if (word === undefined) {
+    throw new Error(`no spelled cardinal for ${n} — extend CARDINALS in corpus-parity.test.ts`);
+  }
+  return word;
+}
+
+const capitalize = (word: string): string => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`;
+
+/** These documents are hard-wrapped, so a gated sentence can straddle a line break. */
+const flatten = (text: string): string => text.replace(/\s+/g, " ").trim();
+
+const readDoc = (file: string): string => readFromRepo(join(...file.split("/")));
+
+/** How many corpora a binding claims, and how many it explicitly does not. */
+const claimCount = (language: LanguageName): number =>
+  readManifest().languages[language].claims.length;
+const unclaimedCount = (language: LanguageName): number =>
+  Object.keys(readManifest().languages[language].unclaimed).length;
+
+describe("prose that restates the coverage declaration", () => {
+  test("the derived numbers are non-trivial, so the assertions below are not vacuous", () => {
+    // Every expectation in this block is rendered from these readers. If one broke and
+    // returned zero, the rendered sentences would still compare equal to themselves.
+    expect(corpusNames().length).toBeGreaterThanOrEqual(12);
+    expect(claimCount("typescript")).toBe(corpusNames().length);
+    expect(claimCount("python")).toBeGreaterThanOrEqual(8);
+    expect(claimCount("go")).toBeGreaterThanOrEqual(8);
+    expect(corpusNamesByIndexShape().ownIndex.length).toBeGreaterThanOrEqual(10);
+    expect(corpusNamesByIndexShape().fixtureSet.length).toBe(2);
+  });
+
+  test("Python and Go claim the same corpora, which two gated sentences assume", () => {
+    // "the other two execute eight" collapses both bindings into one number. The day that
+    // stops being true, those sentences need rewriting, not renumbering — and this fails
+    // first, which is the point.
+    expect(readManifest().languages.python.claims.toSorted()).toEqual(
+      readManifest().languages.go.claims.toSorted(),
+    );
+  });
+
+  /**
+   * Sentences rendered from the declaration and required to appear verbatim.
+   *
+   * `near` is a NUMBERLESS fragment of the same sentence, used only to excerpt the file
+   * when the assertion fails. Without it the failure prints the whole flattened document,
+   * which buries the one clause that actually differs — and a guard nobody can read the
+   * output of is a guard people learn to skip.
+   */
+  const COUNT_CLAIMS: {
+    file: string;
+    what: string;
+    near: string;
+    expected: () => string;
+  }[] = [
+    {
+      file: "CLAUDE.md",
+      what: "the published-vs-executed paragraph's opening claim",
+      near: "corpora are published, and no binding but TypeScript runs them all",
+      expected: () =>
+        `**${capitalize(spell(corpusNames().length))} corpora are published, and no binding but TypeScript runs them all.** ${capitalize(spell(corpusNamesByIndexShape().ownIndex.length))} carry their own \`index.json\``,
+    },
+    {
+      file: "CLAUDE.md",
+      what: "the count of corpora neither Go nor Python claims",
+      near: "neither Go nor Python claims are exactly those two plus",
+      expected: () => `The ${spell(unclaimedCount("go"))} neither Go nor Python claims`,
+    },
+    {
+      file: "CLAUDE.md",
+      what: "what GOVERNANCE criterion 1 asks of the Go binding",
+      near: "is nevertheless what GOVERNANCE criterion 1 asks of this binding",
+      expected: () =>
+        `${capitalize(spell(claimCount("go")))} is nevertheless what GOVERNANCE criterion 1 asks of this binding`,
+    },
+    {
+      file: "docs/GOVERNANCE.md",
+      what: "the reference implementation's literal satisfaction of criterion 1",
+      near: "published corpora where the other two execute",
+      expected: () =>
+        `executing all ${spell(corpusNames().length)} published corpora where the other two execute ${spell(claimCount("python"))}`,
+    },
+    {
+      file: "docs/GOVERNANCE.md",
+      what: "criterion 1's literal reading",
+      near: "are published, and no binding but the reference implementation runs all",
+      expected: () =>
+        `${spell(corpusNames().length)} are published, and no binding but the reference implementation runs all ${spell(corpusNames().length)}`,
+    },
+  ];
+
+  for (const claim of COUNT_CLAIMS) {
+    test(`${claim.file} — ${claim.what}`, () => {
+      const document = flatten(readDoc(claim.file));
+      const expected = flatten(claim.expected());
+      if (document.includes(expected)) return;
+
+      const at = document.indexOf(flatten(claim.near));
+      const found =
+        at === -1
+          ? `the anchor "${claim.near}" is not in the file either — the sentence was moved or rewritten, not merely renumbered`
+          : `"…${document.slice(at, at + expected.length + 80)}…"`;
+      throw new Error(
+        `${claim.file} — ${claim.what}\n` +
+          `  expected (rendered from docs/conformance-coverage.json):\n    "${expected}"\n` +
+          `  found:\n    ${found}\n` +
+          "  Either a count drifted from the declaration, or this sentence was reworded and " +
+          "the entry in COUNT_CLAIMS needs updating with it.",
+      );
+    });
+  }
+
+  /**
+   * Paragraphs that enumerate corpora by name, and the set each must name.
+   *
+   * `end` slices the region, so a paragraph naming both the claimed and the unclaimed
+   * corpora — `sdks/go/README.md`'s Status section does — has each half checked against the
+   * right set instead of neither.
+   */
+  const NAME_CLAIMS: {
+    file: string;
+    what: string;
+    start: string;
+    end: string;
+    names: () => string[];
+    excludes: () => string[];
+  }[] = [
+    {
+      file: "CLAUDE.md",
+      what: "the paragraph mapping each corpus Go runs to what it runs against",
+      start: "Go executes `negotiation`",
+      end: "\n\n",
+      names: () => readManifest().languages.go.claims,
+      excludes: () => Object.keys(readManifest().languages.go.unclaimed),
+    },
+    {
+      file: "sdks/go/README.md",
+      what: "the Status section's list of corpora this module executes",
+      start: "It executes **every published conformance corpus its surface publishes**",
+      end: "The other",
+      names: () => readManifest().languages.go.claims,
+      excludes: () => Object.keys(readManifest().languages.go.unclaimed),
+    },
+    {
+      file: "sdks/go/README.md",
+      what: "the Status section's list of corpora this module does not execute",
+      start: "The other",
+      end: "\n\n",
+      names: () => Object.keys(readManifest().languages.go.unclaimed),
+      excludes: () => readManifest().languages.go.claims,
+    },
+  ];
+
+  for (const claim of NAME_CLAIMS) {
+    describe(`${claim.file} — ${claim.what}`, () => {
+      /** The slice of the document this claim is made in. */
+      function paragraph(): string {
+        const text = readDoc(claim.file);
+        const from = text.indexOf(claim.start);
+        expect(
+          from,
+          `${claim.file}: the anchor "${claim.start}" moved or was reworded, so this guard is no longer reading the paragraph it was written for`,
+        ).toBeGreaterThan(-1);
+        const rest = text.slice(from);
+        const to = rest.indexOf(claim.end, claim.start.length);
+        return to === -1 ? rest : rest.slice(0, to);
+      }
+
+      test("names every corpus it claims to", () => {
+        expect(
+          claim.names().length,
+          "nothing to check — the manifest read returned []",
+        ).toBeGreaterThan(0);
+        const unnamed = claim.names().filter((corpus) => !paragraph().includes(`\`${corpus}\``));
+        expect(unnamed, "a corpus the declaration lists is missing from this paragraph").toEqual(
+          [],
+        );
+      });
+
+      test("names no corpus it should not", () => {
+        // The false-claim direction, and the one that matters: naming a corpus here asserts
+        // coverage the declaration does not support.
+        const overclaimed = claim
+          .excludes()
+          .filter((corpus) => paragraph().includes(`\`${corpus}\``));
+        expect(overclaimed, "this paragraph names a corpus belonging to the other set").toEqual([]);
+      });
+    });
+  }
 });

@@ -3,8 +3,10 @@
  *
  * There are two index shapes and this module is the only place that knows it:
  *
- *   - Six corpora own a directory with a `cases/` subdirectory and their own `index.json`,
- *     whose `cases[].file` reads `cases/<name>.json`.
+ *   - Most corpora own a directory with a `cases/` subdirectory and their own `index.json`,
+ *     whose `cases[].file` reads `cases/<name>.json`. (This said "six" until #257; it was
+ *     ten by then. The count is derivable — `corpusNamesByIndexShape` below — so it is no
+ *     longer written down here.)
  *   - `manifest` and `item` are fixture sets listed in the TOP-LEVEL `index.json`'s
  *     `fixtures` array, whose `file` reads `<corpus>/<name>.json` with the case files
  *     sitting directly in the corpus directory.
@@ -66,4 +68,19 @@ export function publishedCorpora(): Map<string, string[]> {
 /** Every published corpus name, sorted. */
 export function corpusNames(): string[] {
   return [...publishedCorpora().keys()].sort();
+}
+
+/**
+ * The published corpora split by index shape — the two kinds this module's header describes.
+ *
+ * Exported for the prose gate in `corpus-parity.test.ts`, which holds `CLAUDE.md`'s "ten
+ * carry their own `index.json`" to what is actually on disk. Deriving it there by re-reading
+ * the tree would put a third reader of the layout outside this module, which is the one
+ * thing the header promises does not happen.
+ */
+export function corpusNamesByIndexShape(): { ownIndex: string[]; fixtureSet: string[] } {
+  return {
+    ownIndex: [...perAreaCorpora().keys()].sort(),
+    fixtureSet: [...fixtureSetCorpora().keys()].sort(),
+  };
 }

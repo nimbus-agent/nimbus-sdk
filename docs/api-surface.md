@@ -9,7 +9,7 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ## `.`
 
-146 exports.
+147 exports.
 
 ### `AGENT_KIND`
 
@@ -385,8 +385,10 @@ From `./agents/brief-composites.js`.
 ```ts
 export type ExpertBrief = AgentBriefBase & {
     kind: "expert";
+
     query: {
         topicOrFile: string;
+        itemUrl?: string | null;
     };
     ranked: ExpertFinding[];
 };
@@ -1157,6 +1159,8 @@ export type WhyBrief = AgentBriefBase & {
     subject: WhySubject | null;
 
     changeSubject?: WhyChangeSubject | null;
+
+    itemSubject?: WhyItemSubject | null;
     findings: WhyFinding[];
 };
 ```
@@ -1198,6 +1202,32 @@ export type WhyFinding = {
     url: string | null;
     occurredAt: number | null;
     entityId: string | null;
+};
+```
+
+### `WhyItemSubject` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type WhyItemSubject = {
+
+    itemId: string;
+
+    entityId: string;
+
+    number: number | null;
+
+    url: string | null;
+    title: string;
+
+    modifiedAt: number | null;
+
+    service: string;
+
+    type: string;
 };
 ```
 

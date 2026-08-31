@@ -39,7 +39,7 @@ It is a statement of intent for how the project is run, not a legal document.
     rather than resolving it, and RFC-0016 resolves it — not by promoting a binding that
     was never community, but by holding the binding that *defines* the bar to it. It is
     the only one that satisfies criterion 1 under its literal wording, executing all
-    eight published corpora where the other two execute four.
+    twelve published corpora where the other two execute eight.
 - **Contributors** — anyone opening issues, PRs, or RFCs. Third-party connector and
   app authors are first-class contributors to the ecosystem.
 
@@ -82,8 +82,8 @@ A new language SDK is promoted from community to **official** when:
 4. An RFC recording the above is accepted.
 
 **Criterion 1, read.** "Full" means **every published corpus whose surface the binding
-publishes** — not every corpus in the tree. Eight are published and no binding but the
-reference implementation runs all eight, so the literal reading is a standard nothing has
+publishes** — not every corpus in the tree. Twelve are published and no binding but the
+reference implementation runs all twelve, so the literal reading is a standard nothing has
 ever met: Python was promoted on two of six. [RFC-0013](./rfcs/0013-go-sdk-official.md)
 writes the reading down, with the per-corpus table and the precedent behind it. The
 criterion's own wording is unchanged; this is what it has always been applied to mean.

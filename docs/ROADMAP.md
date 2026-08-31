@@ -233,11 +233,12 @@ same contract.*
 > be cut end-to-end from a merged commit — release PR → PyPI publish with attestations,
 > no long-lived token — and verified after publish; `nimbus-dev-sdk` 0.2.0 was the first
 > to ship that way, and every release since has followed it. The binding executes every
-> published corpus its surface publishes — `negotiation`, `framing`, `diagnostics` and
-> `url-resolution` — every case kind, with nothing deferred, so **the suite is green for
-> both languages in CI** — two clauses of the exit criteria, met. ("Full", for criterion 1,
-> is pinned to exactly that reading by [RFC-0013](./rfcs/0013-go-sdk-official.md); the
-> other four corpora bind surfaces neither Python nor Go publishes.) Which corpus each
+> published corpus its surface publishes — every case kind, with nothing deferred, so
+> **the suite is green for both languages in CI** — two clauses of the exit criteria, met.
+> ("Full", for criterion 1, is pinned to exactly that reading by
+> [RFC-0013](./rfcs/0013-go-sdk-official.md); the corpora it leaves out either bind
+> surfaces neither Python nor Go publishes, or need a JSON Schema validator no
+> dependency-free binding has written.) Which corpus each
 > binding claims, and the case counts behind it, is generated into
 > [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
 >
@@ -273,11 +274,8 @@ maintained."*
   now official**; Rust is untouched, which is what keeps this box open. The binding lives
   at [`sdks/go/`](../sdks/go/) — module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero
   dependencies — and executes **every published corpus its surface publishes**, in full
-  and with nothing deferred in any: `negotiation` (all three kinds), `framing` (run
-  against `LineReader`), `diagnostics` (across `encode`, `parse` and `level`, against a
-  `diagnostics` package that ships an emitter Python does not have), and `url-resolution`
-  (against a `connectorkit` package binding Python's Shipment 1 core). That is the same
-  four Python runs — the case counts behind every one of these corpora are generated into
+  and with nothing deferred in any. That is the same set Python runs — which corpora those
+  are, and the case counts behind every one of them, are generated into
   [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
   The handshake is bound too: `ipc.PerformHandshake` performs the
   read-hello/write-hello/negotiate exchange, synchronously over `io.Reader` / `io.Writer`.
@@ -463,9 +461,11 @@ implementation exempted by seniority.
 
 [RFC-0016](./rfcs/0016-typescript-sdk-official.md) closes it — not by promoting a binding
 that was never community, but by holding the binding that defines the bar to it. It is the
-only one that meets criterion 1 under its literal wording: 275 of 275 cases across all
-eight published corpora, where RFC-0013 had to narrow "full" to make Python and Go
-satisfiable at 174 each. The clause is recorded here rather than left to the reader
+only one that meets criterion 1 under its literal wording — every case of every published
+corpus, where RFC-0013 had to narrow "full" to make Python and Go satisfiable on the
+subset each publishes a surface for. The exact counts are generated into
+[`docs/conformance-coverage.md`](./conformance-coverage.md); RFC-0016 records the ones
+that were current when it was accepted. The clause is recorded here rather than left to the reader
 because the count previously worked only if you declined to apply the definition.
 
 ### Phase 4 — Open the ecosystem

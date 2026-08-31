@@ -61,7 +61,18 @@ export type HuddleContribution = {
 
 export type ExpertBrief = AgentBriefBase & {
   kind: "expert";
-  query: { topicOrFile: string };
+  /**
+   * `topicOrFile` stays REQUIRED and is never widened to a union or to null.
+   * `expert` grew an `itemUrl` arm upstream, and on that arm the gateway fills
+   * `topicOrFile` with the item URL — so a consumer reading only the original
+   * field still gets the thing that was actually asked about, rather than an
+   * invented topic. Turning it into `string | null` or into a union would break
+   * every existing reader, which is the trap `WhyChangeSubject` set.
+   *
+   * `itemUrl` names the same subject under its own key, for a consumer that
+   * wants to know the question was item-shaped without pattern-matching a URL.
+   */
+  query: { topicOrFile: string; itemUrl?: string | null };
   ranked: ExpertFinding[];
 };
 

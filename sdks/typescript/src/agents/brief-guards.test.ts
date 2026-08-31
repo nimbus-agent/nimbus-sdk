@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { AGENT_KIND, AGENT_NAMES, type AgentName } from "./agent-names.js";
-import type { AgentBrief, BriefFor, WhyBrief } from "./brief-composites.js";
+import type { AgentBrief, BriefFor, ExpertBrief, WhyBrief } from "./brief-composites.js";
 import { BRIEF_GUARDS, isConflictBrief, isExpertBrief, isWhyBrief } from "./brief-guards.js";
 
 const base = { agentVersion: 1 as const, generatedAt: 1, latencyMs: 1, gaps: [] };
@@ -164,6 +164,31 @@ describe("brief guards", () => {
       });
     });
   }
+
+  // `expert` grows an item arm alongside its free-text one. Typed, so
+  // `tsc --noEmit` is what proves `itemUrl` is part of the contract.
+  test("an expert brief may record the item it was asked about", () => {
+    const brief: ExpertBrief = {
+      ...base,
+      kind: "expert",
+      query: {
+        topicOrFile: "https://acme.atlassian.net/browse/PLAT-9",
+        itemUrl: "https://acme.atlassian.net/browse/PLAT-9",
+      },
+      ranked: [],
+    };
+    expect(isExpertBrief(brief)).toBe(true);
+  });
+
+  test("the free-text expert arm is unchanged", () => {
+    const brief: ExpertBrief = {
+      ...base,
+      kind: "expert",
+      query: { topicOrFile: "src/clip.ts" },
+      ranked: [],
+    };
+    expect(isExpertBrief(brief)).toBe(true);
+  });
 
   // `why` answers three input arms and carries one subject field per arm. The
   // guard must accept every valid combination: enforcing "exactly one" here

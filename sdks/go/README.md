@@ -10,9 +10,8 @@ go get github.com/nimbus-agent/nimbus-sdk/sdks/go
 The import path ends in `/go` because the module lives in a subdirectory of the
 contract's own repository, which is what keeps the spec and the conformance corpora
 in-tree: a new corpus case runs the moment it is indexed, in every binding that already
-executes that corpus. For Go that is `negotiation`, `framing`, `diagnostics` and
-`url-resolution` — every corpus whose surface this module publishes, and the case counts
-are generated into
+executes that corpus. For Go that is every corpus whose surface this module publishes —
+which corpora those are, and the case counts behind them, are generated into
 [`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
 — so a new case in any of them reaches this binding without a release. Release tags are correspondingly prefixed —
 `sdks/go/vX.Y.Z`, the form `proxy.golang.org` requires of a nested module. See [RFC-0012](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0012-go-sdk-binding.md).
@@ -369,14 +368,17 @@ handshake, the diagnostics envelope with its emitter, the connector kit, and the
 version accessor. It executes **every published conformance corpus its surface publishes**
 — in full, nothing deferred in any: `negotiation` — across all three of its kinds,
 `negotiate`, `hello`, and `declaration` — `framing` — `diagnostics` — across `encode`,
-`parse`, and `level` — and `url-resolution` — against `ResolveURLWithBase`. The other four —
+`parse`, and `level` — `url-resolution` — against `ResolveURLWithBase` — and the four
+battery corpora against the packages that bind them: `data-profile` against `dataprofile`,
+`distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
+`jmap` against `jmapfastmail`. The other four —
 `predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module does not publish,
 and the last two need a JSON Schema validator no dependency-free binding has written. Which
 binding claims which corpus, and every case count behind these numbers, is generated into
 [`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
 rather than restated here.
 
-That is the same four Python runs, and it is what
+That is the same set Python runs, and it is what
 [GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)
 criterion 1 asks for. **This binding is official**, by
 [RFC-0013](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0013-go-sdk-official.md),

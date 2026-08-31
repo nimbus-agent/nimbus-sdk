@@ -100,35 +100,43 @@ guard's parser has two different code paths keyed on exactly this distinction.
   included, turning an ordinary `/api/x` → `/api/x/` into a 401 — so the transport
   installs a redirect handler that strips only on an origin change. That is why §8 has
   **two** tests in each binding rather than one.
+- `nimbus_sdk.data_profile`, `nimbus_sdk.distribution_channel`, `nimbus_sdk.icalendar`
+  and `nimbus_sdk.jmap_fastmail` (`sdks/python/src/nimbus_sdk/<name>/`) — the four battery
+  roots, each binding the TypeScript helper module of the same name and each executing the
+  conformance corpus that pins it (`data-profile`, `distribution-channel`, `icalendar` and
+  `jmap` respectively). They are what took this section from four import roots to eight,
+  and Python from four executed corpora to eight. Their exports are listed in
+  [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
 
-**The IPC, diagnostics, and connector-kit names are NOT re-exported from `nimbus_sdk`,
-and must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
+**The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and
+must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
 `./connector-kit` boundary the TypeScript `exports` map publishes. The justification is
 not uniformly "each is a separate contract" — `nimbus_sdk.connector_kit` is batteries,
 with no spec or conformance corpus of its own beyond `url-resolution` — so the actual
-claim, and the one that covers all four roots, is that **each is a separate surface**.
+claim, and the one that covers every root, is that **each is a separate surface**.
 The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 `connector-kit` its own entry point alongside the contract-bearing `./ipc` and
-`./diagnostics`. Python has no bundling reason to need a second, third, or fourth entry
-point, so the boundary is documentation — and hoisting the names to the top level as a
-convenience would erase it. **The SET of roots is now gated by a test; the no-re-export
-rule above still is not.** [`docs/api-surface-python.md`](./docs/api-surface-python.md)
-is a generated snapshot of all four, and `sdks/python/tests/test_api_surface.py` asserts
-the import roots found on disk are exactly these four — so a fifth root fails CI until
-someone adds it here and to `IMPORT_ROOTS`. Whether a name stays out of the wrong root
-is checked by review alone, as it always was.
+`./diagnostics`. Python has no bundling reason to need a second entry point at all,
+let alone an eighth, so the boundary is documentation — and hoisting the names to the top
+level as a convenience would erase it. **The SET of roots is now gated by a test; the
+no-re-export rule above still is not.**
+[`docs/api-surface-python.md`](./docs/api-surface-python.md)
+is a generated snapshot of all of them, and `sdks/python/tests/test_api_surface.py`
+asserts the import roots found on disk are exactly the eight `IMPORT_ROOTS` lists — so a
+ninth root fails CI until someone adds it there, and this section is what has to be
+updated alongside it. Whether a name stays out of the wrong root is checked by review
+alone, as it always was.
 
-TypeScript and Python both execute `negotiation` (all three kinds), `framing`,
-`diagnostics`, and — since `connector_kit`'s `urls.py` — `url-resolution`. Nothing is
-deferred, so a new case in any of the four runs in both languages the moment it is indexed.
-TypeScript additionally executes `predicates`, `sandbox`, `manifest` and `item`, which no
+Everything Python claims, TypeScript claims too, and nothing is deferred in either — so a
+new case in a corpus both claim runs in both languages the moment it is indexed. The
+corpora TypeScript claims alone — `predicates`, `sandbox`, `manifest` and `item` — no
 second binding runs, so those carry no language-neutrality evidence; `docs/spec/README.md`
 says so. Which binding claims which corpus, and the case counts behind every one of these
 numbers, is declared in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json) and rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
 home for what used to be restated by hand here. **Go is narrower still, in its batteries
-rather than its corpora** — it runs the same four Python does.
+rather than its corpora** — it claims exactly what Python does.
 
 **Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
 declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`
@@ -244,24 +252,26 @@ would become a Go breaking change while staying invisible to the other two bindi
 Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
 Go executes `negotiation` (all three kinds — `negotiate`, `hello`, `declaration`), `framing`
-(run against `LineReader`), `diagnostics` (`encode`, `parse`, `level`), and `url-resolution`
-(run against `connectorkit.ResolveURLWithBase`), nothing deferred in any. That is the same
-four Python executes.
+(run against `LineReader`), `diagnostics` (`encode`, `parse`, `level`), `url-resolution`
+(run against `connectorkit.ResolveURLWithBase`), and the four battery corpora against the
+packages that bind them — `data-profile` against `dataprofile`, `distribution-channel`
+against `distributionchannel`, `icalendar` against `icalendar`, and `jmap` against
+`jmapfastmail` — nothing deferred in any. That is the same set Python executes.
 
-**Eight corpora are published, not four**, and the phrase "all four" — which this file and
-both READMEs used to carry — read as though only four existed. Six carry their own
-`index.json` (the four above plus `predicates` and `sandbox`); two are fixture sets in the
-*top-level* `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and
-`item`), with their case files sitting directly in the corpus directory and no `cases/`
-subdirectory. The other four bind surfaces neither Go nor Python publishes, and
-`manifest` / `item` need a JSON Schema validator the dependency-free rule would make
-hand-written. Every case count behind these claims — the total across all eight corpora,
+**Twelve corpora are published, and no binding but TypeScript runs them all.** Ten carry
+their own `index.json`; two are fixture sets in the *top-level*
+`docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and `item`), with
+their case files sitting directly in the corpus directory and no `cases/` subdirectory.
+The four neither Go nor Python claims are exactly those two plus `predicates` and
+`sandbox` — the latter two bind surfaces neither publishes, and `manifest` / `item` need a
+JSON Schema validator the dependency-free rule would make hand-written. Every case count
+behind these claims — the total across all twelve corpora,
 and how many of them each binding executes — lives in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md), rather than restated
 here.
 
-Four is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
+Eight is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
 [RFC-0013](./docs/rfcs/0013-go-sdk-official.md) pins "the full conformance suite" to
 **every published corpus whose surface the binding publishes** — the reading RFC-0008
 already promoted Python under, on two corpora of the six then published. RFC-0013 also

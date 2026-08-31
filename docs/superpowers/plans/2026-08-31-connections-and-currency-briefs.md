@@ -4,7 +4,7 @@
 
 **Goal:** Publish the wire shapes for `why`'s third input arm and for two new read-only agents, without breaking a published contract.
 
-**Architecture:** Two PRs, both additive minors. PR 1 adds `WhyItemSubject` and `WhyBrief.itemSubject` — and **gates the gateway's PR 1**, which cannot typecheck until this releases. PR 2 adds `ConnectionsBrief` and `CurrencyBrief` with their guards and the four tables that must move together.
+**Architecture:** Two PRs, both additive minors. PR 1 adds `WhyItemSubject`, `WhyBrief.itemSubject` **and** `ExpertBrief.query.itemUrl` — and **gates the gateway's PR 1**, which cannot typecheck until this releases. PR 2 adds `ConnectionsBrief` and `CurrencyBrief` with their guards and the four tables that must move together.
 
 **Tech Stack:** TypeScript (strict), Bun, release-please, `bun run api:surface` for the generated contract.
 
@@ -37,7 +37,7 @@
 
 ## PR 1 — `WhyItemSubject`
 
-**This PR gates the gateway.** Nimbus's PR 1 imports `WhyItemSubject`; it cannot typecheck until this is released to npm. Ship it first and do not batch it with PR 2.
+**This PR gates the gateway.** Nimbus's PR 1 imports `WhyItemSubject` and needs `ExpertBrief.query.itemUrl`; it cannot typecheck until this is released to npm. Ship it first and do not batch it with PR 2.
 
 ### Task 1: The type, and the third subject field
 
@@ -53,7 +53,7 @@ export type WhyItemSubject = {
   itemId: string;
   entityId: string;
   number: number | null;
-  url: string;
+  url: string | null;
   title: string;
   modifiedAt: number | null;
   service: string;
@@ -89,10 +89,16 @@ test("isWhyBrief accepts a brief carrying the item subject", () => {
   expect(isWhyBrief(brief)).toBe(true);
 });
 
-test("isWhyBrief still accepts the two existing arms, and one with no subject", () => {
-  expect(isWhyBrief(refArmBrief)).toBe(true);
-  expect(isWhyBrief(changeArmBrief)).toBe(true);
-  expect(isWhyBrief({ ...refArmBrief, subject: null })).toBe(true);
+test("isWhyBrief accepts all four valid subject combinations", () => {
+  // 1. the ref arm, with no item subject at all
+  expect(isWhyBrief({ ...refArmBrief, itemSubject: undefined })).toBe(true);
+  // 2. the prUrl arm, likewise
+  expect(isWhyBrief({ ...changeArmBrief, itemSubject: undefined })).toBe(true);
+  // 3. the item arm: subject null, changeSubject absent
+  expect(isWhyBrief({ ...itemArmBrief, subject: null, changeSubject: undefined })).toBe(true);
+  // 4. nothing resolved -- a real answer, not a malformed brief
+  expect(isWhyBrief({ ...refArmBrief, subject: null, changeSubject: null, itemSubject: null }))
+    .toBe(true);
 });
 ```
 
@@ -111,8 +117,9 @@ Add to `WhyBrief` in `brief-composites.ts`, following `changeSubject`'s optional
   /**
    * The subject of a `why` brief asked about an indexed item that is not a pull
    * request. Present only when the caller supplied `itemUrl`; `subject` and
-   * `changeSubject` are null on this arm. Carries no `repo` — a Confluence page
-   * has none, and `WhyChangeSubject` is `stable`, so it could not be widened.
+   * `changeSubject` are null on this arm. Carries no `repo` — an issue or an
+   * incident has none, and `WhyChangeSubject` is `stable`, so it could not be
+   * widened to serve both.
    */
   itemSubject?: WhyItemSubject | null;
 ```
@@ -133,7 +140,75 @@ git commit -m "feat(agents): a third why subject for an indexed item"
 
 ---
 
-### Task 2: Rewrite the published example, before it teaches the bug
+### Task 2: `ExpertBrief.query.itemUrl`
+
+**Files:**
+
+- Modify: `sdks/typescript/src/agents/brief-composites.ts:61`
+- Test: `sdks/typescript/src/agents/brief-guards.test.ts`
+
+**Interfaces:**
+
+- Produces: `ExpertBrief.query` widened to `{ topicOrFile: string; itemUrl?: string | null }`.
+
+**Why this is in PR 1:** the gateway's `expert` gains an item arm in the same release as `why`'s, and
+its brief has nowhere honest to record what was asked. Missing this blocks the gateway exactly as
+missing `WhyItemSubject` would — and it was missed in the first draft of both designs.
+
+- [ ] **Step 1: Write the failing test**
+
+```ts
+test("an expert brief may record the item it was asked about", () => {
+  const brief = {
+    kind: "expert",
+    agentVersion: 1,
+    generatedAt: 1,
+    latencyMs: 1,
+    gaps: [],
+    query: {
+      topicOrFile: "https://acme.atlassian.net/browse/PLAT-9",
+      itemUrl: "https://acme.atlassian.net/browse/PLAT-9",
+    },
+    ranked: [],
+  };
+  expect(isExpertBrief(brief)).toBe(true);
+});
+
+test("the free-text arm is unchanged", () => {
+  expect(isExpertBrief({ ...validExpertBrief, query: { topicOrFile: "src/clip.ts" } })).toBe(true);
+});
+```
+
+- [ ] **Step 2: Run it and watch it fail**
+
+Run: `bun run --cwd sdks/typescript test -t "item it was asked about"`
+Expected: FAIL — `itemUrl` is not part of `ExpertBrief["query"]`.
+
+- [ ] **Step 3: Widen the query, additively**
+
+```ts
+  query: { topicOrFile: string; itemUrl?: string | null };
+```
+
+`topicOrFile` stays **required**. On the item arm the gateway fills it with the item URL, so a
+consumer reading only the old field still gets the thing that was asked about. Widening it to a union
+or to `null` would break every existing reader — the same trap `WhyChangeSubject` set in F1.
+
+- [ ] **Step 4: Run it and watch it pass**
+
+Run: `bun run --cwd sdks/typescript test`
+Expected: PASS.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add sdks/typescript/src/agents/brief-composites.ts
+git commit -m "feat(agents): expert briefs may record the item they answered about"
+```
+
+---
+
+### Task 3: Rewrite the published example, before it teaches the bug
 
 **Files:**
 - Modify: `docs/modules/agents.md`
@@ -187,11 +262,29 @@ git commit -m "docs(agents): dispatch across three why arms, so the example stop
 
 ---
 
+### Task 3b: Release, and only then unblock the gateway
+
+- [ ] **Step 1: Merge PR 1 and let release-please cut its release PR**
+- [ ] **Step 2: Merge the release PR and confirm the version is tagged and published to npm**
+- [ ] **Step 3: Verify the published package actually exports both additions**
+
+Run: `npm view @nimbus-dev/sdk version` and check the version in `docs/api-surface.md`'s diff.
+Expected: the new version exports `WhyItemSubject`, `WhyBrief.itemSubject` and
+`ExpertBrief.query.itemUrl`.
+
+- [ ] **Step 4: Tell the gateway work the exact version to bump to**
+
+Nimbus's plan requires bumping `@nimbus-dev/sdk` in `packages/gateway/package.json` **before**
+running its PR 1 typecheck. Until that bump, a gateway failure reads as a missing export rather than
+a stale dependency, and someone will spend an hour on the wrong problem.
+
+---
+
 ## PR 2 — `connections` and `currency`
 
 **Blocked on:** the gateway's PR 3 fixing the emitted shapes.
 
-### Task 3: The two brief types
+### Task 4: The two brief types
 
 **Files:**
 - Modify: `sdks/typescript/src/agents/brief-types.ts`, `brief-composites.ts`
@@ -245,7 +338,7 @@ git commit -m "feat(agents): connections and currency brief shapes"
 
 ---
 
-### Task 4: The guards, and the four totalities
+### Task 5: The guards, and the four totalities
 
 **Files:**
 - Modify: `sdks/typescript/src/agents/brief-guards.ts`, `agent-names.ts`, `brief-composites.ts:151` (`AgentBrief`), `:187` (`BriefFor`)
@@ -334,7 +427,7 @@ git commit -m "feat(agents): guards and tables for connections and currency"
 
 ---
 
-### Task 5: The count in the prose, and the regenerated contract
+### Task 6: The count in the prose, and the regenerated contract
 
 **Files:**
 - Modify: `docs/modules/agents.md`

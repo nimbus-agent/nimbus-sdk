@@ -107,9 +107,16 @@ export type WhyItemSubject = {
   itemId: string;
   /** `graph_entity.id` of the item the lanes were answered from. */
   entityId: string;
-  /** Null when the indexed item carried no number — a doc or an incident usually has none. */
+  /** Null when the indexed item carried no number — an incident usually has none. */
   number: number | null;
-  url: string;
+  /**
+   * Null when the indexed item carried none. `ResolveCandidate.url` — what the
+   * gateway resolves this from — is `string | null`, so a non-null type here
+   * would force the gateway to substitute the URL it was *asked* with for the
+   * one the item *has*. That is a fabricated field in a subject, which is worse
+   * than an absent one.
+   */
+  url: string | null;
   title: string;
   /** Epoch ms, as the source reports it. Null when the item carried none. */
   modifiedAt: number | null;
@@ -133,6 +140,22 @@ consumer to choose between two rules.
 `isWhyBrief` accepts a brief carrying any one of the three subject fields, or none. It does not
 require exactly one: the wire is the gateway's to constrain, and a guard that enforced
 mutual exclusion would reject a future arm this package has not heard of yet.
+
+### 1b · `ExpertBrief.query.itemUrl`
+
+**PR 1 carries a second additive change, missed in the first draft of this design and found while
+planning the gateway's Task 6.** `expert` gains an item arm too, and `ExpertBrief`
+(`brief-composites.ts:61`) declares `query: { topicOrFile: string }` — a brief answered about an
+item has nothing honest to put in that field unless the shape grows.
+
+```ts
+  query: { topicOrFile: string; itemUrl?: string | null };
+```
+
+Additive, so a **minor**, and `topicOrFile` stays required: on the item arm the gateway fills it with
+the item URL, so a consumer reading only the old field gets the thing that was actually asked about
+rather than an invented topic. Widening `topicOrFile` to a union or to `null` would break every
+existing reader, which is F1's lesson applied a second time.
 
 The `whySubjectOf` example in the module doc is rewritten to dispatch across three arms, so the
 published example stops being the bug in F2. It returns a **discriminated union** rather than a

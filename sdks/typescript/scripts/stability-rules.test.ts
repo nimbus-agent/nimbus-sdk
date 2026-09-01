@@ -405,6 +405,47 @@ describe("parseSurface / diffSurfaces", () => {
     expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
   });
 
+  // An optional PARAMETER is not an optional member. `tsc` emits a parameter list on one
+  // line, so today an added parameter rewrites that line and is caught by containment —
+  // but the classifier must not depend on that, because a future emitter could wrap.
+  test("an added optional parameter is a signature change, not `extended`", () => {
+    const base = parseSurface(
+      stableType(["export declare function f(", "    a: string,", "): void;"].join("\n")),
+    );
+    const head = parseSurface(
+      stableType(
+        ["export declare function f(", "    a: string,", "    options?: Options,", "): void;"].join(
+          "\n",
+        ),
+      ),
+    );
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  // The other half of that boundary: an optional property added inside an expanded inline
+  // object type IS additive for every caller, and must stay `extended`. `createBriefGuard`
+  // in the real golden has exactly this shape.
+  test("an optional property inside an expanded object type stays `extended`", () => {
+    const base = parseSurface(
+      stableType(
+        ["export declare function f(opts?: {", "    requireQuery?: boolean;", "}): void;"].join(
+          "\n",
+        ),
+      ),
+    );
+    const head = parseSurface(
+      stableType(
+        [
+          "export declare function f(opts?: {",
+          "    requireQuery?: boolean;",
+          "    strict?: boolean;",
+          "}): void;",
+        ].join("\n"),
+      ),
+    );
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("extended");
+  });
+
   test("bullet form: identical declaration text in two sections parses to two entries", () => {
     const twoBulletSections = [
       "## `nimbus_sdk`",

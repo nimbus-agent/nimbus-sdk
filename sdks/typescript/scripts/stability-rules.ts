@@ -273,8 +273,22 @@ export function parseSurface(markdown: string): Map<string, SurfaceEntry> {
  * retracted is the one that existed before, not whatever the (absent) head entry would
  * have said. A demotion is judged at the tier being LEFT, for the same reason.
  */
-/** An optional member line: `name?: T;`. The `?` before the colon is the whole test. */
-const OPTIONAL_MEMBER = /^[A-Za-z_$][\w$]*\?\s*:/;
+/**
+ * An optional MEMBER line: `name?: T;` — the `?` before the colon, and the `;` that ends
+ * it.
+ *
+ * The trailing `;` is what separates a member from a parameter, and it is load-bearing.
+ * `tsc` emits a parameter list on one line, so an added parameter rewrites the line it
+ * lives on and the multiset check below already reports `signature`. But a declaration can
+ * still span lines where an inline object type expands — `createBriefGuard`'s `opts?: {`
+ * in the golden is exactly that shape — so a line-based scan must not be able to mistake
+ * `options?: Options,` for a member if a future emitter ever wraps one. Members end in
+ * `;`; parameters end in `,` or `)`.
+ *
+ * An optional property added *inside* such an expanded object type does match, and that is
+ * deliberate: it is additive for every caller, which is precisely what `extended` means.
+ */
+const OPTIONAL_MEMBER = /^[A-Za-z_$][\w$]*\?\s*:.*;$/;
 
 /**
  * `extended` when the head declaration is the base declaration plus optional members

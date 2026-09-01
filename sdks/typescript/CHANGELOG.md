@@ -1,5 +1,13 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.31.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.30.1...typescript-v1.31.0) (2026-09-01)
+
+
+### Features
+
+* **agents:** a third why subject, and the expert query field its item arm needs ([#260](https://github.com/nimbus-agent/nimbus-sdk/issues/260)) ([1e507f8](https://github.com/nimbus-agent/nimbus-sdk/commit/1e507f8b083dc2e1fb2b6640ac629226decb1f44))
+* **stability:** extending a declaration is adding, not breaking ([#261](https://github.com/nimbus-agent/nimbus-sdk/issues/261)) ([6028b6c](https://github.com/nimbus-agent/nimbus-sdk/commit/6028b6c494b0597583bcc78611a27447f9fa3a73))
+
 ## [1.30.1](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.30.0...typescript-v1.30.1) (2026-08-29)
 
 

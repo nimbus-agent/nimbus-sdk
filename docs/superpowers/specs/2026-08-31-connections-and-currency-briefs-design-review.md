@@ -46,6 +46,11 @@ Below are open questions, concrete type definitions, and technical suggestions t
     };
     ```
 
+> **This block is the proposal, not the accepted shape**, and is left as written so the
+> record shows what was asked for. Two things changed on acceptance: `service` and `type`
+> were added as **required** fields, and `url` became `string | null`. The design document's
+> §1 carries the shape that shipped; its "Review responses" table records why each differs.
+
 ### Q2.2: Explicit `kind` Discriminant Names for `connections` and `currency`
 * **Context:** F4 stresses that brief `kind` must be explicitly declared and copied rather than inferred.
 * **Ambiguity:** What are the exact string literals for the two briefs?
@@ -140,6 +145,9 @@ Below are open questions, concrete type definitions, and technical suggestions t
     | { kind: "ref"; repoRoot: string; filePath: string; lineNo: number | null; symbol: string | null }
     | { kind: "change"; itemId: string; entityId: string; repo: string; number: number | null; url: string; title: string; modifiedAt: number | null }
     | { kind: "item"; itemId: string; entityId: string; number: number | null; url: string; title: string; modifiedAt: number | null };
+  // As proposed. What shipped intersects the subject types by name rather than
+  // restating their members — `({ kind: "item" } & WhyItemSubject)` — so the union
+  // cannot drift from them, and it carries the accepted `service`/`type`/nullable `url`.
 
   export function whySubjectOf(brief: WhyBrief): ResolvedWhySubject | null {
     if (brief.subject) return { kind: "ref", ...brief.subject };

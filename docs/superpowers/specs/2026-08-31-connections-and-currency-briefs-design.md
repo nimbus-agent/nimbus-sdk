@@ -22,10 +22,16 @@ The gateway is growing three things this package publishes the shapes for:
 1. `agents.why` gains a third input arm (`itemUrl`, for an indexed item that is not a pull
    request) and answers it with a **third subject field**.
 2. Two new read-only agents, `connections` and `currency`, each with a brief shape and each
-   HTTP-invokable — which takes the published roster from eleven to thirteen.
+   HTTP-invokable — which takes the **gateway's** HTTP roster from eleven to thirteen.
 
-None of the three exists here. A consumer narrowing an `agents.*` payload today has guards for
-nine agents and a `WhyBrief` that admits exactly two subject arms.
+Three counts appear in this document and they are three different things; naming which is
+which once, here, saves re-deriving it later. The **gateway's HTTP roster** is what
+`GET /v1/agents` publishes: eleven → thirteen. The **gateway's agent roster** is every
+built-in agent, invokable over HTTP or not: fourteen → sixteen. **This package's coverage**
+is `AGENT_NAMES`: nine → eleven, and deliberately behind both (see F5).
+
+None of the three additions exists here yet. A consumer narrowing an `agents.*` payload today
+has guards for nine agents and a `WhyBrief` that admits exactly two subject arms.
 
 ## Findings
 
@@ -357,7 +363,7 @@ Against [`2026-08-31-connections-and-currency-briefs-design-review.md`](./2026-0
 
 | Finding | Disposition |
 | --- | --- |
-| Q2.1 `WhyItemSubject` field inventory | **Accepted, extended.** `modifiedAt: number | null` matches `WhyChangeSubject` (verified `brief-types.ts:137`). `service` and `type` are added as **required**, not optional as proposed: both always exist upstream, and an optional field invites handling an absence that never occurs. They also resolve a real contradiction — `itemId`'s own doc says not to parse it, and without these two, parsing it is the only way to get the service. |
+| Q2.1 `WhyItemSubject` field inventory | **Accepted, extended.** `modifiedAt: number \| null` matches `WhyChangeSubject` (verified `brief-types.ts:137`). `service` and `type` are added as **required**, not optional as proposed: both always exist upstream, and an optional field invites handling an absence that never occurs. They also resolve a real contradiction — `itemId`'s own doc says not to parse it, and without these two, parsing it is the only way to get the service. |
 | Q2.2 explicit `kind` literals | **Accepted.** `"connections"` and `"currency"`, recorded in `AGENT_KIND` even though neither diverges from its agent name — a consumer must never learn the mapping is sometimes derivable. |
 | Q2.3 concrete interfaces | **Accepted, with two changes.** `edgeType` stays a **closed** union: `GraphEdgeType \| string` is `string`, so it would publish a field that looks exhaustive and is not. `evidence` becomes a non-empty tuple and `verdict` loses `"unverified"`, putting §2's own rule in the type. Both changes are mirrored in the upstream spec, which owns the wire. |
 | I3.1 `whySubjectOf` discriminated union | **Accepted.** The old example folded three meanings into one null; the union leaves exactly one, and makes a fourth arm a compile error at every call site. |

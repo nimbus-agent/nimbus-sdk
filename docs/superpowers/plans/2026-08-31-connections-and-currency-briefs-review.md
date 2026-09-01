@@ -66,6 +66,14 @@ Below are suggestions and minor observations to consider during implementation.
 
 ## 3. Summary of Recommended Plan Actions
 
-The plan is in great shape and ready for execution. Follow the task sequence as documented:
-- PR 1: Task 1 (Types) -> Task 2 (Docs & Surface) -> Release.
-- PR 2: Task 3 (Briefs) -> Task 4 (Guards & Tables) -> Task 5 (Prose & Surface).
+The plan is in great shape and ready for execution.
+
+**The sequence below is the one that existed at review time. The plan has since gained a
+task**, in response to a finding in the gateway's own plan review: `ExpertBrief.query` is
+SDK-owned and `expert`'s new item arm has nowhere to record what it was asked, so that
+change gates the gateway exactly as `WhyItemSubject` does and had to join PR 1. The current
+sequence is:
+
+- PR 1: Task 1 (`WhyItemSubject`) → Task 2 (`ExpertBrief.query.itemUrl`) → Task 3 (Docs &
+  Surface) → Task 3b (Release).
+- PR 2: Task 4 (Briefs) → Task 5 (Guards & Tables) → Task 6 (Prose & Surface).

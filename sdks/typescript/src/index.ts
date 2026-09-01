@@ -54,6 +54,7 @@ export type {
   PreflightDownstream,
   WhyChangeSubject,
   WhyFinding,
+  WhyItemSubject,
   WhyLane,
   WhySubject,
 } from "./agents/brief-types.js";

@@ -33,6 +33,13 @@ shape of your own.
   the gateway that emits the briefs and therefore defines the wire. `requireQuery` defaults
   to `false` in the factory, so a guard of your own is laxer than the shipped ones unless
   you opt in.
+- **`why` carries one subject field per input arm, and `isWhyBrief` accepts all of them.**
+  `subject` answers a `ref`, `changeSubject` a `prUrl`, `itemSubject` an `itemUrl` — and the
+  guard deliberately does not enforce "exactly one", because the gateway owns that invariant
+  and a guard that enforced it would reject a fourth arm this package has not heard of. The
+  consequence is on you: **dispatch across all three**. A consumer that checks two returns
+  null on a valid item brief, which reads as "unresolved" and is not. The guard passing is
+  not enough to tell those apart — see the example below.
 - **Pure.** Guards are total functions over `unknown`; they never throw and never read
   ambient state — see the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
@@ -49,19 +56,33 @@ import {
   type AgentName,
   BRIEF_GUARDS,
   isWhyBrief,
+  type WhyChangeSubject,
+  type WhyItemSubject,
   type WhySubject,
 } from "@nimbus-dev/sdk";
 
 /**
- * The subject a `why` brief is about.
+ * The subject a `why` brief is about, tagged by which arm answered it.
  *
- * Null covers two different cases: this is not a `why` brief at all, or it is one whose
- * `subject` the gateway could not resolve. Check the guard yourself if you need to tell
- * them apart.
+ * `why` takes three inputs — a `ref`, a `prUrl`, or an `itemUrl` — and carries one
+ * optional subject field per arm. Dispatch across all three: a two-case version returns
+ * null on a perfectly good item brief, which reads as "unresolved" and is not.
+ *
+ * Null now means exactly one thing: this is not a `why` brief, or no arm resolved.
  */
-export function whySubjectOf(payload: unknown): WhySubject | null {
-  return isWhyBrief(payload) ? payload.subject : null;
+export function whySubjectOf(payload: unknown): ResolvedWhySubject | null {
+  if (!isWhyBrief(payload)) return null;
+  if (payload.subject) return { kind: "ref", ...payload.subject };
+  if (payload.changeSubject) return { kind: "change", ...payload.changeSubject };
+  if (payload.itemSubject) return { kind: "item", ...payload.itemSubject };
+  return null;
 }
+
+/** Tagged, so a fourth arm becomes a compile error at every call site rather than a null. */
+export type ResolvedWhySubject =
+  | ({ kind: "ref" } & WhySubject)
+  | ({ kind: "change" } & WhyChangeSubject)
+  | ({ kind: "item" } & WhyItemSubject);
 
 /** Dispatch without knowing which agent ran: every name has a guard. */
 export function looksLike(name: AgentName, payload: unknown): boolean {

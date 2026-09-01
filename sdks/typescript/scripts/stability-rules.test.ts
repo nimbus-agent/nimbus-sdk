@@ -37,6 +37,33 @@ describe("requiredFor", () => {
     expect(r.needsRfc).toBe(false);
   });
 
+  // An `extended` change is a signature change that only ADDS optional members.
+  // RFC-0015 §2 opens "the tier governs what it costs to break something, not what it
+  // costs to add", and then charges `feat!:` for an addition anyway when that addition
+  // happens to live inside an existing declaration. This is that inconsistency
+  // corrected — the same correction, on the same grounds, as the `Export added` /
+  // `frozen` cell below.
+  test("extending a stable export with an optional member is a minor, not a break", () => {
+    const r = requiredFor([change({ kind: "extended", tier: "stable" })]);
+    expect(r.impact).toBe("minor");
+    expect(r.breaking).toBe(false);
+    expect(r.needsRfc).toBe(false);
+  });
+
+  test("a frozen export still needs an RFC to be extended", () => {
+    // Deliberately NOT exempted. The frozen exemption below covers whole-export
+    // additions only, and narrowing this correction to `stable` keeps its blast
+    // radius to the cell the evidence actually covers.
+    const r = requiredFor([change({ kind: "extended", tier: "frozen" })]);
+    expect(r.needsRfc).toBe(true);
+  });
+
+  test("an extended experimental export is a minor, like every experimental change", () => {
+    const r = requiredFor([change({ kind: "extended", tier: "experimental" })]);
+    expect(r.impact).toBe("minor");
+    expect(r.breaking).toBe(false);
+  });
+
   // RFC-0017 §4 supersedes RFC-0015's `Export added` / `frozen` cell. The test this
   // replaced asserted the opposite — "additions included" — which is the rule that changed.
   test("adding to a frozen module needs no RFC", () => {
@@ -290,6 +317,92 @@ describe("parseSurface / diffSurfaces", () => {
         wasDeprecated: false,
       },
     ]);
+  });
+
+  const stableType = (decl: string) =>
+    [
+      "### `Brief`",
+      "",
+      "**Stability:** stable",
+      "",
+      "From `./a.js`.",
+      "",
+      "```ts",
+      decl,
+      "```",
+      "",
+    ].join("\n");
+
+  test("adding an optional member is `extended`, not `signature`", () => {
+    const base = parseSurface(
+      stableType(
+        ["export type Brief = {", '    kind: "why";', "    findings: string[];", "};"].join("\n"),
+      ),
+    );
+    const head = parseSurface(
+      stableType(
+        [
+          "export type Brief = {",
+          '    kind: "why";',
+          "    subject?: string | null;",
+          "    findings: string[];",
+          "};",
+        ].join("\n"),
+      ),
+    );
+
+    expect(diffSurfaces(base, head, "typescript")).toEqual([
+      {
+        name: "Brief",
+        kind: "extended",
+        tier: "stable",
+        binding: "typescript",
+        wasDeprecated: false,
+      },
+    ]);
+  });
+
+  test("adding a REQUIRED member is still a signature change", () => {
+    const base = parseSurface(
+      stableType(["export type Brief = {", "    a: string;", "};"].join("\n")),
+    );
+    const head = parseSurface(
+      stableType(["export type Brief = {", "    a: string;", "    b: number;", "};"].join("\n")),
+    );
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  test("changing an existing member's type is still a signature change", () => {
+    const base = parseSurface(
+      stableType(["export type Brief = {", "    a: string;", "};"].join("\n")),
+    );
+    const head = parseSurface(
+      stableType(["export type Brief = {", "    a: number;", "};"].join("\n")),
+    );
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  test("making a required member optional is still a signature change", () => {
+    // A consumer reading the old shape could rely on the field being present.
+    const base = parseSurface(
+      stableType(["export type Brief = {", "    a: string;", "};"].join("\n")),
+    );
+    const head = parseSurface(
+      stableType(["export type Brief = {", "    a?: string;", "};"].join("\n")),
+    );
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
+  });
+
+  test("removing a member is still a signature change, even alongside an optional addition", () => {
+    // The classifier must require every base member to survive — otherwise a removal
+    // could ride along with an addition and be laundered into a minor.
+    const base = parseSurface(
+      stableType(["export type Brief = {", "    a: string;", "    b: string;", "};"].join("\n")),
+    );
+    const head = parseSurface(
+      stableType(["export type Brief = {", "    a: string;", "    c?: string;", "};"].join("\n")),
+    );
+    expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
   });
 
   test("bullet form: identical declaration text in two sections parses to two entries", () => {

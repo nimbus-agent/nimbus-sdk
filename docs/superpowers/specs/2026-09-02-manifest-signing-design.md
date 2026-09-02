@@ -1,7 +1,10 @@
 # Manifest signing as a specified, three-language contract — design
 
 **Date:** 2026-09-02
-**Status:** approved, not yet implemented
+**Status:** approved, revised after review, not yet implemented
+**Review:** [2026-09-02-manifest-signing-design-review.md](./2026-09-02-manifest-signing-design-review.md)
+— three blocking findings applied: the deprecation window and the 2.0.0 consequence (§8),
+the false gateway-integration claim (§3.2), and the circular trust model (§6)
 **Roadmap box:** [Phase 4](../../ROADMAP.md#phase-4--open-the-ecosystem) —
 *"A manifest signature path proven end-to-end (sign → publish → gateway verify)"*,
 Pillar 6
@@ -125,6 +128,12 @@ implementation in Python**, and everything it needs — SHA-512 via `hashlib`, m
 inverse and square root via `pow(x, n, p)` — is standard library. The binding follows the
 IETF's own published code shape rather than inventing one.
 
+**That de-risks correctness, not security.** §6's implementation is published to
+illustrate the algorithm, not as production code, and it is constant-time in no
+operation. What holds the binding to the algorithm is the §7.1 vector section of the
+corpus (§7.2); what governs its security properties is the disclosure below, which the
+provenance of the code shape does not improve.
+
 **The cost is real and asymmetric between the two halves.** Verification operates
 entirely on public data — public key, signature, message — so timing side-channels do
 not apply and a pure-Python implementation is sound. Signing multiplies by a secret
@@ -142,7 +151,15 @@ the half the gateway performs — carries no such caveat in any binding.
 The flat `publisher.key` + `signature` shape appears in no spec and in no schema:
 `docs/spec/schemas/v1/extension-manifest.schema.json` has neither field. It exists only
 as `SignedManifestShape`, an inline type in `verify-signature.ts`. There is therefore
-nothing published to stay compatible with.
+nothing published **as a contract** to stay compatible with.
+
+**There is, however, a live first-party consumer**, and an earlier draft of this design
+wrongly said there was none. `verify-signature.ts`'s docstring records that *"the gateway
+uses it to verify at install + every startup (I16 wiring sites)"*, and
+`errorToHardDisableReason` exists only to feed a `SignatureDisabledRegistry` that lives
+in the Nimbus monorepo. The replace-over-coexist decision stands on the spec-and-schema
+argument by itself, but the removal is not a private matter: **confirming the monorepo's
+migration is a precondition on the removal shipment** (§8), not a courtesy.
 
 A dual-path verifier is also its own attack surface — a downgrade path from the
 extensible envelope to the algorithm-free one — and it would double the corpus for a
@@ -210,12 +227,25 @@ verdict.
 ## 6. `docs/spec/signing/v1/manifest-signature.md`
 
 ```
-manifest.publisher = { id, keys: [ JWK(OKP/Ed25519), … ] }
+manifest.publisher = { id }
 manifest.signature = { protected: <b64url(header JSON)>,
                        signature: <b64url(64 bytes)> }
 protected header   = { "alg": "EdDSA", "kid": <RFC 7638 thumbprint> }
 signing input      = ASCII(protected_b64url + "." + b64url(canonical_bytes))
 ```
+
+**The manifest carries no key material.** An earlier draft put a JWK set in
+`publisher.keys`; it is removed, for two compounding reasons. A verifier that resolves a
+trusted key externally gains nothing from a key set the attacker also controls — it is an
+attacker-supplied input consulted ahead of the real anchor. And because §5 strips only
+`signature`, `publisher` is *inside* the signed payload, so a signature would cover the
+very key material that verifies it: self-certifying, and circular unless the anchor is
+external.
+
+`kid` therefore selects from the **externally resolved** key set for `publisher.id`, and
+a `kid` naming no externally trusted key is a refusal. Rotation is preserved — the
+resolved anchor is a set, and `kid` says which member signed — while the verification
+path takes no key material from the document being verified.
 
 RFC 8037 spells Ed25519's `alg` as `EdDSA`, with the curve in the JWK's `crv`. The
 protected header is verified as the literal transmitted string, so it does not itself
@@ -236,9 +266,34 @@ Four normative clauses carry the security weight:
    implements it itself* — the same shape as
    [`url-resolution.md`](../../spec/connector-kit/v1/url-resolution.md) §8, where each
    binding enforces the redirect rule because neither runtime does.
-4. **`kid` must equal the RFC 7638 thumbprint** of the key it selects, and the selected
-   key must equal the externally-resolved trusted key under constant-time comparison —
-   preserving today's `PublisherKeyMismatch` semantics.
+4. **`kid` must equal the RFC 7638 thumbprint** of the key it selects, and that key must
+   come from the externally resolved set, compared constant-time — preserving today's
+   `PublisherKeyMismatch` semantics.
+
+### 6.1 What resolves the trust anchor is out of scope
+
+This contract specifies how a signature is formed and checked. It does **not** specify
+how a verifier learns which keys `publisher.id` is trusted for — that is registry and
+gateway policy, and it is the division `SECURITY.md` already draws with *"signing
+primitives, not signing authority."* The spec states the obligation and stops: the
+verifier MUST obtain the key set from a trusted source of its own, and MUST NOT derive it
+from the manifest under verification.
+
+Naming this explicitly is what keeps §6's clauses meaningful. A verifier that resolved
+the anchor from the document would satisfy every clause above and be worthless.
+
+### 6.2 `SignatureDisableReason` becomes derived, not parallel
+
+`SignatureDisableReason` and `errorToHardDisableReason` are exported today and consumed
+by the gateway (§3.2). They are a coarser spelling of what §5 and §6 now enumerate —
+`signature_malformed`, `signature_failed` and `publisher_key_mismatch` against a closed,
+specified token set.
+
+**The rejection tokens become the contract**, and `errorToHardDisableReason` is retained
+in the new surface as a pure mapping *from* those tokens *to* the gateway's existing
+reason strings, so the monorepo's `SignatureDisabledRegistry` keeps its vocabulary while
+this package stops owning a second one. It retires with the flat surface only if the
+gateway migrates off it first.
 
 ## 7. Corpora
 
@@ -267,7 +322,7 @@ succeeds. Three sections:
 - **`sign`** — deterministic known-answer.
 - **`ed25519`** — **RFC 8032 §7.1's own published vectors**, so Python's hand-rolled
   implementation is held to the IETF's numbers rather than to our output. This section
-  is the reason S4 is reviewable.
+  is the reason S3 is reviewable.
 
 Committed seeds are public IETF test material, loudly labelled. `generateEd25519Keypair`'s
 existing *"no committed crypto material — see spec §6.3"* citation is a **dangling
@@ -276,20 +331,46 @@ monorepo extraction — and is corrected as a drive-by.
 
 ## 8. Shipments
 
+**The removal cannot be a shipment. It is a release sequence**, and an earlier draft of
+this plan was un-mergeable for missing that.
+
+`crypto/canonical-json.ts` and `crypto/verify-signature.ts` are both
+`@moduleStability stable`. [RFC-0015 §2](../../rfcs/0015-tiered-stability.md)'s rule
+table requires `feat!:` **+ window** to remove a `stable` export, and
+[`DEPRECATION-POLICY.md`](../../DEPRECATION-POLICY.md) defines that window as: marked
+`@deprecated` in one released minor, still present and still marked in **a later,
+separate minor release**, and only then removed — closing with *"Removal is always a
+major bump."* `commit-guard` is a required check on `main`, so a PR that deletes them
+before the window elapses cannot merge.
+
+**Two consequences the plan now carries explicitly.** The removal needs two prior
+releases, not one PR. And it takes `@nimbus-dev/sdk` to **2.0.0** — the flagship
+package's first major, which is a decision to make deliberately rather than discover in
+a release PR.
+
 | # | Content |
 |---|---|
-| **S0** | **RFC-0020**: the envelope, the four divergences, the NFC drop, replace-not-coexist, the Python side-channel disclosure. Merged before any code, per GOVERNANCE. |
-| **S1** | `canonical-json.md` + corpus + **all three bindings**. Pure, no crypto, so one coherent shipment. Creates the `signing` surface in each. **Carries the `feat!`**: deletes `crypto/canonical-json.ts` and `crypto/verify-signature.ts`. |
-| **S2** | `manifest-signature.md` + `base64url` / `jwk` / `jws` in all three. Still no Ed25519 — strict base64url, RFC 7638 thumbprints and header validation are stdlib-only everywhere. |
-| **S3** | Ed25519 sign+verify in **Go and TypeScript** (stdlib / WebCrypto), full `manifest-signature` corpus. Python records a non-claim in `conformance-coverage.json`. |
-| **S4** | **Python's RFC 8032 implementation**, claiming the corpus, plus the §7.1 vector section and the `SECURITY.md` disclosure. Deletes S3's non-claim. |
-| **S5** | `extension-manifest.schema.json` gains `publisher` / `signature`; the `manifest` corpus follows; CLAUDE.md's three counts. |
+| **S0** | **RFC-0020**: the envelope, the four divergences, the NFC drop, replace-not-coexist, the Python side-channel disclosure, and the 2.0.0 consequence. Merged before any code, per GOVERNANCE. |
+| **S1** | `canonical-json.md` + corpus + **all three bindings**. Pure, no crypto. Creates the `signing` surface in each. **Marks the old `crypto/*` signing exports `@deprecated`** — opening the window. Additive throughout: `feat:`, no break. |
+| **S2** | `manifest-signature.md` + `base64url` / `jwk` / `jws` **and Ed25519 for Go and TypeScript**, both platform-provided. Full `manifest-signature` corpus. Python records a non-claim in `conformance-coverage.json`. |
+| **S3** | **Python's RFC 8032 implementation**, claiming the corpus, plus the §7.1 vector section and the `SECURITY.md` disclosure. Deletes S2's non-claim. |
+| **S4** | `extension-manifest.schema.json` gains `publisher` / `signature`; the `manifest` corpus follows; CLAUDE.md's three counts. |
+| **S5** | **The removal.** `feat!:`, cutting 2.0.0. Gated on the window having elapsed *and* on the Nimbus monorepo having migrated off the flat path (§3.2). |
 
-**S1 through S3 leave the package with no manifest signing at all.** That is deliberate.
-The alternative is leaving `verifyManifestSignature` exported while S1 changes the bytes
-underneath it, and a signing function that silently starts producing different output is
-worse than one that is honestly absent. The flat path is in no schema, in no spec, and
-has no gateway integration yet.
+**The old modules stay byte-for-byte unchanged through S1–S4** — still UTF-16 sort, still
+NFC — and are merely marked deprecated. They are not silently changed; they are frozen at
+their existing behavior for the window's duration, which is what a window is for. The new
+`signing` surface is separately named and separately specified, so the two canonicalizers
+coexist without ambiguity about which a caller invoked.
+
+That also dissolves a problem an earlier draft created and then defended: there is no
+longer any interval in which the package ships no manifest signing.
+
+**Ed25519 for Go and TypeScript moves into S2** rather than trailing it. Both are
+platform-provided — `crypto/ed25519` and WebCrypto — so deferring them bought nothing and
+would have left `jws` shipping as a module that could parse a protected header but
+complete neither operation it exists for. The only genuinely deferred piece is Python's
+hand-roll, which is S3.
 
 ## 9. Gates
 
@@ -307,7 +388,7 @@ Every shipment trips a different subset; none of them is optional.
 - **`go -C sdks/go generate ./spec`** on every shipment touching `docs/spec/`, or
   `spec/drift_test.go` fails the PR
 - `test_spec.py`'s two hard-coded size pins
-- `commit-guard` — S1's `feat!`, with RFC-0020 cited
+- `commit-guard` — S1's `feat:` opening the window, and S5's `feat!:` closing it, with RFC-0020 cited
 
 Each corpus shipment runs through the `nimbus-sdk-conformance-corpus` skill, which owns
 the case-file / `index.json` pairing and the anti-vacuity rules.
@@ -316,8 +397,40 @@ the case-file / `index.json` pairing and the anti-vacuity rules.
 
 - CLAUDE.md's five-checks bullet says Python *"asserts that the import roots on disk are
   the **four** documented — a **fifth** root would…"* while the Python surface section
-  above it correctly says eight. Stale; corrected in S5 along with the 8 → 9 change.
+  above it correctly says eight. Stale; corrected in S4 along with the 8 → 9 change.
 - `generateEd25519Keypair`'s dangling `spec §6.3` citation (§7.2).
+
+## 11. Alternatives considered
+
+### Sign the raw manifest bytes, and canonicalize nothing
+
+The option that deletes most of this design. Wrap the manifest verbatim in an outer
+envelope and sign the bytes as they sit:
+
+```
+{ "manifest": "<the raw manifest file, verbatim>",
+  "signature": { "protected": …, "signature": … } }
+```
+
+No sort order, no NFC question, no escaping rules, no integer bound, no depth cap. **All
+four divergences in §1 vanish**, because nothing re-serializes anything — and most of §5
+along with them.
+
+Rejected, for three reasons:
+
+- **The signature must live inside the manifest.** Single-file distribution is the whole
+  shape of the artifact: an outer envelope means the file on disk is no longer a
+  manifest, which breaks `$schema` editor completion, every existing reader, and the
+  `manifest` conformance corpus.
+- **It relocates the fragility rather than removing it.** The raw bytes must then survive
+  every hop byte-exact, and registries and package tooling re-serialize JSON as a matter
+  of course. A whitespace change becomes a signature failure.
+- **Canonicalization is needed regardless** the moment anything signs a manifest it
+  constructed in memory rather than read from disk — which is what the scaffolder and any
+  publishing tool do.
+
+The reasons are contingent, not fundamental: an ecosystem that distributed manifests as
+opaque signed blobs would be right to choose the other option. This one does not.
 
 ## Out of scope
 

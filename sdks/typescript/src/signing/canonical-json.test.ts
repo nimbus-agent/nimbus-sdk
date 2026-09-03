@@ -165,4 +165,25 @@ describe("§9 tokens", () => {
     obj["a"] = 2;
     expect(canonicalize(obj)).toBe('{"a":2,"b":1}');
   });
+
+  // F1: `Array.prototype.map` preserves holes, so a sparse array previously
+  // canonicalized to malformed JSON (`[,1]`) instead of throwing. Neither
+  // Python nor Go can even represent a sparse array.
+  test("rejects a sparse array as unsupported-type", () => {
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the point of this test.
+    expect(reasonOf(() => canonicalize([, 1]))).toBe("unsupported-type");
+  });
+
+  test("rejects a sparse array with a hole in the middle", () => {
+    // biome-ignore lint/suspicious/noSparseArray: the hole is the point of this test.
+    expect(reasonOf(() => canonicalize([1, , 2]))).toBe("unsupported-type");
+  });
+
+  test("still canonicalizes an ordinary dense array", () => {
+    expect(canonicalize([1, 2, 3])).toBe("[1,2,3]");
+  });
+
+  test("still canonicalizes a JSON.parse array containing null", () => {
+    expect(canonicalize(JSON.parse("[null,1]"))).toBe("[null,1]");
+  });
 });

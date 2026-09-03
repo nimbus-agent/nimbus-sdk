@@ -107,6 +107,14 @@ def test_unsupported_type_rejected() -> None:
     assert _reason(lambda: canonicalize(object())) == "unsupported-type"
 
 
+def test_non_string_dict_key_rejected() -> None:
+    # F2: without an explicit check, sorted() raises a bare TypeError for a
+    # single non-str key, and mixed str/non-str keys raise a different TypeError
+    # from the "<" comparison during the sort -- both escape the closed §9 set.
+    assert _reason(lambda: canonicalize({1: 2})) == "unsupported-type"
+    assert _reason(lambda: canonicalize({1: 2, "a": 3})) == "unsupported-type"
+
+
 def test_every_reason_is_published() -> None:
     assert sorted(CANONICALIZATION_REASONS) == [
         "lone-surrogate",

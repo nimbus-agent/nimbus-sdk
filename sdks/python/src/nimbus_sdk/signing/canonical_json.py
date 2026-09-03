@@ -94,6 +94,13 @@ def _canonicalize_at(value: object, depth: int) -> str:
     if isinstance(value, list):
         return "[" + ",".join(_canonicalize_at(v, depth + 1) for v in value) + "]"
     if isinstance(value, dict):
+        # A non-str key cannot come from json.loads (JSON object keys are always
+        # strings), but a caller can construct one in memory. Rejecting it here
+        # keeps the error inside the closed §9 set instead of leaking a bare
+        # TypeError from sorted() or from a "<" comparison between mixed key types.
+        for k in value:
+            if not isinstance(k, str):
+                raise CanonicalizationError("unsupported-type")
         keys = sorted(value)  # §4. Python compares by code point already.
         members = (
             f"{_encode_string(k)}:{_canonicalize_at(value[k], depth + 1)}" for k in keys

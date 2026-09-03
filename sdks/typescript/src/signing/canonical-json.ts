@@ -105,7 +105,18 @@ function canonicalizeAt(value: unknown, depth: number): string {
     return String(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((v) => canonicalizeAt(v, depth + 1)).join(",")}]`;
+    // `Array.prototype.map` preserves holes: `[, 1].map(String)` skips index 0
+    // rather than visiting it with `undefined`, so `.join(",")` on the result
+    // silently drops the missing element and emits `[,1]` — not valid JSON.
+    // Neither Python nor Go can represent a sparse array, so a hole is rejected
+    // outright rather than given some invented per-language meaning. `JSON.parse`
+    // never produces holes, so this is only reachable from in-memory construction.
+    const items: string[] = new Array(value.length);
+    for (let i = 0; i < value.length; i++) {
+      if (!(i in value)) throw new CanonicalizationError("unsupported-type");
+      items[i] = canonicalizeAt(value[i], depth + 1);
+    }
+    return `[${items.join(",")}]`;
   }
   if (typeof value === "object") {
     // `typeof value === "object"` alone is not enough: it is also true of a `Date`, a

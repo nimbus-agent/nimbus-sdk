@@ -505,7 +505,8 @@ jobs:
             tests/test_data_profile_corpus.py \
             tests/test_distribution_channel_corpus.py \
             tests/test_icalendar_corpus.py \
-            tests/test_jmap_corpus.py
+            tests/test_jmap_corpus.py \
+            tests/test_canonical_json_corpus.py
 
       # `go-version-file` rather than a literal, so this is not a third place to update when
       # the supported minors move. The policy is the two most recent stable minors with the

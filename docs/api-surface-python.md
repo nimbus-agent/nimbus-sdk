@@ -286,3 +286,13 @@ reworded docstring is not a change to the surface.
 - `def preview_for(raw: dict[str, Any]) -> str` — **frozen** — from `jmap_fastmail/jmap`
 - `def validate_api_url(candidate: str, allowed_base: str) -> str` — **frozen** — from `jmap_fastmail/jmap`
 - `def view_email(raw: object) -> JmapEmailView | None` — **frozen** — from `jmap_fastmail/jmap`
+
+## `nimbus_sdk.signing`
+
+4 exports.
+
+- `CANONICALIZATION_REASONS: tuple[str, ...]` — **experimental** — from `signing/canonical_json`
+- `class CanonicalizationError(Exception)` — **experimental** — from `signing/canonical_json`
+  - `def __init__(self, reason: str) -> None`
+- `def canonicalize(value: object) -> str` — **experimental** — from `signing/canonical_json`
+- `def canonicalize_manifest(manifest: dict[str, object]) -> bytes` — **experimental** — from `signing/canonical_json`

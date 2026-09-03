@@ -46,6 +46,7 @@ IMPORT_ROOTS: tuple[str, ...] = (
     "nimbus_sdk.distribution_channel",
     "nimbus_sdk.icalendar",
     "nimbus_sdk.jmap_fastmail",
+    "nimbus_sdk.signing",
 )
 
 

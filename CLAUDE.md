@@ -64,7 +64,7 @@ module has neither tag, which is what makes the rule load-bearing rather than as
 `` — **tier** — from `<module>` `` form Python's and Go's goldens use (see below); the
 guard's parser has two different code paths keyed on exactly this distinction.
 
-## Python surface (eight import roots, deliberately)
+## Python surface (nine import roots, deliberately)
 
 - `nimbus_sdk` (`sdks/python/src/nimbus_sdk/__init__.py`) — the contract-version
   constants, the negotiation algorithm, and `load_schema` / `load_corpus` / `spec_root`.
@@ -114,6 +114,12 @@ guard's parser has two different code paths keyed on exactly this distinction.
   `jmap` respectively). They are what took this section from four import roots to eight,
   and Python from four executed corpora to eight. Their exports are listed in
   [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
+- `nimbus_sdk.signing` (`sdks/python/src/nimbus_sdk/signing/`) — the Python binding of
+  `docs/spec/signing/v1/canonical-json.md`: `canonicalize`, `canonicalize_manifest`,
+  `CanonicalizationError`, and `CANONICALIZATION_REASONS`. Declared `experimental`,
+  matching TypeScript's own tier for the module. It is the ninth import root and runs the
+  same `canonical-json` conformance corpus as TypeScript, byte-identically. Go's binding is
+  not yet published — that is the next task of this shipment.
 
 **The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and
 must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
@@ -124,13 +130,13 @@ claim, and the one that covers every root, is that **each is a separate surface*
 The TypeScript `exports` map has implied exactly this since `1.15.0`, by giving
 `connector-kit` its own entry point alongside the contract-bearing `./ipc` and
 `./diagnostics`. Python has no bundling reason to need a second entry point at all,
-let alone an eighth, so the boundary is documentation — and hoisting the names to the top
+let alone a ninth, so the boundary is documentation — and hoisting the names to the top
 level as a convenience would erase it. **The SET of roots is now gated by a test; the
 no-re-export rule above still is not.**
 [`docs/api-surface-python.md`](./docs/api-surface-python.md)
 is a generated snapshot of all of them, and `sdks/python/tests/test_api_surface.py`
-asserts the import roots found on disk are exactly the eight `IMPORT_ROOTS` lists — so a
-ninth root fails CI until someone adds it there, and this section is what has to be
+asserts the import roots found on disk are exactly the nine `IMPORT_ROOTS` lists — so a
+tenth root fails CI until someone adds it there, and this section is what has to be
 updated alongside it. Whether a name stays out of the wrong root is checked by review
 alone, as it always was.
 
@@ -271,17 +277,21 @@ Go executes `negotiation` (all three kinds — `negotiate`, `hello`, `declaratio
 (run against `connectorkit.ResolveURLWithBase`), and the four battery corpora against the
 packages that bind them — `data-profile` against `dataprofile`, `distribution-channel`
 against `distributionchannel`, `icalendar` against `icalendar`, and `jmap` against
-`jmapfastmail` — nothing deferred in any. That is the same set Python executes.
+`jmapfastmail` — nothing deferred in any.
+
+Python executes that same set, plus one more: its own binding of the signing corpus
+landed in this shipment, ahead of Go's, which is what makes the two sets differ for now.
 
 **Thirteen corpora are published, and no binding but TypeScript runs them all.** Eleven
 carry their own `index.json`; two are fixture sets in the *top-level*
 `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and `item`), with
 their case files sitting directly in the corpus directory and no `cases/` subdirectory.
-The five neither Go nor Python claims are exactly those two plus `predicates`, `sandbox`
-and `canonical-json` — `predicates` and `sandbox` bind surfaces neither publishes,
-`manifest` / `item` need a JSON Schema validator the dependency-free rule would make
-hand-written, and `canonical-json`'s Python and Go bindings land in a later task of this
-shipment. Every case count
+The five Go does not claim are exactly those two plus `predicates`, `sandbox` and
+`canonical-json` — `predicates` and `sandbox` bind surfaces neither Go nor Python
+publishes, `manifest` / `item` need a JSON Schema validator the dependency-free rule
+would make hand-written in either, and `canonical-json`'s Go binding is the next task of
+this shipment. Python claims all but the first four of those five — its own
+`canonical-json` binding landed in this task. Every case count
 behind these claims — the total across all thirteen corpora,
 and how many of them each binding executes — lives in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into

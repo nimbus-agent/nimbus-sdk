@@ -285,14 +285,17 @@ describe("prose that restates the coverage declaration", () => {
     expect(corpusNamesByIndexShape().fixtureSet.length).toBe(2);
   });
 
-  test("Python and Go claim the same corpora, which two gated sentences assume", () => {
-    // "the other two execute eight" collapses both bindings into one number. The day that
-    // stops being true, those sentences need rewriting, not renumbering — and this fails
-    // first, which is the point.
-    expect(readManifest().languages.python.claims.toSorted()).toEqual(
-      readManifest().languages.go.claims.toSorted(),
-    );
-  });
+  // A prior version of this suite asserted "Python and Go claim the same corpora", on
+  // the strength of every corpus up to `canonical-json` landing in both at once. That
+  // assertion existed to protect two sentences that collapsed both bindings into one
+  // shared number — `docs/GOVERNANCE.md`'s "the other two execute eight" among them.
+  // `canonical-json` breaks the equality by design: Python claims it in this shipment's
+  // Python task, Go in the following one, so for one commit the two binding's claim
+  // sets genuinely differ. The two sentences were rewritten to name each binding's count
+  // or set separately instead of assuming they match — see the COUNT_CLAIMS entry below
+  // and `CLAUDE.md`'s "Go executes …" paragraph — so nothing here still depends on the
+  // equality, and re-adding it would fail again the next time a corpus lands in one
+  // binding before the other, exactly as it did for `canonical-json`.
 
   /**
    * Sentences rendered from the declaration and required to appear verbatim.
@@ -317,9 +320,9 @@ describe("prose that restates the coverage declaration", () => {
     },
     {
       file: "CLAUDE.md",
-      what: "the count of corpora neither Go nor Python claims",
-      near: "neither Go nor Python claims are exactly those two plus",
-      expected: () => `The ${spell(unclaimedCount("go"))} neither Go nor Python claims`,
+      what: "the count of corpora Go does not claim",
+      near: "does not claim are exactly those two plus",
+      expected: () => `The ${spell(unclaimedCount("go"))} Go does not claim`,
     },
     {
       file: "CLAUDE.md",
@@ -331,9 +334,9 @@ describe("prose that restates the coverage declaration", () => {
     {
       file: "docs/GOVERNANCE.md",
       what: "the reference implementation's literal satisfaction of criterion 1",
-      near: "published corpora where the other two execute",
+      near: "published corpora where Python executes",
       expected: () =>
-        `executing all ${spell(corpusNames().length)} published corpora where the other two execute ${spell(claimCount("python"))}`,
+        `executing all ${spell(corpusNames().length)} published corpora where Python executes ${spell(claimCount("python"))} and Go executes ${spell(claimCount("go"))}`,
     },
     {
       file: "docs/GOVERNANCE.md",

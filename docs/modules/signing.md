@@ -1,4 +1,5 @@
-<!-- covers: signing/canonical-json -->
+<!-- covers: signing/canonical-json
+     py: signing/canonical_json -->
 
 # `signing`
 

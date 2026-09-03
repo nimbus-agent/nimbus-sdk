@@ -368,7 +368,7 @@ pins byte for byte. It is the corpus where the three languages' defaults disagre
 naive `mailto:` search is wrong in opposite directions in Go and in the other two, a naive
 trim is wrong differently again, and a naive fold at "75" cuts in three different places
 because `len` counts bytes, code points and UTF-16 units respectively.
-They also all three run the `jmap` corpus, the eighth and last. It holds a sixth
+They also all three run the `jmap` corpus, the eighth of nine. It holds a sixth
 kind of claim — that independent implementations of a wire *protocol's client half*
 agree, both on the request structures they build and on the verdict for the one value a
 remote party chooses, which §5 guards because a spoofed session would otherwise redirect
@@ -376,11 +376,10 @@ a bearer token. Its §6.4 also carries the clearest statement in the tree of why
 must be named rather than inherited: the cap is code points in every binding, because
 letting each count its own gave one input two conforming answers and left the boundary
 unpinnable by any case.
-`sdks/python/` now also runs the `canonical-json` corpus — Python's binding lands in this
-task of this shipment — which holds a seventh kind of claim: that two independent
-serializers, given the same JSON value, produce byte-identical canonical output, which is
-the one thing a detached signature can verify across languages at all. Go's binding is not
-yet among them; that is the next task.
+`sdks/python/` and `sdks/go/` now also run the `canonical-json` corpus, the ninth, which
+holds a seventh kind of claim: that three independent serializers, given the same JSON
+value, produce byte-identical canonical output, which is the one thing a detached
+signature can verify across languages at all.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. Four corpora are executed by the **TypeScript** binding alone.
@@ -528,10 +527,14 @@ against its schemas, holds the index and the cases directory to each other, and 
 every case through `canonicalize` and `canonicalizeManifest`. It asserts every published
 [§9](./signing/v1/canonical-json.md#9-rejection-tokens) token —
 `unsupported-type`, `non-integer-number`, `number-out-of-range`, `nesting-too-deep`, and
-`lone-surrogate` — is asserted by at least one case, except `lone-surrogate`, which
-[§6](./signing/v1/canonical-json.md#6-strings) records as pinned by per-binding unit tests
-rather than the corpus, since Go's decoder makes the input corpus-inexpressible. It also
-asserts that every pinnable section, §4 through §8, is cited by at least one case.
+`lone-surrogate` — is asserted by at least one case, except `lone-surrogate` and
+`unsupported-type`, both of which are pinned by per-binding unit tests instead of the
+corpus, since neither token's triggering input can be expressed in a JSON corpus file:
+[§6](./signing/v1/canonical-json.md#6-strings) records that Go's decoder substitutes
+U+FFFD for a lone surrogate rather than preserving it, and §3 restricts `unsupported-type`
+to a value no conforming JSON decoder can itself produce, so a case's `input` — already
+decoded by that same JSON decoder before the binding sees it — can never carry one. It
+also asserts that every pinnable section, §4 through §8, is cited by at least one case.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

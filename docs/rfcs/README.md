@@ -30,6 +30,7 @@ widening the contract.
 | [0017](./0017-battery-specifications.md) | Battery specifications, the normative whitespace set, and one amendment to RFC-0015's rule table — **supersedes** RFC-0015's `Export added` / `frozen` cell | accepted | this document (Shipment 0 of the battery port) |
 | [0018](./0018-icalendar-line-folding.md) | `buildVEvent` does not fold — settles `icalendar.md` §7, which RFC-0017 left provisional | accepted | this document (Shipment 3 of the battery port) |
 | [0019](./0019-additive-signature-changes.md) | Extending a declaration is adding, not breaking — **supersedes** RFC-0015's `Signature changed` / `stable` cell for optional-member additions | accepted | this document |
+| [0020](./0020-manifest-signing.md) | Manifest signing as a specified, three-language contract | accepted | this document (Shipment S0 of 6) |
 
 ## Statuses
 

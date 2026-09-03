@@ -1,0 +1,6 @@
+{
+  "description": "An NFD-decomposed e + combining acute accent (U+0065 U+0301) survives undecomposed — no normalization is applied.",
+  "mode": "value",
+  "input": "é",
+  "expect": {"ok":true,"canonical":"2265cc8122"}
+}

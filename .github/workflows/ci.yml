@@ -452,6 +452,7 @@ jobs:
         working-directory: sdks/typescript
         run: |
           bun test \
+            scripts/canonical-json-guard.test.ts \
             scripts/data-profile-guard.test.ts \
             scripts/diagnostics-guard.test.ts \
             scripts/distribution-channel-guard.test.ts \

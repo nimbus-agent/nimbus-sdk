@@ -39,7 +39,7 @@ It is a statement of intent for how the project is run, not a legal document.
     rather than resolving it, and RFC-0016 resolves it — not by promoting a binding that
     was never community, but by holding the binding that *defines* the bar to it. It is
     the only one that satisfies criterion 1 under its literal wording, executing all
-    twelve published corpora where the other two execute eight.
+    thirteen published corpora where the other two execute eight.
 - **Contributors** — anyone opening issues, PRs, or RFCs. Third-party connector and
   app authors are first-class contributors to the ecosystem.
 
@@ -83,7 +83,7 @@ A new language SDK is promoted from community to **official** when:
 
 **Criterion 1, read.** Its wording — "the full conformance suite" — has a literal reading
 and an applied one, and they differ. **Literally**, "full" is every corpus in the tree:
-twelve are published, and no binding but the reference implementation runs all twelve, so
+thirteen are published, and no binding but the reference implementation runs all thirteen, so
 read that way the criterion would admit no binding that did not already define the
 contract. **As applied**, "full" means **every published corpus whose surface the binding
 publishes** — the reading Python was promoted under, on two of six.

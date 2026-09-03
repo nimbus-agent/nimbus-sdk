@@ -1,0 +1,6 @@
+{
+  "description": "The literal 1.0 decodes to the integral value 1 and canonicalizes as 1, because §5 is a rule about the value, never the literal that produced it.",
+  "mode": "value",
+  "input": 1.0,
+  "expect": {"ok":true,"canonical":"31"}
+}

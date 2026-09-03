@@ -1,0 +1,6 @@
+{
+  "description": "A value nested exactly 32 levels deep, the boundary itself, is canonicalized normally.",
+  "mode": "value",
+  "input": [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
+  "expect": {"ok":true,"canonical":"5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b5b315d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d5d"}
+}

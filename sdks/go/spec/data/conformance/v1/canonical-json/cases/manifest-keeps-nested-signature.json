@@ -1,0 +1,6 @@
+{
+  "description": "A member named signature nested inside another object is ordinary data and is not stripped.",
+  "mode": "manifest",
+  "input": {"id":"x","nested":{"signature":"keep"}},
+  "expect": {"ok":true,"canonical":"7b226964223a2278222c226e6573746564223a7b227369676e6174757265223a226b656570227d7d"}
+}

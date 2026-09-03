@@ -1,0 +1,6 @@
+{
+  "description": "U+0001, a control character with no short form, is escaped as the six characters \\u0001.",
+  "mode": "value",
+  "input": "\u0001",
+  "expect": {"ok":true,"canonical":"225c753030303122"}
+}

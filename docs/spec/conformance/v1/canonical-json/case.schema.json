@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/canonical-json/case.schema.json",
+  "title": "Canonical-JSON conformance case",
+  "description": "One canonicalization. An input value and either the exact bytes produced, hex-encoded, or the exact rejection token.",
+  "type": "object",
+  "required": ["description", "mode", "input", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "mode": {
+      "enum": ["value", "manifest"],
+      "description": "\"value\" drives canonicalize; \"manifest\" drives canonicalizeManifest, which strips the top-level signature member first."
+    },
+    "input": {
+      "description": "The value being canonicalized. Deliberately unconstrained — several cases supply values outside the input domain, which is what unsupported-type pins."
+    },
+    "expect": {
+      "type": "object",
+      "required": ["ok"],
+      "additionalProperties": false,
+      "properties": {
+        "ok": { "type": "boolean" },
+        "canonical": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{2})*$",
+          "description": "On success: the exact UTF-8 bytes produced, lowercase hex, no separators. Hex rather than a string so the corpus file's own JSON escaping cannot alter what is asserted."
+        },
+        "reason": {
+          "enum": [
+            "non-integer-number",
+            "number-out-of-range",
+            "unsupported-type",
+            "nesting-too-deep",
+            "lone-surrogate"
+          ],
+          "description": "On refusal: the §9 token."
+        }
+      },
+      "allOf": [
+        { "if": { "properties": { "ok": { "const": true } } }, "then": { "required": ["canonical"] } },
+        { "if": { "properties": { "ok": { "const": false } } }, "then": { "required": ["reason"] } }
+      ]
+    }
+  }
+}

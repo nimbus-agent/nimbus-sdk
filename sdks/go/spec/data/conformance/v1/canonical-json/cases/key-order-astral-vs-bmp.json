@@ -1,0 +1,6 @@
+{
+  "description": "Object keys sort by Unicode code point, not UTF-16 code unit: z, Ｚ, 😀.",
+  "mode": "value",
+  "input": {"😀":1,"Ｚ":2,"z":3},
+  "expect": {"ok":true,"canonical":"7b227a223a332c22efbcba223a322c22f09f9880223a317d"}
+}

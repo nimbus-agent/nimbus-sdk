@@ -1,0 +1,6 @@
+{
+  "description": "The solidus, /, is emitted literally — it is not one of §6's three escaped things.",
+  "mode": "value",
+  "input": "/",
+  "expect": {"ok":true,"canonical":"222f22"}
+}

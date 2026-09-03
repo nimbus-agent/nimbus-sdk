@@ -1,0 +1,6 @@
+{
+  "description": "The five named control characters backspace, form feed, newline, carriage return and tab use their short escape forms.",
+  "mode": "value",
+  "input": "\b\f\n\r\t",
+  "expect": {"ok":true,"canonical":"225c625c665c6e5c725c7422"}
+}

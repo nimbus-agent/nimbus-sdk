@@ -273,14 +273,16 @@ packages that bind them — `data-profile` against `dataprofile`, `distribution-
 against `distributionchannel`, `icalendar` against `icalendar`, and `jmap` against
 `jmapfastmail` — nothing deferred in any. That is the same set Python executes.
 
-**Twelve corpora are published, and no binding but TypeScript runs them all.** Ten carry
-their own `index.json`; two are fixture sets in the *top-level*
+**Thirteen corpora are published, and no binding but TypeScript runs them all.** Eleven
+carry their own `index.json`; two are fixture sets in the *top-level*
 `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and `item`), with
 their case files sitting directly in the corpus directory and no `cases/` subdirectory.
-The four neither Go nor Python claims are exactly those two plus `predicates` and
-`sandbox` — the latter two bind surfaces neither publishes, and `manifest` / `item` need a
-JSON Schema validator the dependency-free rule would make hand-written. Every case count
-behind these claims — the total across all twelve corpora,
+The five neither Go nor Python claims are exactly those two plus `predicates`, `sandbox`
+and `canonical-json` — `predicates` and `sandbox` bind surfaces neither publishes,
+`manifest` / `item` need a JSON Schema validator the dependency-free rule would make
+hand-written, and `canonical-json`'s Python and Go bindings land in a later task of this
+shipment. Every case count
+behind these claims — the total across all thirteen corpora,
 and how many of them each binding executes — lives in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md), rather than restated

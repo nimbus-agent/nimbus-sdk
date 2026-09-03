@@ -371,9 +371,11 @@ version accessor. It executes **every published conformance corpus its surface p
 `parse`, and `level` — `url-resolution` — against `ResolveURLWithBase` — and the four
 battery corpora against the packages that bind them: `data-profile` against `dataprofile`,
 `distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
-`jmap` against `jmapfastmail`. The other four —
-`predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module does not publish,
-and the last two need a JSON Schema validator no dependency-free binding has written. Which
+`jmap` against `jmapfastmail`. The other five —
+`canonical-json`, `predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module
+does not (yet, for `canonical-json`; not at all, for the other three) publish, and `manifest`
+/ `item` additionally need a JSON Schema validator no dependency-free binding has written.
+Which
 binding claims which corpus, and every case count behind these numbers, is generated into
 [`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
 rather than restated here.

@@ -1,0 +1,115 @@
+{
+  "spec": "../../../signing/v1/canonical-json.md",
+  "cases": [
+    {
+      "file": "cases/key-order-astral-vs-bmp.json",
+      "section": "§4",
+      "reason": "The live divergence §4 exists to fix: keys z (U+007A), Ｚ (U+FF3A) and 😀 (U+1F600) sort as z, Ｚ, 😀 under ascending code-point order, but a binding sorting by UTF-16 code unit instead produces z, 😀, Ｚ, since 😀's surrogate pair begins at U+D800, below U+FF3A. Measured: reverting compareCodePoints to plain string comparison and re-running the corpus, this is caught by 0 of the other 21 cases — none of them puts an astral key beside one in U+E000-U+FFFF, so this is the corpus's sole witness to the bug."
+    },
+    {
+      "file": "cases/key-order-ascii.json",
+      "section": "§4",
+      "reason": "Ordinary lexicographic ordering of plain ASCII keys, the baseline §4 case every ordering variant is measured against."
+    },
+    {
+      "file": "cases/key-order-empty-key.json",
+      "section": "§4",
+      "reason": "The empty string is the shortest possible key and, having no code points at all, MUST sort first under ascending code-point order."
+    },
+    {
+      "file": "cases/number-max-safe-integer.json",
+      "section": "§5",
+      "reason": "Pins the exact upper boundary §5 names: ±(2⁵³−1). One past it is number-above-safe-range-rejected."
+    },
+    {
+      "file": "cases/number-above-safe-range-rejected.json",
+      "section": "§5",
+      "reason": "1e21 is what JS's own Number#toString would otherwise render in exponential form; §5 requires it be rejected instead of divergently serialized."
+    },
+    {
+      "file": "cases/number-negative-max-safe.json",
+      "section": "§5",
+      "reason": "The lower boundary companion to number-max-safe-integer — §5's bound is symmetric (±(2⁵³−1)), and only testing the positive side would leave the negative half unpinned."
+    },
+    {
+      "file": "cases/number-non-integer-rejected.json",
+      "section": "§5",
+      "reason": "1.5's value has a nonzero fractional part, which §5 requires be rejected as non-integer-number rather than truncated or rounded."
+    },
+    {
+      "file": "cases/number-integral-float-accepted.json",
+      "section": "§5",
+      "reason": "JSON.parse(\"1.0\") returns the JavaScript number 1 — the literal is destroyed before canonicalize ever runs. Python decodes the same text to a float and Go's UseNumber keeps json.Number(\"1.0\"); all three MUST answer 1, holding §5 to the value rather than to whichever literal a binding's own decoder happened to see."
+    },
+    {
+      "file": "cases/number-non-finite-rejected.json",
+      "section": "§5",
+      "reason": "Each runtime reaches this differently — JSON.parse yields Infinity, json.loads yields inf, and Go's UseNumber yields a json.Number whose Float64() overflows — so this is the one case that forces all three to agree on the token. Measured: caught by 0 of the other 21 cases; a TypeScript implementation checking integrality before finiteness answers non-integer-number here while Python and Go answer number-out-of-range. That exact divergence was live in this shipment's first TypeScript implementation and was found by review, not by a test."
+    },
+    {
+      "file": "cases/number-negative-zero.json",
+      "section": "§5",
+      "reason": "A negative zero already satisfies \"the value's magnitude is a whole number\", so §5's integral-value rule applies to it directly rather than as a separate exception; String(-0) would otherwise emit \"0\" only by JS coincidence, so this case pins the OUTPUT rather than relying on that coincidence."
+    },
+    {
+      "file": "cases/string-html-characters-literal.json",
+      "section": "§6",
+      "reason": "§6 explicitly forbids escaping <, > and & — forbidding what encoding/json does by default in Go. A binding using Go's default HTML-escaping json.Marshal would fail this case."
+    },
+    {
+      "file": "cases/string-nfd-preserved.json",
+      "section": "§6",
+      "reason": "Canonicalization is byte-preserving: a publisher whose editor emits NFD is signed in NFD. A binding that normalizes to NFC before encoding would collapse this to the single code point U+00E9 and fail the byte-equality assertion."
+    },
+    {
+      "file": "cases/string-nfc-preserved.json",
+      "section": "§6",
+      "reason": "The anti-vacuity companion to string-nfd-preserved: byte-preservation cuts both ways, so a binding that decomposes to NFD before encoding would also fail this case."
+    },
+    {
+      "file": "cases/string-named-control-escapes.json",
+      "section": "§6",
+      "reason": "§6 requires the short forms \\b, \\f, \\n, \\r and \\t where they apply, rather than the generic \\u00XX form every one of them could also be written in."
+    },
+    {
+      "file": "cases/string-hex-control-escape.json",
+      "section": "§6",
+      "reason": "§6 requires lowercase \\u00XX for every control code point in U+0000-U+001F that has no short escape — this pins both the form and the required lowercase hex digits."
+    },
+    {
+      "file": "cases/string-quote-and-backslash.json",
+      "section": "§6",
+      "reason": "§6 names exactly three things a conformant encoder must escape: the quote, the backslash, and the control range. This pins the first two together, since a binding that escapes only one of them still passes half the corpus."
+    },
+    {
+      "file": "cases/string-solidus-not-escaped.json",
+      "section": "§6",
+      "reason": "Many JSON serializers escape the solidus as \\/ by convention (it is legal, not required, JSON); §6 does not list it among the three required escapes, so a conformant encoder must leave it alone."
+    },
+    {
+      "file": "cases/string-astral-literal.json",
+      "section": "§6",
+      "reason": "§6 requires every code point outside the escaped set be emitted literally, without exception — including one that needs a UTF-16 surrogate pair to represent in a 16-bit string type, which is exactly what distinguishes this from string-hex-control-escape."
+    },
+    {
+      "file": "cases/depth-32-accepted.json",
+      "section": "§7",
+      "reason": "§7's boundary is inclusive: a value at exactly depth 32 is within bounds. This is the accepting half of the boundary pair with depth-33-rejected — without it, an off-by-one binding that rejects at 32 instead of 33 would still pass the corpus."
+    },
+    {
+      "file": "cases/depth-33-rejected.json",
+      "section": "§7",
+      "reason": "The rejecting half of the boundary pair. §7 requires strictly greater than 32 to fail, so this is the first depth a conformant binding must refuse."
+    },
+    {
+      "file": "cases/manifest-strips-top-level-signature.json",
+      "section": "§8",
+      "reason": "§8's whole purpose: the bytes that get signed must not include the signature that will cover them. A binding that forgets to strip signature would sign a payload no verifier could reproduce."
+    },
+    {
+      "file": "cases/manifest-keeps-nested-signature.json",
+      "section": "§8",
+      "reason": "The anti-vacuity companion to manifest-strips-top-level-signature: stripping is shallow only. A binding that recursively strips every member named signature regardless of depth would silently drop data a publisher intended to sign, and this case is the one that would catch it."
+    }
+  ]
+}

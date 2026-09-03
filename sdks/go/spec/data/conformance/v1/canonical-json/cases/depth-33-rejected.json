@@ -1,0 +1,6 @@
+{
+  "description": "A value nested 33 levels deep, one past the boundary, is rejected as nesting-too-deep.",
+  "mode": "value",
+  "input": [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[1]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]],
+  "expect": {"ok":false,"reason":"nesting-too-deep"}
+}

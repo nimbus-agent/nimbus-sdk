@@ -228,6 +228,16 @@ not even another package inside this module.
 - `type Session struct { APIURL string; AccountID string }` — **frozen** — from `jmapfastmail/jmapfastmail`
 - `var ErrInvalidAPIURL = errors.New("jmapfastmail: invalid JMAP apiUrl")` — **frozen** — from `jmapfastmail/jmapfastmail`
 
+## `signing`
+
+5 exports.
+
+- `func (e *Error) Error() string` — **experimental** — from `signing/canonicaljson`
+- `func Canonicalize(value any) (string, error)` — **experimental** — from `signing/canonicaljson`
+- `func CanonicalizeManifest(manifest map[string]any) ([]byte, error)` — **experimental** — from `signing/canonicaljson`
+- `type Error struct { Reason string }` — **experimental** — from `signing/canonicaljson`
+- `var Reasons = []string{ "lone-surrogate", "nesting-too-deep", "non-integer-number", "number-out-of-range", "unsupported-type", }` — **experimental** — from `signing/canonicaljson`
+
 ## `spec`
 
 2 exports.

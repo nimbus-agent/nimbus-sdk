@@ -1,5 +1,6 @@
 <!-- covers: signing/canonical-json
-     py: signing/canonical_json -->
+     py: signing/canonical_json
+     go: signing/canonicaljson -->
 
 # `signing`
 

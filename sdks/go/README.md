@@ -364,17 +364,18 @@ majors it speaks; the two are unrelated numbers and only one of them is a semver
 Narrower than the other two bindings only in its batteries, not in its contracts. It
 carries the contract-version constants, the negotiation algorithm, the manifest
 declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
-handshake, the diagnostics envelope with its emitter, the connector kit, and the SDK
-version accessor. It executes **every published conformance corpus its surface publishes**
+handshake, the diagnostics envelope with its emitter, the connector kit, the manifest
+canonicalizer, and the SDK version accessor. It executes **every published conformance corpus its surface publishes**
 — in full, nothing deferred in any: `negotiation` — across all three of its kinds,
 `negotiate`, `hello`, and `declaration` — `framing` — `diagnostics` — across `encode`,
-`parse`, and `level` — `url-resolution` — against `ResolveURLWithBase` — and the four
+`parse`, and `level` — `url-resolution` — against `ResolveURLWithBase` — `canonical-json`
+— against `signing.Canonicalize` / `signing.CanonicalizeManifest` — and the four
 battery corpora against the packages that bind them: `data-profile` against `dataprofile`,
 `distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
-`jmap` against `jmapfastmail`. The other five —
-`canonical-json`, `predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module
-does not (yet, for `canonical-json`; not at all, for the other three) publish, and `manifest`
-/ `item` additionally need a JSON Schema validator no dependency-free binding has written.
+`jmap` against `jmapfastmail`. The other four —
+`predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module does not publish
+at all, and `manifest` / `item` additionally need a JSON Schema validator no
+dependency-free binding has written.
 Which
 binding claims which corpus, and every case count behind these numbers, is generated into
 [`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)

@@ -118,8 +118,8 @@ guard's parser has two different code paths keyed on exactly this distinction.
   `docs/spec/signing/v1/canonical-json.md`: `canonicalize`, `canonicalize_manifest`,
   `CanonicalizationError`, and `CANONICALIZATION_REASONS`. Declared `experimental`,
   matching TypeScript's own tier for the module. It is the ninth import root and runs the
-  same `canonical-json` conformance corpus as TypeScript, byte-identically. Go's binding is
-  not yet published — that is the next task of this shipment.
+  same `canonical-json` conformance corpus as TypeScript, byte-identically — as does Go's
+  `signing` package.
 
 **The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and
 must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
@@ -149,9 +149,7 @@ numbers, is declared in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json) and rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
 home for what used to be restated by hand here. **Go is narrower still, in its batteries
-rather than its corpora** — it claims the same eight corpora Go has always claimed;
-Python claims those eight plus `canonical-json`, whose Go binding is the next task of
-this shipment, at which point the two sets match again.
+rather than its corpora** — it claims exactly what Python does.
 
 **Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
 declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`
@@ -174,7 +172,7 @@ raises, naming the module, if a published name's defining module declares neithe
 `docs/api-surface-python.md` as `` — **tier** — from `<defining module>` `` on each
 export's line — the defining file follows the tier, not a trailing tag.
 
-## Go surface (nine packages, and nothing at the module root)
+## Go surface (ten packages, and nothing at the module root)
 
 Module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, `go 1.26`, **zero `require` lines**.
 The module root holds only `go.mod`: a package there would have an import path ending in
@@ -227,10 +225,16 @@ surface is shaped this way, which the generated file, by design, does not:
   (`sdks/go/<name>/`) — the four battery packages, each binding the TypeScript helper
   module of the same name and each executing the conformance corpus that pins it
   (`data-profile`, `distribution-channel`, `icalendar` and `jmap` respectively, run from
-  the test-only `conformance` package). They are four of the nine this heading counts, and
+  the test-only `conformance` package). They are four of the ten this heading counts, and
   they are what took Go from four executed corpora to eight. Their exported declarations
   are in [`docs/api-surface-go.md`](./docs/api-surface-go.md) rather than here — the same
   treatment the Python section gives its own four battery roots.
+- `signing` (`sdks/go/signing/`) — the Go binding of
+  `docs/spec/signing/v1/canonical-json.md`: `Canonicalize`, `CanonicalizeManifest`,
+  `Error`, and `Reasons`. Declared `experimental`, matching TypeScript's and Python's own
+  tier for the module. It is the tenth package and runs the same `canonical-json`
+  conformance corpus as the other two bindings, byte-identically — the binding that made
+  Go's and Python's claimed corpora match again.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every
@@ -276,31 +280,28 @@ Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 
 Go executes `negotiation` (all three kinds — `negotiate`, `hello`, `declaration`), `framing`
 (run against `LineReader`), `diagnostics` (`encode`, `parse`, `level`), `url-resolution`
-(run against `connectorkit.ResolveURLWithBase`), and the four battery corpora against the
-packages that bind them — `data-profile` against `dataprofile`, `distribution-channel`
-against `distributionchannel`, `icalendar` against `icalendar`, and `jmap` against
-`jmapfastmail` — nothing deferred in any.
-
-Python executes that same set, plus one more: its own binding of the signing corpus
-landed in this shipment, ahead of Go's, which is what makes the two sets differ for now.
+(run against `connectorkit.ResolveURLWithBase`), `canonical-json` (run against
+`signing.Canonicalize` / `signing.CanonicalizeManifest`), and the four battery corpora
+against the packages that bind them — `data-profile` against `dataprofile`,
+`distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
+`jmap` against `jmapfastmail` — nothing deferred in any. That is the same set Python
+executes.
 
 **Thirteen corpora are published, and no binding but TypeScript runs them all.** Eleven
 carry their own `index.json`; two are fixture sets in the *top-level*
 `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and `item`), with
 their case files sitting directly in the corpus directory and no `cases/` subdirectory.
-The five Go does not claim are exactly those two plus `predicates`, `sandbox` and
-`canonical-json` — `predicates` and `sandbox` bind surfaces neither Go nor Python
-publishes, `manifest` / `item` need a JSON Schema validator the dependency-free rule
-would make hand-written in either, and `canonical-json`'s Go binding is the next task of
-this shipment. Python claims all but the first four of those five — its own
-`canonical-json` binding landed in this task. Every case count
+The four Go does not claim are exactly those two plus `predicates` and `sandbox` —
+`predicates` and `sandbox` bind surfaces neither Go nor Python publishes, and `manifest` /
+`item` need a JSON Schema validator the dependency-free rule would make hand-written in
+either. Every case count
 behind these claims — the total across all thirteen corpora,
 and how many of them each binding executes — lives in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md), rather than restated
 here.
 
-Eight is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
+Nine is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
 [RFC-0013](./docs/rfcs/0013-go-sdk-official.md) pins "the full conformance suite" to
 **every published corpus whose surface the binding publishes** — the reading RFC-0008
 already promoted Python under, on two corpora of the six then published. RFC-0013 also

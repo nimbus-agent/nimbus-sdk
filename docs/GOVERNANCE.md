@@ -39,7 +39,7 @@ It is a statement of intent for how the project is run, not a legal document.
     rather than resolving it, and RFC-0016 resolves it — not by promoting a binding that
     was never community, but by holding the binding that *defines* the bar to it. It is
     the only one that satisfies criterion 1 under its literal wording, executing all
-    thirteen published corpora where Python executes nine and Go executes eight.
+    thirteen published corpora where Python executes nine and Go executes nine.
 - **Contributors** — anyone opening issues, PRs, or RFCs. Third-party connector and
   app authors are first-class contributors to the ecosystem.
 

@@ -285,21 +285,18 @@ describe("prose that restates the coverage declaration", () => {
     expect(corpusNamesByIndexShape().fixtureSet.length).toBe(2);
   });
 
-  test("Python and Go claim the same corpora, except the one Go's binding has not reached", () => {
-    // Not deleted when `canonical-json` broke the equality, because this test had already
-    // proved its worth: it fired, and the sentences it forced a search for turned out to
-    // be three, not the two found on the first pass. Scoped instead of removed, so the
-    // gate stays live through the transition — and it is deliberately written to FAIL
-    // again the moment Go claims `canonical-json`, which is the next task in this
-    // shipment. That task restores the strict equality this replaces.
+  test("Python and Go claim the same corpora", () => {
+    // Strict again. This was scoped to allow `canonical-json` through while Go's binding
+    // did not exist yet — not deleted, because it had already proved its worth: it fired,
+    // and the sentences it forced a search for turned out to be three, not the two found
+    // on the first pass. That transition is complete: Go's `signing` package now claims
+    // `canonical-json` too, so the sets match again and this reverts to plain equality.
     const py = new Set(readManifest().languages.python.claims);
     const go = new Set(readManifest().languages.go.claims);
     const onlyGo = [...go].filter((c) => !py.has(c)).toSorted();
     const onlyPython = [...py].filter((c) => !go.has(c)).toSorted();
     expect(onlyGo, "Go claims a corpus Python does not").toEqual([]);
-    expect(onlyPython, "restore strict equality once Go claims canonical-json").toEqual([
-      "canonical-json",
-    ]);
+    expect(onlyPython, "Python claims a corpus Go does not").toEqual([]);
   });
 
   /**

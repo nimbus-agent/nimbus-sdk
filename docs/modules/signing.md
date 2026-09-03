@@ -34,14 +34,15 @@ keys sort in ascending Unicode code point order.
 ```ts
 import { canonicalize } from "@nimbus-dev/sdk/signing";
 
-const bytes = canonicalize({ b: 1, a: 2 });
-// bytes === '{"a":2,"b":1}' — key order is sorted, not insertion order.
+const json = canonicalize({ b: 1, a: 2 });
+// json === '{"a":2,"b":1}' — key order is sorted, not insertion order.
 ```
 
 It throws `CanonicalizationError` — never returns a sentinel — for anything outside that
-domain: a non-integer or out-of-range number, an unsupported type (`undefined`, a
-function, `NaN`'s already-excluded cousins), nesting past the spec's depth limit, or a
-lone UTF-16 surrogate in a string.
+domain: a non-integer or out-of-range number (`NaN` and `±Infinity` included — both are
+`number-out-of-range`, not `unsupported-type`), an unsupported type (`undefined`, a
+function, a class instance such as `Date` or `Map`), nesting past the spec's depth limit,
+or a lone UTF-16 surrogate in a string.
 
 ```ts
 import { canonicalize, CanonicalizationError } from "@nimbus-dev/sdk/signing";

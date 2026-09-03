@@ -117,8 +117,24 @@ Sections, with the normative content from the design's §5:
 - `## §2 Terminology` — RFC 2119 boilerplate. Prose.
 - `## §3 Input domain` — the value space of a parsed manifest: object, array, string, integer, boolean, null. Prose plus the `unsupported-type` token.
 - `## §4 Key ordering` — keys MUST be sorted ascending by **Unicode code point**. State explicitly that UTF-16 code-unit order is non-conformant, and name the failing example: with keys `z`, `Ｚ` (U+FF3A) and `😀` (U+1F600), the conformant order is `z`, `Ｚ`, `😀`.
-- `## §5 Numbers` — integers only; `non-integer-number` otherwise. Magnitude MUST be ≤ 9007199254740991; `number-out-of-range` otherwise. Serialized as the shortest decimal integer with no exponent and no leading `+`.
+- `## §5 Numbers` — a number is an **integer if its value is integral**. The literal form
+  is **not observable and MUST NOT be consulted**: `1`, `1.0` and `1e2` are numbers whose
+  values are 1, 1 and 100, and they canonicalize to `1`, `1` and `100`. State this
+  explicitly and state why — `JSON.parse("1.0")` returns `1`, so the literal is destroyed
+  before any TypeScript binding runs and a literal-based rule would be unimplementable in
+  the reference binding. A non-integral value MUST be rejected with `non-integer-number`;
+  a non-finite one, and any integral value whose magnitude exceeds 9007199254740991, with
+  `number-out-of-range`. Serialized as the shortest decimal integer, no exponent, no
+  leading `+`.
 - `## §6 Strings` — byte-preserving, no normalization. Escape exactly `"`, `\`, and U+0000–U+001F; use `\b \f \n \r \t` where they apply and `\u00XX` (lowercase hex) for the remaining controls. All other code points MUST be emitted literally — in particular `<`, `>` and `&` MUST NOT be escaped. A lone surrogate MUST be rejected with `lone-surrogate`.
+
+  **§6 must also record that `lone-surrogate` is pinned by unit tests rather than by the
+  corpus, and why.** A corpus case would have to carry the input as the JSON escape
+  `"\ud800"`, and every runner decodes its cases before reaching the binding: Node and
+  CPython both preserve U+D800, while Go's `encoding/json` substitutes U+FFFD and returns
+  no error — measured, 3 bytes `ef bf bd`. The case would therefore test a different
+  input in Go than in the other two, which is the one thing a language-neutral corpus may
+  not do. Each binding pins it natively instead.
 - `## §7 Depth` — the top-level value is depth 0; a value at depth greater than 32 MUST be rejected with `nesting-too-deep`.
 - `## §8 Manifest stripping` — `canonicalizeManifest` removes the top-level `signature` member and canonicalizes the remainder. Shallow only: a member named `signature` at any other depth is ordinary data.
 - `## §9 Rejection tokens` — the closed set, one row each. Prose, unpinnable (every token is pinned through §3–§7).
@@ -220,6 +236,14 @@ describe("§5 numbers", () => {
     expect(reasonOf(() => canonicalize(1.5))).toBe("non-integer-number");
   });
 
+  test("an integral value is an integer whatever literal produced it", () => {
+    // §5 is a rule about the VALUE. `JSON.parse("1.0")` is already 1 here, so this
+    // binding cannot see the literal at all — which is why the rule has to be
+    // value-based, and why Python and Go must not consult their own literals either.
+    expect(canonicalize(JSON.parse("1.0") as number)).toBe("1");
+    expect(canonicalize(JSON.parse("1e2") as number)).toBe("100");
+  });
+
   test("emits negative zero as 0", () => {
     expect(canonicalize(-0)).toBe("0");
   });
@@ -231,11 +255,11 @@ describe("§6 strings", () => {
   });
 
   test("does not normalize — NFD survives as NFD", () => {
-    expect(canonicalize("é")).toBe('"é"');
+    expect(canonicalize("e\u0301")).toBe('"e\u0301"');
   });
 
   test("escapes the five named controls and hex-escapes the rest", () => {
-    expect(canonicalize("\b\f\n\r\t")).toBe('"\\b\\f\\n\\r\\t\\u0001"');
+    expect(canonicalize("\b\f\n\r\t\u0001")).toBe('"\\b\\f\\n\\r\\t\\u0001"');
   });
 
   test("escapes the quote and the backslash only", () => {
@@ -705,7 +729,7 @@ describe("published artifacts", () => {
 
 describe("the corpus cannot pass vacuously", () => {
   test("it is non-empty", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(22);
+    expect(cases.length).toBeGreaterThanOrEqual(21);
   });
 
   test("both outcomes are exercised", () => {
@@ -718,11 +742,19 @@ describe("the corpus cannot pass vacuously", () => {
     expect(cases.some(({ body }) => body.mode === "value")).toBe(true);
   });
 
-  test("every published rejection token is asserted by at least one case", () => {
+  test("every published rejection token except lone-surrogate is asserted by a case", () => {
+    // `lone-surrogate` is deliberately absent, and its absence is not an oversight.
+    // A case would have to carry the input as the JSON escape "\ud800", and every
+    // runner decodes its cases before the binding sees them: Node and CPython preserve
+    // U+D800, but Go's encoding/json substitutes U+FFFD and returns no error (measured:
+    // 3 bytes, ef bf bd). The case would test a different input in Go than in the other
+    // two, which is the one thing a language-neutral corpus may not do. Each binding
+    // pins the token in its own unit tests instead — see canonical-json.md §6.
+    const CORPUS_EXPRESSIBLE = CANONICALIZATION_REASONS.filter((r) => r !== "lone-surrogate");
     const asserted = new Set(
       cases.filter(({ body }) => !body.expect.ok).map(({ body }) => (body.expect as { reason: string }).reason),
     );
-    expect([...asserted].sort()).toEqual([...CANONICALIZATION_REASONS].sort());
+    expect([...asserted].sort()).toEqual([...CORPUS_EXPRESSIBLE].sort());
   });
 
   test("every pinnable section is cited by at least one case", () => {
@@ -789,7 +821,7 @@ Expected: FAIL — the corpus directory does not exist.
 
 - [ ] **Step 4: Write the cases**
 
-Create `docs/spec/conformance/v1/canonical-json/cases/`, at least 22 files. Compute each `canonical` hex with the reference binding rather than by hand:
+Create `docs/spec/conformance/v1/canonical-json/cases/`, at least 21 files. `lone-surrogate` gets no case — it is not corpus-expressible (see the guard's comment and §6); it is pinned by a unit test in each binding instead. Compute each `canonical` hex with the reference binding rather than by hand:
 
 ```bash
 cd sdks/typescript && bun -e '
@@ -810,15 +842,15 @@ Cases must include, at minimum, one per row:
 | `number-above-safe-range-rejected` | `§5` | `1e21` → `number-out-of-range` |
 | `number-negative-max-safe` | `§5` | −9007199254740991 accepted |
 | `number-non-integer-rejected` | `§5` | `1.5` → `non-integer-number` |
+| `number-integral-float-accepted` | `§5` | `1.0` → `1`. Pins §5 as a rule about the VALUE: TypeScript cannot see the literal, Python sees a `float`, Go sees `json.Number("1.0")`, and all three must agree. |
 | `number-negative-zero` | `§5` | `-0` serializes as `0` |
 | `string-html-characters-literal` | `§6` | `<&>` unescaped — Go's default would fail |
-| `string-nfd-preserved` | `§6` | `é` survives undecomposed |
+| `string-nfd-preserved` | `§6` | `e` + U+0301 survives undecomposed |
 | `string-nfc-preserved` | `§6` | `é` survives uncomposed |
 | `string-named-control-escapes` | `§6` | `\b \f \n \r \t` |
-| `string-hex-control-escape` | `§6` | U+0001 → `` |
+| `string-hex-control-escape` | `§6` | U+0001 → the six characters `\u0001` |
 | `string-quote-and-backslash` | `§6` | only those two |
 | `string-solidus-not-escaped` | `§6` | `/` literal |
-| `string-lone-surrogate-rejected` | `§6` | `lone-surrogate` |
 | `string-astral-literal` | `§6` | 😀 emitted as UTF-8, not escaped |
 | `depth-32-accepted` | `§7` | boundary, accepted |
 | `depth-33-rejected` | `§7` | boundary, `nesting-too-deep` |
@@ -925,6 +957,19 @@ def test_non_integer_rejected() -> None:
     assert _reason(lambda: canonicalize(1.5)) == "non-integer-number"
 
 
+def test_integral_float_is_an_integer() -> None:
+    # json.loads("1.0") is a float here and 1 in TypeScript. §5 is a rule about the
+    # value, so both must emit "1" -- this is the assertion that keeps the two bindings
+    # from disagreeing on an input any manifest may legitimately contain.
+    assert canonicalize(1.0) == "1"
+    assert canonicalize(1e2) == "100"
+
+
+def test_non_finite_rejected() -> None:
+    # json.loads("1e400") yields inf, which the diagnostics corpus already contains.
+    assert _reason(lambda: canonicalize(float("inf"))) == "number-out-of-range"
+
+
 def test_bool_is_not_an_integer() -> None:
     # bool subclasses int in Python and nothing else does. Without an explicit branch
     # True would serialize as 1 here and as `true` in the other two bindings.
@@ -936,11 +981,11 @@ def test_html_characters_are_literal() -> None:
 
 
 def test_no_normalization() -> None:
-    assert canonicalize("é") == '"é"'
+    assert canonicalize("e\u0301") == '"e\u0301"'
 
 
 def test_named_control_escapes() -> None:
-    assert canonicalize("\b\f\n\r\t") == '"\\b\\f\\n\\r\\t\\u0001"'
+    assert canonicalize("\b\f\n\r\t\u0001") == '"\\b\\f\\n\\r\\t\\u0001"'
 
 
 def test_lone_surrogate_rejected() -> None:
@@ -1065,9 +1110,17 @@ def _canonicalize_at(value: object, depth: int) -> str:
             raise CanonicalizationError("number-out-of-range")
         return str(value)
     if isinstance(value, float):
-        # A float is only ever reachable from a caller constructing input in memory;
-        # json.loads yields int for an integral literal without a fraction or exponent.
-        raise CanonicalizationError("non-integer-number")
+        # §5 is a rule about the VALUE, not the literal. `json.loads("1.0")` yields a
+        # float here where `JSON.parse("1.0")` yields 1 in TypeScript, which cannot see
+        # the literal at all -- so rejecting every float would make this binding disagree
+        # with the reference on an input any manifest may contain.
+        if value != value or value in (float("inf"), float("-inf")):
+            raise CanonicalizationError("number-out-of-range")
+        if not value.is_integer():
+            raise CanonicalizationError("non-integer-number")
+        if value > _MAX_MAGNITUDE or value < -_MAX_MAGNITUDE:
+            raise CanonicalizationError("number-out-of-range")
+        return str(int(value))
     if isinstance(value, list):
         return "[" + ",".join(_canonicalize_at(v, depth + 1) for v in value) + "]"
     if isinstance(value, dict):
@@ -1166,7 +1219,7 @@ def test_the_corpus_is_not_empty() -> None:
     # A load_corpus that silently returned [] would make every parametrised test below
     # vanish rather than fail. A floor, not an exact pin: the TypeScript guard holds
     # the exact list, and duplicating it here would make every new case a four-file edit.
-    assert len(CASES) >= 22
+    assert len(CASES) >= 21
 
 
 def test_both_outcomes_are_exercised() -> None:
@@ -1264,7 +1317,10 @@ Create `sdks/go/signing/canonicaljson_test.go`:
 ```go
 package signing
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestKeysSortByCodePoint(t *testing.T) {
 	got, err := Canonicalize(map[string]any{"\U0001F600": 1, "Ｚ": 2, "z": 3})
@@ -1303,6 +1359,8 @@ func TestRejections(t *testing.T) {
 		want  string
 	}{
 		{"non-integer", 1.5, "non-integer-number"},
+		// 1e21 exceeds math.MaxInt64, so this case is also the regression guard for
+		// the undefined int64(v) conversion the range check must not perform.
 		{"out-of-range", float64(1e21), "number-out-of-range"},
 		{"lone-surrogate", string([]byte{0xED, 0xA0, 0x80}), "lone-surrogate"},
 		{"too-deep", deep(33), "nesting-too-deep"},
@@ -1319,6 +1377,19 @@ func TestRejections(t *testing.T) {
 				t.Errorf("reason %q, want %q", e.Reason, c.want)
 			}
 		})
+	}
+}
+
+func TestIntegralFloatIsAnInteger(t *testing.T) {
+	// §5 is a rule about the value. TypeScript cannot see the literal at all, so Go
+	// must not consult its own: json.Number("1.0") canonicalizes to "1", not to a
+	// refusal. Without this the three bindings disagree on an ordinary manifest number.
+	got, err := Canonicalize(json.Number("1.0"))
+	if err != nil {
+		t.Fatalf("Canonicalize(1.0): %v", err)
+	}
+	if got != "1" {
+		t.Errorf("got %q, want %q", got, "1")
 	}
 }
 
@@ -1384,6 +1455,7 @@ package signing
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -1416,11 +1488,14 @@ const (
 // encodeString implements §6: byte-preserving, with exactly the escapes JSON requires.
 func encodeString(s string, b *strings.Builder) error {
 	b.WriteByte('"')
-	for _, r := range s {
+	for i, r := range s {
 		// A lone surrogate cannot be valid UTF-8, so range decoding reports it as
-		// RuneError over one byte. A genuine U+FFFD decodes over three.
+		// RuneError over one byte. A genuine U+FFFD decodes over three. The slice
+		// from i is load-bearing: DecodeRuneInString(s) would re-decode the FIRST
+		// rune every time, so every position after the first would be judged on the
+		// wrong bytes.
 		if r == utf8.RuneError {
-			if _, size := utf8.DecodeRuneInString(s); size == 1 {
+			if _, size := utf8.DecodeRuneInString(s[i:]); size == 1 {
 				return &Error{Reason: "lone-surrogate"}
 			}
 		}
@@ -1449,27 +1524,41 @@ func encodeString(s string, b *strings.Builder) error {
 	return nil
 }
 
+// writeNumber implements §5, which is a rule about the VALUE and not the literal:
+// "1", "1.0" and "1e0" are the same number and all canonicalize to "1". TypeScript
+// cannot see the literal at all (JSON.parse("1.0") is 1), so a literal-based rule
+// would be unimplementable in the reference binding.
 func writeNumber(n json.Number, b *strings.Builder) error {
-	i, err := strconv.ParseInt(string(n), 10, 64)
+	if i, err := strconv.ParseInt(string(n), 10, 64); err == nil {
+		if i > maxMagnitude || i < -maxMagnitude {
+			return &Error{Reason: "number-out-of-range"}
+		}
+		b.WriteString(strconv.FormatInt(i, 10))
+		return nil
+	}
+	f, err := n.Float64()
 	if err != nil {
-		// Either a fraction/exponent, or an integer too large for int64. The exact
-		// literal is preserved by UseNumber, so this distinction is exact rather than
-		// post-rounding.
-		if f, ferr := n.Float64(); ferr == nil && f == float64(int64(f)) {
-			return &Error{Reason: "number-out-of-range"}
-		}
-		if strings.ContainsAny(string(n), ".eE") {
-			if f, ferr := n.Float64(); ferr == nil && f != float64(int64(f)) {
-				return &Error{Reason: "non-integer-number"}
-			}
-			return &Error{Reason: "number-out-of-range"}
-		}
+		// Overflows float64 entirely — the corpus's 1e400 shape.
 		return &Error{Reason: "number-out-of-range"}
 	}
-	if i > maxMagnitude || i < -maxMagnitude {
+	return writeFloat(f, b)
+}
+
+// writeFloat orders its checks deliberately: non-finite first, then integrality, then
+// magnitude. Nothing converts to int64 before the magnitude check, because int64(1e21)
+// is undefined in Go — 1e21 exceeds math.MaxInt64, and math.Trunc lets the integrality
+// test avoid the conversion entirely.
+func writeFloat(f float64, b *strings.Builder) error {
+	if math.IsInf(f, 0) || math.IsNaN(f) {
 		return &Error{Reason: "number-out-of-range"}
 	}
-	b.WriteString(strconv.FormatInt(i, 10))
+	if f != math.Trunc(f) {
+		return &Error{Reason: "non-integer-number"}
+	}
+	if f > maxMagnitude || f < -maxMagnitude {
+		return &Error{Reason: "number-out-of-range"}
+	}
+	b.WriteString(strconv.FormatInt(int64(f), 10))
 	return nil
 }
 
@@ -1496,13 +1585,7 @@ func canonicalizeAt(value any, depth int, b *strings.Builder) error {
 		}
 		b.WriteString(strconv.Itoa(v))
 	case float64:
-		if v != float64(int64(v)) {
-			return &Error{Reason: "non-integer-number"}
-		}
-		if v > maxMagnitude || v < -maxMagnitude {
-			return &Error{Reason: "number-out-of-range"}
-		}
-		b.WriteString(strconv.FormatInt(int64(v), 10))
+		return writeFloat(v, b)
 	case []any:
 		b.WriteByte('[')
 		for i, item := range v {
@@ -1596,7 +1679,7 @@ func TestCanonicalJSONCorpus(t *testing.T) {
 	cases := corpusCases(t, "canonical-json")
 	// A floor, not an exact count — both languages read the same index.json, so a
 	// duplicated exact pin would detect nothing and make every new case a four-file edit.
-	if len(cases) < 22 {
+	if len(cases) < 21 {
 		t.Fatalf("corpus holds %d cases; every assertion here would be near-vacuous", len(cases))
 	}
 

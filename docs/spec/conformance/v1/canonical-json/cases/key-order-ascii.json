@@ -1,0 +1,6 @@
+{
+  "description": "Ordinary ASCII keys sort lexicographically by code point.",
+  "mode": "value",
+  "input": {"b":1,"a":2,"c":3},
+  "expect": {"ok":true,"canonical":"7b2261223a322c2262223a312c2263223a337d"}
+}

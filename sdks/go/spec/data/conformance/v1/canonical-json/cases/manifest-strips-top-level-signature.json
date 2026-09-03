@@ -1,0 +1,6 @@
+{
+  "description": "canonicalizeManifest removes the top-level signature member before canonicalizing the rest.",
+  "mode": "manifest",
+  "input": {"id":"x","signature":"sig-bytes"},
+  "expect": {"ok":true,"canonical":"7b226964223a2278227d"}
+}

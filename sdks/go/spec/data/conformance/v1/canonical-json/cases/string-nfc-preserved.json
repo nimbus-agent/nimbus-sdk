@@ -1,0 +1,6 @@
+{
+  "description": "An NFC-composed é (U+00E9) survives uncomposed — it is not decomposed into NFD.",
+  "mode": "value",
+  "input": "é",
+  "expect": {"ok":true,"canonical":"22c3a922"}
+}

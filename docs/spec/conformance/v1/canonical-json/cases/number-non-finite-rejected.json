@@ -1,0 +1,6 @@
+{
+  "description": "The literal 1e400 overflows to Infinity and is rejected as number-out-of-range, not non-integer-number.",
+  "mode": "value",
+  "input": 1e400,
+  "expect": {"ok":false,"reason":"number-out-of-range"}
+}

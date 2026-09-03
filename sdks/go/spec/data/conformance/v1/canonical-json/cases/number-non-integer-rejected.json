@@ -1,0 +1,6 @@
+{
+  "description": "A number with a nonzero fractional part, 1.5, is rejected as non-integer-number.",
+  "mode": "value",
+  "input": 1.5,
+  "expect": {"ok":false,"reason":"non-integer-number"}
+}

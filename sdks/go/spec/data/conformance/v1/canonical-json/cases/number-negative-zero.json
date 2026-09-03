@@ -1,0 +1,6 @@
+{
+  "description": "Negative zero, -0, serializes as the bare digit 0, never -0.",
+  "mode": "value",
+  "input": -0,
+  "expect": {"ok":true,"canonical":"30"}
+}

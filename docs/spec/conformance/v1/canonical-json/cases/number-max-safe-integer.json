@@ -1,0 +1,6 @@
+{
+  "description": "The largest safe integer, 9007199254740991, is accepted and serialized without an exponent.",
+  "mode": "value",
+  "input": 9007199254740991,
+  "expect": {"ok":true,"canonical":"39303037313939323534373430393931"}
+}

@@ -1,0 +1,6 @@
+{
+  "description": "A double quote and a backslash are escaped; nothing else in the string is touched.",
+  "mode": "value",
+  "input": "\"\\",
+  "expect": {"ok":true,"canonical":"225c225c5c22"}
+}

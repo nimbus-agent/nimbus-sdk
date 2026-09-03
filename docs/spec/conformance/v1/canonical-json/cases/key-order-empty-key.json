@@ -1,0 +1,6 @@
+{
+  "description": "The empty string key sorts before any non-empty key.",
+  "mode": "value",
+  "input": {"a":1,"":2},
+  "expect": {"ok":true,"canonical":"7b22223a322c2261223a317d"}
+}

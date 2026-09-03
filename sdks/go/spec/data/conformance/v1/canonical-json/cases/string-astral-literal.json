@@ -1,0 +1,6 @@
+{
+  "description": "An astral character, 😀 (U+1F600), is emitted as its literal UTF-8 bytes, not as a \\u escape.",
+  "mode": "value",
+  "input": "😀",
+  "expect": {"ok":true,"canonical":"22f09f988022"}
+}

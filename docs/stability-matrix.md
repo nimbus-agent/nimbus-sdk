@@ -25,6 +25,7 @@ binding does not publish the capability at all.
 | [`item-types`](./modules/item-types.md) | `frozen` | — | — |
 | [`jmap-fastmail`](./modules/jmap-fastmail.md) | `frozen` | `frozen` | `frozen` |
 | [`server`](./modules/server.md) | `stable` | — | — |
+| [`signing`](./modules/signing.md) | `experimental` | `experimental` | `experimental` |
 | [`storybook`](./modules/storybook.md) | `experimental` | — | — |
 | [`testing`](./modules/testing.md) | `stable` | `stable` | `stable` |
 | [`types`](./modules/types.md) | `frozen` | — | — |
@@ -45,9 +46,9 @@ an export can be `stable` and `@deprecated` at once (RFC-0015 §1).
 
 | Binding | Officiality | Package | Published through | Corpora executed |
 |---|---|---|---|---|
-| TypeScript | Official — [RFC-0016](./rfcs/0016-typescript-sdk-official.md) | `@nimbus-dev/sdk` | npm | 12 of 12 |
-| Python | Official — [RFC-0008](./rfcs/0008-python-sdk-official.md) | `nimbus-dev-sdk` | PyPI | 8 of 12 |
-| Go | Official — [RFC-0013](./rfcs/0013-go-sdk-official.md) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | module proxy (a `sdks/go/vX.Y.Z` tag) | 8 of 12 |
+| TypeScript | Official — [RFC-0016](./rfcs/0016-typescript-sdk-official.md) | `@nimbus-dev/sdk` | npm | 13 of 13 |
+| Python | Official — [RFC-0008](./rfcs/0008-python-sdk-official.md) | `nimbus-dev-sdk` | PyPI | 9 of 13 |
+| Go | Official — [RFC-0013](./rfcs/0013-go-sdk-official.md) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | module proxy (a `sdks/go/vX.Y.Z` tag) | 9 of 13 |
 
 Officiality is a governance act, not a test result — it is
 [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official), the

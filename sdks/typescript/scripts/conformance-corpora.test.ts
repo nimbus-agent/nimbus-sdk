@@ -9,8 +9,9 @@ import { describe, expect, test } from "bun:test";
 import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 
 describe("publishedCorpora", () => {
-  test("finds all twelve published corpora, both shapes", () => {
+  test("finds all thirteen published corpora, both shapes", () => {
     expect(corpusNames()).toEqual([
+      "canonical-json",
       "data-profile",
       "diagnostics",
       "distribution-channel",

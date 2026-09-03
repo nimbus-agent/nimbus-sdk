@@ -9,7 +9,7 @@
  * documentation guard derives from `buildSurface()`. `scripts/smoke-calls.test.ts` asserts
  * this list covers every one of them, so adding a battery fails until it has a call here.
  *
- * Each `run` receives the five entry points already imported by the smoke, so no entry
+ * Each `run` receives the six entry points already imported by the smoke, so no entry
  * re-resolves them.
  */
 
@@ -329,6 +329,17 @@ export const SMOKE_CALLS = [
       const result = await emitter.info("smoke.run", { ts: "2026-08-01T12:00:00.000Z" });
       if (!result.ok || lines.length !== 1) {
         throw new Error(`createEmitter's info() did not emit a line: ${JSON.stringify(result)}`);
+      }
+    },
+  },
+  {
+    module: "signing/canonical-json",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, signing) => {
+      const text = new TextDecoder().decode(
+        signing.canonicalizeManifest({ b: 1, a: 2, signature: "dropped" }),
+      );
+      if (text !== '{"a":2,"b":1}') {
+        throw new Error(`canonicalizeManifest produced ${text}`);
       }
     },
   },

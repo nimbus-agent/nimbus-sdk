@@ -478,15 +478,15 @@ describe("parseSurface / diffSurfaces", () => {
  */
 describe("parseSurface against the real goldens", () => {
   test("docs/api-surface.md", () => {
-    expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(227);
+    expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(232);
   });
 
   test("docs/api-surface-python.md", () => {
-    expect(parseSurface(readFromRepo("docs/api-surface-python.md")).size).toBe(119);
+    expect(parseSurface(readFromRepo("docs/api-surface-python.md")).size).toBe(123);
   });
 
   test("docs/api-surface-go.md", () => {
-    expect(parseSurface(readFromRepo("docs/api-surface-go.md")).size).toBe(175);
+    expect(parseSurface(readFromRepo("docs/api-surface-go.md")).size).toBe(180);
   });
 });
 

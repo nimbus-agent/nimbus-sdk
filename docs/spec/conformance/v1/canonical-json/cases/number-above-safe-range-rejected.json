@@ -1,0 +1,6 @@
+{
+  "description": "9007199254740991 * 1000000... (1e21) exceeds the safe magnitude and is rejected, not divergently serialized.",
+  "mode": "value",
+  "input": 1e21,
+  "expect": {"ok":false,"reason":"number-out-of-range"}
+}

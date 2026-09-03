@@ -1,0 +1,6 @@
+{
+  "description": "The most negative safe integer, -9007199254740991, is accepted.",
+  "mode": "value",
+  "input": -9007199254740991,
+  "expect": {"ok":true,"canonical":"2d39303037313939323534373430393931"}
+}

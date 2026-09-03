@@ -1,0 +1,6 @@
+{
+  "description": "The characters <, & and > are emitted literally, unescaped.",
+  "mode": "value",
+  "input": "<&>",
+  "expect": {"ok":true,"canonical":"223c263e22"}
+}

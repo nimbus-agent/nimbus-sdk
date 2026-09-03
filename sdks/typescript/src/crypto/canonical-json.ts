@@ -25,18 +25,61 @@
  * violate the precondition (e.g. constructing the input in-memory).
  */
 
+/**
+ * @deprecated since 1.32.0 — use `CanonicalizationError` from `@nimbus-dev/sdk/signing`
+ * instead, which implements `docs/spec/signing/v1/canonical-json.md` with a single
+ * closed error type in place of one class per failure mode. This class is thrown for
+ * a *finite* non-integer (e.g. `1.5`), which the new surface classifies as reason
+ * `"non-integer-number"` — the same mapping. It is also thrown for `NaN` and
+ * `±Infinity`, because `Number.isInteger` is false for those too; the new surface
+ * classifies a non-finite value as `"number-out-of-range"` instead, not
+ * `"non-integer-number"`, so a migrating caller must branch on finiteness, not on
+ * this class alone. May be removed in 2.0.0, no earlier than the release after next —
+ * see docs/DEPRECATION-POLICY.md.
+ */
 export class NonIntegerNumberInManifest extends Error {
   override readonly name = "NonIntegerNumberInManifest";
 }
+/**
+ * @deprecated since 1.32.0 — use `CanonicalizationError` (reason
+ * `"unsupported-type"`) from `@nimbus-dev/sdk/signing` instead, which implements
+ * `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of
+ * one class per failure mode. May be removed in 2.0.0, no earlier than the
+ * release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export class UnsupportedManifestValueType extends Error {
   override readonly name = "UnsupportedManifestValueType";
 }
+/**
+ * @deprecated since 1.32.0 — use `CanonicalizationError` (reason
+ * `"nesting-too-deep"`) from `@nimbus-dev/sdk/signing` instead, which implements
+ * `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of
+ * one class per failure mode. May be removed in 2.0.0, no earlier than the
+ * release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export class ManifestNestedTooDeep extends Error {
   override readonly name = "ManifestNestedTooDeep";
 }
 
 const MAX_DEPTH = 32;
 
+/**
+ * @deprecated since 1.32.0 — use `canonicalize` from `@nimbus-dev/sdk/signing`,
+ * which implements `docs/spec/signing/v1/canonical-json.md`. This function sorts keys in
+ * UTF-16 code-unit order, which disagrees with the Python and Go bindings for any key
+ * containing an astral character (RFC-0020 §2.1), and normalizes string values to NFC,
+ * which the new surface drops entirely (RFC-0020 §3). **The NFC call is the most
+ * important migration hazard**: this function applies `value.normalize("NFC")` to
+ * every string value, so a non-NFC input (e.g. `"é"`, "e" + combining acute)
+ * canonicalizes to different bytes than `@nimbus-dev/sdk/signing`'s byte-preserving
+ * `canonicalize` produces for the same input — a signature made against one surface's
+ * output will not verify against the other's for any manifest containing a non-NFC
+ * string. There is no reason token for this: it is a difference in output bytes, not
+ * a rejection. This function also throws `NonIntegerNumberInManifest` for `NaN` and
+ * `±Infinity`, which the new surface classifies as `"number-out-of-range"`, not
+ * `"non-integer-number"` — see that class's own doc. May be removed in 2.0.0, no
+ * earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export function canonicalize(value: unknown, depth = 0): string {
   if (depth > MAX_DEPTH) throw new ManifestNestedTooDeep();
   if (value === null) return "null";
@@ -68,6 +111,16 @@ export function canonicalize(value: unknown, depth = 0): string {
   throw new UnsupportedManifestValueType();
 }
 
+/**
+ * @deprecated since 1.32.0 — use `canonicalizeManifest` from `@nimbus-dev/sdk/signing`,
+ * which implements `docs/spec/signing/v1/canonical-json.md`. This function sorts keys in
+ * UTF-16 code-unit order, which disagrees with the Python and Go bindings for any key
+ * containing an astral character (RFC-0020 §2). It also normalizes every string value
+ * to NFC via the `canonicalize` it calls, where the new surface is byte-preserving and
+ * does not normalize — a non-NFC field produces different canonical bytes on the two
+ * surfaces, so a signature made on one will not verify on the other. May be removed
+ * in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export function canonicalizeManifest(manifest: object): Uint8Array {
   const clone: Record<string, unknown> = { ...(manifest as Record<string, unknown>) };
   delete clone["signature"];

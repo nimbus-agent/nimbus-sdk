@@ -12,6 +12,7 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 
 | Corpus | Cases | typescript | python | go |
 |---|---:|---|---|---|
+| `canonical-json` | 22 | 22 | 22 | 22 |
 | `data-profile` | 34 | 34 | 34 | 34 |
 | `diagnostics` | 75 | 75 | 75 | 75 |
 | `distribution-channel` | 27 | 27 | 27 | 27 |
@@ -24,7 +25,7 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **456** | **456** | **355** | **355** |
+| **Total** | **478** | **478** | **377** | **377** |
 
 ## What each binding does not run, and why
 

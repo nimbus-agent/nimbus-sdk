@@ -51,17 +51,18 @@ for (const specifier of specifiers) {
 // the formatted `failures` report phase 1 already built. Exit code would still be non-zero,
 // but the diagnostic would regress.
 if (failures.length === 0) {
-  const [sdk, testing, ipc, connectorKit, diagnostics] = await Promise.all([
+  const [sdk, testing, ipc, connectorKit, diagnostics, signing] = await Promise.all([
     import(pkg.name),
     import(`${pkg.name}/testing`),
     import(`${pkg.name}/ipc`),
     import(`${pkg.name}/connector-kit`),
     import(`${pkg.name}/diagnostics`),
+    import(`${pkg.name}/signing`),
   ]);
 
   for (const entry of SMOKE_CALLS) {
     try {
-      await entry.run(sdk, testing, ipc, connectorKit, diagnostics);
+      await entry.run(sdk, testing, ipc, connectorKit, diagnostics, signing);
       process.stdout.write(`ok   call ${entry.module}\n`);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

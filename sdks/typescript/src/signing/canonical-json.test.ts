@@ -53,6 +53,20 @@ describe("§5 numbers", () => {
   test("emits negative zero as 0", () => {
     expect(canonicalize(-0)).toBe("0");
   });
+
+  test("rejects non-finite values as out of range, not as non-integers", () => {
+    // Number.isInteger is false for all three, so an integrality-first check would
+    // answer `non-integer-number` here and disagree with Python and Go.
+    expect(reasonOf(() => canonicalize(Number.POSITIVE_INFINITY))).toBe("number-out-of-range");
+    expect(reasonOf(() => canonicalize(Number.NEGATIVE_INFINITY))).toBe("number-out-of-range");
+    expect(reasonOf(() => canonicalize(Number.NaN))).toBe("number-out-of-range");
+  });
+
+  test("a JSON literal that overflows to Infinity is rejected the same way", () => {
+    // JSON.parse("1e400") is Infinity, so this is reachable from an ordinary manifest,
+    // not only from a caller constructing the value in memory.
+    expect(reasonOf(() => canonicalize(JSON.parse("1e400") as number))).toBe("number-out-of-range");
+  });
 });
 
 describe("§6 strings", () => {

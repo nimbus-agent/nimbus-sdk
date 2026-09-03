@@ -90,6 +90,12 @@ function canonicalizeAt(value: unknown, depth: number): string {
   if (value === false) return "false";
   if (typeof value === "string") return encodeString(value);
   if (typeof value === "number") {
+    // Order is load-bearing: non-finite, then integrality, then magnitude. Python
+    // (`if not math.isfinite(value)`) and Go (`math.IsInf(f, 0) || math.IsNaN(f)`) both
+    // check finiteness before integrality and both answer `number-out-of-range` for
+    // Infinity/-Infinity/NaN; `Number.isInteger` is false for all three, so checking
+    // integrality first would answer `non-integer-number` and disagree with them.
+    if (!Number.isFinite(value)) throw new CanonicalizationError("number-out-of-range");
     if (!Number.isInteger(value)) throw new CanonicalizationError("non-integer-number");
     if (value > MAX_MAGNITUDE || value < -MAX_MAGNITUDE) {
       throw new CanonicalizationError("number-out-of-range");

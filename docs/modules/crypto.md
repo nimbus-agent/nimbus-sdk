@@ -55,6 +55,39 @@ short-lived bearer token for a service that authenticates with a signed JWT.
   token endpoint declines the assertion, when the response is not JSON, or when no
   `access_token` comes back. A `null` you ignore is an unauthenticated request later.
 
+## Deprecated: the flat manifest-signing surface
+
+`crypto/canonical-json.ts` and `crypto/verify-signature.ts` — `canonicalize`,
+`canonicalizeManifest`, `verifyManifestSignature`, `signManifest`,
+`generateEd25519Keypair`, `encodeBase64`, `decodeBase64`, `errorToHardDisableReason`,
+`PublisherKeyMismatch`, `SignatureInvalidFormat`, `SignatureInvalid`, and
+`SignatureDisableReason` — are `@deprecated` as of 1.32.0, in favour of
+`@nimbus-dev/sdk/signing`
+([RFC-0020](../rfcs/0020-manifest-signing.md)). The JWS envelope that replaces
+`verifyManifestSignature` / `signManifest` lands in a later shipment; until it ships,
+this module's sign/verify pair has no drop-in replacement to point to, only the
+surface it will appear on.
+
+**These two modules keep their exact current behavior for the length of the
+deprecation window** — see [`docs/DEPRECATION-POLICY.md`](../DEPRECATION-POLICY.md).
+That is deliberate, not an oversight: `errorToHardDisableReason` backs a live
+first-party consumer (the Nimbus gateway's `SignatureDisableReason` recording), and
+changing what these functions produce would silently alter signatures for every
+current caller — the exact failure the window exists to prevent.
+
+Consequently, **`canonicalize`/`canonicalizeManifest` here and in
+`@nimbus-dev/sdk/signing` deliberately compute different bytes for the same input.**
+[RFC-0020 §2](../rfcs/0020-manifest-signing.md#2-four-measured-divergences) records
+the four measured divergences motivating the new surface, and
+[§3](../rfcs/0020-manifest-signing.md#3-nfc-is-dropped) records why NFC
+normalization is dropped there. In short: this module sorts object keys in UTF-16
+code-unit order (disagreeing with Python and Go on any key with an astral character)
+and normalizes string values to NFC; the new surface sorts by code point instead and
+drops NFC normalization entirely, because Go has no importable Unicode
+normalization to bind to without a dependency. Do not mix bytes from the two
+canonicalizers — a manifest canonicalized by one will not verify against a signature
+produced against the other's output.
+
 ## Example
 
 Signing and verifying a manifest:

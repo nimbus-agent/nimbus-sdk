@@ -812,6 +812,8 @@ export declare const MAX_BODY_VALUE_BYTES = 2048;
 
 ### `ManifestNestedTooDeep`
 
+**Deprecated:** since 1.32.0 — use `CanonicalizationError` (reason `"nesting-too-deep"`) from `@nimbus-dev/sdk/signing` instead, which implements `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of one class per failure mode. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/canonical-json.js`.
@@ -891,6 +893,8 @@ export interface NimbusItem {
 ```
 
 ### `NonIntegerNumberInManifest`
+
+**Deprecated:** since 1.32.0 — use `CanonicalizationError` (reason `"non-integer-number"`) from `@nimbus-dev/sdk/signing` instead, which implements `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of one class per failure mode. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -988,6 +992,8 @@ export type PreflightDownstream = {
 
 ### `PublisherKeyMismatch`
 
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/verify-signature.js`.
@@ -1082,6 +1088,8 @@ export interface SignJwtOptions {
 
 ### `SignatureDisableReason` *(type-only)*
 
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this type describes (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/verify-signature.js`.
@@ -1091,6 +1099,8 @@ export type SignatureDisableReason = "publisher_key_missing" | "publisher_key_mi
 ```
 
 ### `SignatureInvalid`
+
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1103,6 +1113,8 @@ export declare class SignatureInvalid extends Error {
 ```
 
 ### `SignatureInvalidFormat`
+
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1132,6 +1144,8 @@ export interface StorybookStory {
 ```
 
 ### `UnsupportedManifestValueType`
+
+**Deprecated:** since 1.32.0 — use `CanonicalizationError` (reason `"unsupported-type"`) from `@nimbus-dev/sdk/signing` instead, which implements `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of one class per failure mode. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1370,6 +1384,8 @@ export declare function buildVEvent(input: BuildEventInput, now: string): string
 
 ### `canonicalize`
 
+**Deprecated:** since 1.32.0 — use `canonicalize` from `@nimbus-dev/sdk/signing`, which implements `docs/spec/signing/v1/canonical-json.md`. This function sorts keys in UTF-16 code-unit order, which disagrees with the Python and Go bindings for any key containing an astral character (RFC-0020 §2.1), and normalizes string values to NFC, which the new surface drops entirely (RFC-0020 §3). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/canonical-json.js`.
@@ -1379,6 +1395,8 @@ export declare function canonicalize(value: unknown, depth?: number): string;
 ```
 
 ### `canonicalizeManifest`
+
+**Deprecated:** since 1.32.0 — use `canonicalizeManifest` from `@nimbus-dev/sdk/signing`, which implements `docs/spec/signing/v1/canonical-json.md`. This function sorts keys in UTF-16 code-unit order, which disagrees with the Python and Go bindings for any key containing an astral character (RFC-0020 §2). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1444,6 +1462,8 @@ export declare function declaredVersionsMatch(manifestVersions: readonly unknown
 
 ### `decodeBase64`
 
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there — its detached JWS envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/verify-signature.js`.
@@ -1454,6 +1474,8 @@ export declare function decodeBase64(s: string): Uint8Array;
 
 ### `encodeBase64`
 
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there — its detached JWS envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/verify-signature.js`.
@@ -1463,6 +1485,8 @@ export declare function encodeBase64(bytes: Uint8Array): string;
 ```
 
 ### `errorToHardDisableReason`
+
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there; this function maps the errors of the flat `publisher.key` + `signature` shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1536,6 +1560,8 @@ export declare function formatAddresses(v: unknown): string[];
 ```
 
 ### `generateEd25519Keypair`
+
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there — its detached JWS envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1846,6 +1872,8 @@ export declare function signJwt(opts: SignJwtOptions): string;
 
 ### `signManifest`
 
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement signer ships there; this function produces the flat `publisher.key` + `signature` shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+
 **Stability:** stable
 
 From `./crypto/verify-signature.js`.
@@ -1895,6 +1923,8 @@ export declare function validateManifest(manifest: unknown): ManifestViolation[]
 ```
 
 ### `verifyManifestSignature`
+
+**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement verifier ships there; this function verifies the flat `publisher.key` + `signature` shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 

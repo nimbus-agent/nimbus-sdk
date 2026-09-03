@@ -25,18 +25,47 @@
  * violate the precondition (e.g. constructing the input in-memory).
  */
 
+/**
+ * @deprecated since 1.32.0 — use `CanonicalizationError` (reason
+ * `"non-integer-number"`) from `@nimbus-dev/sdk/signing` instead, which implements
+ * `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of
+ * one class per failure mode. May be removed in 2.0.0, no earlier than the
+ * release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export class NonIntegerNumberInManifest extends Error {
   override readonly name = "NonIntegerNumberInManifest";
 }
+/**
+ * @deprecated since 1.32.0 — use `CanonicalizationError` (reason
+ * `"unsupported-type"`) from `@nimbus-dev/sdk/signing` instead, which implements
+ * `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of
+ * one class per failure mode. May be removed in 2.0.0, no earlier than the
+ * release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export class UnsupportedManifestValueType extends Error {
   override readonly name = "UnsupportedManifestValueType";
 }
+/**
+ * @deprecated since 1.32.0 — use `CanonicalizationError` (reason
+ * `"nesting-too-deep"`) from `@nimbus-dev/sdk/signing` instead, which implements
+ * `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of
+ * one class per failure mode. May be removed in 2.0.0, no earlier than the
+ * release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export class ManifestNestedTooDeep extends Error {
   override readonly name = "ManifestNestedTooDeep";
 }
 
 const MAX_DEPTH = 32;
 
+/**
+ * @deprecated since 1.32.0 — use `canonicalize` from `@nimbus-dev/sdk/signing`,
+ * which implements `docs/spec/signing/v1/canonical-json.md`. This function sorts keys in
+ * UTF-16 code-unit order, which disagrees with the Python and Go bindings for any key
+ * containing an astral character (RFC-0020 §2.1), and normalizes string values to NFC,
+ * which the new surface drops entirely (RFC-0020 §3). May be removed in 2.0.0, no
+ * earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export function canonicalize(value: unknown, depth = 0): string {
   if (depth > MAX_DEPTH) throw new ManifestNestedTooDeep();
   if (value === null) return "null";
@@ -68,6 +97,13 @@ export function canonicalize(value: unknown, depth = 0): string {
   throw new UnsupportedManifestValueType();
 }
 
+/**
+ * @deprecated since 1.32.0 — use `canonicalizeManifest` from `@nimbus-dev/sdk/signing`,
+ * which implements `docs/spec/signing/v1/canonical-json.md`. This function sorts keys in
+ * UTF-16 code-unit order, which disagrees with the Python and Go bindings for any key
+ * containing an astral character (RFC-0020 §2). May be removed in 2.0.0, no
+ * earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+ */
 export function canonicalizeManifest(manifest: object): Uint8Array {
   const clone: Record<string, unknown> = { ...(manifest as Record<string, unknown>) };
   delete clone["signature"];

@@ -11,26 +11,66 @@ import { generateKeyPairSync } from "node:crypto";
 
 import { canonicalizeManifest } from "./canonical-json.js";
 
+/**
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
+ * envelope replacement ships in a later shipment; that envelope replaces the flat
+ * `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`).
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
+ */
 export class PublisherKeyMismatch extends Error {
   override readonly name = "PublisherKeyMismatch";
 }
+/**
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
+ * envelope replacement ships in a later shipment; that envelope replaces the flat
+ * `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`).
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
+ */
 export class SignatureInvalidFormat extends Error {
   override readonly name = "SignatureInvalidFormat";
 }
+/**
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
+ * envelope replacement ships in a later shipment; that envelope replaces the flat
+ * `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`).
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
+ */
 export class SignatureInvalid extends Error {
   override readonly name = "SignatureInvalid";
 }
 
+/**
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
+ * envelope replacement ships in a later shipment; that envelope replaces the flat
+ * `publisher.key` + `signature` shape this type describes (`docs/spec/signing/v1/`).
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
+ */
 export type SignatureDisableReason =
   | "publisher_key_missing"
   | "publisher_key_mismatch"
   | "signature_failed"
   | "signature_malformed";
 
+/**
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
+ * appears there — its detached JWS envelope has not shipped yet, in a later shipment.
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
+ */
 export function encodeBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64");
 }
 
+/**
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
+ * appears there — its detached JWS envelope has not shipped yet, in a later shipment.
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
+ */
 export function decodeBase64(s: string): Uint8Array {
   return new Uint8Array(Buffer.from(s, "base64"));
 }
@@ -57,6 +97,12 @@ type SignedManifestShape = {
  *
  * Caller must check `manifest.publisher !== undefined` first — this function
  * does not gate the unsigned case.
+ *
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement
+ * verifier ships there; this function verifies the flat `publisher.key` + `signature`
+ * shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that
+ * envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier
+ * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export async function verifyManifestSignature(
   manifest: SignedManifestShape,
@@ -97,6 +143,12 @@ export async function verifyManifestSignature(
  * Ed25519 seed). Returns the 64-byte signature as base64. Any existing
  * `signature` field on the manifest is ignored (stripped by
  * `canonicalizeManifest`).
+ *
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement
+ * signer ships there; this function produces the flat `publisher.key` + `signature` shape
+ * that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that
+ * envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier
+ * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export async function signManifest(
   manifest: SignedManifestShape,
@@ -119,11 +171,16 @@ export async function signManifest(
 /**
  * Generate a fresh Ed25519 keypair and export both halves as raw 32-byte arrays.
  * Used by `nimbus extension keygen` and by every test fixture (no committed crypto
- * material — see spec §6.3).
+ * material).
  *
  * Uses `node:crypto` rather than WebCrypto because this function is synchronous and
  * WebCrypto's `generateKey` is async; the rest of this module uses `crypto.subtle`.
  * Changing that would alter the signature, which is a breaking change.
+ *
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
+ * appears there — its detached JWS envelope has not shipped yet, in a later shipment.
+ * May be removed in 2.0.0, no earlier than the release after next — see
+ * docs/DEPRECATION-POLICY.md.
  */
 export function generateEd25519Keypair(): { privkey: Uint8Array; pubkey: Uint8Array } {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -137,6 +194,12 @@ export function generateEd25519Keypair(): { privkey: Uint8Array; pubkey: Uint8Ar
 /**
  * Map a verification error class to the `SignatureDisableReason` string the
  * `SignatureDisabledRegistry` (hard-disable.ts) records.
+ *
+ * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
+ * appears there; this function maps the errors of the flat `publisher.key` + `signature`
+ * shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that
+ * envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier
+ * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export function errorToHardDisableReason(err: unknown): SignatureDisableReason {
   if (err instanceof PublisherKeyMismatch) return "publisher_key_mismatch";

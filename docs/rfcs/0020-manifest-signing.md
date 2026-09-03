@@ -2,7 +2,7 @@
 
 - **Status:** accepted
 - **Opened:** 2026-09-03
-- **Landed:** this document only (Shipment S0 of 6 — see [Shipments](#8-shipments)
+- **Landed:** this document only (Shipment S0 of 6 — see [Shipments](#9-shipments)
   below; no code lands with it)
 - **Affects:** a new `signing` surface in all three bindings (`@nimbus-dev/sdk/signing`,
   `nimbus_sdk.signing`, `sdks/go/signing/`), a new `docs/spec/signing/v1/` area, and the
@@ -36,9 +36,9 @@ different bytes, a signature produced by one fails to verify in the other, silen
 inputs the existing single-language surface never had reason to exercise.
 
 This document also replaces the current flat `publisher.key` + `signature` shape with a
-detached JWS envelope (§5), records that the replacement is a `feat!:`-gated removal
-subject to the deprecation window rather than a same-shipment swap (§6), and discloses a
-timing side-channel in Python's from-scratch Ed25519 implementation (§7). It does not
+detached JWS envelope (§6), records that the replacement is a `feat!:`-gated removal
+subject to the deprecation window rather than a same-shipment swap (§7), and discloses a
+timing side-channel in Python's from-scratch Ed25519 implementation (§8). It does not
 itself change any code; it is the governance step
 [GOVERNANCE.md](../GOVERNANCE.md) requires before a new conformance invariant — here, a
 canonicalization rule three bindings must agree on — is implemented.
@@ -87,6 +87,10 @@ that reaches for `json.Marshal` to serialize a string value.
 `base64`, and in Go's `base64.RawURLEncoding`, which was expected to reject it and does
 not. `"QR"`'s trailing four bits are non-zero and are silently discarded.
 
+Node is laxer still on the standard alphabet: `Buffer.from("AAAA!!!!AAAA", "base64")`
+returns 6 bytes, discarding the invalid characters rather than rejecting the input. That
+decode sits directly on the signature path today, in `decodeBase64(manifest.signature)`.
+
 The consequence is that many distinct signature strings map to identical signature bytes,
 so a signature string is not a canonical identifier — not forgeable, but not specifiable
 either, until the spec forbids it.
@@ -133,7 +137,24 @@ per-binding assertion:
   stated over the parsed numeric value, not over any input literal, and a corpus case
   pinning literal-string behavior would be testing the JSON parser, not the canonicalizer.
 
-## 5. The envelope
+## 5. The canonicalization rules
+
+Canonicalization decides which bytes get signed, and this document is what a later
+shipment's spec and corpus are bound to. The rules:
+
+| Rule | Resolution |
+|---|---|
+| **Key order** | Ascending **Unicode code point** order, explicitly not UTF-16 code-unit order. Fixes §2.1 (§4). |
+| **Numbers** | A value is an integer if its **VALUE** is integral — the literal MUST NOT be consulted, per §4's `JSON.parse("1.0")` observation. Magnitude is bounded to **±(2⁵³−1)**, i.e. ±9007199254740991, making §2.2's `1e21` unrepresentable rather than divergently serialized. |
+| **Strings** | **Byte-preserving — no normalization.** Forced by §3. |
+| **Escaping** | Escape exactly `"`, `\`, and U+0000–U+001F — shortest form where one exists, else `\u00XX`. `<`, `>` and `&` are left literal, forbidding what §2.3 measured `json.Marshal` doing by default. |
+| **Lone surrogates** | **Rejected.** As §4 measured, Go's decoder makes this case corpus-inexpressible, so it is pinned by per-binding unit tests rather than a corpus case. |
+| **Depth** | Capped at **32**, counting the top-level value as depth 0 — a value nested at depth 33 is rejected. |
+
+The rejection tokens are a **closed set**: `non-integer-number`, `number-out-of-range`,
+`unsupported-type`, `nesting-too-deep`, `lone-surrogate`. No binding may invent a sixth.
+
+## 6. The envelope
 
 ```
 manifest.publisher = { id }
@@ -169,7 +190,7 @@ runtime enforces that check, so every binding implements it itself, the same sha
 [`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md) §8's per-binding redirect
 enforcement.
 
-## 6. Replace, not coexist
+## 7. Replace, not coexist
 
 The flat `publisher.key` + `signature` shape appears in no spec and in no schema —
 `extension-manifest.schema.json` has neither field — so there is nothing published *as a
@@ -201,7 +222,7 @@ consumer: the Nimbus gateway monorepo calls `errorToHardDisableReason` to popula
 `SignatureDisabledRegistry`, and confirming that consumer's migration off the flat path is
 a precondition on the removal shipment, not a courtesy.
 
-## 7. Python's Ed25519 side-channel
+## 8. Python's Ed25519 side-channel
 
 Go has `crypto/ed25519` in the standard library and TypeScript has WebCrypto; Python has
 neither, and `cryptography` is a third-party dependency this package forbids. Python's
@@ -209,7 +230,7 @@ binding therefore implements RFC 8032 directly, following the reference implemen
 8032 §6 publishes in Python — SHA-512 via `hashlib`, modular inverse and square root via
 `pow(x, n, p)`, all standard library.
 
-That reference implementation de-risks correctness, not security: §6 publishes it to
+That reference implementation de-risks correctness, not security: RFC 8032 §6 publishes it to
 illustrate the algorithm, not as production code, and it is constant-time in no operation.
 What holds the Python binding to the algorithm is RFC 8032 §7.1's published test vectors,
 run as a corpus section; what governs the binding's security properties is the disclosure
@@ -227,7 +248,7 @@ state that Python's signing half is intended for connector authoring and CI, and
 multi-tenant signing service should use a constant-time implementation. Verification —
 the operation the gateway performs — carries no such caveat in any binding.
 
-## 8. Shipments
+## 9. Shipments
 
 This RFC is S0. It authorizes no code; it is the prerequisite the later shipments cite.
 The full sequence, for reference:
@@ -246,12 +267,12 @@ The full sequence, for reference:
 None from this document. It authorizes no code change. The compatibility impact of the
 contract it describes is carried entirely by the later shipments: S1–S4 are additive
 (`feat:`), and only S5 is breaking (`feat!:`, 2.0.0), gated on the deprecation window
-described in §6.
+described in §7.
 
 ## Migration
 
 Not applicable to this document. A future connector or gateway migrating off the flat
-`publisher.key` + `signature` shape onto the envelope in §5 is the later shipments'
+`publisher.key` + `signature` shape onto the envelope in §6 is the later shipments'
 concern, primarily S5.
 
 ## Alternatives rejected
@@ -280,7 +301,7 @@ publishing tool do.
 The reasons are contingent, not fundamental: an ecosystem that distributed manifests as
 opaque signed blobs would be right to choose the other option. This one does not.
 
-**Keep a JWK set on the manifest (`publisher.keys`).** Rejected in §5: the set would be
+**Keep a JWK set on the manifest (`publisher.keys`).** Rejected in §6: the set would be
 attacker-controlled data consulted ahead of the real trust anchor, and because
 `publisher` sits inside the signed payload, a manifest carrying its own verification key
 would be self-certifying.
@@ -288,7 +309,7 @@ would be self-certifying.
 **Carry the removal in the same shipment as the new surface.** The natural first draft of
 this plan did exactly that, and it is mechanically impossible: `commit-guard` blocks a
 `stable` export's removal without the deprecation window RFC-0015 and
-`DEPRECATION-POLICY.md` require, so the removal is its own terminal shipment (§6, S5)
+`DEPRECATION-POLICY.md` require, so the removal is its own terminal shipment (§7, S5)
 rather than folded into S1.
 
 ## Out of scope

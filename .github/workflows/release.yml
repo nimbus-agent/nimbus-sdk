@@ -40,7 +40,7 @@ jobs:
       cc_version: ${{ steps.release.outputs['tools/create-connector--version'] }}
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -79,7 +79,7 @@ jobs:
       id-token: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           # Publishing reaches npm + the sigstore provenance endpoints; audit
           # (not block) avoids brittle allowlist drift on the signing chain.
@@ -174,7 +174,7 @@ jobs:
       id-token: write
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           # Matches the SDK's publish job: audit, not block, so the sigstore signing chain's
           # endpoints cannot drift the allowlist out from under a release.
@@ -273,7 +273,7 @@ jobs:
       contents: read
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           egress-policy: audit
 
@@ -366,7 +366,7 @@ jobs:
         working-directory: sdks/python
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           # Publishing reaches PyPI plus the Sigstore attestation endpoints; audit (not
           # block) avoids brittle allowlist drift on the signing chain, matching npm.
@@ -473,7 +473,7 @@ jobs:
         working-directory: sdks/python
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
           # Reaches PyPI plus the Sigstore/Fulcio-backed integrity API; audit (not
           # block) avoids brittle allowlist drift on the signing chain, matching npm.

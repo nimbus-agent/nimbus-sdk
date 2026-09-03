@@ -49,6 +49,15 @@ def test_integral_float_is_an_integer() -> None:
     assert canonicalize(1e2) == "100"
 
 
+def test_negative_zero_float_canonicalizes_to_zero() -> None:
+    # M5: the corpus's number-negative-zero case carries `"input": -0`, but
+    # json.loads decodes a bare `-0` JSON literal to the int 0, not a float --
+    # so that case never reaches this float branch in Python and covers nothing
+    # here. A genuine float negative zero is the only way to exercise
+    # `str(int(value))`'s handling of it; int(-0.0) is 0, so this must be "0".
+    assert canonicalize(-0.0) == "0"
+
+
 def test_non_finite_rejected() -> None:
     # json.loads("1e400") yields inf, which the diagnostics corpus already contains.
     assert _reason(lambda: canonicalize(float("inf"))) == "number-out-of-range"

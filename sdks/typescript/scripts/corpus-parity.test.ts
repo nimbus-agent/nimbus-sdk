@@ -285,17 +285,22 @@ describe("prose that restates the coverage declaration", () => {
     expect(corpusNamesByIndexShape().fixtureSet.length).toBe(2);
   });
 
-  // A prior version of this suite asserted "Python and Go claim the same corpora", on
-  // the strength of every corpus up to `canonical-json` landing in both at once. That
-  // assertion existed to protect two sentences that collapsed both bindings into one
-  // shared number — `docs/GOVERNANCE.md`'s "the other two execute eight" among them.
-  // `canonical-json` breaks the equality by design: Python claims it in this shipment's
-  // Python task, Go in the following one, so for one commit the two binding's claim
-  // sets genuinely differ. The two sentences were rewritten to name each binding's count
-  // or set separately instead of assuming they match — see the COUNT_CLAIMS entry below
-  // and `CLAUDE.md`'s "Go executes …" paragraph — so nothing here still depends on the
-  // equality, and re-adding it would fail again the next time a corpus lands in one
-  // binding before the other, exactly as it did for `canonical-json`.
+  test("Python and Go claim the same corpora, except the one Go's binding has not reached", () => {
+    // Not deleted when `canonical-json` broke the equality, because this test had already
+    // proved its worth: it fired, and the sentences it forced a search for turned out to
+    // be three, not the two found on the first pass. Scoped instead of removed, so the
+    // gate stays live through the transition — and it is deliberately written to FAIL
+    // again the moment Go claims `canonical-json`, which is the next task in this
+    // shipment. That task restores the strict equality this replaces.
+    const py = new Set(readManifest().languages.python.claims);
+    const go = new Set(readManifest().languages.go.claims);
+    const onlyGo = [...go].filter((c) => !py.has(c)).toSorted();
+    const onlyPython = [...py].filter((c) => !go.has(c)).toSorted();
+    expect(onlyGo, "Go claims a corpus Python does not").toEqual([]);
+    expect(onlyPython, "restore strict equality once Go claims canonical-json").toEqual([
+      "canonical-json",
+    ]);
+  });
 
   /**
    * Sentences rendered from the declaration and required to appear verbatim.

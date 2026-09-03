@@ -149,7 +149,9 @@ numbers, is declared in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json) and rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
 home for what used to be restated by hand here. **Go is narrower still, in its batteries
-rather than its corpora** — it claims exactly what Python does.
+rather than its corpora** — it claims the same eight corpora Go has always claimed;
+Python claims those eight plus `canonical-json`, whose Go binding is the next task of
+this shipment, at which point the two sets match again.
 
 **Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
 declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`

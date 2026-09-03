@@ -134,4 +134,35 @@ describe("§9 tokens", () => {
   test("rejects a value outside the input domain", () => {
     expect(reasonOf(() => canonicalize(undefined))).toBe("unsupported-type");
   });
+
+  // I1: `typeof value === "object"` is also true of a `Date`, a `Map`, and a
+  // `RegExp` — none of which `JSON.parse` can produce, and all of which Python's
+  // `isinstance(value, dict)` and Go's `case map[string]any` reject. Each of these
+  // previously fell into the object branch and returned "{}".
+  test("rejects a Date as unsupported-type", () => {
+    expect(reasonOf(() => canonicalize(new Date(0)))).toBe("unsupported-type");
+  });
+
+  test("rejects a Map as unsupported-type", () => {
+    expect(reasonOf(() => canonicalize(new Map([["a", 1]])))).toBe("unsupported-type");
+  });
+
+  test("rejects a RegExp as unsupported-type", () => {
+    expect(reasonOf(() => canonicalize(/x/))).toBe("unsupported-type");
+  });
+
+  test("still accepts an ordinary object literal", () => {
+    expect(canonicalize({ b: 1, a: 2 })).toBe('{"a":2,"b":1}');
+  });
+
+  test("still accepts JSON.parse output", () => {
+    expect(canonicalize(JSON.parse('{"b":1,"a":2}'))).toBe('{"a":2,"b":1}');
+  });
+
+  test("still accepts an Object.create(null) object", () => {
+    const obj: Record<string, unknown> = Object.create(null);
+    obj["b"] = 1;
+    obj["a"] = 2;
+    expect(canonicalize(obj)).toBe('{"a":2,"b":1}');
+  });
 });

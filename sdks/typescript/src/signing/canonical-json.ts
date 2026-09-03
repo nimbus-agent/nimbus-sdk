@@ -108,6 +108,17 @@ function canonicalizeAt(value: unknown, depth: number): string {
     return `[${value.map((v) => canonicalizeAt(v, depth + 1)).join(",")}]`;
   }
   if (typeof value === "object") {
+    // `typeof value === "object"` alone is not enough: it is also true of a `Date`, a
+    // `Map`, a `RegExp`, and every other class instance, none of which `JSON.parse`
+    // can itself produce. Python's `isinstance(value, dict)` and Go's
+    // `case map[string]any` both reject those as `unsupported-type`, and §3 requires
+    // "anything else a host language's JSON decoder cannot itself produce" to be
+    // rejected the same way. A plain object's prototype is either `Object.prototype`
+    // (from `JSON.parse` or an object literal) or `null` (from `Object.create(null)`).
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+      throw new CanonicalizationError("unsupported-type");
+    }
     const obj = value as Record<string, unknown>;
     const keys = Object.keys(obj).sort(compareCodePoints);
     const members = keys.map((k) => `${encodeString(k)}:${canonicalizeAt(obj[k], depth + 1)}`);

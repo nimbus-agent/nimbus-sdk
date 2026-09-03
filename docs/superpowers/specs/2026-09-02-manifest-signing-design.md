@@ -354,7 +354,7 @@ a release PR.
 | **S1** | `canonical-json.md` + corpus + **all three bindings**. Pure, no crypto. Creates the `signing` surface in each. **Marks the old `crypto/*` signing exports `@deprecated`** — opening the window. Additive throughout: `feat:`, no break. |
 | **S2** | `manifest-signature.md` + `base64url` / `jwk` / `jws` **and Ed25519 for Go and TypeScript**, both platform-provided. Full `manifest-signature` corpus. Python records a non-claim in `conformance-coverage.json`. |
 | **S3** | **Python's RFC 8032 implementation**, claiming the corpus, plus the §7.1 vector section and the `SECURITY.md` disclosure. Deletes S2's non-claim. |
-| **S4** | `extension-manifest.schema.json` gains `publisher` / `signature`; the `manifest` corpus follows; CLAUDE.md's three counts. |
+| **S4** | `extension-manifest.schema.json` gains `publisher` / `signature`; the `manifest` corpus follows; the stale five-checks bullet in §10. |
 | **S5** | **The removal.** `feat!:`, cutting 2.0.0. Gated on the window having elapsed *and* on the Nimbus monorepo having migrated off the flat path (§3.2). |
 
 **The old modules stay byte-for-byte unchanged through S1–S4** — still UTF-16 sort, still
@@ -365,6 +365,11 @@ coexist without ambiguity about which a caller invoked.
 
 That also dissolves a problem an earlier draft created and then defended: there is no
 longer any interval in which the package ships no manifest signing.
+
+**CLAUDE.md's three counts change in S1, not S4** — the entry-point count (5 → 6), the
+import-root count (8 → 9) and the Go package count (9 → 10) all move the moment each
+surface is *created*, which is S1 for all three. S4 carries only the schema, the
+`manifest` corpus, and §10's stale five-checks bullet.
 
 **Ed25519 for Go and TypeScript moves into S2** rather than trailing it. Both are
 platform-provided — `crypto/ed25519` and WebCrypto — so deferring them bought nothing and

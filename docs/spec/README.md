@@ -334,8 +334,9 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Twelve guards run on every pull request as part of `bun run test` (see
-`.github/workflows/ci.yml`).
+Thirteen guards run on every pull request as part of `bun run test` (see
+`.github/workflows/ci.yml`), the newest of which is `canonical-json-guard.test.ts`,
+alongside the twelve described below.
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
 holds the contract to being **language-neutral** is that other bindings execute the
@@ -516,6 +517,16 @@ the list request must expect a query object with **no `filter` key at all**, an 
 that is only assertable if a case states it. One check is corpus-wide rather than
 per-case: no expected preview may be ill-formed UTF-16, so a future case cannot quietly
 pin a value a Python consumer raises on.
+
+`sdks/typescript/scripts/canonical-json-guard.test.ts` validates the canonical-json corpus
+against its schemas, holds the index and the cases directory to each other, and drives
+every case through `canonicalize` and `canonicalizeManifest`. It asserts every published
+[§9](./signing/v1/canonical-json.md#9-rejection-tokens) token —
+`unsupported-type`, `non-integer-number`, `number-out-of-range`, `nesting-too-deep`, and
+`lone-surrogate` — is asserted by at least one case, except `lone-surrogate`, which
+[§6](./signing/v1/canonical-json.md#6-strings) records as pinned by per-binding unit tests
+rather than the corpus, since Go's decoder makes the input corpus-inexpressible. It also
+asserts that every pinnable section, §4 through §8, is cited by at least one case.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

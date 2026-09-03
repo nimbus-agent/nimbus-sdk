@@ -6,7 +6,7 @@
 
 **Architecture:** A new `signing` surface in each binding (TypeScript's sixth entry point, Python's ninth import root, Go's tenth package) holding canonicalization only. The old `crypto/canonical-json.ts` and `crypto/verify-signature.ts` stay **byte-for-byte unchanged** and are merely marked `@deprecated`, opening the two-release window that a later shipment needs before it may remove them. No cryptography ships in this plan.
 
-**Tech Stack:** TypeScript (Bun + `tsc` strict, Biome), Python 3.12+ (`ruff`, `mypy` strict, `pytest`), Go 1.26 (stdlib `testing` only). Zero runtime dependencies in all three.
+**Tech Stack:** TypeScript (Bun + `tsc` strict, Biome), Python 3.11+ (`pyproject.toml` sets `target-version = "py311"`; `ruff`, `mypy` strict, `pytest`), Go 1.26 (stdlib `testing` only). Zero runtime dependencies in all three.
 
 **Spec:** [`docs/superpowers/specs/2026-09-02-manifest-signing-design.md`](../specs/2026-09-02-manifest-signing-design.md), revised after [its review](../specs/2026-09-02-manifest-signing-design-review.md).
 
@@ -139,9 +139,18 @@ Sections, with the normative content from the design's §5:
 - `## §8 Manifest stripping` — `canonicalizeManifest` removes the top-level `signature` member and canonicalizes the remainder. Shallow only: a member named `signature` at any other depth is ordinary data.
 - `## §9 Rejection tokens` — the closed set, one row each. Prose, unpinnable (every token is pinned through §3–§7).
 
-- [ ] **Step 2: Update the spec README's guard roster**
+- [ ] **Step 2: Update the spec README's guard count only — NOT the neutrality paragraph**
 
-`docs/spec/README.md`'s *How this stays true* section opens with a count of guards and names each. Read it, increment the count by one, and add a row for `canonical-json` naming all three runners created in Tasks 5–8.
+`docs/spec/README.md`'s *How this stays true* section opens with *"Twelve guards run on
+every pull request"*. Increment that count and name the new `canonical-json` guard
+alongside the others. No test reads this sentence; it is free prose.
+
+**Do not touch the language-neutrality paragraph** — the one beginning *"What holds the
+contract to being **language-neutral**"*. `corpus-parity.test.ts` asserts against it in
+both directions: it must name every corpus **more than one** binding claims, and it must
+**not** name a corpus only one binding claims. Through Tasks 2–5 `canonical-json` is
+claimed by TypeScript alone, so naming it here fails the suite. Task 6 adds it, at the
+moment Python's claim makes it dual-run.
 
 Run: `grep -n -i "how this stays true" -A 30 docs/spec/README.md` first, to see the exact shape before editing.
 
@@ -821,7 +830,7 @@ Expected: FAIL — the corpus directory does not exist.
 
 - [ ] **Step 4: Write the cases**
 
-Create `docs/spec/conformance/v1/canonical-json/cases/`, at least 21 files. `lone-surrogate` gets no case — it is not corpus-expressible (see the guard's comment and §6); it is pinned by a unit test in each binding instead. Compute each `canonical` hex with the reference binding rather than by hand:
+Create `docs/spec/conformance/v1/canonical-json/cases/`, at least 22 files — one per row of the table below. `lone-surrogate` gets no case — it is not corpus-expressible (see the guard's comment and §6); it is pinned by a unit test in each binding instead. Compute each `canonical` hex with the reference binding rather than by hand:
 
 ```bash
 cd sdks/typescript && bun -e '
@@ -1044,6 +1053,8 @@ could not be bound in all three languages without a dependency (RFC-0020).
 
 from __future__ import annotations
 
+import math
+
 __stability__ = "experimental"
 
 #: §9. The closed set. A binding may never invent a sixth.
@@ -1114,7 +1125,9 @@ def _canonicalize_at(value: object, depth: int) -> str:
         # float here where `JSON.parse("1.0")` yields 1 in TypeScript, which cannot see
         # the literal at all -- so rejecting every float would make this binding disagree
         # with the reference on an input any manifest may contain.
-        if value != value or value in (float("inf"), float("-inf")):
+        if not math.isfinite(value):
+            # json.loads("1e400") yields inf, a shape the diagnostics corpus already
+            # contains. One call covers both inf and nan.
             raise CanonicalizationError("number-out-of-range")
         if not value.is_integer():
             raise CanonicalizationError("non-integer-number")
@@ -1276,6 +1289,13 @@ Expected: PASS. `test_api_surface.py` asserts the roots on disk are exactly `IMP
 - [ ] **Step 8: Claim the corpus and update the docs**
 
 - `docs/conformance-coverage.json`: move `canonical-json` from `python.unclaimed` into `python.claims` (alphabetical), deleting the placeholder reason.
+- **`docs/spec/README.md`: add `` `canonical-json` `` to the language-neutrality
+  paragraph** — the one beginning *"What holds the contract to being
+  **language-neutral**"*. This is the task where the claim becomes true and where it
+  becomes required: `corpus-parity.test.ts` asserts the paragraph names every corpus more
+  than one binding claims, and Python's claim is the second. It was deliberately withheld
+  until now, because the same test fails in the other direction if the paragraph names a
+  corpus only one binding runs. Task 7 needs no further edit here — it is already named.
 - `docs/modules/signing.md`: extend the `covers:` comment with a `py:` line — `py: signing/canonical_json`.
 - `CLAUDE.md`: the *Python surface* heading says **eight** import roots; make it nine, add the `nimbus_sdk.signing` bullet, and update the sentence naming the `IMPORT_ROOTS` count.
 

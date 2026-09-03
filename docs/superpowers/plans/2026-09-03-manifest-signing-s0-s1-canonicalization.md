@@ -830,7 +830,7 @@ Expected: FAIL — the corpus directory does not exist.
 
 - [ ] **Step 4: Write the cases**
 
-Create `docs/spec/conformance/v1/canonical-json/cases/`, at least 22 files — one per row of the table below. `lone-surrogate` gets no case — it is not corpus-expressible (see the guard's comment and §6); it is pinned by a unit test in each binding instead. Compute each `canonical` hex with the reference binding rather than by hand:
+Create `docs/spec/conformance/v1/canonical-json/cases/`, at least 23 files — one per row of the table below. `lone-surrogate` gets no case — it is not corpus-expressible (see the guard's comment and §6); it is pinned by a unit test in each binding instead. Compute each `canonical` hex with the reference binding rather than by hand:
 
 ```bash
 cd sdks/typescript && bun -e '
@@ -852,6 +852,7 @@ Cases must include, at minimum, one per row:
 | `number-negative-max-safe` | `§5` | −9007199254740991 accepted |
 | `number-non-integer-rejected` | `§5` | `1.5` → `non-integer-number` |
 | `number-integral-float-accepted` | `§5` | `1.0` → `1`. Pins §5 as a rule about the VALUE: TypeScript cannot see the literal, Python sees a `float`, Go sees `json.Number("1.0")`, and all three must agree. |
+| `number-non-finite-rejected` | `§5` | The literal `1e400` → `number-out-of-range`, **not** `non-integer-number`. Each runtime reaches this differently — `JSON.parse` yields `Infinity`, `json.loads` yields `inf`, and Go's `UseNumber` yields a `json.Number` whose `Float64()` overflows — so this case is the only thing that forces all three to agree on the token. Measured: caught by 0 of the other 22 cases, and a TypeScript binding checking integrality before finiteness answers `non-integer-number` here while Python and Go answer `number-out-of-range`. That divergence was live in this shipment's own first TypeScript implementation and was found by review, not by a test. |
 | `number-negative-zero` | `§5` | `-0` serializes as `0` |
 | `string-html-characters-literal` | `§6` | `<&>` unescaped — Go's default would fail |
 | `string-nfd-preserved` | `§6` | `e` + U+0301 survives undecomposed |

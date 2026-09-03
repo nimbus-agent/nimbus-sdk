@@ -1,0 +1,123 @@
+import { describe, expect, test } from "bun:test";
+import {
+  CANONICALIZATION_REASONS,
+  CanonicalizationError,
+  canonicalize,
+  canonicalizeManifest,
+} from "./canonical-json.js";
+
+const reasonOf = (fn: () => unknown): string => {
+  try {
+    fn();
+  } catch (err) {
+    if (err instanceof CanonicalizationError) return err.reason;
+    throw err;
+  }
+  throw new Error("expected a CanonicalizationError, got none");
+};
+
+describe("§4 key ordering", () => {
+  test("sorts by code point, not UTF-16 code unit", () => {
+    // The live cross-language bug: JS `<` puts the astral key before U+FF3A,
+    // because a surrogate pair starts at 0xD800. Python and Go both disagree.
+    const value = { "\u{1F600}": 1, Ｚ: 2, z: 3 };
+    expect(canonicalize(value)).toBe('{"z":3,"Ｚ":2,"\u{1F600}":1}');
+  });
+
+  test("orders plain ASCII keys lexicographically", () => {
+    expect(canonicalize({ b: 1, a: 2 })).toBe('{"a":2,"b":1}');
+  });
+});
+
+describe("§5 numbers", () => {
+  test("accepts the largest safe integer", () => {
+    expect(canonicalize(9007199254740991)).toBe("9007199254740991");
+  });
+
+  test("rejects one past it, which JS would otherwise serialize exponentially", () => {
+    expect(reasonOf(() => canonicalize(1e21))).toBe("number-out-of-range");
+  });
+
+  test("rejects a non-integer", () => {
+    expect(reasonOf(() => canonicalize(1.5))).toBe("non-integer-number");
+  });
+
+  test("an integral value is an integer whatever literal produced it", () => {
+    // §5 is a rule about the VALUE. `JSON.parse("1.0")` is already 1 here, so this
+    // binding cannot see the literal at all — which is why the rule has to be
+    // value-based, and why Python and Go must not consult their own literals either.
+    expect(canonicalize(JSON.parse("1.0") as number)).toBe("1");
+    expect(canonicalize(JSON.parse("1e2") as number)).toBe("100");
+  });
+
+  test("emits negative zero as 0", () => {
+    expect(canonicalize(-0)).toBe("0");
+  });
+});
+
+describe("§6 strings", () => {
+  test("does not HTML-escape, unlike Go's encoding/json default", () => {
+    expect(canonicalize("<&>")).toBe('"<&>"');
+  });
+
+  test("does not normalize — NFD survives as NFD", () => {
+    expect(canonicalize("e\u0301")).toBe('"e\u0301"');
+  });
+
+  test("escapes the five named controls and hex-escapes the rest", () => {
+    expect(canonicalize("\b\f\n\r\t\u0001")).toBe('"\\b\\f\\n\\r\\t\\u0001"');
+  });
+
+  test("escapes the quote and the backslash only", () => {
+    expect(canonicalize('a"b\\c/d')).toBe('"a\\"b\\\\c/d"');
+  });
+
+  test("rejects a lone surrogate", () => {
+    expect(reasonOf(() => canonicalize("\ud800"))).toBe("lone-surrogate");
+  });
+});
+
+describe("§7 depth", () => {
+  const nest = (depth: number): unknown => {
+    let v: unknown = 1;
+    for (let i = 0; i < depth; i++) v = [v];
+    return v;
+  };
+
+  test("accepts depth 32", () => {
+    expect(() => canonicalize(nest(32))).not.toThrow();
+  });
+
+  test("rejects depth 33", () => {
+    expect(reasonOf(() => canonicalize(nest(33)))).toBe("nesting-too-deep");
+  });
+});
+
+describe("§8 manifest stripping", () => {
+  test("strips the top-level signature and nothing else", () => {
+    const bytes = canonicalizeManifest({ id: "x", signature: "sig", a: { signature: "keep" } });
+    expect(new TextDecoder().decode(bytes)).toBe('{"a":{"signature":"keep"},"id":"x"}');
+  });
+});
+
+describe("§9 tokens", () => {
+  test("every published reason is reachable", () => {
+    // Cast to `string[]` only to satisfy `tsc` against bun-types' two `toEqual`
+    // overloads, which otherwise reject this literal against the narrower
+    // `CanonicalizationReason[]` inferred from the left-hand side — no assertion
+    // or value here changes.
+    expect(([...CANONICALIZATION_REASONS] as string[]).sort()).toEqual(
+      [
+        "lone-surrogate",
+        "nesting-too-deep",
+        "non-integer-number",
+        "number-out-of-range",
+        "unsupported-type",
+      ].sort(),
+    );
+  });
+
+  test("rejects a value outside the input domain", () => {
+    expect(reasonOf(() => canonicalize(undefined))).toBe("unsupported-type");
+  });
+});

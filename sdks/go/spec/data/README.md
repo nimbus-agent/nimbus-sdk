@@ -376,15 +376,19 @@ a bearer token. Its §6.4 also carries the clearest statement in the tree of why
 must be named rather than inherited: the cap is code points in every binding, because
 letting each count its own gave one input two conforming answers and left the boundary
 unpinnable by any case.
+`sdks/python/` now also runs the `canonical-json` corpus — Python's binding lands in this
+task of this shipment — which holds a seventh kind of claim: that two independent
+serializers, given the same JSON value, produce byte-identical canonical output, which is
+the one thing a detached signature can verify across languages at all. Go's binding is not
+yet among them; that is the next task.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Five corpora are executed by the **TypeScript** binding alone.
+whole tree. Four corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-`canonical-json` is executed by the **TypeScript** binding only too, for now — its Python and Go bindings land in a later task of this shipment, at which point it moves out of this list.
-All five are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`,
-`item` or `canonical-json` run as "the reference implementation agrees with the spec", not as
+All four are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`
+or `item` run as "the reference implementation agrees with the spec", not as
 "the spec is implementable twice".
 
 Which binding runs which corpus is declared in

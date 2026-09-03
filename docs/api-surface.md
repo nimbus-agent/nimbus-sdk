@@ -2845,6 +2845,64 @@ From `./handshake.js`.
 export declare function performHandshake(io: HandshakeIo, options?: HandshakeOptions): Promise<HandshakeResult>;
 ```
 
+## `./signing`
+
+5 exports.
+
+### `CANONICALIZATION_REASONS`
+
+**Stability:** experimental
+
+From `./canonical-json.js`.
+
+```ts
+export declare const CANONICALIZATION_REASONS: readonly CanonicalizationReason[];
+```
+
+### `CanonicalizationError`
+
+**Stability:** experimental
+
+From `./canonical-json.js`.
+
+```ts
+export declare class CanonicalizationError extends Error {
+    readonly name = "CanonicalizationError";
+    readonly reason: CanonicalizationReason;
+    constructor(reason: CanonicalizationReason);
+}
+```
+
+### `CanonicalizationReason` *(type-only)*
+
+**Stability:** experimental
+
+From `./canonical-json.js`.
+
+```ts
+export type CanonicalizationReason = "non-integer-number" | "number-out-of-range" | "unsupported-type" | "nesting-too-deep" | "lone-surrogate";
+```
+
+### `canonicalize`
+
+**Stability:** experimental
+
+From `./canonical-json.js`.
+
+```ts
+export declare function canonicalize(value: unknown): string;
+```
+
+### `canonicalizeManifest`
+
+**Stability:** experimental
+
+From `./canonical-json.js`.
+
+```ts
+export declare function canonicalizeManifest(manifest: object): Uint8Array;
+```
+
 ## `./testing`
 
 3 exports.

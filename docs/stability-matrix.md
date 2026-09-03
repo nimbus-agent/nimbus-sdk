@@ -25,6 +25,7 @@ binding does not publish the capability at all.
 | [`item-types`](./modules/item-types.md) | `frozen` | — | — |
 | [`jmap-fastmail`](./modules/jmap-fastmail.md) | `frozen` | `frozen` | `frozen` |
 | [`server`](./modules/server.md) | `stable` | — | — |
+| [`signing`](./modules/signing.md) | `experimental` | — | — |
 | [`storybook`](./modules/storybook.md) | `experimental` | — | — |
 | [`testing`](./modules/testing.md) | `stable` | `stable` | `stable` |
 | [`types`](./modules/types.md) | `frozen` | — | — |

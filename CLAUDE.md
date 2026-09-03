@@ -40,7 +40,14 @@ published package.
   `docs/spec/diagnostics/v1/diagnostics.md` with its own conformance corpus. It is the
   structural replacement for `createScopedAuditLogger`'s free-form payload, which
   `audit-logger` now marks `@deprecated` (since `1.16.0`, removal no earlier than
-  `2.0.0`). This makes it a **five**-entry `exports` map.
+  `2.0.0`).
+- `./signing` (`sdks/typescript/src/signing/index.ts`) — manifest canonicalization:
+  `canonicalize` / `canonicalizeManifest` / `CanonicalizationError` /
+  `CanonicalizationReason` / `CANONICALIZATION_REASONS`, and, from a later shipment, the
+  detached JWS envelope built on top of it. A separate entry point because signing is a
+  separate contract, normatively specified at `docs/spec/signing/v1/canonical-json.md`
+  and governed by [RFC-0020](./docs/rfcs/0020-manifest-signing.md). This makes it a
+  **six**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.

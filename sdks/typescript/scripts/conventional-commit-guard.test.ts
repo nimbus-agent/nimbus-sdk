@@ -113,7 +113,7 @@ describe("repo-root anchoring (Finding A)", () => {
   //   fixed    — base and head both read the same goldens, so the diff is empty from
   //              either cwd, and the two results agree.
   //   reverted — `git show <rev>:<path>` resolves repo-relative regardless of cwd, so the
-  //              BASE side still parses all 227 TypeScript entries, while the HEAD side
+  //              BASE side still parses all 232 TypeScript entries, while the HEAD side
   //              goes through `existsSync`/`Bun.file` and finds nothing from packageRoot.
   //              Every base entry then reads as `removed`, and the two cwds disagree.
   //
@@ -140,7 +140,7 @@ describe("repo-root anchoring (Finding A)", () => {
   // The equality above would hold vacuously if a future change made the head-golden read
   // fail from BOTH cwds — empty equals empty. This is the non-vacuity half: the head
   // golden must actually be readable through the same anchoring the guard uses, from the
-  // cwd where the original bug bit. `parseSurface` is the guard's own parser, and 227 is
+  // cwd where the original bug bit. `parseSurface` is the guard's own parser, and 232 is
   // the count pinned in stability-rules.test.ts.
   test("the head golden is readable through repo anchoring from the package root", () => {
     const original = process.cwd();
@@ -148,7 +148,7 @@ describe("repo-root anchoring (Finding A)", () => {
       process.chdir(packageRoot);
       const golden = joinRepo("docs/api-surface.md");
       expect(existsSync(golden)).toBe(true);
-      expect(parseSurface(readFileSync(golden, "utf8")).size).toBe(227);
+      expect(parseSurface(readFileSync(golden, "utf8")).size).toBe(232);
     } finally {
       process.chdir(original);
     }

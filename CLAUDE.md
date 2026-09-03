@@ -641,7 +641,7 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   compares `docs/api-surface-go.md` against a walker's live output and asserts its
   `packages` list covers every non-internal package. Python compares
   `docs/api-surface-python.md` against a generator that imports each published root, and
-  additionally asserts that the import roots on disk are the four documented — a fifth
+  additionally asserts that the import roots on disk are the nine documented — a tenth
   root would leave the golden file matching while a whole surface went unrecorded. Neither
   is one of the five above, which read TypeScript only — except the fifth's surface-diff
   half, which reads all three.

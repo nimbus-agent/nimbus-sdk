@@ -1,5 +1,17 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.32.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.31.0...typescript-v1.32.0) (2026-09-04)
+
+
+### Features
+
+* **signing:** specify manifest canonicalization and bind it in all three languages ([#265](https://github.com/nimbus-agent/nimbus-sdk/issues/265)) ([5535634](https://github.com/nimbus-agent/nimbus-sdk/commit/55356346644f1981d3c209aeeb215b95b479d0ba))
+
+
+### Bug Fixes
+
+* **internal:** scan whitespace by code point ([#269](https://github.com/nimbus-agent/nimbus-sdk/issues/269)) ([f109d2d](https://github.com/nimbus-agent/nimbus-sdk/commit/f109d2d8d436d07d332ed92feb811f2071806e6f))
+
 ## [1.31.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.30.1...typescript-v1.31.0) (2026-09-01)
 
 

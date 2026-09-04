@@ -31,16 +31,23 @@ export const NORMATIVE_WHITESPACE: ReadonlySet<number> = new Set([
  * Trim the normative whitespace set from both ends of `value`.
  *
  * Every member of the set is below U+10000, so none has a surrogate-pair representation and
- * a code-unit scan cannot split one — a surrogate is never a member, so it always halts the
- * scan rather than being half-consumed.
+ * neither a code-unit nor a code-point scan can split one — a surrogate is never a member, so
+ * it always halts the scan rather than being half-consumed.
+ *
+ * `codePointAt` rather than `charCodeAt` even though that reasoning makes the two equivalent
+ * today: a reader should not have to re-derive the argument above to satisfy themselves a
+ * UTF-16 scan is safe, and an edit that added an astral member to the set would silently break
+ * the code-unit form while leaving this one correct. The `?? -1` is unreachable — both loops
+ * guard the index — and -1 rather than a non-null assertion so the fallback can never itself
+ * be a member of a set of code points.
  */
 export function trim(value: string): string {
   let start = 0;
   let end = value.length;
-  while (start < end && NORMATIVE_WHITESPACE.has(value.charCodeAt(start))) {
+  while (start < end && NORMATIVE_WHITESPACE.has(value.codePointAt(start) ?? -1)) {
     start++;
   }
-  while (end > start && NORMATIVE_WHITESPACE.has(value.charCodeAt(end - 1))) {
+  while (end > start && NORMATIVE_WHITESPACE.has(value.codePointAt(end - 1) ?? -1)) {
     end--;
   }
   return value.slice(start, end);

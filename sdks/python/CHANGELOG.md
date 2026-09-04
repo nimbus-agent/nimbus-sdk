@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.21.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.20.0...python-v0.21.0) (2026-09-03)
+
+
+### Features
+
+* **signing:** specify manifest canonicalization and bind it in all three languages ([#265](https://github.com/nimbus-agent/nimbus-sdk/issues/265)) ([5535634](https://github.com/nimbus-agent/nimbus-sdk/commit/55356346644f1981d3c209aeeb215b95b479d0ba))
+
 ## [0.20.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.19.0...python-v0.20.0) (2026-08-28)
 
 

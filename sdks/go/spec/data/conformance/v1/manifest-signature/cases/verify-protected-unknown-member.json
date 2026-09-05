@@ -1,0 +1,26 @@
+{
+  "description": "A header carrying typ alongside alg and kid is protected-unknown-member.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCJ0eXAiOiJKT1NFIn0",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    }
+  ],
+  "expect": {
+    "rejected": "protected-unknown-member"
+  }
+}

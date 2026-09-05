@@ -1,0 +1,11 @@
+{
+  "description": "A JWK carrying no x member is not thumbprintable.",
+  "kind": "thumbprint",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519"
+  },
+  "expect": {
+    "rejected": "key-unsupported"
+  }
+}

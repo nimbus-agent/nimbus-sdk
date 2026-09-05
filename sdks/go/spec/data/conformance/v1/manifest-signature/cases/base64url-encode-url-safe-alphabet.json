@@ -1,0 +1,9 @@
+{
+  "description": "Octets reaching indices 62 and 63 encode as \"-\" and \"_\", never \"+\" and \"/\".",
+  "kind": "base64url",
+  "mode": "encode",
+  "input": "fbff00",
+  "expect": {
+    "ok": "-_8A"
+  }
+}

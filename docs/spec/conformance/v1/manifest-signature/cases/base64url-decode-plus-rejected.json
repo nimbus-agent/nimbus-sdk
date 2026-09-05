@@ -1,0 +1,9 @@
+{
+  "description": "\"+\" belongs to standard base64, not base64url, and is rejected.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "-w+A",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

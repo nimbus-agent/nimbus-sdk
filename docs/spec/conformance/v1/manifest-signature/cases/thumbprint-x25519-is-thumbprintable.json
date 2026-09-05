@@ -1,0 +1,12 @@
+{
+  "description": "An OKP key on curve X25519 is thumbprintable — the thumbprint is defined even though the key is unusable for signing.",
+  "kind": "thumbprint",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "X25519",
+    "x": "3p7bfXt9wbTTW2HC7OQ1Nz-DQ8hbeGdNrfx-FG-IK08"
+  },
+  "expect": {
+    "ok": "giQqigT_IKcuzHl0FVJ3k5ts3_TWNAxvsC08UZsfcM8"
+  }
+}

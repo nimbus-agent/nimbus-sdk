@@ -1,0 +1,9 @@
+{
+  "description": "\"QR\" carries nonzero trailing bits in a two-character final quantum and is rejected, even though every platform decoder accepts it as 0x41.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "QR",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

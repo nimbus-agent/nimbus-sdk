@@ -1,0 +1,176 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/manifest-signature/case.schema.json",
+  "title": "Manifest-signature conformance case",
+  "description": "One case. Five kinds, because manifest-signature.md has five separable assertions: the strict base64url codec (§4), the RFC 7638 thumbprint (§5), raw Ed25519 verification (§7), the ten-step verification algorithm (§8), and signing (§9). A runner reads `kind` and dispatches. Every kind's payload members are declared at the top level and REQUIRED per kind by the allOf below — declaring them per kind instead would make `additionalProperties: false` reject every valid case, which is the shape docs/spec/conformance/v1/diagnostics/case.schema.json already settled on.",
+  "type": "object",
+  "required": ["description", "kind", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["base64url", "thumbprint", "ed25519", "verify", "sign"] },
+
+    "mode": {
+      "enum": ["encode", "decode"],
+      "description": "base64url only. `decode` reads `input` as a candidate base64url string; `encode` reads it as lowercase hex octets."
+    },
+    "input": {
+      "type": "string",
+      "description": "base64url only. Under `decode`, the candidate string verbatim — deliberately unconstrained, since most cases assert a malformed one is refused. Under `encode`, the octets to encode, as lowercase hex with no separators."
+    },
+
+    "jwk": {
+      "description": "thumbprint only. The candidate key. Deliberately unconstrained: §5's thumbprintability rule is what several cases assert, so a key with a numeric member or a missing one must be expressible here."
+    },
+
+    "publicKey": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$",
+      "description": "ed25519 only. The raw 32-octet public key, lowercase hex. Raw rather than a JWK because this kind tests the primitive, not §5's encoding of it."
+    },
+    "message": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$",
+      "description": "ed25519 only. The signed message, lowercase hex. Empty is a real case — RFC 8032 §7.1's first vector."
+    },
+    "signature": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$",
+      "description": "ed25519 only. The candidate 64-octet signature, lowercase hex."
+    },
+
+    "manifest": {
+      "description": "verify and sign. The document. Unconstrained for the same reason `jwk` is: §8 step 1 rejects manifests that are not objects at all, and the corpus has to be able to carry one."
+    },
+    "trustedKeys": {
+      "type": "array",
+      "description": "verify only. The resolved key set (§2), in order. May be empty — §8 step 6 says an empty set is kid-unknown. Entries are unconstrained so a rotation set can carry the unthumbprintable entries step 6 must skip."
+    },
+    "privateKey": {
+      "description": "sign only. The private JWK. Unconstrained, so §9 step 1's rejections are expressible."
+    },
+
+    "expect": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Exactly one of `ok` and `rejected`. `ok`'s shape is the kind's own: the decoded octets as hex or the encoded string (base64url), the 43-character thumbprint (thumbprint), whether verification succeeds (ed25519, where BOTH booleans are successful executions and neither is a rejection), `true` (verify), or the envelope produced (sign).",
+      "properties": {
+        "ok": {
+          "description": "On success. See this object's own description for the per-kind shape."
+        },
+        "rejected": {
+          "enum": [
+            "envelope-malformed",
+            "base64url-invalid",
+            "protected-malformed",
+            "crit-unsupported",
+            "protected-unknown-member",
+            "kid-unknown",
+            "key-unsupported",
+            "alg-unsupported",
+            "canonicalization-failed",
+            "signature-invalid"
+          ],
+          "description": "On refusal: the §10 token. The set is closed at ten; the per-kind allOf below narrows it further, since the pure kinds can only reach two of them."
+        },
+        "canonicalizationReason": {
+          "enum": [
+            "non-integer-number",
+            "number-out-of-range",
+            "unsupported-type",
+            "nesting-too-deep",
+            "lone-surrogate"
+          ],
+          "description": "Only alongside `rejected: \"canonicalization-failed\"`. §10 requires the underlying canonical-json.md §9 reason to be reachable ALONGSIDE the token rather than reported as one of the ten, so the corpus asserts both and neither set absorbs the other."
+        },
+        "canonical": {
+          "type": "string",
+          "pattern": "^([0-9a-f]{2})*$",
+          "description": "thumbprint only, on success and optional: the exact octets §5 step 2 hashes, lowercase hex. Hex rather than a string so the case file's own JSON escaping cannot alter what is asserted. Pinning these separately catches a binding that reaches the right digest by the wrong serialization."
+        }
+      },
+      "oneOf": [
+        { "required": ["ok"], "not": { "required": ["rejected"] } },
+        { "required": ["rejected"], "not": { "required": ["ok"] } }
+      ],
+      "allOf": [
+        {
+          "if": { "required": ["canonicalizationReason"] },
+          "then": { "properties": { "rejected": { "const": "canonicalization-failed" } }, "required": ["rejected"] }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "base64url" } }, "required": ["kind"] },
+      "then": {
+        "required": ["mode", "input"],
+        "properties": {
+          "expect": {
+            "properties": {
+              "ok": { "type": "string" },
+              "rejected": { "const": "base64url-invalid" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "thumbprint" } }, "required": ["kind"] },
+      "then": {
+        "required": ["jwk"],
+        "properties": {
+          "expect": {
+            "properties": {
+              "ok": { "type": "string", "minLength": 43, "maxLength": 43 },
+              "rejected": { "const": "key-unsupported" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "ed25519" } }, "required": ["kind"] },
+      "then": {
+        "required": ["publicKey", "message", "signature"],
+        "properties": {
+          "expect": {
+            "required": ["ok"],
+            "properties": { "ok": { "type": "boolean" } },
+            "description": "The primitive returns a verdict; it does not refuse. Both booleans are outcomes, and a `rejected` here would name a token §10 reserves for the envelope."
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "verify" } }, "required": ["kind"] },
+      "then": {
+        "required": ["manifest", "trustedKeys"],
+        "properties": { "expect": { "properties": { "ok": { "const": true } } } }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "sign" } }, "required": ["kind"] },
+      "then": {
+        "required": ["manifest", "privateKey"],
+        "properties": {
+          "expect": {
+            "properties": {
+              "ok": {
+                "type": "object",
+                "required": ["protected", "signature"],
+                "additionalProperties": false,
+                "properties": {
+                  "protected": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+                  "signature": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" }
+                },
+                "description": "The exact envelope §9 produces. Pinning it is what makes signing reproducible across bindings rather than merely round-trippable within one."
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

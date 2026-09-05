@@ -1,0 +1,26 @@
+{
+  "description": "A header carrying kid but no alg is alg-unsupported, not protected-malformed.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyJraWQiOiJrUHJLX3FteFZXYVlWQTl3d0JGNkl1bzN2Vnp6N1R4SENUd1hCeWdyUzRrIn0",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    }
+  ],
+  "expect": {
+    "rejected": "alg-unsupported"
+  }
+}

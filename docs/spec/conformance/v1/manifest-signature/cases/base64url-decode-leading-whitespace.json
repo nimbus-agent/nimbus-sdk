@@ -1,0 +1,9 @@
+{
+  "description": "A leading space is not in the alphabet and is rejected.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": " QQQ",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "spec": "../../../signing/v1/manifest-signature.md",
+  "cases": [
+    {
+      "file": "cases/base64url-decode-canonical-three-char-quantum.json",
+      "section": "§4",
+      "reason": "The companion accept for the three-character quantum, so the rejection above is a verdict on the trailing bits rather than on quantum length."
+    },
+    {
+      "file": "cases/base64url-decode-canonical-two-char-quantum.json",
+      "section": "§4",
+      "reason": "The baseline every trailing-bits case is measured against: \"QQ\" is the canonical encoding of the single octet 0x41, and every rule of §4 accepts it."
+    },
+    {
+      "file": "cases/base64url-decode-embedded-whitespace.json",
+      "section": "§4",
+      "reason": "Rule 1's embedded position. A decoder that strips all whitespace — the MIME base64 habit — accepts this and so accepts unboundedly many encodings of one octet string."
+    },
+    {
+      "file": "cases/base64url-decode-empty.json",
+      "section": "§4",
+      "reason": "§4 states outright that the empty string is a valid encoding of zero octets. A decoder that treats empty input as an error fails a member this contract never carries empty — which is why the failure would otherwise surface only as a wrong TOKEN at a later step."
+    },
+    {
+      "file": "cases/base64url-decode-leading-whitespace.json",
+      "section": "§4",
+      "reason": "Rule 1 names whitespace explicitly in all three positions because platform decoders differ on which they tolerate; this is the leading one."
+    },
+    {
+      "file": "cases/base64url-decode-length-one-mod-four.json",
+      "section": "§4",
+      "reason": "Rule 3. A final quantum of one character encodes six bits, which is no integral number of octets, so there is no input it is the encoding of."
+    },
+    {
+      "file": "cases/base64url-decode-non-ascii.json",
+      "section": "§4",
+      "reason": "Rule 1 against a character outside ASCII entirely. A binding indexing a lookup table by code point must bounds-check it, and a binding iterating a Go string byte-wise sees two octets where the other two bindings see one character — either way the verdict is the same, which is what this case pins."
+    },
+    {
+      "file": "cases/base64url-decode-padding-present.json",
+      "section": "§4",
+      "reason": "Rule 2, named separately from rule 1 because a decoder that strips padding before checking the alphabet satisfies rule 1 while violating this one — which is exactly how every platform base64url decoder is written."
+    },
+    {
+      "file": "cases/base64url-decode-plus-rejected.json",
+      "section": "§4",
+      "reason": "Rule 1. \"+\" is standard base64's 62nd character and base64url's is \"-\"; a decoder built on a permissive platform routine accepts both alphabets and so accepts two encodings of the same octets."
+    },
+    {
+      "file": "cases/base64url-decode-slash-rejected.json",
+      "section": "§4",
+      "reason": "Rule 1's other standard-base64 character. Paired with the \"+\" case because a decoder can translate one alphabet to the other and miss only half the substitution."
+    },
+    {
+      "file": "cases/base64url-decode-trailing-bits-three-char-quantum.json",
+      "section": "§4",
+      "reason": "Rule 4's other half. A three-character final quantum reserves the low TWO bits, not four, so a binding that hard-codes the two-character mask passes the \"QR\" case and accepts \"QUJ\"."
+    },
+    {
+      "file": "cases/base64url-decode-trailing-bits-two-char-quantum.json",
+      "section": "§4",
+      "reason": "Rule 4, and the reason §4 is hand-rolled in every binding: RFC-0020 §2.4 measured that Node's Buffer, CPython's base64 and Go's base64.RawURLEncoding all decode \"QR\" to the same 0x41 that \"QQ\" decodes to, silently discarding the second character's nonzero low four bits. Two distinct protected values naming the same header octets is malleability, not a curiosity."
+    },
+    {
+      "file": "cases/base64url-decode-trailing-whitespace.json",
+      "section": "§4",
+      "reason": "Rule 1's trailing position — the one a decoder that trims its input before decoding accepts while rejecting the other two."
+    },
+    {
+      "file": "cases/base64url-encode-url-safe-alphabet.json",
+      "section": "§4",
+      "reason": "The encoder half of rule 1, on octets that reach base64url's two substituted characters. Standard base64 would render these as \"+\" and \"/\", which the decode cases above reject — so an encoder built on a platform's standard-alphabet routine produces output this contract's own decoder refuses."
+    },
+    {
+      "file": "cases/base64url-encode-zeroes-trailing-bits.json",
+      "section": "§4",
+      "reason": "The encoder half of rule 4: §4 requires an encoder's output to itself decode under the four rules, which for one octet means \"QQ\" and never \"QR\"."
+    },
+    {
+      "file": "cases/ed25519-non-canonical-s.json",
+      "section": "§7",
+      "reason": "The load-bearing one. RFC 8032 §5.1.7 requires rejecting a signature whose S is outside [0, L), and S + L is the SAME signature mathematically with different octets — so a verifier that reduces S modulo L before checking accepts a second, distinct encoding of an existing signature, which is malleability of exactly the kind §4 rule 4 removes from the envelope's own encoding. BoringSSL (bun 1.3.14), OpenSSL (node 24.18.1) and Go's crypto/ed25519 (1.26.7, 1.27.0) all reject it; measured 2026-09-05 before this case was written."
+    },
+    {
+      "file": "cases/ed25519-public-key-all-zero.json",
+      "section": "§7",
+      "reason": "The all-zero encoding is not a valid point at all. A verifier that decodes it to the identity rather than failing accepts a key anyone can produce. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-public-key-y-equals-p.json",
+      "section": "§7",
+      "reason": "y = p is out of range: a field element must be reduced, and p itself encodes 0 if a decoder reduces silently. This is the boundary a range check is most often written one off from. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-public-key-y-equals-p-plus-1.json",
+      "section": "§7",
+      "reason": "y = p + 1, one past the boundary above, so a decoder that rejects exactly p and reduces everything else is caught by the pair rather than by either alone. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-rfc8032-vector-1.json",
+      "section": "§7",
+      "reason": "RFC 8032 §7.1's first test vector — the empty message, which is where an implementation that special-cases zero-length input diverges. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-rfc8032-vector-2.json",
+      "section": "§7",
+      "reason": "RFC 8032 §7.1's second test vector, a one-octet message. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-rfc8032-vector-3.json",
+      "section": "§7",
+      "reason": "RFC 8032 §7.1's third test vector, a two-octet message. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-small-order-1.json",
+      "section": "§7",
+      "reason": "A point of order 1 — the identity. Small-order public keys make verification succeed for signatures nobody holds a private key for, in implementations that omit the check. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-small-order-2.json",
+      "section": "§7",
+      "reason": "A point of order 2, the other torsion point with a trivially recognizable encoding. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/ed25519-small-order-8.json",
+      "section": "§7",
+      "reason": "A point of order 8 — the case with no recognizable byte pattern, which is why a check written as a blacklist of literals passes the two above it and fails here. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
+    },
+    {
+      "file": "cases/sign-non-corresponding-d-rejected.json",
+      "section": "§9",
+      "reason": "§9's correspondence rule, which without a case is prose the runtimes each answer differently: measured 2026-09-05, a non-corresponding private JWK is ACCEPTED by one JavaScript runtime (which signs with d and ignores x), REJECTED by another at key import, and IGNORED by Go (which derives the public key from the seed and never reads x). That is one binding with two answers depending on which runtime it executes in, which no golden file can see. The key here pairs TEST 1's d with TEST 2's x, so the envelope would advertise a kid derived from a key that cannot verify it — anywhere, under any implementation."
+    },
+    {
+      "file": "cases/sign-rfc8032-seed-1.json",
+      "section": "§9",
+      "reason": "RFC 8032 §7.1 TEST 1's seed against a plain manifest — the baseline §9 round trip, and the same key RFC 8037 §2 publishes, so the kid this envelope advertises is the thumbprint §5's worked example prints."
+    },
+    {
+      "file": "cases/sign-rfc8032-seed-1024.json",
+      "section": "§9",
+      "reason": "TEST 1024's seed against the smallest manifest §3 permits — publisher.id alone. The floor case: nothing to canonicalize but the one member the envelope itself requires."
+    },
+    {
+      "file": "cases/sign-rfc8032-seed-2.json",
+      "section": "§9",
+      "reason": "TEST 2's seed against a manifest carrying arrays, a nested object and a negative integer, so §9 step 4's canonicalization is not exercised only over flat string members."
+    },
+    {
+      "file": "cases/sign-rfc8032-seed-3.json",
+      "section": "§9",
+      "reason": "TEST 3's seed against a manifest whose keys span ASCII, Latin-1, a fullwidth BMP character and an astral one — canonical-json.md §4's code-point ordering reaching §9 step 4, where a binding sorting by UTF-16 code unit produces a different signing input and a signature that verifies nowhere."
+    },
+    {
+      "file": "cases/thumbprint-decorated-jwk-projects.json",
+      "section": "§5",
+      "reason": "§5 step 1, the step most likely to be skipped because skipping it is invisible in a suite that only ever thumbprints bare keys. Real key sets carry kid, use, alg and key_ops; serializing them into the hash input yields a digest no JOSE tool agrees with, and because §8 step 6 selects by thumbprint equality it turns a genuinely trusted key into kid-unknown."
+    },
+    {
+      "file": "cases/thumbprint-missing-member-rejected.json",
+      "section": "§5",
+      "reason": "The absent-member half of thumbprintability. A binding projecting with an undefined member either drops it — hashing a two-member object and producing a thumbprint — or serializes a null; §8 step 6 skips such a key instead, which is what this rejection drives."
+    },
+    {
+      "file": "cases/thumbprint-non-okp-rejected.json",
+      "section": "§5",
+      "reason": "RFC 7638's required-member set is per key type — an EC key's is crv, kty, x AND y — so §5's three-member projection is defined for OKP keys only. RFC 7638 §3.2's own EC example is used here so the rejection is unmistakably about kty rather than about a malformed key."
+    },
+    {
+      "file": "cases/thumbprint-non-string-member-rejected.json",
+      "section": "§5",
+      "reason": "§5's thumbprintability test is that kty, crv and x are all STRINGS. A numeric crv would canonicalize happily — canonical-json.md accepts integers — and produce a digest, so a binding that omits the type check gets a plausible-looking thumbprint out of a key that has none."
+    },
+    {
+      "file": "cases/thumbprint-private-key-projects-to-public.json",
+      "section": "§5",
+      "reason": "The projection drops `d` as well, which is what makes §9 step 2 — compute kid from the private JWK — produce the kid a verifier resolves against the public half. A binding that hashed the private key whole would sign envelopes no verifier could ever resolve, and would notice only at install time."
+    },
+    {
+      "file": "cases/thumbprint-rfc8037-example.json",
+      "section": "§5",
+      "reason": "RFC 8037 §2's own key and RFC 7638's own thumbprint, reproduced verbatim from §5's worked example. `canonical` pins the 79 octets §5 prints, so a binding that reaches the right digest by a different serialization is caught here rather than by the next key that carries an extra member."
+    },
+    {
+      "file": "cases/thumbprint-x25519-is-thumbprintable.json",
+      "section": "§5",
+      "reason": "§5's thumbprintability paragraph, the distinction §8 splits steps 6 and 7 over: an X25519 key has a well-defined thumbprint and is still key-unsupported. A binding that folded usability into thumbprintability would report kid-unknown here, hiding an unusable key behind a token that says the key was never in the set."
+    },
+    {
+      "file": "cases/verify-alg-unsupported-absent.json",
+      "section": "§8",
+      "reason": "§8's third pinned resolution, the asymmetry against kid: an absent alg is alg-unsupported (step 8) where an absent kid is protected-malformed (step 3). §10 has no kid-missing token for the latter to land in, and kid is what step 6 SELECTS with, so its absence stops the algorithm before a key exists."
+    },
+    {
+      "file": "cases/verify-alg-unsupported-es256.json",
+      "section": "§8",
+      "reason": "§8 step 8 with a known kid: `ES256` is a well-formed header naming an algorithm this contract refuses, so it survives step 3 and is refused only after the key has been resolved."
+    },
+    {
+      "file": "cases/verify-base64url-invalid-decodes-both-before-parsing.json",
+      "section": "§8",
+      "reason": "§8's first pinned resolution: step 2 decodes BOTH members before step 3 parses either. Here `protected` is valid base64url of malformed JSON while `signature` carries a `=`; lazy decoding — decode protected, parse it, decode signature only when it is needed — is the natural way to write this and reports protected-malformed instead."
+    },
+    {
+      "file": "cases/verify-canonicalization-failed.json",
+      "section": "§8",
+      "reason": "Step 9 wraps canonical-json.md §9's closed set rather than absorbing it: the underlying reason travels alongside canonicalization-failed and is never reported AS one of §10's ten. 1.5 is the cheapest input that reaches it, and its position after step 8 is what the alg-unsupported ordering case below asserts."
+    },
+    {
+      "file": "cases/verify-crit-unsupported.json",
+      "section": "§6",
+      "reason": "§6 rejects `crit` outright and §10 gives it its own token even though it is a strict subset of protected-unknown-member — the two say different things to a gateway recording why it refused. Checked at step 4, before step 5, so the more informative token wins whenever both apply."
+    },
+    {
+      "file": "cases/verify-envelope-malformed-empty-publisher-id.json",
+      "section": "§3",
+      "reason": "§3 requires publisher.id to be a NON-EMPTY string, so that a manifest which never named a publisher cannot present a signature as though it had. A presence-only check passes here."
+    },
+    {
+      "file": "cases/verify-envelope-malformed-extra-member.json",
+      "section": "§3",
+      "reason": "§3's `exactly` is exactly: step 1 rejects a third member rather than ignoring it, because a verifier that ignored it would let a signer smuggle a member past the signed payload — the envelope is the one part of the manifest canonicalization strips."
+    },
+    {
+      "file": "cases/verify-key-unsupported-x25519.json",
+      "section": "§8",
+      "reason": "Why steps 6 and 7 are two steps. An X25519 key is thumbprintable, so step 6 SELECTS it, and step 7 is what refuses it — a binding that filtered on curve during selection would report kid-unknown and tell its operator the key is absent when it is present and wrong."
+    },
+    {
+      "file": "cases/verify-kid-unknown-beats-alg-unsupported.json",
+      "section": "§8",
+      "reason": "Ordering case 1 of 3, and RFC-0020 §6's whole rule in one manifest: algorithm selection comes from the RESOLVED KEY, never from the attacker-supplied header. An unknown kid and a bogus alg together MUST report kid-unknown. Measured 2026-09-05 by moving the step 8 alg check above the step 6 lookup loop in src/signing/manifest-signature.ts, removing this case and re-running the corpus: caught by 0 of the other 56 cases. Nothing else in the corpus puts an unresolvable kid beside a well-formed alg this contract refuses, so this case is the corpus's sole witness to the rule."
+    },
+    {
+      "file": "cases/verify-kid-unknown-empty-key-set.json",
+      "section": "§8",
+      "reason": "§8 step 6 says an empty resolved key set is kid-unknown — not a token of its own, and not an error. A verifier handed no anchor has not failed differently from one handed the wrong anchor."
+    },
+    {
+      "file": "cases/verify-kid-unknown-wrong-key.json",
+      "section": "§8",
+      "reason": "The other half of step 6: a well-formed, usable Ed25519 key whose thumbprint simply is not the one the header names. Together with the empty-set case this proves the token covers both `no keys` and `no matching key`."
+    },
+    {
+      "file": "cases/verify-known-kid-with-bogus-alg-reaches-alg-unsupported.json",
+      "section": "§8",
+      "reason": "Ordering case 2 of 3, and the reason case 1 is not enough on its own: with the kid RESOLVABLE, the bogus alg must still be reached and reported. A binding that dropped step 8 entirely passes case 1 and fails here; one that hoisted step 8 passes here and fails case 1. Measured 2026-09-05 by deleting the step 8 check from src/signing/manifest-signature.ts, removing this case and re-running the corpus: caught by 2 of the other 56 cases — verify-alg-unsupported-es256 and verify-alg-unsupported-absent, both of which fall through to signature-invalid. So this case adds WEIGHT rather than coverage against a missing step 8. It is not redundant against the other direction: under the hoist that case 1 measures, this case still passes, and under a deletion case 1 still passes — which is why the ordering needs both."
+    },
+    {
+      "file": "cases/verify-non-canonical-protected-still-verifies.json",
+      "section": "§6",
+      "reason": "§6's no-re-canonicalize rule, which without a case is unpinned prose. The `protected` here is base64url of `{ \"kid\": …, \"alg\": \"EdDSA\" }` — non-canonical member order AND insignificant whitespace — and the signature was computed over that received string, exactly as §7 specifies. A verifier that re-encoded the header it decoded and compared would reject a cryptographically valid signature and would make this contract unverifiable by any conformant third-party JOSE signer, which is the interoperability property the rule exists for."
+    },
+    {
+      "file": "cases/verify-ok.json",
+      "section": "§8",
+      "reason": "The baseline: every other verify case is a single deliberate mutation away from this one, so a binding that rejects everything cannot pass the corpus by being uniformly strict."
+    },
+    {
+      "file": "cases/verify-protected-malformed-absent-kid-beats-crit.json",
+      "section": "§8",
+      "reason": "Ordering case 3 of 3, and §10's protected-malformed. Step 3 precedes step 4, so a header carrying `crit` but no `kid` is protected-malformed rather than crit-unsupported: structural well-formedness is settled before any member's meaning is consulted. Measured 2026-09-05 by moving the `crit` check above the `kid` check in src/signing/jws.ts, removing this case and re-running the corpus: caught by 0 of the other 56 cases — every other header this corpus carries has a kid, so nothing else distinguishes the two orders."
+    },
+    {
+      "file": "cases/verify-protected-malformed-non-string-alg.json",
+      "section": "§8",
+      "reason": "§8's fourth pinned resolution: a NON-STRING alg fails at step 3, where `alg: \"none\"` and `alg: \"ES256\"` are well-formed headers that must survive to step 8. A binding that checked alg's value at step 3 would collapse the two and destroy the kid-beats-alg property."
+    },
+    {
+      "file": "cases/verify-protected-unknown-member.json",
+      "section": "§6",
+      "reason": "§6's deliberate deviation from RFC 7515 §4, which requires unknown non-crit parameters to be IGNORED. `typ` is the member a third-party JOSE library is most likely to add unprompted, which is what makes the deviation worth pinning rather than assuming."
+    },
+    {
+      "file": "cases/verify-signature-invalid-flipped-octet.json",
+      "section": "§8",
+      "reason": "Step 10 proper. A single flipped octet in the signature, everything else identical to verify-ok — so the case isolates the cryptographic check from every structural one ahead of it."
+    },
+    {
+      "file": "cases/verify-signature-invalid-wrong-length.json",
+      "section": "§8",
+      "reason": "Step 10's length check, which §10 folds into the same token. A 63-octet signature is valid base64url and a well-formed envelope, so nothing before step 10 can catch it, and a binding that handed it straight to its platform verifier would surface a raw exception outside §10's closed set."
+    },
+    {
+      "file": "cases/verify-skips-unthumbprintable-keys-in-rotation-set.json",
+      "section": "§8",
+      "reason": "§8 step 6's `skips the rest`, stated there as a MUST NOT: a malformed entry in a rotation set MUST NOT make every signature under that publisher unverifiable. The correct key sits LAST, behind a key with a numeric x, a key missing crv, and a well-formed X25519 key — so a binding that aborts on the first unthumbprintable entry, or that stops at the first key it can thumbprint, fails."
+    }
+  ]
+}

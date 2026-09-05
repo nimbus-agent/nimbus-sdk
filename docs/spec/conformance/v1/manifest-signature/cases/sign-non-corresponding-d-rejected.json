@@ -1,0 +1,21 @@
+{
+  "description": "A private JWK whose d does not correspond to its x is key-unsupported.",
+  "kind": "sign",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0"
+  },
+  "privateKey": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "PUAXw-hDiVqStwqnTRt-vJyYLM8uxJaMwM1V8Sr0Zgw",
+    "d": "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A"
+  },
+  "expect": {
+    "rejected": "key-unsupported"
+  }
+}

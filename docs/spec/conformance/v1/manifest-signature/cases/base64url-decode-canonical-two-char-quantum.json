@@ -1,0 +1,9 @@
+{
+  "description": "\"QQ\" is the canonical two-character encoding of one octet and decodes to 0x41.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "QQ",
+  "expect": {
+    "ok": "41"
+  }
+}

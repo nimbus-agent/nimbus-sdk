@@ -1,0 +1,25 @@
+{
+  "description": "Signing with RFC 8032 §7.1 TEST 3's seed produces the pinned protected header and signature.",
+  "kind": "sign",
+  "manifest": {
+    "Ｚ": "fullwidth",
+    "été": "summer",
+    "publisher": {
+      "id": "unicode.example"
+    },
+    "z": "ascii",
+    "😀": "astral"
+  },
+  "privateKey": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "_FHNjmIYoaONpH7QAjDwWAgW7RO6MwOsXeuRFUiQgCU",
+    "d": "xaqN9D-fg3vtt0QvMdy3sWbThTUHbwlLhc46LgtEWPc"
+  },
+  "expect": {
+    "ok": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6IkZWVjV1bVR1YXU4OTBxNTlWLTRHYV9SNnFXYjdPTl9pdkpjNEVqdkN3VE0ifQ",
+      "signature": "S91y2pKt4Aih_Gksovcpge51kE7UR2Ln5pvlAvH4RzJzXUeyf-gsL8tszN49xo9ZJpy9zwsZ0ZLrhP8S5dmjBQ"
+    }
+  }
+}

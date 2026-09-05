@@ -1,0 +1,24 @@
+{
+  "description": "Signing with RFC 8032 §7.1 TEST 1's seed produces the pinned protected header and signature.",
+  "kind": "sign",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0"
+  },
+  "privateKey": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+    "d": "nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A"
+  },
+  "expect": {
+    "ok": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsifQ",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  }
+}

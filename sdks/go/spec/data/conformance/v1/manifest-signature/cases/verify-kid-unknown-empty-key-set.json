@@ -1,0 +1,20 @@
+{
+  "description": "An empty resolved key set is kid-unknown.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsifQ",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  },
+  "trustedKeys": [],
+  "expect": {
+    "rejected": "kid-unknown"
+  }
+}

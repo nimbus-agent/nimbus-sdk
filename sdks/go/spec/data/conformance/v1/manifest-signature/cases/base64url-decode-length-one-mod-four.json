@@ -1,0 +1,9 @@
+{
+  "description": "A single character is a length congruent to 1 modulo 4 and is rejected.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "A",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

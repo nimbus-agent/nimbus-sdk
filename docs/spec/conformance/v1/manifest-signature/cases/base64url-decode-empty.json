@@ -1,0 +1,9 @@
+{
+  "description": "The empty string satisfies all four rules and decodes to zero octets.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "",
+  "expect": {
+    "ok": ""
+  }
+}

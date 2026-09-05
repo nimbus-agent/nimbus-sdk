@@ -1,0 +1,26 @@
+{
+  "description": "A selected key on curve X25519 is key-unsupported, reported at step 7 rather than skipped at step 6.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6ImdpUXFpZ1RfSUtjdXpIbDBGVkozazV0czNfVFdOQXh2c0MwOFVac2ZjTTgifQ",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "OKP",
+      "crv": "X25519",
+      "x": "3p7bfXt9wbTTW2HC7OQ1Nz-DQ8hbeGdNrfx-FG-IK08"
+    }
+  ],
+  "expect": {
+    "rejected": "key-unsupported"
+  }
+}

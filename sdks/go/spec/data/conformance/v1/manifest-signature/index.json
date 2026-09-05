@@ -192,6 +192,11 @@
       "reason": "§8's third pinned resolution, the asymmetry against kid: an absent alg is alg-unsupported (step 8) where an absent kid is protected-malformed (step 3). §10 has no kid-missing token for the latter to land in, and kid is what step 6 SELECTS with, so its absence stops the algorithm before a key exists."
     },
     {
+      "file": "cases/verify-alg-unsupported-beats-canonicalization-failed.json",
+      "section": "§8",
+      "reason": "§8's fifth pinned resolution, and the one direction of the step order that nothing else reached: a manifest that cannot be canonicalized AND carries a bogus alg reports alg-unsupported, because every cheap structural check precedes the expensive serialization. verify-canonicalization-failed carries a VALID alg and both alg-unsupported cases canonicalize cleanly, so a binding that canonicalized first passed the corpus. This manifest carries 1.5 and alg ES256 at once, which is the only input that separates the two orders. Measured 2026-09-05 by hoisting step 9's canonicalization above step 8 in src/signing/manifest-signature.ts, removing this case and re-running the corpus: caught by 0 of the other 59 cases; with the case present the broken binding reports canonicalization-failed. This case is the corpus's sole witness to the 8-before-9 order."
+    },
+    {
       "file": "cases/verify-alg-unsupported-es256.json",
       "section": "§8",
       "reason": "§8 step 8 with a known kid: `ES256` is a well-formed header naming an algorithm this contract refuses, so it survives step 3 and is refused only after the key has been resolved."
@@ -222,6 +227,11 @@
       "reason": "§3's `exactly` is exactly: step 1 rejects a third member rather than ignoring it, because a verifier that ignored it would let a signer smuggle a member past the signed payload — the envelope is the one part of the manifest canonicalization strips."
     },
     {
+      "file": "cases/verify-key-unsupported-short-x.json",
+      "section": "§8",
+      "reason": "§8 step 7's SECOND route to key-unsupported, which §5 enumerates and nothing else in the corpus reached: an OKP/Ed25519 key whose x decodes to 31 octets rather than 32. The key is thumbprintable — kty, crv and x are all strings — so step 6 SELECTS it and step 7 is what refuses it, exactly as for the X25519 case beside it. A binding that omits the length check hands a short key to its platform verifier and surfaces whatever that throws, outside §10's closed set entirely. The kid here is this key's own thumbprint, so nothing before step 7 can intervene. Measured 2026-09-05 by deleting the 32-octet length check from decodeKeyOctets in src/signing/manifest-signature.ts, removing this case and re-running the corpus: caught by 0 of the other 59 cases. With the case present the broken binding reports signature-invalid — the platform verifier accepted the short key and simply failed to verify — so the omission is not merely unpinned, it is silently mislabelled as a bad signature."
+    },
+    {
       "file": "cases/verify-key-unsupported-x25519.json",
       "section": "§8",
       "reason": "Why steps 6 and 7 are two steps. An X25519 key is thumbprintable, so step 6 SELECTS it, and step 7 is what refuses it — a binding that filtered on curve during selection would report kid-unknown and tell its operator the key is absent when it is present and wrong."
@@ -230,6 +240,11 @@
       "file": "cases/verify-kid-unknown-beats-alg-unsupported.json",
       "section": "§8",
       "reason": "Ordering case 1 of 3, and RFC-0020 §6's whole rule in one manifest: algorithm selection comes from the RESOLVED KEY, never from the attacker-supplied header. An unknown kid and a bogus alg together MUST report kid-unknown. Measured 2026-09-05 by moving the step 8 alg check above the step 6 lookup loop in src/signing/manifest-signature.ts, removing this case and re-running the corpus: caught by 0 of the other 56 cases. Nothing else in the corpus puts an unresolvable kid beside a well-formed alg this contract refuses, so this case is the corpus's sole witness to the rule."
+    },
+    {
+      "file": "cases/verify-kid-unknown-ec-projection-hash.json",
+      "section": "§5",
+      "reason": "The direct witness for §5's kty clause, which the rotation-set case pins only indirectly — there the EC key's OKP-shaped projection matches no kid, so the case yields ok under either reading. Here the kid IS the SHA-256 of the EC key's canonical {crv, kty, x}, computed exactly as §5 steps 2-4 would if kty were not part of the thumbprintability test. Correct behaviour is kid-unknown: a non-OKP key is not thumbprintable, has no thumbprint, and step 6 skips it. The tightened §5's predecessor — thumbprintable means kty, crv and x are all strings — would select this key at step 6 and report key-unsupported at step 7 instead. One input, two tokens, and this is the case that chooses between them. Measured 2026-09-05 by relaxing jwkThumbprint in src/signing/jwk.ts to accept any string kty — the tightened §5's own predecessor reading — removing this case and re-running the corpus: caught by 1 of the other 59, thumbprint-non-okp-rejected, which asserts the §5 operation in isolation. So this case adds weight there. It is nevertheless the only case that shows the ruling changing which §10 token a VERIFICATION reports: under the relaxed reading it becomes key-unsupported, and no other verify case moves at all."
     },
     {
       "file": "cases/verify-kid-unknown-empty-key-set.json",

@@ -1,0 +1,27 @@
+{
+  "description": "A kid equal to the OKP-shaped projection hash of an EC key is kid-unknown: kty is part of thumbprintability, so the key is skipped rather than selected.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6InN4WFBucEFoOTFsNzRMQkIwSTlpdldVUUYzMUw2aHJpX3ZXV0E1MGkwWW8ifQ",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+      "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
+    }
+  ],
+  "expect": {
+    "rejected": "kid-unknown"
+  }
+}

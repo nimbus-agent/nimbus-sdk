@@ -164,7 +164,7 @@
     {
       "file": "cases/thumbprint-non-okp-rejected.json",
       "section": "§5",
-      "reason": "RFC 7638's required-member set is per key type — an EC key's is crv, kty, x AND y — so §5's three-member projection is defined for OKP keys only. RFC 7638 §3.2's own EC example is used here so the rejection is unmistakably about kty rather than about a malformed key."
+      "reason": "§5: `kty` is part of the thumbprintability test, so a non-OKP key is not thumbprintable and has no thumbprint at all. RFC 7638 §3.2 fixes the required-member set per key type — an EC key's is crv, kty, x AND y — so projecting an EC key through §5's three members yields a hash of three of its members rather than its thumbprint, and treating that value as one would let an unrelated key match a kid. RFC 7638 §3.2's own EC example is used here so the rejection is unmistakably about kty rather than about a malformed key."
     },
     {
       "file": "cases/thumbprint-non-string-member-rejected.json",
@@ -284,7 +284,7 @@
     {
       "file": "cases/verify-skips-unthumbprintable-keys-in-rotation-set.json",
       "section": "§8",
-      "reason": "§8 step 6's `skips the rest`, stated there as a MUST NOT: a malformed entry in a rotation set MUST NOT make every signature under that publisher unverifiable. The correct key sits LAST, behind a key with a numeric x, a key missing crv, and a well-formed X25519 key — so a binding that aborts on the first unthumbprintable entry, or that stops at the first key it can thumbprint, fails."
+      "reason": "§8 step 6's `skips the rest`, stated there as a MUST NOT: a malformed entry in a rotation set MUST NOT make every signature under that publisher unverifiable. The correct key sits LAST, behind a key with a numeric x, a key missing crv, an EC key (not thumbprintable at all under §5, since kty is part of the test) and a well-formed X25519 key (thumbprintable, and simply not a match) — so a binding that aborts on the first unthumbprintable entry, or that stops at the first key it can thumbprint, fails."
     }
   ]
 }

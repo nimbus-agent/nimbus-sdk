@@ -68,9 +68,9 @@ extensions, no multiple signatures.
   ([RFC 8037](https://www.rfc-editor.org/rfc/rfc8037)).
 - **thumbprint** — the RFC 7638 JWK thumbprint of a public JWK, computed as §5 specifies. It
   is what `kid` holds and what selects a key from the resolved set.
-- **thumbprintable** — a candidate key whose `kty`, `crv` and `x` members are all strings, so
-  that §5's projection is defined for it. A key that is not thumbprintable has no thumbprint
-  and §8 step 6 skips it.
+- **thumbprintable** — a candidate key whose `kty` is exactly `"OKP"` and whose `crv` and `x`
+  members are both strings, so that §5's projection is defined for it. A key that is not
+  thumbprintable has no thumbprint and §8 step 6 skips it.
 - **resolved key set** — the set of public JWKs a verifier was handed as the trust anchor for
   the manifest's publisher. It may be empty; it may contain keys this contract cannot use;
   §8 says what happens in both cases.
@@ -218,11 +218,23 @@ kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k
 
 A binding that produces any other value for that key is non-conformant.
 
-**Thumbprintability.** A candidate key is *thumbprintable* when `kty`, `crv` and `x` are all
-strings, which is what makes step 1's projection defined. Note that thumbprintability is
-weaker than usability: `{kty: "OKP", crv: "X25519", x: …}` is thumbprintable and has a
-thumbprint, and is still `key-unsupported`. §8 relies on exactly this distinction, and steps 6
-and 7 are separate for exactly this reason.
+**Thumbprintability.** A candidate key is *thumbprintable* when its `kty` is exactly `"OKP"`
+and its `crv` and `x` are both strings, which is what makes step 1's projection defined.
+
+**`kty` is part of the test, and a non-OKP key is therefore not thumbprintable at all.**
+RFC 7638 §3.2 fixes the required-member set **per key type**, and `crv`, `kty`, `x` is
+OKP's alone — an EC key's is `crv`, `kty`, `x` *and* `y`. Projecting an EC key through §5's
+three members produces a digest that is not that key's RFC 7638 thumbprint at all, merely a
+hash of three of its members; treating that value as a thumbprint would let an unrelated
+key match a `kid`. A key whose `kty` is not `"OKP"` is skipped at step 6 like any other
+unthumbprintable entry, and reports `kid-unknown` rather than `key-unsupported`.
+
+Thumbprintability is nevertheless still weaker than usability, which is the whole reason §8
+splits steps 6 and 7: `{kty: "OKP", crv: "X25519", x: …}` is thumbprintable, has a
+thumbprint, can match a `kid`, and is still `key-unsupported`. `key-unsupported` is therefore
+reachable at step 7 through exactly two routes — an OKP key on a curve other than Ed25519,
+and an `x` that does not decode to 32 octets — and step 6 never reports it, because a key
+step 6 cannot thumbprint is one it skips rather than one it selects.
 
 ## §6 The protected header
 

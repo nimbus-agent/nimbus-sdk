@@ -1,5 +1,5 @@
 {
-  "description": "A resolved key set whose correct key sits behind two unthumbprintable entries and one non-matching key still verifies.",
+  "description": "A resolved key set whose correct key sits behind three unthumbprintable entries and one non-matching key still verifies.",
   "kind": "verify",
   "manifest": {
     "id": "com.acme.calendar",
@@ -22,6 +22,12 @@
     {
       "kty": "OKP",
       "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    },
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "f83OJ3D2xF1Bg8vub9tLe1gHMzV76e8Tus9uPHvRVEU",
+      "y": "x_FEzRu9m36HLN_tue659LNpXW6pCyStikYjKIWI5a0"
     },
     {
       "kty": "OKP",

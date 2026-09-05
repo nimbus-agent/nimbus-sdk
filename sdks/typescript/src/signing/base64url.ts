@@ -1,5 +1,13 @@
 import { SignatureError } from "./errors.js";
 
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+const VALUES: readonly number[] = (() => {
+  const table = new Array<number>(128).fill(-1);
+  for (let i = 0; i < ALPHABET.length; i++) table[ALPHABET.charCodeAt(i)] = i;
+  return table;
+})();
+
 /**
  * Strict base64url, per `docs/spec/signing/v1/manifest-signature.md` §4.
  *
@@ -10,14 +18,6 @@ import { SignatureError } from "./errors.js";
  * CPython and Go. For a signature envelope that is malleability: two distinct `protected`
  * values decoding to the same header bytes.
  */
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-
-const VALUES: readonly number[] = (() => {
-  const table = new Array<number>(128).fill(-1);
-  for (let i = 0; i < ALPHABET.length; i++) table[ALPHABET.charCodeAt(i)] = i;
-  return table;
-})();
-
 export function base64urlEncode(bytes: Uint8Array): string {
   let out = "";
   let acc = 0;

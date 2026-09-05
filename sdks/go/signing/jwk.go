@@ -35,7 +35,7 @@ type PrivateJWK struct {
 var thumbprintMembers = [...]string{"crv", "kty", "x"}
 
 // thumbprintable reports whether §5's projection is defined for this key: kty is exactly
-// "OKP" and crv and x are both strings.
+// "OKP" and crv and x are both NON-EMPTY strings.
 //
 // Go's zero value for a string field is "", which is the only spelling this struct has
 // for "the member was absent" and for "the member was present but was not a string" —
@@ -45,6 +45,15 @@ var thumbprintMembers = [...]string{"crv", "kty", "x"}
 // faithful reading rather than a shortcut. A key whose Extra shadows one of the three
 // projected members is unthumbprintable for the same reason: a non-string crv preserved
 // there is still a non-string crv.
+//
+// The non-emptiness above used to be Go's alone, and is now §5's. TypeScript and Python
+// read an open mapping, so they could tell an empty crv or x from an absent one and
+// thumbprinted {"kty":"OKP","crv":"","x":""} where this refused it — a key-unsupported
+// against a kid-unknown downstream, for a kid an attacker can compute offline. Both
+// refuse, so it was a TOKEN divergence, the class §8's ordered algorithm exists to
+// eliminate. It was resolved toward this function rather than away from it, because a
+// struct of plain strings cannot implement the looser rule at all; §5 now requires
+// non-empty, the other two enforce it, and a thumbprint corpus case holds all three.
 //
 // kty is part of the test, so a non-OKP key is not thumbprintable at all. Projecting an
 // EC key through these three members produces a digest that is not that key's RFC 7638

@@ -113,7 +113,44 @@ manifest carrying **both** an unknown `kid` **and** a bogus `alg` MUST report
 
 Three bindings left to their own judgment would each pick a different order, and every
 order verifies the same valid signatures — which is exactly the class of divergence that
-stays invisible until an attacker finds it. The corpus pins the order case by case.
+stays invisible until an attacker finds it. So §8 is written as an explicit numbered
+algorithm, and every step maps one-to-one onto at least one corpus case.
+
+| Step | Check | Token on failure |
+|---|---|---|
+| 1 | `manifest` is an object; `manifest.publisher` is an object whose `id` is a non-empty string; `manifest.signature` is an object carrying **exactly** the members `protected` and `signature`, both strings | `envelope-malformed` |
+| 2 | **Both** `protected` and `signature` decode under §4's strict decoder | `base64url-invalid` |
+| 3 | The decoded `protected` is well-formed UTF-8, is a JSON object, and carries a string `alg` (if present) and a string `kid` (**required**) | `protected-malformed` |
+| 4 | The header does not carry `crit` | `crit-unsupported` |
+| 5 | The header carries no member but `alg` and `kid` | `protected-unknown-member` |
+| 6 | Some key in `trustedKeys` has an RFC 7638 thumbprint equal to `kid` | `kid-unknown` |
+| 7 | That key is `kty: "OKP"`, `crv: "Ed25519"`, and its `x` decodes to 32 bytes | `key-unsupported` |
+| 8 | `alg` is present and is exactly `"EdDSA"` | `alg-unsupported` |
+| 9 | `canonicalizeManifest(manifest)` succeeds | `canonicalization-failed` |
+| 10 | The decoded signature is 64 bytes and Ed25519 verification over §7's signing input succeeds | `signature-invalid` |
+
+Four resolutions this pins that the token table alone left open:
+
+**Step 2 decodes both members before step 3 parses either.** A manifest whose `protected`
+is valid base64url of malformed JSON *and* whose `signature` contains a `=` reports
+`base64url-invalid`, not `protected-malformed`. Without this, a binding that decoded
+lazily would report the JSON failure first.
+
+**An absent `kid` is `protected-malformed` (step 3); an absent `alg` is `alg-unsupported`
+(step 8).** The asymmetry is deliberate and is forced by §10's own wording: `alg-unsupported`
+already covers absence explicitly, and there is no `kid-missing` token for absence to land
+in. It is also the right shape — `kid` is what step 6 *selects* with, so its absence stops
+the algorithm before a key exists; `alg` is checked only after selection, precisely so the
+header cannot choose the algorithm. RFC 7515 makes `kid` optional; this contract does not,
+and §5 says so.
+
+**A non-string `alg` fails at step 3, not step 8.** `alg: 123` is a malformed header;
+`alg: "none"` and `alg: "ES256"` are well-formed headers naming an algorithm this contract
+refuses, and they must survive to step 8 so that an unknown `kid` still wins over them.
+
+**Steps 9 and 10 are the last two.** A manifest that cannot be canonicalized *and* carries
+a bogus `alg` reports `alg-unsupported` — every cheap structural check precedes both the
+expensive serialization and the cryptographic operation.
 
 ### §10 — the closed set
 
@@ -157,11 +194,25 @@ document states this outright rather than leaving a reader to conclude we misrea
 *pure* layer, not only the crypto one — Python and Go thumbprint synchronously through
 `hashlib` and `crypto/sha256`.
 
-**RFC 7638's canonical form coincides with ours.** Its required-members-only,
-lexicographically-ordered, whitespace-free JSON is exactly what `canonicalize` emits for
-`{crv, kty, x}`. The bindings reuse `canonicalize` rather than hand-rolling a second
-serializer, and a test in each binding pins the coincidence — if the two ever drift, that
-test is what says so rather than a signature failing in production.
+**RFC 7638's canonical form coincides with ours — but only after projection, and §5 says
+so normatively.** RFC 7638 §3.2 and RFC 8037 §2 require the hash input to contain *only*
+the required members for the key type, which for OKP are `crv`, `kty` and `x`. Real JWKs
+routinely carry more: `kid`, `use`, `key_ops`, `alg`, and in a private key `d`. Handing a
+caller-supplied JWK straight to `canonicalize` would serialize those extras into the hash
+input, silently producing a thumbprint that no standard JOSE tool agrees with — and,
+because `kid` selection is thumbprint equality, a `kid-unknown` on a key that is in fact
+trusted.
+
+So `jwkThumbprint` MUST project to exactly `{ crv, kty, x }` before canonicalizing. Given
+that projection, the required-members-only, lexicographically-ordered, whitespace-free
+JSON RFC 7638 demands is exactly what `canonicalize` emits, so the bindings reuse it
+rather than hand-rolling a second serializer.
+
+Two tests hold this. Each binding pins the coincidence, so a future divergence between
+`canonicalize` and RFC 7638 fails a test rather than a signature in production. And the
+`thumbprint` corpus kind carries a case asserting that a JWK decorated with `kid`, `use`
+and `alg` produces **byte-identical** output to the bare `{crv, kty, x}` key — the case
+that fails if any binding forgets to project.
 
 ## The conformance corpus
 
@@ -175,14 +226,33 @@ operations.)
 
 | kind | ≈ n | What it pins | Python |
 |---|---|---|---|
-| `base64url` | 13 | §4 strict decode — bad alphabet, padding present, nonzero trailing bits, whitespace, non-ASCII — plus encode vectors | runs |
-| `thumbprint` | 6 | §5, RFC 8037 §A.3's worked example plus non-OKP and malformed-JWK rejections | runs |
+| `base64url` | 13 | §4 strict decode, enumerated below | runs |
+| `thumbprint` | 6 | §5, RFC 8037's worked example, the **decorated-JWK projection case** from B2, plus non-OKP and malformed-JWK rejections | runs |
 | `ed25519` | 7+ | RFC 8032 §7.1 vectors and the edge cases below | deferred |
 | `verify` | 15 | §8's ordered algorithm — one `ok` case and every one of §10's ten tokens | deferred |
 | `sign` | 4 | §9 — seed plus manifest to the exact `protected` and `signature` bytes | deferred |
 
 Roughly 45 cases, of which Python runs 19, rendering as `19 of 45` in
 `docs/conformance-coverage.md`.
+
+The `base64url` kind is enumerated rather than left to implementation judgment, because §4
+is the one section whose rule no runtime enforces and therefore the one most likely to be
+implemented by delegating to a decoder that does not check:
+
+- **Nonzero trailing bits** in a 2-character quantum (`"QR"` against canonical `"QQ"`,
+  both of which every runtime decodes to `0x41` today) and in a 3-character quantum.
+- **Invalid quantum length** — a length ≡ 1 mod 4, such as `"A"`, which decodes to no
+  integral number of bytes.
+- **Whitespace**, leading, trailing and embedded: `\r`, `\n`, `\t`, space.
+- **Illegal characters** — `+`, `/`, `=`, `!` — the first two being exactly what standard
+  base64 uses and base64url does not.
+- **Empty input**, decoding to zero bytes, which is valid and must not be confused with an
+  error.
+
+**Reporting.** When `NIMBUS_CONFORMANCE_REPORT` is set, the Python runner writes execution
+records for the 19 cases it runs, exactly as the other runners do — the reconciler holds
+`conformance-coverage.json` true by execution, and a runner that claims cases without
+recording them fails that job rather than this suite.
 
 ### Python defers two whole kinds, not a scattered case list
 
@@ -272,6 +342,82 @@ for the module.
 `base64urlDecode` throws `base64url-invalid` and must not import the crypto module to do
 it. `connector_kit/errors.py` exists for the same reason.
 
+### Concrete signatures
+
+Locked here rather than settled during implementation, because three bindings drifting on
+a return shape is the failure this whole surface exists to prevent.
+
+```ts
+// TypeScript — src/signing/
+interface Jwk { readonly kty: string; readonly crv: string; readonly x: string;
+                readonly [k: string]: unknown }
+interface PrivateJwk extends Jwk { readonly d: string }
+interface ProtectedHeader { readonly alg: string; readonly kid: string }
+interface ManifestSignatureEnvelope { readonly protected: string; readonly signature: string }
+
+function base64urlEncode(bytes: Uint8Array): string;
+function base64urlDecode(s: string): Uint8Array;
+function jwkThumbprint(jwk: Jwk): Promise<string>;
+function encodeProtectedHeader(header: ProtectedHeader): string;
+function parseProtectedHeader(b64url: string): ProtectedHeader;
+function signingInput(protectedB64url: string, canonicalBytes: Uint8Array): Uint8Array;
+
+function generateSigningKey(): Promise<{ privateKey: PrivateJwk; publicKey: Jwk }>;
+function signManifest(m: object, key: PrivateJwk): Promise<ManifestSignatureEnvelope>;
+function verifyManifestSignature(m: object, trustedKeys: readonly Jwk[]): Promise<void>;
+```
+
+```go
+// Go — sdks/go/signing/
+type JWK struct { Kty, Crv, X string; Kid string; Extra map[string]any }
+type PrivateJWK struct { JWK; D string }
+type ProtectedHeader struct { Alg, Kid string }
+type SignatureEnvelope struct { Protected, Signature string }
+
+func Base64URLEncode(b []byte) string
+func Base64URLDecode(s string) ([]byte, error)
+func JWKThumbprint(k JWK) (string, error)
+func EncodeProtectedHeader(h ProtectedHeader) (string, error)
+func ParseProtectedHeader(b64url string) (ProtectedHeader, error)
+func SigningInput(protectedB64url string, canonical []byte) []byte
+
+func GenerateSigningKey() (PrivateJWK, JWK, error)
+func SignManifest(m map[string]any, k PrivateJWK) (SignatureEnvelope, error)
+func VerifyManifestSignature(m map[string]any, trusted []JWK) error
+```
+
+Python gets the pure four only in S2 — `base64url_encode` / `base64url_decode`,
+`jwk_thumbprint`, `encode_protected_header` / `parse_protected_header`, `signing_input`,
+all synchronous. Its `sign_manifest` / `verify_manifest_signature` / `generate_signing_key`
+signatures are S3's to fix, not this design's, and pinning them a shipment early would
+only invite drift against an implementation nobody has written.
+
+**Two corrections to the shapes the review proposed**, both load-bearing:
+
+**`ProtectedHeader.alg` is `string`, not the literal `"EdDSA"`.** G4 correctly requires
+`parseProtectedHeader` *not* to enforce `alg == "EdDSA"`, so that §8's step 6 can beat step
+8. A return type of `alg: "EdDSA"` makes that unimplementable — the parser would have to
+reject `alg: "ES256"` to satisfy its own signature, collapsing steps 3 and 8 and destroying
+the ordering B1 exists to pin. One type with `alg: string` serves both the encoder and the
+parser; step 8 is where the literal is required.
+
+**Go's `JWK` carries `Kid` and an `Extra` map.** The review's Go struct had only
+`{Kty, Crv, X}`, which makes B2's projection rule vacuous in Go — extra members would be
+unrepresentable, so the corpus case proving a decorated JWK thumbprints identically could
+not be expressed at all, and Go would pass it by construction rather than by conformance.
+A JWK that cannot carry `kid` is also not a JWK anyone receives from a real key set.
+
+### Error chaining
+
+`canonicalization-failed` wraps; the underlying reason is reachable without parsing a
+message string, and the property is named the same way in each language's idiom:
+
+| | Carrier | Chaining |
+|---|---|---|
+| TypeScript | `readonly canonicalizationReason?: CanonicalizationReason` | `cause` |
+| Go | `CanonicalizationReason string`, `Err error` | `Unwrap() error` |
+| Python (S3) | `canonicalization_reason: str \| None` | `raise ... from err` |
+
 Go stays **one package** with five files, exactly as `connectorkit` is one package where
 Python has six modules: splitting a Go package later is breaking, where merging one is not.
 
@@ -294,6 +440,21 @@ The verifier takes no expected-publisher-id parameter. The caller resolved the k
 *for* `manifest.publisher.id`, so no mismatch is constructible through the intended flow,
 and `publisher` sits inside the signed payload, so the signature already covers it. §8
 checks only that `publisher.id` is a non-empty string.
+
+**How step 6 iterates.** A key is *thumbprintable* when its `kty`, `crv` and `x` are all
+strings. Step 6 computes thumbprints for the thumbprintable keys only and **skips** the
+rest; a malformed entry in a rotation set must not make every signature unverifiable. If
+no thumbprintable key matches `kid` — including when `trustedKeys` is empty — the result
+is `kid-unknown`.
+
+**That raises the question of whether `key-unsupported` is reachable at all**, and it has
+to be: the corpus guard fails a token no case asserts. It is reachable, and the case that
+reaches it is a real threat rather than a contrivance. `{kty: "OKP", crv: "X25519", x: …}`
+is thumbprintable and can match a `kid`, but X25519 is a key-agreement curve, not a
+signing one. Step 7 rejects it. A binding that checked only `kty == "OKP"` would hand an
+X25519 public key to an Ed25519 verifier, so this is exactly the case worth pinning. The
+second `key-unsupported` case is an Ed25519 key whose `x` decodes to something other than
+32 bytes.
 
 `signManifest` returns the envelope and does not mutate the manifest it was given; the
 caller assigns it. Every helper in this package is pure.
@@ -335,10 +496,60 @@ in CI:
 | Go `golden_test.go` | new and renamed exports | `go -C sdks/go run ./internal/apisurface/cmd` |
 | Go `drift_test.go` | new spec and corpus files | `go -C sdks/go generate ./spec` |
 | Python `test_api_surface.py` | new names; roots stay at **nine** | `python scripts/api_surface.py` |
-| `docs/spec/README.md` | thirteen guards become fourteen | hand-edit, plus a new subsection |
 
 Neither of `sdks/python/tests/test_spec.py`'s two hard-coded size pins is touched; they
 pin `negotiation` and `framing` only.
+
+### `corpus-parity.test.ts` pins prose in four more files
+
+The table above is the *surface* half. A new corpus additionally trips eight assertions
+inside `corpus-parity.test.ts` that compare rendered sentences and name lists against
+`conformance-coverage.json`. Every one fails until the prose is edited by hand:
+
+| File | Pinned claim | S1 → S2 |
+|---|---|---|
+| `CLAUDE.md` | *"**N corpora are published** … M carry their own `index.json`"* | thirteen → **fourteen**, eleven → **twelve** |
+| `CLAUDE.md` | *"The N Go does not claim …"* | four → four (unchanged; Go claims the new corpus) |
+| `CLAUDE.md` | *"N is nevertheless what GOVERNANCE criterion 1 asks of this binding"* | Nine → **Ten** |
+| `CLAUDE.md` | the `Go executes …` paragraph, checked as a name **set** | add `manifest-signature` |
+| `docs/GOVERNANCE.md` | *"executing all N published corpora where Python executes P and Go executes G"* | fourteen / **ten** / **ten** |
+| `docs/GOVERNANCE.md` | *"N are published, and no binding but the reference implementation runs all N"* | fourteen |
+| `sdks/go/README.md` | Status section's executed-corpora list | add `manifest-signature` |
+| `sdks/go/README.md` | Status section's not-executed list | unchanged |
+| `.github/workflows/ci.yml` | the `conformance` job's hand-maintained guard list | add `manifest-signature-guard.test.ts` |
+| `.github/workflows/ci.yml` | the `conformance` job's Python runner list | add `test_manifest_signature_corpus.py` |
+| `docs/spec/README.md` | thirteen guards become fourteen; a new guard subsection; the language-neutrality paragraph names the corpus | hand-edit |
+
+The `ci.yml` pair matters most, because it is the one whose omission fails *late*: a
+recording guard missing from that list is never run by the `conformance` job, so the
+corpus is claimed and silently never executed. The test's own comment says a Python runner
+once sat outside that list for exactly this reason.
+
+**Python's claim count becomes ten while it defers 26 of 45 cases, and GOVERNANCE.md must
+say so.** `claimCount` counts corpora, not cases, so the pinned sentence will read *"Python
+executes ten"* — and until now, with `deferred` empty everywhere, "executes N" has meant
+"executes N in full". S2 changes what that sentence means without changing its words. The
+pinned sentence stays exactly as rendered, since `COUNT_CLAIMS` matches on `includes`, and
+a following sentence discloses the deferral and points at `conformance-coverage.md`'s
+`19 of 45`.
+
+This is defensible on RFC-0013's own terms rather than merely disclosed. Criterion 1 is
+*"every published corpus whose surface the binding publishes."* In S2 Python publishes the
+pure envelope layer and no signer, so the cases it defers are precisely the cases whose
+surface it does not publish. The deferral is the criterion applied at case granularity
+instead of corpus granularity.
+
+### S1 left a count stale, and S2 fixes it
+
+`docs/spec/README.md` says *"Eleven kinds of assertion, across **twelve** corpus
+directories"*. There are **thirteen** directories on disk: S1 added `canonical-json` and
+did not bump either number. Nothing caught it, because `COUNT_CLAIMS` pins five sentences
+and this is not one of them.
+
+S2 corrects both to their post-S2 values — **twelve kinds, fourteen directories** — and the
+implementation plan adds this sentence to `COUNT_CLAIMS`, so the next corpus cannot repeat
+the drift. Fixing it is in scope precisely because S2 is the shipment that would otherwise
+make it wrong by two.
 
 Verification runs in a clone made **outside** the repository, per CLAUDE.md's
 `node_modules`-borrowing trap, building before testing in `ci.yml`'s own order. And
@@ -386,12 +597,25 @@ had to be written for.
 
 So, before any expectation is written:
 
-1. The `ed25519` kind carries **edge-case vectors, not only RFC 8032 §7.1's happy path**.
-2. All four runtimes are measured — Bun, Node LTS, Go 1.26, Go 1.27 — and the measurement
-   is recorded the way RFC-0020 §2's four divergences were.
-3. The TypeScript guard gets a Node companion, `ed25519-node.mjs`, following the pattern
+1. A **throwaway harness** runs the candidate vectors against every runtime the repository
+   ships on — Bun, Node 22, Node LTS, Go 1.26 and Go 1.27 — and prints a verdict matrix.
+   It is a spike: its output is the measurement, and the script is not committed.
+2. The `ed25519` kind carries **edge-case vectors, not only RFC 8032 §7.1's happy path** —
+   non-canonical `S`, small-order and mixed-order public keys, and the all-zero key.
+3. The measurement is recorded the way RFC-0020 §2's four divergences were: a table naming
+   the runtime, the mechanism, and the observed result. **No expectation is written into a
+   case file before the matrix exists.**
+4. The TypeScript guard gets a Node companion, `ed25519-node.mjs`, following the pattern
    `framing-node.mjs` already established. A Bun-only run cannot see a BoringSSL/OpenSSL
    split at all.
+
+**Bulk Wycheproof import is deferred, deliberately.** Wycheproof's Ed25519 suite is
+several hundred vectors and would immediately become the largest corpus in the repository
+by an order of magnitude, drowning the fourteen hand-curated corpora that surround it —
+each of whose cases carries a written `reason` and a measured "caught by 0 of N" claim
+that a bulk import cannot honestly supply. Its *divergence classes* are what matter here,
+and those are a handful of vectors. If the harness in step 1 shows a split, the RFC that
+follows is the right place to argue for importing more.
 
 **If the runtimes disagree, S2 stops and becomes an RFC.** Two of three agreeing means fix
 it, per RFC-0014's precedent. A genuine three-way disagreement on a security primitive
@@ -438,6 +662,41 @@ temporary in any generated file. Rejected because it makes S2 far larger than S1
 denies the riskiest code in the repository — a hand-written implementation of a
 cryptographic primitive, carrying RFC-0020 §8's timing disclosure — its own dedicated
 review.
+
+## Review dispositions
+
+Against [the review](./2026-09-05-manifest-signature-envelope-design-review.md). All three
+blocking findings were re-verified against the repository before being acted on; B3's
+claim that CI would fail is correct and was the most valuable finding in the review.
+
+| ID | Disposition | Where |
+|---|---|---|
+| B1 | **Fixed** | §8 is now a ten-step numbered algorithm with four ordering resolutions spelled out |
+| B2 | **Fixed** | §5 requires projection to `{crv, kty, x}`; a corpus case pins a decorated JWK to the bare one |
+| B3 | **Fixed, and extended** | eight further pinned claims across four files, plus an S1 drift the review did not find |
+| G1 | **Fixed, with two corrections** | signatures locked; `ProtectedHeader.alg` and Go's `JWK` changed from what the review proposed |
+| G2 | **Fixed** | error-chaining table |
+| G3 | **Fixed, and completed** | skip-unthumbprintable, empty-set, and how `key-unsupported` stays reachable |
+| G4 | **Fixed** | the parser does not enforce `alg`; step 8 does |
+| I1 | **Adopted** | the `base64url` kind is enumerated |
+| I2 | **Adopted; bulk Wycheproof deferred** | throwaway harness first, no expectation written before the matrix |
+| I3 | **Adopted** | the Python runner records the 19 cases it executes |
+
+**Two corrections to G1**, both of which would have broken something the review itself
+asked for:
+
+- The review's `ProtectedHeader.alg: "EdDSA"` contradicts its own G4. A parser forbidden
+  from enforcing `alg == "EdDSA"` cannot return a type asserting it; the header would have
+  to be rejected at step 3, collapsing the ordering B1 exists to establish. `alg` is
+  `string`, and step 8 requires the literal.
+- The review's Go `JWK{Kty, Crv, X}` makes B2 vacuous in Go. With no representable extra
+  members, the decorated-JWK projection case cannot be expressed, and Go would pass it by
+  construction rather than by conformance — the precise shape of a corpus reporting
+  coverage it does not have. Go's `JWK` carries `Kid` and an `Extra` map.
+
+**One finding of my own**, surfaced while verifying B3: `docs/spec/README.md`'s corpus
+counts have been stale since S1. S2 fixes them and adds the sentence to `COUNT_CLAIMS` so
+the drift cannot recur.
 
 ## Out of scope
 

@@ -66,8 +66,8 @@ export function parseProtectedHeaderBytes(bytes: Uint8Array): ProtectedHeader {
   }
 
   return typeof header["alg"] === "string"
-    ? { alg: header["alg"] as string, kid: header["kid"] as string }
-    : { kid: header["kid"] as string };
+    ? { alg: header["alg"], kid: header["kid"] }
+    : { kid: header["kid"] };
 }
 
 export function signingInput(protectedB64url: string, canonicalBytes: Uint8Array): Uint8Array {

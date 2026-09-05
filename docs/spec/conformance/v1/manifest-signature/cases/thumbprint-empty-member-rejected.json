@@ -1,0 +1,12 @@
+{
+  "description": "A JWK whose x is the empty string is not thumbprintable: §5 requires crv and x to be non-empty strings.",
+  "kind": "thumbprint",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": ""
+  },
+  "expect": {
+    "rejected": "key-unsupported"
+  }
+}

@@ -44,7 +44,19 @@ export async function jwkThumbprint(jwk: Jwk): Promise<string> {
     jwk === null ||
     jwk.kty !== "OKP" ||
     typeof jwk.crv !== "string" ||
-    typeof jwk.x !== "string"
+    typeof jwk.x !== "string" ||
+    // §5 requires `crv` and `x` to be NON-EMPTY strings, and the emptiness half of that
+    // rule is Go's doing. Go's `JWK` is a struct of plain strings, so `""` is the only
+    // spelling it has for an absent member and its `thumbprintable` has always refused
+    // one; TypeScript and Python, reading an open mapping, happily thumbprinted
+    // {"kty":"OKP","crv":"","x":""} and returned mYSfG2VxJusSMC5-AVmg4J7lFIbkA2hP-ix3wxWm8ro
+    // for it. Downstream that made a blank rotation-set entry `key-unsupported` here and
+    // `kid-unknown` in Go, for a `kid` an attacker can compute offline — both refusals,
+    // so a TOKEN divergence, which is exactly the class §8's ordered algorithm exists to
+    // eliminate. The spec was tightened to Go's answer because only the stricter rule is
+    // implementable in all three, and an empty `crv` or `x` is meaningless anyway.
+    jwk.crv === "" ||
+    jwk.x === ""
   ) {
     throw new SignatureError("key-unsupported");
   }

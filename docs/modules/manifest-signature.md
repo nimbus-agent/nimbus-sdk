@@ -72,6 +72,12 @@ const signed = { ...manifest, signature: envelope };
 // envelope.protected and envelope.signature are both strict base64url strings.
 ```
 
+**The manifest you sign must carry `publisher.id` as a non-empty string, even though
+`signManifest` does not check it.** §8 step 1 does, so a `publisher`-less manifest signs
+successfully here and then fails verification with `envelope-malformed` — the one way to
+produce an envelope that this package's own verifier refuses. The example above carries a
+`publisher` for that reason, not for illustration.
+
 Re-signing a manifest that already carries a `signature` is fine and needs no cleanup: the
 top-level member is removed before canonicalization, so what gets signed is identical
 either way.

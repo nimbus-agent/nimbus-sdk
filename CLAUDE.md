@@ -136,7 +136,7 @@ guard's parser has two different code paths keyed on exactly this distinction.
   only a from-scratch RFC 8032, which is RFC-0020's S3 and carries a timing side-channel
   that needs its own `SECURITY.md` disclosure. Declared `experimental`, matching
   TypeScript's and Go's tier. It is the ninth import root; it runs `canonical-json` in
-  full and `manifest-signature` **partially** — 22 of 60 cases, the 38 crypto ones
+  full and `manifest-signature` **partially** — 23 of 61 cases, the 38 crypto ones
   recorded as per-case deferrals in `docs/conformance-coverage.json`.
 
 **The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and

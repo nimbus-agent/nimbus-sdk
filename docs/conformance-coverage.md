@@ -21,12 +21,12 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `item` | 6 | 6 | — | — |
 | `jmap` | 61 | 61 | 61 | 61 |
 | `manifest` | 31 | 31 | — | — |
-| `manifest-signature` | 60 | 60 | 22 of 60 | 60 |
+| `manifest-signature` | 61 | 61 | 23 of 61 | 61 |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **538** | **538** | **399** | **437** |
+| **Total** | **539** | **539** | **400** | **438** |
 
 ## What each binding does not run, and why
 

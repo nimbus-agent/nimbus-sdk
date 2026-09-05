@@ -278,6 +278,18 @@ export async function verifyManifestSignature(
     if (!ok) throw new SignatureError("signature-invalid");
   } catch (error) {
     // Same closed-set normalization as `signManifest`, with the token this step owns.
+    //
+    // DO NOT WIDEN THIS CATCH, and do not invent an eleventh token for it. Normalizing
+    // ANY WebCrypto throw to `signature-invalid` has a consequence worth stating outright:
+    // in a runtime whose `crypto.subtle` does not implement Ed25519, `importKey` rejects
+    // for lack of support and a GENUINE manifest is therefore reported as forged, not as
+    // "cannot check". That is the intended behaviour. It fails closed — the alternative,
+    // letting a `NotSupportedError` escape, hands a caller that §10 promises exactly ten
+    // outcomes an eleventh one it has no branch for, and the natural way to "fix" that is
+    // to add a token, which §10 forbids: the set is closed, and a binding MUST NOT invent
+    // one. A caller that needs to distinguish "unsupported runtime" from "bad signature"
+    // establishes Ed25519 support once, at startup, rather than reading it out of a
+    // per-manifest verdict; `error.cause` is preserved here for diagnostics either way.
     if (error instanceof SignatureError) throw error;
     throw new SignatureError("signature-invalid", { cause: error });
   }

@@ -501,8 +501,8 @@ Nimbus connector or app.*
   fixes which bytes of a manifest get signed, `docs/spec/signing/v1/manifest-signature.md`
   fixes the detached JWS envelope over them, and both are bound in all three languages
   behind `@nimbus-dev/sdk/signing`, `nimbus_sdk.signing` and `sdks/go/signing/`. The
-  `canonical-json` corpus runs byte-identically in all three; `manifest-signature`'s 60
-  cases run in full in TypeScript and Go, and 22 of 60 in Python, whose 38 crypto cases
+  `canonical-json` corpus runs byte-identically in all three; `manifest-signature`'s 61
+  cases run in full in TypeScript and Go, and 23 of 61 in Python, whose 38 crypto cases
   are deferred to S3 — see [`conformance-coverage.md`](./conformance-coverage.md). Two
   bindings can therefore **sign** a manifest and **verify** one another's envelopes today,
   and the `ed25519` and `sign` kinds are driven under both BoringSSL and OpenSSL so the

@@ -374,5 +374,23 @@ def test_a_lone_surrogate_in_alg_is_protected_malformed_too() -> None:
     )
 
 
+def test_an_empty_alg_is_protected_malformed() -> None:
+    """§6 requires a present ``alg`` to be a non-empty string.
+
+    Per-binding rather than a corpus case, and for the opposite reason to the
+    surrogates above: the input is unrepresentable in Go, whose ``Alg`` is a plain
+    string whose zero value *means* absent. That was the divergence — Go emitted
+    ``{"kid":…}`` where this function emitted ``{"alg":"","kid":…}``, a different
+    signing input for the same header, across a published pure function. Measured
+    after the fix: all three emit
+    ``eyJraWQiOiJrIn0`` for an absent ``alg``, and no binding can produce a header
+    carrying an empty one.
+    """
+    assert (
+        _reason(lambda: encode_protected_header({"alg": "", "kid": "abc"}))
+        == "protected-malformed"
+    )
+
+
 def test_signing_input_is_ascii_protected_dot_b64url_payload() -> None:
     assert signing_input("aGVhZGVy", b"{}") == b"aGVhZGVy.e30"

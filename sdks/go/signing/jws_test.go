@@ -25,6 +25,12 @@ func TestEncodeProtectedHeader(t *testing.T) {
 	// {"alg":"","kid":"…"} where a binding with an optional alg emits {"kid":"…"} — a
 	// different signing input for the same header, which is a cross-language signature
 	// failure rather than a formatting difference.
+	//
+	// The other half of that trap was on the other side and was fixed spec-side: §6 now
+	// requires a present alg to be non-empty, so TypeScript and Python REFUSE
+	// {"alg":"","kid":…} rather than emitting it, and this one-member form is the only
+	// thing any of the three produces for an absent alg. Measured: all three encode
+	// {Kid: "k"} to eyJraWQiOiJrIn0.
 	t.Run("an empty alg is omitted, not emitted as an empty string", func(t *testing.T) {
 		got, err := EncodeProtectedHeader(ProtectedHeader{Kid: rfc7638Kid})
 		if err != nil {

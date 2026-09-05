@@ -69,8 +69,8 @@ extensions, no multiple signatures.
 - **thumbprint** — the RFC 7638 JWK thumbprint of a public JWK, computed as §5 specifies. It
   is what `kid` holds and what selects a key from the resolved set.
 - **thumbprintable** — a candidate key whose `kty` is exactly `"OKP"` and whose `crv` and `x`
-  members are both strings, so that §5's projection is defined for it. A key that is not
-  thumbprintable has no thumbprint and §8 step 6 skips it.
+  members are both **non-empty** strings, so that §5's projection is defined for it. A key
+  that is not thumbprintable has no thumbprint and §8 step 6 skips it.
 - **resolved key set** — the set of public JWKs a verifier was handed as the trust anchor for
   the manifest's publisher. It may be empty; it may contain keys this contract cannot use;
   §8 says what happens in both cases.
@@ -219,7 +219,23 @@ kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k
 A binding that produces any other value for that key is non-conformant.
 
 **Thumbprintability.** A candidate key is *thumbprintable* when its `kty` is exactly `"OKP"`
-and its `crv` and `x` are both strings, which is what makes step 1's projection defined.
+and its `crv` and `x` are both **non-empty** strings, which is what makes step 1's projection
+defined.
+
+**The empty string is not a value either member may take, and a key carrying one is
+unthumbprintable rather than merely unusable.** An empty `crv` names no curve and an empty
+`x` encodes no public key, so there is nothing for step 1 to project; a thumbprint computed
+over `{"crv":"","kty":"OKP","x":""}` is a well-defined digest of nothing, and a `kid`
+matching it is one an attacker can compute offline against a rotation set that happens to
+carry a blank entry. Requiring non-emptiness is also the only rule *implementable in all
+three bindings*: a binding representing a JWK as a struct of plain strings has no spelling
+that separates an absent member from an empty one, so `""` is already how "absent" arrives
+there, and absence is unthumbprintable by the paragraph above. Before this sentence the
+bindings disagreed on exactly this input — two produced a thumbprint where the third
+reported `key-unsupported`, which downstream became a `key-unsupported`-versus-`kid-unknown`
+split at §8 for a `kid` an attacker can compute. Both answers still refuse, which is what
+made the divergence a *token* divergence, and eliminating those is the entire reason §8's
+algorithm is ordered.
 
 **`kty` is part of the test, and a non-OKP key is therefore not thumbprintable at all.**
 RFC 7638 §3.2 fixes the required-member set **per key type**, and `crv`, `kty`, `x` is
@@ -243,8 +259,26 @@ both strings.
 
 | Member | Requirement |
 |---|---|
-| `alg` | For a conformant **signer**, exactly `"EdDSA"` (RFC 8037 §3.1). For a **verifier**, a string, whose value is checked at §8 **step 8** and not before. |
+| `alg` | For a conformant **signer**, exactly `"EdDSA"` (RFC 8037 §3.1). For a **verifier**, a string, whose value is checked at §8 **step 8** and not before. When present, it MUST be a **non-empty** string. |
 | `kid` | The RFC 7638 thumbprint (§5) of the public key corresponding to the signing key. **Required.** |
+
+**`alg`, when present, MUST be a non-empty string, and an implementation MUST NOT produce a
+header carrying an empty one.** This is a requirement on the *producing* side — the
+serialization below, and §9 step 3 — not an eleventh check bolted onto §8, whose ten steps
+remain exhaustive: an empty `alg` that nevertheless arrives at a verifier is a well-formed
+string naming an algorithm this contract refuses, so it survives step 3 and is
+`alg-unsupported` at step 8, exactly as `"none"` and `"ES256"` are.
+
+The rule exists because the alternative is a **different signing input for the same
+header**. A binding whose header type spells "absent `alg`" as an empty string emits
+`{"kid":…}` for it, while a binding with a genuinely optional member emits `{"alg":"","kid":…}`
+— two distinct `protected` octets, hence two distinct §7 signing inputs, hence a signature
+one binding produces and another cannot verify. Neither serialization is wrong; the pair is.
+Forbidding the empty value at the source removes the input on which they could differ, so
+after this sentence no conformant implementation can produce either form and the question
+never arises. It costs nothing: a header with an empty `alg` is `alg-unsupported` at
+verification anyway, so the only envelopes this rule forbids are ones that could never have
+verified.
 
 **`kid` is required here where RFC 7515 §4.1.4 makes it optional.** It is what selects a key
 from the resolved set (§8 step 6), and this contract has no fallback selection rule — trying

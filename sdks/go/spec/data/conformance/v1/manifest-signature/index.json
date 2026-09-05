@@ -157,6 +157,11 @@
       "reason": "§5 step 1, the step most likely to be skipped because skipping it is invisible in a suite that only ever thumbprints bare keys. Real key sets carry kid, use, alg and key_ops; serializing them into the hash input yields a digest no JOSE tool agrees with, and because §8 step 6 selects by thumbprint equality it turns a genuinely trusted key into kid-unknown."
     },
     {
+      "file": "cases/thumbprint-empty-member-rejected.json",
+      "section": "§5",
+      "reason": "This case exists because the three bindings disagreed here, and the spec was tightened to Go's answer. Go's JWK is a struct of plain strings, so \"\" is its only spelling for an absent member and its thumbprintable has always refused one; TypeScript and Python read an open mapping and happily thumbprinted {\"kty\":\"OKP\",\"crv\":\"\",\"x\":\"\"}, returning mYSfG2VxJusSMC5-AVmg4J7lFIbkA2hP-ix3wxWm8ro. Downstream a blank rotation-set entry was key-unsupported in two bindings and kid-unknown in the third, for a kid an attacker can compute offline — both refusals, so a TOKEN divergence, which is the class §8's ordered algorithm exists to eliminate. Measured: caught by 0 of the 7 thumbprint cases as the corpus stood, since every one of them varies a member's TYPE or its presence and none varies its emptiness. §5 now requires crv and x to be non-empty, which is the only rule implementable in all three."
+    },
+    {
       "file": "cases/thumbprint-missing-member-rejected.json",
       "section": "§5",
       "reason": "The absent-member half of thumbprintability. A binding projecting with an undefined member either drops it — hashing a two-member object and producing a thumbprint — or serializes a null; §8 step 6 skips such a key instead, which is what this rejection drives."

@@ -26,8 +26,21 @@ export interface ProtectedHeader {
  * fail exactly ten ways. Go wraps it as `protected-malformed` and Python does too; this is
  * what makes the three agree. Narrow, not blanket: anything else is a bug and must
  * still surface. The same shape `jwkThumbprint` uses for `key-unsupported`.
+ *
+ * It is also what an **empty `alg`** is reported as, per §6's non-empty requirement. That
+ * requirement exists because of this function: Go's `ProtectedHeader.Alg` is a plain string
+ * whose zero value means *absent*, so `EncodeProtectedHeader({Alg: "", Kid: k})` emits
+ * `{"kid":…}` there while this function emitted `{"alg":"","kid":…}` — a **different
+ * signing input for the same header**, and so a signature one binding produces and another
+ * cannot verify. Neither serialization was wrong; the pair was. §6 now forbids the value at
+ * the source, which removes the input the two could differ on, and Go needs no change: its
+ * type cannot express the header this rejects. `protected-malformed` rather than
+ * `alg-unsupported` because this is §6 serialization refusing a header that is not
+ * well-formed, not §8 step 8 returning a verdict on an algorithm — and because it is
+ * already this function's only failure token in all three bindings.
  */
 export function encodeProtectedHeader(header: ProtectedHeader): string {
+  if (header.alg === "") throw new SignatureError("protected-malformed");
   let json: string;
   try {
     json =

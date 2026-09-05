@@ -14,9 +14,21 @@ import (
 // the parser to reject at step 3 and collapse that order.
 //
 // An empty Alg and an absent alg are therefore indistinguishable in this struct. That is
-// harmless under §8 — both reach step 8 and both are alg-unsupported, since the only
-// accepted value is "EdDSA" — and it is what lets EncodeProtectedHeader emit §6's
-// one-member form without a second presence field.
+// what lets EncodeProtectedHeader emit §6's one-member form without a second presence
+// field.
+//
+// It is harmless on the VERIFY side only: under §8 both reach step 8 and both are
+// alg-unsupported, since the only accepted value is "EdDSA". On the ENCODE side it was
+// not harmless, and saying so here once claimed more than it should have.
+// EncodeProtectedHeader(ProtectedHeader{Alg: "", Kid: k}) emits {"kid":…} here, where
+// TypeScript's and Python's optional alg emitted {"alg":"","kid":…} — a different
+// signing input for the SAME header, across a published pure function, and so a
+// signature one binding produces and another cannot verify. Neither serialization was
+// wrong; the pair was. §6 now requires alg, when present, to be a non-empty string and
+// forbids producing a header carrying an empty one, which removes the input the three
+// could differ on. The other two bindings reject it in their encoders; this struct
+// cannot express it, so Go conforms unchanged — the indistinguishability below is now a
+// consequence of the rule rather than an exception to it.
 type ProtectedHeader struct {
 	Alg string
 	Kid string

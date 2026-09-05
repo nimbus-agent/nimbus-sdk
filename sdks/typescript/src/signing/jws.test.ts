@@ -54,6 +54,26 @@ describe("encodeProtectedHeader", () => {
       expect((e as SignatureError).reason).toBe("protected-malformed");
     }
   });
+
+  // Per-binding rather than a corpus case, and for the opposite reason to the surrogates
+  // above: the input is unrepresentable in Go, whose `Alg` is a plain string whose zero
+  // value MEANS absent. §6 now requires a present `alg` to be non-empty precisely because
+  // this was an encode-side divergence — Go emitted `{"kid":…}` where this function emitted
+  // `{"alg":"","kid":…}`, a different signing input for the same header. Measured after the
+  // fix: all three now emit `eyJraWQiOiJrIn0` for an absent `alg`, and no binding can
+  // produce a header carrying an empty one.
+  test("an empty alg is protected-malformed — §6 requires a present alg to be non-empty", () => {
+    try {
+      encodeProtectedHeader({ alg: "", kid: "abc" });
+      throw new Error("expected a rejection");
+    } catch (e) {
+      expect(e).toBeInstanceOf(SignatureError);
+      expect((e as SignatureError).reason).toBe("protected-malformed");
+    }
+  });
+  test("an absent alg still emits §6's one-member form", () => {
+    expect(encodeProtectedHeader({ kid: "abc" })).toBe("eyJraWQiOiJhYmMifQ");
+  });
 });
 
 describe("parseProtectedHeader", () => {

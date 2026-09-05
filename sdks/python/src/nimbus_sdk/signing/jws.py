@@ -66,7 +66,23 @@ def encode_protected_header(header: ProtectedHeader) -> str:
     That error is not one of §10's ten tokens, so it is wrapped as
     ``protected-malformed``, which is what Go already reports. Narrow, not blanket:
     anything else is a bug that must still surface.
+
+    It is also what an **empty** ``alg`` is reported as, per §6's non-empty requirement.
+    That requirement exists because of this function: Go's ``ProtectedHeader.Alg`` is a
+    plain string whose zero value means *absent*, so ``EncodeProtectedHeader`` emits
+    ``{"kid":…}`` for an empty ``Alg`` while this function emitted
+    ``{"alg":"","kid":…}`` — a *different signing input for the same header*, and so a
+    signature one binding produces and another cannot verify. Neither serialization was
+    wrong; the pair was.
+    §6 now forbids the value at the source, which removes the input the two could differ
+    on, and Go needs no change: its type cannot express the header this rejects.
+    ``protected-malformed`` rather than ``alg-unsupported`` because this is §6
+    serialization refusing a header that is not well-formed, not §8 step 8 returning a
+    verdict on an algorithm — and because it is already this function's only failure
+    token in all three bindings.
     """
+    if header.get("alg") == "":
+        raise SignatureError("protected-malformed")
     object_: dict[str, object] = {"kid": header["kid"]}
     alg = header.get("alg")
     if alg is not None:

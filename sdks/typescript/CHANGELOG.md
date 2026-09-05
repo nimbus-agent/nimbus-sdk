@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.33.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.32.0...typescript-v1.33.0) (2026-09-05)
+
+
+### Features
+
+* **signing:** the detached JWS manifest signature envelope ([#270](https://github.com/nimbus-agent/nimbus-sdk/issues/270)) ([b51c042](https://github.com/nimbus-agent/nimbus-sdk/commit/b51c0422c94694a14cac3ea3215dc6ddcb41c464))
+
 ## [1.32.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.31.0...typescript-v1.32.0) (2026-09-04)
 
 

@@ -466,3 +466,128 @@ describe("prose that restates the coverage declaration", () => {
     });
   }
 });
+
+/**
+ * Gate 4: no live document may deny that anything is deferred, while something is.
+ *
+ * The gates above check COUNTS and NAMES. This shipment proved a third kind of claim
+ * exists and was gated by nothing: a **mechanism** — "nothing is deferred in either — so
+ * a new case in a corpus both claim runs in both languages the moment it is indexed"
+ * (`CLAUDE.md`), "every case, nothing deferred" (`docs/README.md`), "That is the same set
+ * Python runs" (`docs/ROADMAP.md`, `sdks/go/README.md`). Every one became false the
+ * moment `manifest-signature` landed with 38 Python deferrals, and not one of them
+ * contains a number, so `COUNT_CLAIMS` could never have fired. They survived two
+ * implementers and died only because a reviewer went looking for siblings of the one that
+ * was caught.
+ *
+ * A count that drifts misleads a reader. A mechanism that drifts misleads a CONTRIBUTOR,
+ * who adds a `verify` case, is told it runs in both languages, and is wrong.
+ *
+ * Deliberately NOT a prose linter. It discovers files rather than reading a table — that
+ * is the point, since the sentences it exists for lived in three documents and the tables
+ * above name neither `docs/README.md` nor `docs/ROADMAP.md` — but it matches a short,
+ * closed list of phrases and nothing else.
+ *
+ * ONE DIRECTION ONLY. It does not fire when every `deferred` map is empty and the prose
+ * hedges anyway: an over-cautious document is not a lie, and nobody acts to their cost on
+ * a qualification that turned out to be unnecessary.
+ */
+
+/** Prose spellings of the bindings. A `Record` so a fourth language cannot skip one. */
+const PROSE_NAMES: Record<LanguageName, string> = {
+  typescript: "TypeScript",
+  python: "Python",
+  go: "Go",
+};
+
+/**
+ * The phrases that assert the property this shipment falsified.
+ *
+ * Each was chosen against sentences really written here, and rejected if it also matched
+ * a true one. `nothing deferred` on its own is the obvious candidate and is deliberately
+ * absent: six live sentences say it truthfully about Go, whose `deferred` map is empty,
+ * so gating the bare phrase would fail the build for six correct documents. What is gated
+ * is the phrase in a form that cannot be scoped to one binding — `in either`, `in both` —
+ * plus the unqualified set-equality that carried the same claim without the word
+ * "deferred" at all.
+ */
+const DEFERRAL_DENIALS: { pattern: RegExp; why: string }[] = [
+  {
+    pattern: /nothing (?:is )?deferred in (?:either|both)/i,
+    why: "asserts it of more than one binding, so it cannot hold while any binding defers",
+  },
+  {
+    pattern: /every case, nothing deferred/i,
+    why: "'every case' with no owner reads as every binding's cases; name whose",
+  },
+  {
+    // `the same set of corpora` / `the same set of cases` are the fixes, and pass. The
+    // bare form is what misled: true of corpora, false of cases, and it said which only
+    // by implication. Anchored on a binding NAME so `["1","2"] declare the same set` in
+    // the negotiation spec is untouched.
+    pattern: new RegExp(`the same set (?:${Object.values(PROSE_NAMES).join("|")})\\b`),
+    why: "set-equality with no unit; write 'the same set of corpora' or 'of cases'",
+  },
+];
+
+/** Directory names that never hold a claim about the CURRENT tree. */
+const SKIPPED_DIRS = new Set([".git", ".claude", ".superpowers", "node_modules", "dist"]);
+
+/**
+ * Paths excluded for the reason `COUNT_CLAIMS` excludes them: dated records of what was
+ * true when written. RFC-0016 says "275 of 275 across all eight" and is right to.
+ * `sdks/go/spec/data` is the committed mirror of `docs/spec`, already scanned upstream.
+ */
+const DATED_RECORDS = [
+  join("docs", "rfcs"),
+  join("docs", "superpowers"),
+  join("sdks", "go", "spec", "data"),
+];
+
+function liveMarkdown(dir = ""): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(join(repoRoot, dir), { withFileTypes: true })) {
+    const rel = dir === "" ? entry.name : join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (SKIPPED_DIRS.has(entry.name) || DATED_RECORDS.includes(rel)) continue;
+      found.push(...liveMarkdown(rel));
+    } else if (entry.name.endsWith(".md") && entry.name !== "CHANGELOG.md") {
+      found.push(rel);
+    }
+  }
+  return found;
+}
+
+describe("prose that denies a deferral the declaration records", () => {
+  test("no live document claims nothing is deferred while something is", () => {
+    const files = liveMarkdown();
+    expect(
+      files.length,
+      "the markdown walk found nothing — this would pass vacuously",
+    ).toBeGreaterThan(5);
+
+    const manifest = readManifest();
+    const deferring = LANGUAGES.filter(
+      (language) => Object.keys(manifest.languages[language].deferred).length > 0,
+    );
+    // Nothing is deferred anywhere, so every one of these sentences would be true.
+    if (deferring.length === 0) return;
+
+    const offences: string[] = [];
+    for (const file of files) {
+      const text = flatten(readFileSync(join(repoRoot, file), "utf8"));
+      for (const { pattern, why } of DEFERRAL_DENIALS) {
+        const hit = pattern.exec(text);
+        if (hit === null) continue;
+        const from = Math.max(0, hit.index - 70);
+        offences.push(
+          `${file} — ${why}\n      "…${text.slice(from, hit.index + hit[0].length + 70)}…"`,
+        );
+      }
+    }
+    expect(
+      offences,
+      `${deferring.join(" and ")} defer cases (see docs/conformance-coverage.json), so no document may say otherwise`,
+    ).toEqual([]);
+  });
+});

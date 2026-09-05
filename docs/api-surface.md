@@ -2877,7 +2877,7 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ## `./signing`
 
-5 exports.
+21 exports.
 
 ### `CANONICALIZATION_REASONS`
 
@@ -2913,6 +2913,118 @@ From `./canonical-json.js`.
 export type CanonicalizationReason = "non-integer-number" | "number-out-of-range" | "unsupported-type" | "nesting-too-deep" | "lone-surrogate";
 ```
 
+### `Jwk` *(type-only)*
+
+**Stability:** experimental
+
+From `./jwk.js`.
+
+```ts
+export interface Jwk {
+    readonly kty: string;
+    readonly crv: string;
+    readonly x: string;
+    readonly [member: string]: unknown;
+}
+```
+
+### `ManifestSignatureEnvelope` *(type-only)*
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export interface ManifestSignatureEnvelope {
+    readonly protected: string;
+    readonly signature: string;
+}
+```
+
+### `PrivateJwk` *(type-only)*
+
+**Stability:** experimental
+
+From `./jwk.js`.
+
+```ts
+export interface PrivateJwk extends Jwk {
+    readonly d: string;
+}
+```
+
+### `ProtectedHeader` *(type-only)*
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export interface ProtectedHeader {
+
+    readonly alg?: string;
+    readonly kid: string;
+}
+```
+
+### `SIGNATURE_REASONS`
+
+**Stability:** experimental
+
+From `./errors.js`.
+
+```ts
+export declare const SIGNATURE_REASONS: readonly SignatureReason[];
+```
+
+### `SignatureError`
+
+**Stability:** experimental
+
+From `./errors.js`.
+
+```ts
+export declare class SignatureError extends Error {
+    readonly reason: SignatureReason;
+
+    readonly canonicalizationReason?: CanonicalizationReason;
+    constructor(reason: SignatureReason, options?: {
+        canonicalizationReason?: CanonicalizationReason;
+        cause?: unknown;
+    });
+}
+```
+
+### `SignatureReason` *(type-only)*
+
+**Stability:** experimental
+
+From `./errors.js`.
+
+```ts
+export type SignatureReason = "envelope-malformed" | "base64url-invalid" | "protected-malformed" | "crit-unsupported" | "protected-unknown-member" | "kid-unknown" | "key-unsupported" | "alg-unsupported" | "canonicalization-failed" | "signature-invalid";
+```
+
+### `base64urlDecode`
+
+**Stability:** experimental
+
+From `./base64url.js`.
+
+```ts
+export declare function base64urlDecode(s: string): Uint8Array;
+```
+
+### `base64urlEncode`
+
+**Stability:** experimental
+
+From `./base64url.js`.
+
+```ts
+export declare function base64urlEncode(bytes: Uint8Array): string;
+```
+
 ### `canonicalize`
 
 **Stability:** experimental
@@ -2931,6 +3043,79 @@ From `./canonical-json.js`.
 
 ```ts
 export declare function canonicalizeManifest(manifest: object): Uint8Array;
+```
+
+### `encodeProtectedHeader`
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export declare function encodeProtectedHeader(header: ProtectedHeader): string;
+```
+
+### `generateSigningKey`
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export declare function generateSigningKey(): Promise<{
+    privateKey: PrivateJwk;
+    publicKey: Jwk;
+}>;
+```
+
+### `jwkThumbprint`
+
+**Stability:** experimental
+
+From `./jwk.js`.
+
+```ts
+export declare function jwkThumbprint(jwk: Jwk): Promise<string>;
+```
+
+### `parseProtectedHeader`
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export declare function parseProtectedHeader(b64url: string): ProtectedHeader;
+```
+
+### `signManifest`
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export declare function signManifest(manifest: object, privateKey: PrivateJwk): Promise<ManifestSignatureEnvelope>;
+```
+
+### `signingInput`
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export declare function signingInput(protectedB64url: string, canonicalBytes: Uint8Array): Uint8Array;
+```
+
+### `verifyManifestSignature`
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export declare function verifyManifestSignature(manifest: object, trustedKeys: readonly Jwk[]): Promise<void>;
 ```
 
 ## `./testing`

@@ -478,7 +478,7 @@ describe("parseSurface / diffSurfaces", () => {
  */
 describe("parseSurface against the real goldens", () => {
   test("docs/api-surface.md", () => {
-    expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(232);
+    expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(248);
   });
 
   test("docs/api-surface-python.md", () => {

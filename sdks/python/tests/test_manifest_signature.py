@@ -11,6 +11,7 @@ Nothing here tests §8 verification or §9 signing: this binding ships neither. 
 from __future__ import annotations
 
 import json
+import math
 from collections.abc import Callable
 
 import pytest
@@ -271,6 +272,39 @@ def test_a_header_with_no_alg_survives_the_parser() -> None:
             "protected-malformed",
             id="ill-formed-utf8",
         ),
+        # json.loads accepts NaN/Infinity by default — a CPython extension to RFC 8259
+        # that JSON.parse and encoding/json both refuse. Without `parse_constant` these
+        # three parse in Python and report protected-unknown-member and
+        # crit-unsupported, a Python-only third answer inside §10's closed token set on
+        # attacker-supplied input.
+        pytest.param(
+            _b64({"alg": "EdDSA", "kid": "abc", "typ": float("nan")}),
+            "protected-malformed",
+            id="nan-beats-the-unknown-member-check",
+        ),
+        pytest.param(
+            _b64({"kid": "a", "crit": float("nan")}),
+            "protected-malformed",
+            id="nan-beats-the-crit-check",
+        ),
+        pytest.param(
+            _b64({"alg": "EdDSA", "kid": "abc", "typ": float("inf")}),
+            "protected-malformed",
+            id="infinity",
+        ),
+        pytest.param(
+            _b64({"alg": "EdDSA", "kid": "abc", "typ": float("-inf")}),
+            "protected-malformed",
+            id="negative-infinity",
+        ),
+        # A leading BOM is not JSON, and Python's strict decoder keeps U+FEFF where
+        # TypeScript's TextDecoder silently strips it. Go rejects too; this pins Python
+        # on Go's side rather than leaving the agreement accidental.
+        pytest.param(
+            base64url_encode('﻿{"alg":"EdDSA","kid":"abc"}'.encode()),
+            "protected-malformed",
+            id="leading-bom",
+        ),
         pytest.param(_b64({"alg": "EdDSA"}), "protected-malformed", id="absent-kid"),
         pytest.param(
             _b64({"alg": "EdDSA", "kid": 1}), "protected-malformed", id="non-string-kid"
@@ -303,6 +337,41 @@ def test_a_header_with_no_alg_survives_the_parser() -> None:
 )
 def test_the_parser_rejects(encoded: str, expected: str) -> None:
     assert _reason(lambda: parse_protected_header(encoded)) == expected
+
+
+def test_the_stdlib_parser_would_have_accepted_nan() -> None:
+    """Why ``parse_constant`` is passed, measured rather than asserted-about.
+
+    ``json.loads`` accepts JSON5's ``NaN``/``Infinity`` where ``JSON.parse`` and
+    ``encoding/json`` refuse them. If a future CPython stops, this fails and the
+    ``parse_constant`` hook can be reconsidered.
+    """
+    assert math.isnan(json.loads('{"typ": NaN}')["typ"])
+
+
+@pytest.mark.parametrize(
+    "kid",
+    [pytest.param("\ud800", id="high"), pytest.param("abc\udfff", id="low-trailing")],
+)
+def test_a_lone_surrogate_in_kid_is_protected_malformed(kid: str) -> None:
+    """A per-binding unit test, corpus-inexpressible for the same reason as the others.
+
+    ``canonicalize`` raises ``CanonicalizationError`` for a lone surrogate, and a
+    ``kid`` carrying one is reachable through this public function —
+    ``json.loads('"\\ud800"')`` is any registry handing back a malformed key set.
+    Unwrapped it escapes §10's closed set of ten tokens; Go already reports
+    ``protected-malformed`` here.
+    """
+    assert (
+        _reason(lambda: encode_protected_header({"kid": kid})) == "protected-malformed"
+    )
+
+
+def test_a_lone_surrogate_in_alg_is_protected_malformed_too() -> None:
+    assert (
+        _reason(lambda: encode_protected_header({"alg": "\ud800", "kid": "abc"}))
+        == "protected-malformed"
+    )
 
 
 def test_signing_input_is_ascii_protected_dot_b64url_payload() -> None:

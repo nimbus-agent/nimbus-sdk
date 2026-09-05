@@ -6,10 +6,30 @@ import json
 from typing import NotRequired, TypedDict
 
 from nimbus_sdk.signing.base64url import base64url_decode, base64url_encode
-from nimbus_sdk.signing.canonical_json import canonicalize
+from nimbus_sdk.signing.canonical_json import CanonicalizationError, canonicalize
 from nimbus_sdk.signing.errors import SignatureError
 
 __stability__ = "experimental"
+
+
+def _reject_json_constant(token: str) -> object:
+    """Refuse ``NaN``, ``Infinity`` and ``-Infinity``, which are not JSON.
+
+    ``json.loads`` accepts all three by default — a CPython extension to
+    RFC 8259 — where ``JSON.parse`` and ``encoding/json`` both refuse them. Measured
+    across the three bindings: without this, the header
+    ``{"alg":"EdDSA","kid":"abc","typ":NaN}`` parses in Python and reports
+    ``protected-unknown-member`` where the other two report ``protected-malformed``, and
+    ``{"kid":"a","crit":NaN}`` reports ``crit-unsupported`` against their
+    ``protected-malformed``.
+
+    Nothing is wrongly *accepted* either way — all three refuse the envelope — but a
+    Python-only third answer inside §10's closed token set, on attacker-supplied input,
+    is exactly the divergence this contract exists to prevent. The ``ValueError`` raised
+    here is what :func:`json.loads`' own callers already expect for malformed input, so
+    the ``except ValueError`` below catches it with no second branch.
+    """
+    raise ValueError(f"{token} is not valid JSON")
 
 
 class ProtectedHeader(TypedDict):
@@ -39,12 +59,23 @@ def encode_protected_header(header: ProtectedHeader) -> str:
     where a binding with an optional ``alg`` emits ``{"kid":…}`` — a different signing
     input for the same header, which is a cross-language signature failure rather than a
     formatting difference.
+
+    ``canonicalize`` raises :class:`CanonicalizationError` for a lone surrogate, which a
+    caller can reach through this public function with a ``kid`` carrying one — from
+    ``json.loads('"\\ud800"')``, i.e. any registry handing back a malformed key set.
+    That error is not one of §10's ten tokens, so it is wrapped as
+    ``protected-malformed``, which is what Go already reports. Narrow, not blanket:
+    anything else is a bug that must still surface.
     """
     object_: dict[str, object] = {"kid": header["kid"]}
     alg = header.get("alg")
     if alg is not None:
         object_["alg"] = alg
-    return base64url_encode(canonicalize(object_).encode("utf-8"))
+    try:
+        canonical = canonicalize(object_)
+    except CanonicalizationError as error:
+        raise SignatureError("protected-malformed") from error
+    return base64url_encode(canonical.encode("utf-8"))
 
 
 def parse_protected_header(b64url: str) -> ProtectedHeader:
@@ -70,7 +101,9 @@ def _parse_protected_header_bytes(raw: bytes) -> ProtectedHeader:
         raise SignatureError(malformed) from error
 
     try:
-        value: object = json.loads(text)
+        # `parse_constant` refuses NaN/Infinity/-Infinity, which json.loads otherwise
+        # accepts and the other two bindings do not. See `_reject_json_constant`.
+        value: object = json.loads(text, parse_constant=_reject_json_constant)
     except ValueError as error:
         raise SignatureError(malformed) from error
     if not isinstance(value, dict):

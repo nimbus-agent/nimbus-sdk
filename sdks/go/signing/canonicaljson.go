@@ -21,8 +21,8 @@ import (
 	"unicode/utf8"
 )
 
-// Reasons is the closed set from §9. A binding may never invent a sixth.
-var Reasons = []string{
+// CanonicalizationReasons is the closed set from §9. A binding may never invent a sixth.
+var CanonicalizationReasons = []string{
 	"lone-surrogate",
 	"nesting-too-deep",
 	"non-integer-number",
@@ -30,12 +30,12 @@ var Reasons = []string{
 	"unsupported-type",
 }
 
-// Error is a value that cannot be canonicalized, carrying its §9 token.
-type Error struct {
+// CanonicalizationError is a value that cannot be canonicalized, carrying its §9 token.
+type CanonicalizationError struct {
 	Reason string
 }
 
-func (e *Error) Error() string { return "canonicalize: " + e.Reason }
+func (e *CanonicalizationError) Error() string { return "canonicalize: " + e.Reason }
 
 const (
 	// maxMagnitude is 2**53 - 1 (§5).
@@ -55,7 +55,7 @@ func encodeString(s string, b *strings.Builder) error {
 		// wrong bytes.
 		if r == utf8.RuneError {
 			if _, size := utf8.DecodeRuneInString(s[i:]); size == 1 {
-				return &Error{Reason: "lone-surrogate"}
+				return &CanonicalizationError{Reason: "lone-surrogate"}
 			}
 		}
 		switch {
@@ -90,7 +90,7 @@ func encodeString(s string, b *strings.Builder) error {
 func writeNumber(n json.Number, b *strings.Builder) error {
 	if i, err := strconv.ParseInt(string(n), 10, 64); err == nil {
 		if i > maxMagnitude || i < -maxMagnitude {
-			return &Error{Reason: "number-out-of-range"}
+			return &CanonicalizationError{Reason: "number-out-of-range"}
 		}
 		b.WriteString(strconv.FormatInt(i, 10))
 		return nil
@@ -98,7 +98,7 @@ func writeNumber(n json.Number, b *strings.Builder) error {
 	f, err := n.Float64()
 	if err != nil {
 		// Overflows float64 entirely — the corpus's 1e400 shape.
-		return &Error{Reason: "number-out-of-range"}
+		return &CanonicalizationError{Reason: "number-out-of-range"}
 	}
 	return writeFloat(f, b)
 }
@@ -109,13 +109,13 @@ func writeNumber(n json.Number, b *strings.Builder) error {
 // test avoid the conversion entirely.
 func writeFloat(f float64, b *strings.Builder) error {
 	if math.IsInf(f, 0) || math.IsNaN(f) {
-		return &Error{Reason: "number-out-of-range"}
+		return &CanonicalizationError{Reason: "number-out-of-range"}
 	}
 	if f != math.Trunc(f) {
-		return &Error{Reason: "non-integer-number"}
+		return &CanonicalizationError{Reason: "non-integer-number"}
 	}
 	if f > maxMagnitude || f < -maxMagnitude {
-		return &Error{Reason: "number-out-of-range"}
+		return &CanonicalizationError{Reason: "number-out-of-range"}
 	}
 	b.WriteString(strconv.FormatInt(int64(f), 10))
 	return nil
@@ -123,7 +123,7 @@ func writeFloat(f float64, b *strings.Builder) error {
 
 func canonicalizeAt(value any, depth int, b *strings.Builder) error {
 	if depth > maxDepth {
-		return &Error{Reason: "nesting-too-deep"}
+		return &CanonicalizationError{Reason: "nesting-too-deep"}
 	}
 	switch v := value.(type) {
 	case nil:
@@ -140,7 +140,7 @@ func canonicalizeAt(value any, depth int, b *strings.Builder) error {
 		return writeNumber(v, b)
 	case int:
 		if v > maxMagnitude || v < -maxMagnitude {
-			return &Error{Reason: "number-out-of-range"}
+			return &CanonicalizationError{Reason: "number-out-of-range"}
 		}
 		b.WriteString(strconv.Itoa(v))
 	case float64:
@@ -178,7 +178,7 @@ func canonicalizeAt(value any, depth int, b *strings.Builder) error {
 		}
 		b.WriteByte('}')
 	default:
-		return &Error{Reason: "unsupported-type"}
+		return &CanonicalizationError{Reason: "unsupported-type"}
 	}
 	return nil
 }

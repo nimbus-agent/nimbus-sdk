@@ -67,12 +67,12 @@ func TestCanonicalJSONCorpus(t *testing.T) {
 				}
 				return
 			}
-			var e *signing.Error
+			var e *signing.CanonicalizationError
 			if err == nil {
 				t.Fatalf("expected refusal, got %q", got)
 			}
-			if !asSigningError(err, &e) {
-				t.Fatalf("expected *signing.Error, got %T: %v", err, err)
+			if !asCanonicalizationError(err, &e) {
+				t.Fatalf("expected *signing.CanonicalizationError, got %T: %v", err, err)
 			}
 			want, _ := expect["reason"].(string)
 			if e.Reason != want {
@@ -85,8 +85,8 @@ func TestCanonicalJSONCorpus(t *testing.T) {
 	}
 }
 
-func asSigningError(err error, target **signing.Error) bool {
-	e, ok := err.(*signing.Error)
+func asCanonicalizationError(err error, target **signing.CanonicalizationError) bool {
+	e, ok := err.(*signing.CanonicalizationError)
 	if ok {
 		*target = e
 	}

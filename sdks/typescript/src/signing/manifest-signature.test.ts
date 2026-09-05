@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, test } from "bun:test";
+import { base64urlEncode } from "./base64url.js";
 import { SignatureError, type SignatureReason } from "./errors.js";
 import { type Jwk, jwkThumbprint, type PrivateJwk } from "./jwk.js";
 import { encodeProtectedHeader } from "./jws.js";
@@ -70,6 +71,20 @@ describe("§8 ordering", () => {
     };
     await rejectsWith(m, [pub], "alg-unsupported");
   });
+  // §8's "steps 9 and 10 are the last two": every cheap structural check precedes the
+  // expensive serialization, so a manifest that cannot be canonicalized AND carries a
+  // bogus alg reports the alg.
+  test("a bogus alg beats an uncanonicalizable manifest", async () => {
+    const m = {
+      ...MANIFEST,
+      bad: Number.POSITIVE_INFINITY,
+      signature: {
+        protected: encodeProtectedHeader({ alg: "ES256", kid }),
+        signature: "A".repeat(86),
+      },
+    };
+    await rejectsWith(m, [pub], "alg-unsupported");
+  });
 });
 
 describe("§8 steps 1 and 2", () => {
@@ -82,8 +97,20 @@ describe("§8 steps 1 and 2", () => {
       [pub],
       "envelope-malformed",
     ));
-  test("a bad signature member is caught before the header parses", async () => {
-    const m = { ...MANIFEST, signature: { protected: "!!!", signature: "===" } };
+  // The discriminating case, and the only shape that discriminates: `protected` must be
+  // VALID base64url whose bytes are malformed JSON, while `signature` is invalid
+  // base64url. A lazy verifier — decode `protected`, parse it, decode `signature` only
+  // when it is needed — reports `protected-malformed` here, which is the natural way to
+  // write it and the wrong answer. A `protected` that is itself invalid base64url proves
+  // nothing: both orderings answer `base64url-invalid` for it.
+  test("both members decode before either is parsed (step 2 precedes step 3)", async () => {
+    const m = {
+      ...MANIFEST,
+      signature: {
+        protected: base64urlEncode(new TextEncoder().encode("{")),
+        signature: "AAAA=",
+      },
+    };
     await rejectsWith(m, [pub], "base64url-invalid");
   });
 });
@@ -126,6 +153,19 @@ describe("§9 signing", () => {
     const mismatched: PrivateJwk = { kty: "OKP", crv: "Ed25519", x: pub.x, d: other.privateKey.d };
     try {
       await signManifest(MANIFEST, mismatched);
+      throw new Error("expected a rejection");
+    } catch (e) {
+      expect((e as SignatureError).reason).toBe("key-unsupported");
+    }
+  });
+  // The correspondence probe runs at §9 step 1, before canonicalization. Go compares
+  // `NewKeyFromSeed(d).Public()` to `x` at the same point, so probing later would answer
+  // `canonicalization-failed` here and `key-unsupported` there for one and the same input.
+  test("a mismatched key beats an uncanonicalizable manifest", async () => {
+    const other = await generateSigningKey();
+    const mismatched: PrivateJwk = { kty: "OKP", crv: "Ed25519", x: pub.x, d: other.privateKey.d };
+    try {
+      await signManifest({ ...MANIFEST, bad: Number.POSITIVE_INFINITY }, mismatched);
       throw new Error("expected a rejection");
     } catch (e) {
       expect((e as SignatureError).reason).toBe("key-unsupported");

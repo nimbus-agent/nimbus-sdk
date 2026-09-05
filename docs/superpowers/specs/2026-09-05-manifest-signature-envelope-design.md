@@ -232,7 +232,7 @@ operations.)
 | `verify` | 15 | §8's ordered algorithm — one `ok` case and every one of §10's ten tokens | deferred |
 | `sign` | 4 | §9 — seed plus manifest to the exact `protected` and `signature` bytes | deferred |
 
-Roughly 48 cases, of which Python runs 19, rendering as `19 of 48` in
+Roughly 49 cases, of which Python runs 19, rendering as `19 of 49` in
 `docs/conformance-coverage.md`.
 
 The `base64url` kind is enumerated rather than left to implementation judgment, because §4
@@ -525,13 +525,13 @@ recording guard missing from that list is never run by the `conformance` job, so
 corpus is claimed and silently never executed. The test's own comment says a Python runner
 once sat outside that list for exactly this reason.
 
-**Python's claim count becomes ten while it defers 29 of 48 cases, and GOVERNANCE.md must
+**Python's claim count becomes ten while it defers 30 of 49 cases, and GOVERNANCE.md must
 say so.** `claimCount` counts corpora, not cases, so the pinned sentence will read *"Python
 executes ten"* — and until now, with `deferred` empty everywhere, "executes N" has meant
 "executes N in full". S2 changes what that sentence means without changing its words. The
 pinned sentence stays exactly as rendered, since `COUNT_CLAIMS` matches on `includes`, and
 a following sentence discloses the deferral and points at `conformance-coverage.md`'s
-`19 of 48`.
+`19 of 49`.
 
 This is defensible on RFC-0013's own terms rather than merely disclosed. Criterion 1 is
 *"every published corpus whose surface the binding publishes."* In S2 Python publishes the

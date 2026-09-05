@@ -472,7 +472,7 @@ git commit -m "feat(signing): RFC 7638 JWK thumbprints, projected to the require
 
 ```ts
 import { describe, expect, test } from "bun:test";
-import { base64urlEncode } from "./base64url.js";
+import { base64urlDecode, base64urlEncode } from "./base64url.js";
 import { SignatureError } from "./errors.js";
 import { encodeProtectedHeader, parseProtectedHeader, signingInput } from "./jws.js";
 
@@ -491,7 +491,10 @@ const rejectsWith = (input: string, reason: string) => {
 describe("encodeProtectedHeader", () => {
   test("emits canonical key order — alg before kid", () => {
     const encoded = encodeProtectedHeader({ alg: "EdDSA", kid: "abc" });
-    expect(new TextDecoder().decode(Uint8Array.from(atob(encoded.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)))).toBe(
+    // Decode with our own strict decoder, not atob: atob tolerates missing padding, and
+    // this header happens to be 27 bytes (a whole number of quanta), so an atob-based
+    // assertion would pass by arithmetic coincidence rather than by correctness.
+    expect(new TextDecoder().decode(base64urlDecode(encoded))).toBe(
       '{"alg":"EdDSA","kid":"abc"}',
     );
   });
@@ -1075,7 +1078,7 @@ Declaring them all top-level and requiring per kind is what keeps `additionalPro
 
 - [ ] **Step 3: Write the case files**
 
-Roughly 48 files across the five kinds. Every index entry carries `file`, `section` and `reason`, and nothing else — `additionalProperties` is `false`.
+Roughly 49 files across the five kinds. Every index entry carries `file`, `section` and `reason`, and nothing else — `additionalProperties` is `false`.
 
 **`ed25519` (10 cases) — use these measured values verbatim.** All four runtimes agree; do not recompute:
 
@@ -1425,7 +1428,7 @@ Add an entry to `COUNT_CLAIMS` in `sdks/typescript/scripts/corpus-parity.test.ts
 ```bash
 cd sdks/typescript && bun run conformance:coverage && bun test scripts/corpus-parity.test.ts scripts/conformance-coverage.test.ts
 ```
-Expected: PASS. `docs/conformance-coverage.md` should now show `19 of 48` for Python.
+Expected: PASS. `docs/conformance-coverage.md` should now show `19 of 49` for Python.
 
 - [ ] **Step 9: Commit**
 

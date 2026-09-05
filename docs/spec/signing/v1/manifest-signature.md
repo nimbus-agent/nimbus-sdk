@@ -75,8 +75,8 @@ extensions, no multiple signatures.
   the manifest's publisher. It may be empty; it may contain keys this contract cannot use;
   §8 says what happens in both cases.
 - **signer** — an implementation performing §9. **verifier** — an implementation performing
-  §8. A conformant binding may implement either half alone; §9 names what a binding shipping
-  only verification is not obliged to provide.
+  §8. A conformant binding may be a verifier without being a signer; the reverse does not
+  hold, and §9 states the dependency and why it runs in that direction.
 
 ## §3 Envelope shape
 
@@ -159,8 +159,14 @@ the four rules above.
 [RFC 8037 §2](https://www.rfc-editor.org/rfc/rfc8037#section-2): `kty` is exactly `"OKP"`,
 `crv` is exactly `"Ed25519"`, and `x` is the strict base64url encoding (§4) of the **32-octet**
 public key. A private JWK additionally carries `d`, the strict base64url encoding of the
-**32-octet** seed — the seed, per RFC 8037, not the expanded secret scalar. A key failing any
-of these is `key-unsupported`.
+**32-octet** seed — the seed, per RFC 8037, not the expanded secret scalar.
+
+A key failing any of these is `key-unsupported` **when it is the key the operation is using** —
+that is, when §8 step 6 has selected it (reported at step 7), or when it was supplied to a
+signer (§9). It is *not* `key-unsupported` merely for sitting in a resolved key set: an
+unsupported key that no `kid` selects is never reached, and a `kid` matching no *selectable*
+key is `kid-unknown`. The distinction is what the thumbprintability paragraph below is for, and
+§8 steps 6 and 7 are two steps rather than one because of it.
 
 `kty: "OKP"` alone is **not** sufficient, and a binding that checks only `kty` is
 non-conformant. `X25519` is an OKP curve too, and it is a key-agreement curve rather than a
@@ -452,7 +458,7 @@ exactly these tokens. They are listed in the order §8 checks them.
 | `kid-unknown` | No thumbprintable key in the resolved key set has an RFC 7638 thumbprint equal to `kid` (§5, step 6) |
 | `key-unsupported` | The selected key is not `kty: "OKP"` with `crv: "Ed25519"`, or its `x` does not decode to 32 octets (step 7); or, in signing, a private JWK's `d` does not correspond to its `x` (§9) |
 | `alg-unsupported` | `alg` is absent, or is any value other than `"EdDSA"` (step 8) |
-| `canonicalization-failed` | Canonicalizing the stripped manifest failed; the underlying canonicalization reason is carried alongside (step 9) |
+| `canonicalization-failed` | Canonicalizing the stripped manifest failed; the underlying canonicalization reason is carried alongside (step 9); or, in signing, the same failure on the same manifest (§9 step 4) |
 | `signature-invalid` | The decoded signature is not 64 octets, or Ed25519 verification fails (step 10) |
 
 **`canonicalization-failed` wraps rather than propagates.** The underlying reason is one of

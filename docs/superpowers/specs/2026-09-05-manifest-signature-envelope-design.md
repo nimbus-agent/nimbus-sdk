@@ -228,11 +228,11 @@ operations.)
 |---|---|---|---|
 | `base64url` | 13 | §4 strict decode, enumerated below | runs |
 | `thumbprint` | 6 | §5, RFC 8037's worked example, the **decorated-JWK projection case** from B2, plus non-OKP and malformed-JWK rejections | runs |
-| `ed25519` | 7+ | RFC 8032 §7.1 vectors and the edge cases below | deferred |
+| `ed25519` | 10 | RFC 8032 §7.1's three vectors plus the seven measured edge cases — non-canonical `S`, the all-zero key, two non-canonical `y` encodings, and three small-order keys | deferred |
 | `verify` | 15 | §8's ordered algorithm — one `ok` case and every one of §10's ten tokens | deferred |
 | `sign` | 4 | §9 — seed plus manifest to the exact `protected` and `signature` bytes | deferred |
 
-Roughly 45 cases, of which Python runs 19, rendering as `19 of 45` in
+Roughly 48 cases, of which Python runs 19, rendering as `19 of 48` in
 `docs/conformance-coverage.md`.
 
 The `base64url` kind is enumerated rather than left to implementation judgment, because §4
@@ -525,13 +525,13 @@ recording guard missing from that list is never run by the `conformance` job, so
 corpus is claimed and silently never executed. The test's own comment says a Python runner
 once sat outside that list for exactly this reason.
 
-**Python's claim count becomes ten while it defers 26 of 45 cases, and GOVERNANCE.md must
+**Python's claim count becomes ten while it defers 29 of 48 cases, and GOVERNANCE.md must
 say so.** `claimCount` counts corpora, not cases, so the pinned sentence will read *"Python
 executes ten"* — and until now, with `deferred` empty everywhere, "executes N" has meant
 "executes N in full". S2 changes what that sentence means without changing its words. The
 pinned sentence stays exactly as rendered, since `COUNT_CLAIMS` matches on `includes`, and
 a following sentence discloses the deferral and points at `conformance-coverage.md`'s
-`19 of 45`.
+`19 of 48`.
 
 This is defensible on RFC-0013's own terms rather than merely disclosed. Criterion 1 is
 *"every published corpus whose surface the binding publishes."* In S2 Python publishes the
@@ -581,7 +581,44 @@ the deprecated `crypto/` modules S5 deletes.
 
 The Go rename in §5 *prevents* a fourth naming asymmetry rather than adding one.
 
-## The risk that could change this design
+## The risk that could have changed this design — measured, and it did not
+
+**Result: all four runtimes agree on all ten vectors. S2 proceeds as designed, and the
+`ed25519` corpus kind is uncontroversial.** The measurement was run before any expectation
+was written, with a throwaway harness that is not committed.
+
+| Vector | Bun 1.3.14 | Node 24.18.1 | Go 1.26.7 | Go 1.27.0 |
+|---|---|---|---|---|
+| RFC 8032 §7.1 vector 1 (empty message) | `true` | `true` | `true` | `true` |
+| RFC 8032 §7.1 vector 2 | `true` | `true` | `true` | `true` |
+| RFC 8032 §7.1 vector 3 | `true` | `true` | `true` | `true` |
+| **non-canonical `S`** (vector 1 with `S + L`) | `false` | `false` | `false` | `false` |
+| all-zero public key | `false` | `false` | `false` | `false` |
+| non-canonical `y = p` | `false` | `false` | `false` | `false` |
+| non-canonical `y = p + 1` | `false` | `false` | `false` | `false` |
+| small-order public key, order 1 | `false` | `false` | `false` | `false` |
+| small-order public key, order 2 | `false` | `false` | `false` | `false` |
+| small-order public key, order 8 | `false` | `false` | `false` | `false` |
+
+The non-canonical-`S` row is the important one. RFC 8032 §5.1.7 requires rejecting a
+signature whose `S` is not in `[0, L)`, and `S + L` is the same signature mathematically
+with different bytes — the classic malleability. BoringSSL (Bun), OpenSSL (Node) and Go's
+`crypto/ed25519` all reject it. All ten vectors go into the corpus as they were measured.
+
+**What this did not test, and why the gap is bounded rather than open.** Cofactored
+versus cofactorless verification — the remaining divergence class — needs a signature
+crafted so the two verification equations disagree, which requires curve arithmetic to
+build rather than a constant to paste. It was not constructed here.
+
+The envelope's own design already contains that class. The two equations diverge only when
+the public key or `R` carries a small-order component, and a public key reaches
+verification **only from the externally resolved trust anchor** — never from the manifest.
+RFC-0020 §6 removed `publisher.keys` for exactly this reason. So exploiting a cofactor
+divergence would require the registry to have published an adversarial key, at which point
+the attacker no longer needs a signature bug. The class is real; this contract's shape is
+what puts it out of reach.
+
+## What the risk was, before it was measured
 
 **Ed25519 implementations disagree with each other on edge-case signatures**, and this is
 the best-documented interoperability failure in the algorithm's history. Implementations
@@ -595,35 +632,26 @@ That is not hypothetical for this design. It is precisely the class of divergenc
 conformance corpus exists to catch, and precisely the class [RFC-0014](../../rfcs/0014-utf8-replacement-count.md)
 had to be written for.
 
-So, before any expectation is written:
+The plan was therefore to measure before writing any expectation, with an RFC as the exit:
+two of three agreeing would mean fix it, per RFC-0014's precedent, and a genuine
+disagreement on a security primitive would mean the specification has to choose — which
+[GOVERNANCE.md](../../GOVERNANCE.md#the-rfc-process) classes as contract-affecting and so
+RFC-gated. **The matrix above is that measurement, and no RFC is needed.**
 
-1. A **throwaway harness** runs the candidate vectors against every runtime the repository
-   ships on — Bun, Node 22, Node LTS, Go 1.26 and Go 1.27 — and prints a verdict matrix.
-   It is a spike: its output is the measurement, and the script is not committed.
-2. The `ed25519` kind carries **edge-case vectors, not only RFC 8032 §7.1's happy path** —
-   non-canonical `S`, small-order and mixed-order public keys, and the all-zero key.
-3. The measurement is recorded the way RFC-0020 §2's four divergences were: a table naming
-   the runtime, the mechanism, and the observed result. **No expectation is written into a
-   case file before the matrix exists.**
-4. The TypeScript guard gets a Node companion, `ed25519-node.mjs`, following the pattern
-   `framing-node.mjs` already established. A Bun-only run cannot see a BoringSSL/OpenSSL
-   split at all.
+Two commitments survive the clean result.
+
+**The TypeScript guard still gets a Node companion**, `ed25519-node.mjs`, following the
+pattern `framing-node.mjs` established. Bun and Node agree *today*, across two different
+cryptographic libraries; a Bun-only run is structurally incapable of noticing if they ever
+stop. The companion is what turns the agreement into a standing property rather than an
+observation someone made on 2026-09-05.
 
 **Bulk Wycheproof import is deferred, deliberately.** Wycheproof's Ed25519 suite is
 several hundred vectors and would immediately become the largest corpus in the repository
 by an order of magnitude, drowning the fourteen hand-curated corpora that surround it —
 each of whose cases carries a written `reason` and a measured "caught by 0 of N" claim
-that a bulk import cannot honestly supply. Its *divergence classes* are what matter here,
-and those are a handful of vectors. If the harness in step 1 shows a split, the RFC that
-follows is the right place to argue for importing more.
-
-**If the runtimes disagree, S2 stops and becomes an RFC.** Two of three agreeing means fix
-it, per RFC-0014's precedent. A genuine three-way disagreement on a security primitive
-means the specification has to choose, and
-[GOVERNANCE.md](../../GOVERNANCE.md#the-rfc-process) classes deciding a conformance
-invariant as contract-affecting. This measurement is therefore the first implementation
-step, not a late one — it can change the corpus case list and, in the worst case, S2's
-scope.
+that a bulk import cannot honestly supply. Its *divergence classes* are what mattered, and
+those are the ten vectors measured above.
 
 ## Alternatives rejected
 

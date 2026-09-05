@@ -121,6 +121,15 @@ describe("key selection", () => {
     const junk = { kty: "OKP", crv: "Ed25519" } as unknown as Jwk;
     await expect(verifyManifestSignature(signed, [junk, pub])).resolves.toBeUndefined();
   });
+  // Per-binding, not a corpus case: a lone surrogate cannot survive a shared corpus (RFC-0020
+  // §5's precedent). `canonicalize` rejects one, so before `jwk.ts` wrapped that failure the
+  // step-6 loop rethrew a `CanonicalizationError` — an error outside §10's closed ten, and a
+  // different answer from Go, which skips the key and reports `kid-unknown`.
+  test("a key with a lone surrogate is skipped, not fatal", async () => {
+    const surrogate: Jwk = { kty: "OKP", crv: "Ed25519", x: "\ud800" };
+    await rejectsWith(signed, [surrogate], "kid-unknown");
+    await expect(verifyManifestSignature(signed, [surrogate, pub])).resolves.toBeUndefined();
+  });
   test("an X25519 key that matches the kid is key-unsupported", async () => {
     const x25519: Jwk = { kty: "OKP", crv: "X25519", x: pub.x };
     const m = {

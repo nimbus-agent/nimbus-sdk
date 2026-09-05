@@ -159,6 +159,9 @@ export async function signManifest(
   }
 
   // §9 step 2. §5's projection means a private key thumbprints as its own public half.
+  // Deliberately outside a `try`: `jwkThumbprint` raises only `key-unsupported`, which is
+  // already the token §9 step 1 wants, so wrapping it here would only be able to relabel it
+  // as itself. That is the same guarantee §8 step 6's skip depends on — see `jwk.ts`.
   const kid = await jwkThumbprint(privateKey);
   // §9 step 3.
   const protectedB64 = encodeProtectedHeader({ alg: "EdDSA", kid });

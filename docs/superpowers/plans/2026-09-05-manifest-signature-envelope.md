@@ -75,7 +75,15 @@ Ten sections, exactly as the design's table lists them. Content requirements tha
 
 **§8** is the ten-step table from the design, verbatim, followed by the four resolutions (both members decode before either parses; absent `kid` is `protected-malformed` while absent `alg` is `alg-unsupported`; a non-string `alg` fails at step 3; canonicalization and verification are last).
 
-**§10** is the ten-token table, marked a closed set.
+**§9 (signing)** must carry the key-correspondence rule: *"A binding MUST reject a private
+JWK whose `d` does not correspond to its `x`, with `key-unsupported`."* This is not
+pedantry — such an envelope advertises a `kid` derived from `x` while carrying a signature
+made with `d`, so it can never verify. Measured 2026-09-05, the runtimes disagree about it
+on their own (bun signs, node throws, Go ignores `x`), so the rule is what makes the three
+bindings — and TypeScript's own two runtimes — give one answer. Task 5 has the table.
+
+**§10** is the ten-token table, marked a closed set. Note that no eleventh token is needed
+for the §9 rule: a non-corresponding key is `key-unsupported`, which already exists.
 
 - [ ] **Step 3: Re-sync the Go mirror**
 
@@ -358,6 +366,22 @@ describe("jwkThumbprint", () => {
       SignatureError,
     );
   });
+
+  test("rejects a non-OKP key rather than mis-hashing it", async () => {
+    // {crv, kty, x} is OKP's required-member set. An EC key's is {crv, kty, x, y}, so
+    // this projection would produce a digest that is not that key's thumbprint.
+    await expect(jwkThumbprint({ kty: "EC", crv: "P-256", x: "abc" })).rejects.toThrow(
+      SignatureError,
+    );
+  });
+
+  // X25519 must stay thumbprintable: §8 step 7 is what rejects a non-signing curve, and
+  // it can only be reached by a key whose thumbprint matched a kid.
+  test("thumbprints an X25519 key, so step 7 can reject it", async () => {
+    await expect(jwkThumbprint({ kty: "OKP", crv: "X25519", x: RFC8037_KEY.x })).resolves.toMatch(
+      /^[A-Za-z0-9_-]{43}$/,
+    );
+  });
 });
 ```
 
@@ -399,7 +423,13 @@ export interface PrivateJwk extends Jwk {
  * members only, ascending code-point key order, no whitespace.
  */
 export async function jwkThumbprint(jwk: Jwk): Promise<string> {
-  if (typeof jwk?.kty !== "string" || typeof jwk.crv !== "string" || typeof jwk.x !== "string") {
+  if (
+    typeof jwk !== "object" ||
+    jwk === null ||
+    jwk.kty !== "OKP" ||
+    typeof jwk.crv !== "string" ||
+    typeof jwk.x !== "string"
+  ) {
     throw new SignatureError("key-unsupported");
   }
   const json = canonicalize({ crv: jwk.crv, kty: jwk.kty, x: jwk.x });
@@ -407,6 +437,8 @@ export async function jwkThumbprint(jwk: Jwk): Promise<string> {
   return base64urlEncode(new Uint8Array(digest));
 }
 ```
+
+**`kty` is pinned to `"OKP"`; `crv` deliberately is not.** RFC 7638's required-member set is per key type, and `{crv, kty, x}` is OKP's — an EC key hashed through this projection would produce a digest that is not its thumbprint, so a non-OKP key must be rejected rather than mis-hashed. But `crv` must stay open, because §8 step 7 is what rejects a non-signing curve: an X25519 key has to be *thumbprintable* so it can match a `kid` and reach step 7. Narrowing `crv` here would make `key-unsupported` unreachable at step 7, and a token no case can reach fails the corpus guard.
 
 - [ ] **Step 4: Run the test and verify it passes**
 
@@ -810,26 +842,49 @@ export async function signManifest(
   const kid = await jwkThumbprint(privateKey);
   const protectedB64 = encodeProtectedHeader({ alg: "EdDSA", kid });
   const canonical = canonicalizeOrWrap(manifest);
+  const input = signingInput(protectedB64, canonical);
 
-  const key = await crypto.subtle.importKey(
-    "jwk",
-    { kty: "OKP", crv: "Ed25519", x: privateKey.x, d: privateKey.d },
-    { name: "Ed25519" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign(
-    "Ed25519",
-    key,
-    signingInput(protectedB64, canonical),
-  );
-  return { protected: protectedB64, signature: base64urlEncode(new Uint8Array(signature)) };
+  try {
+    const key = await crypto.subtle.importKey(
+      "jwk",
+      { kty: "OKP", crv: "Ed25519", x: privateKey.x, d: privateKey.d },
+      { name: "Ed25519" },
+      false,
+      ["sign"],
+    );
+    const signature = new Uint8Array(await crypto.subtle.sign("Ed25519", key, input));
+
+    // §9's correspondence check. `kid` came from `x`, but the signature came from `d`;
+    // if they disagree the envelope advertises a key that cannot verify it. bun accepts
+    // such a pair and signs with `d`, node rejects it at importKey — so without this,
+    // one binding has two answers depending on its runtime. See the note below.
+    const verifier = await crypto.subtle.importKey(
+      "raw",
+      base64urlDecode(privateKey.x),
+      { name: "Ed25519" },
+      false,
+      ["verify"],
+    );
+    if (!(await crypto.subtle.verify("Ed25519", verifier, signature, input))) {
+      throw new SignatureError("key-unsupported");
+    }
+    return { protected: protectedB64, signature: base64urlEncode(signature) };
+  } catch (error) {
+    if (error instanceof SignatureError) throw error;
+    throw new SignatureError("key-unsupported", { cause: error });
+  }
 }
 
 export async function verifyManifestSignature(
   manifest: object,
   trustedKeys: readonly Jwk[],
 ): Promise<void> {
+  // Step 1 — the manifest itself, before any member is read. A corpus case can carry
+  // `null` or a primitive, and `document.publisher` on `null` throws a raw TypeError that
+  // escapes the closed token set entirely.
+  if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
+    throw new SignatureError("envelope-malformed");
+  }
   const document = manifest as Record<string, unknown>;
 
   // Step 1 — envelope shape.
@@ -864,17 +919,19 @@ export async function verifyManifestSignature(
   const header = parseProtectedHeaderBytes(protectedBytes);
 
   // Step 6 — thumbprintable keys only; a malformed entry in a rotation set must not make
-  // every signature unverifiable.
+  // every signature unverifiable. `jwkThumbprint` rejects a non-OKP key, so the skip has
+  // to be driven by its verdict rather than by a coarser type check here.
   let selected: Jwk | undefined;
   for (const candidate of trustedKeys) {
-    if (
-      typeof candidate?.kty !== "string" ||
-      typeof candidate.crv !== "string" ||
-      typeof candidate.x !== "string"
-    ) {
-      continue;
+    let thumbprint: string;
+    try {
+      thumbprint = await jwkThumbprint(candidate);
+    } catch (error) {
+      // Only a rejection is a skip. A bug must still surface.
+      if (error instanceof SignatureError) continue;
+      throw error;
     }
-    if ((await jwkThumbprint(candidate)) === header.kid) {
+    if (thumbprint === header.kid) {
       selected = candidate;
       break;
     }
@@ -899,24 +956,49 @@ export async function verifyManifestSignature(
   // Step 9.
   const canonical = canonicalizeOrWrap(document);
 
-  // Step 10.
+  // Step 10. WebCrypto signals a rejected key by THROWING (measured: a 31-byte raw key
+  // is a DataError in both bun and node), and §10's set is closed, so every escape has to
+  // be normalized. `cause` keeps the original for a debugger.
   if (signatureBytes.length !== 64) throw new SignatureError("signature-invalid");
-  const key = await crypto.subtle.importKey(
-    "raw",
-    publicKeyBytes,
-    { name: "Ed25519" },
-    false,
-    ["verify"],
-  );
-  const ok = await crypto.subtle.verify(
-    "Ed25519",
-    key,
-    signatureBytes,
-    signingInput(members.protected, canonical),
-  );
-  if (!ok) throw new SignatureError("signature-invalid");
+  try {
+    const key = await crypto.subtle.importKey("raw", publicKeyBytes, { name: "Ed25519" }, false, [
+      "verify",
+    ]);
+    const ok = await crypto.subtle.verify(
+      "Ed25519",
+      key,
+      signatureBytes,
+      signingInput(members.protected, canonical),
+    );
+    if (!ok) throw new SignatureError("signature-invalid");
+  } catch (error) {
+    if (error instanceof SignatureError) throw error;
+    throw new SignatureError("signature-invalid", { cause: error });
+  }
 }
 ```
+
+> **Why `signManifest` verifies its own output.** Measured 2026-09-05 on a private JWK
+> whose `d` and `x` disagree:
+>
+> | | `importKey("jwk", {x, d})` | `importKey("jwk", {d})`, no `x` |
+> |---|---|---|
+> | bun 1.3.14 | **accepted** — signs with `d`, ignores `x` | accepted, derives `x` |
+> | node 24.18.1 | **`DataError`** | `DataError` |
+> | Go (`NewKeyFromSeed`) | accepts — derives from the seed, never reads `x` | n/a |
+>
+> Two runtimes of the *same binding* disagree, which would be this repository's first
+> intra-binding divergence — worse than the cross-language ones it documents, because no
+> API-surface golden or corpus claim can see it. Deriving `x` from `d` is not a portable
+> fix: bun can, node cannot. Signing and verifying against the advertised `x` **is**
+> portable, and makes both runtimes answer `key-unsupported`. Go reaches the same verdict
+> by comparing `NewKeyFromSeed(d).Public()` to `x`, which is cheaper and needs no probe.
+>
+> This is fixed rather than disclosed, on RFC-0014's precedent, because a uniform answer
+> is reachable. It costs one extra sign-and-verify per `signManifest` call — a publishing
+> operation, not a hot path. §9 of the normative document must state the rule (**a
+> binding MUST reject a private JWK whose `d` does not correspond to its `x`, with
+> `key-unsupported`**) and Task 6 must carry a `sign` case for it.
 
 - [ ] **Step 4: Re-export from the entry point**
 
@@ -973,7 +1055,21 @@ Invoke the `nimbus-sdk-conformance-corpus` skill and read `docs/spec/conformance
 
 - [ ] **Step 2: Write the schemas**
 
-`case.schema.json` requires `description`, `kind`, and `expect`, with `additionalProperties: false`. `kind` is an enum of `base64url`, `thumbprint`, `ed25519`, `verify`, `sign`. `expect` is either `{ "ok": … }` or `{ "rejected": "<token>" }`, the token constrained to the ten in §10 for `verify`/`sign` kinds and to `base64url-invalid` / `key-unsupported` for the pure kinds.
+**Model `case.schema.json` on `docs/spec/conformance/v1/diagnostics/case.schema.json`, not on `canonical-json`'s.** The diagnostics corpus has the same problem this one has — several kinds with different payloads under one `additionalProperties: false` — and solves it with a top-level `allOf` of `if`/`then` clauses keyed on `kind`. Read it first.
+
+Declare every kind's payload property at the top level, then require the right subset per kind:
+
+| `kind` | required payload |
+|---|---|
+| `base64url` | `mode` (`encode`\|`decode`), `input` |
+| `thumbprint` | `jwk` |
+| `ed25519` | `publicKey`, `message`, `signature` |
+| `verify` | `manifest`, `trustedKeys` |
+| `sign` | `manifest`, `privateKey` |
+
+Declaring them all top-level and requiring per kind is what keeps `additionalProperties: false` from rejecting every valid case.
+
+`expect` is either `{ "ok": … }` or `{ "rejected": "<token>" }`, the token constrained to §10's ten for `verify` and `sign`, and to `base64url-invalid` / `key-unsupported` for the pure kinds.
 
 `index.schema.json` mirrors `canonical-json`'s, with `section` patterned `^§[0-9]+(\.[0-9]+)*$` — the wider form, so a later subsection is nameable.
 
@@ -1004,11 +1100,24 @@ Roughly 48 files across the five kinds. Every index entry carries `file`, `secti
 
 **`verify` (15 cases)** — one `ok`, then one per token, plus the three ordering cases (unknown `kid` beats bogus `alg`; known `kid` with bogus `alg` reaches `alg-unsupported`; absent `kid` beats `crit`).
 
-**`sign` (4 cases)** — RFC 8032 §7.1 seeds against manifests of our own, each expected `protected` and `signature` computed by the TypeScript binding and then **independently reproduced by the Go binding in Task 7 before this task's commit is considered final.**
+**`sign` (5 cases)** — four pairing RFC 8032 §7.1 seeds with manifests of our own, plus **one whose `d` does not correspond to its `x`, expecting `key-unsupported`** (the §9 rule from Task 5; without a case, the rule is prose and the runtimes go back to disagreeing). Each expected `protected` and `signature` is computed by the TypeScript binding and then **independently reproduced by the Go binding in Task 7 before this task's commit is considered final.**
 
 - [ ] **Step 4: Measure the anti-vacuity claim for each ordering case**
 
-For each of the three ordering cases: implement the wrong order (move step 8 above step 6), run the corpus as it stands, and count how many *other* cases catch it. Record the number in that case's `reason` as *"caught by 0 of the N other cases."* Do not assert a number you did not measure.
+For each of the three ordering cases, do this literally — the number goes in the case's `reason` and must not be guessed:
+
+```bash
+cd sdks/typescript
+# 1. Break the order deliberately. For the kid-beats-alg case, move the step 8 block
+#    (`if (header.alg !== "EdDSA") …`) in src/signing/manifest-signature.ts to sit
+#    immediately above the step 6 lookup loop.
+# 2. Remove the case under measurement from the corpus index temporarily.
+# 3. Run the corpus as it now stands and count the failures.
+bun run build && bun test scripts/manifest-signature-guard.test.ts 2>&1 | grep -c "fail"
+# 4. Restore the index entry and the correct order; re-run to confirm green.
+```
+
+A count above zero means an existing case already covers it and the new case adds weight, not coverage — say so in the `reason` rather than claiming a gap it does not fill.
 
 - [ ] **Step 5: Write the guard**
 
@@ -1112,7 +1221,40 @@ func (e *SignatureError) Error() string { return "manifest signature rejected: "
 func (e *SignatureError) Unwrap() error { return e.Err }
 ```
 
-**Verification is synchronous and returns `error`**: `func VerifyManifestSignature(manifest map[string]any, trusted []JWK) error`, `nil` on success. The ten steps run in the same order as TypeScript's.
+**Verification is synchronous and returns `error`**: `func VerifyManifestSignature(manifest map[string]any, trusted []JWK) error`, `nil` on success. The ten steps run in the same order as TypeScript's, and the step 6 loop skips a key whose `JWKThumbprint` returns an error rather than aborting — a malformed entry in a rotation set must not make every signature unverifiable.
+
+**`ed25519.PrivateKey` is 64 bytes; JWK `d` is the 32-byte seed.** Measured: `len(NewKeyFromSeed(seed)) == 64`, `len(priv.Seed()) == 32`, and `priv.Public()` reproduces RFC 8032 vector 1's public key exactly. So:
+
+```go
+// GenerateSigningKey — D is the SEED, not the 64-byte private key.
+pub, priv, err := ed25519.GenerateKey(rand.Reader)
+private := PrivateJWK{JWK: JWK{Kty: "OKP", Crv: "Ed25519", X: Base64URLEncode(pub)}, D: Base64URLEncode(priv.Seed())}
+
+// SignManifest — rebuild from the seed.
+seed, err := Base64URLDecode(k.D)          // must be 32 bytes, else key-unsupported
+priv := ed25519.NewKeyFromSeed(seed)
+```
+
+Encoding the 64-byte `priv` as `d` would produce a JWK no other binding and no JOSE tool can read.
+
+**Go implements §9's correspondence rule without a probe.** Where TypeScript has to sign and verify (Task 5), Go compares directly — and must, since `NewKeyFromSeed` derives the public key from the seed and never consults `X`:
+
+```go
+if !bytes.Equal(priv.Public().(ed25519.PublicKey), declaredX) {
+    return SignatureEnvelope{}, &SignatureError{Reason: "key-unsupported"}
+}
+```
+
+**`EncodeProtectedHeader` must omit `alg` when it is empty.** Go's zero value for a string field is `""`, so serializing the struct wholesale emits `{"alg":"","kid":"…"}` where TypeScript's optional `alg` emits `{"kid":"…"}` — a different signing input for the same header, which is a cross-language signature failure:
+
+```go
+m := map[string]any{"kid": h.Kid}
+if h.Alg != "" {
+    m["alg"] = h.Alg
+}
+```
+
+Do **not** add the reviewer's suggested `if h.Kid == "" { return protected-malformed }` guard. TypeScript's encoder has no such precondition, and adding one only in Go is the kind of quiet asymmetry this shipment exists to avoid; an empty `kid` is caught at step 6 as `kid-unknown` in every binding.
 
 - [ ] **Step 4: Write the Go corpus runner**
 
@@ -1122,9 +1264,11 @@ func (e *SignatureError) Unwrap() error { return e.Err }
 - **A size floor**, matching Go's convention — `negotiation` fails under 30, `framing` under 20, `diagnostics` under 60, `url-resolution` under 20. Use 40 here, the same floor Task 6 step 7 gave the TypeScript side.
 - **An anti-vacuity guard**: a `kind` filter that matches zero cases must fail the test, the way `runKind` already does elsewhere. A runner that silently executes nothing is the failure mode these guards exist for.
 
-- [ ] **Step 5: Cross-check the `sign` cases**
+- [ ] **Step 5: Cross-check the `sign` cases with a dedicated test**
 
-Verify that Go reproduces every expected `protected` and `signature` byte string that Task 6 computed in TypeScript. **If any differs, stop** — that is a cross-language canonicalization or signing-input disagreement, and it is RFC territory, not a value to adjust.
+Do not rely on the corpus runner alone for this. Add `TestSignVectorsMatchTypeScript` to `sdks/go/signing/manifestsignature_test.go` asserting each RFC 8032 seed against its manifest and the **exact** `protected` and `signature` strings Task 6 committed — a table of literals, not a loop over the corpus. Two reasons: it fails with a byte-level diff instead of a corpus-case name, and it keeps failing if someone edits the corpus to match a wrong Go implementation.
+
+**If any byte differs, stop.** That is a cross-language canonicalization or signing-input disagreement, and it is RFC territory, not a value to adjust.
 
 - [ ] **Step 6: Run the Go suite**
 
@@ -1166,6 +1310,28 @@ Mirror the TypeScript. Two Python-specific requirements:
 **Do not use `base64.urlsafe_b64decode`** — it neither rejects padding nor checks trailing bits. Hand-roll it.
 
 **Every module declares `__stability__ = "experimental"`**, and `__init__.py` re-exports the new names into `__all__` alongside the existing canonicalization ones. The import root count stays at **nine**; do not add a tenth.
+
+**Typing.** Follow `nimbus_sdk/connector_kit/types.py`: `TypedDict` with `NotRequired`, total by default. Two shapes, and they are not the same kind of thing:
+
+```python
+from typing import Mapping, NotRequired, TypedDict
+
+
+class ProtectedHeader(TypedDict):
+    """Closed: §6 admits alg and kid and nothing else."""
+
+    alg: NotRequired[str]
+    kid: str
+
+
+# A JWK is OPEN — §5 requires a key carrying kid/use/alg to thumbprint as its
+# projection, so the decorated-JWK conformance case must be expressible.
+Jwk = Mapping[str, object]
+```
+
+`Jwk` is deliberately **not** a `TypedDict`. A `TypedDict` is closed, so `jwk_thumbprint({"kty": ..., "crv": ..., "x": ..., "use": "sig"})` would fail `mypy --strict` — making the one case that proves §5's projection rule inexpressible in Python, which is exactly the failure the design rejected for Go's struct. Validate the three required members at runtime, as TypeScript does.
+
+Do not write `TypedDict(..., total=False)` for either shape: on `ProtectedHeader` it would make `kid` optional, and `kid` is required.
 
 - [ ] **Step 3: Write the corpus runner and the deferral-consistency test**
 
@@ -1386,6 +1552,51 @@ The PR title **must** be `feat(signing): the detached JWS manifest signature env
 Expect release-please to cut TypeScript, Python **and** Go releases under that one subject line; this touches all four component paths, which is the #155 behaviour and is accepted here as it was for S1.
 
 ---
+
+## Review dispositions
+
+Against [the review](./2026-09-05-manifest-signature-envelope-review.md). Every empirical
+claim was re-measured before being acted on; all five that could be measured hold.
+
+| ID | Disposition | Where |
+|---|---|---|
+| P1 | **Fixed** | Task 5 — a `null` or primitive manifest is `envelope-malformed`, not a raw `TypeError` |
+| P2 | **Fixed, with a boundary the review left open** | Task 3 — `kty` is pinned to `"OKP"`; `crv` is **not**, or step 7's `key-unsupported` becomes unreachable |
+| P3 | **Fixed, narrowed** | Task 5 — the loop skips on `SignatureError` only; a bare `catch` would swallow real bugs |
+| P4 | **Fixed, and it was bigger than reported** | Task 5 — see below |
+| P5 | **Adopted, verified** | Task 7 — measured: `len(PrivateKey) == 64`, `len(Seed()) == 32`, `Public()` reproduces RFC 8032 vector 1 |
+| P6 | **Adopted in part** | Task 7 — `alg` omitted when empty; the extra `kid` precondition **rejected** |
+| P7 | **Adopted** | Task 6 — modelled on `diagnostics/case.schema.json`, which already solves this |
+| I1 | **Adopted, made concrete** | Task 6 — the literal four-step procedure, not "run the guard" |
+| I2 | **Adopted, corrected** | Task 8 — see below |
+| I3 | **Adopted** | Task 7 — a table of literals, not a corpus loop |
+| Q1 | **Confirmed** | `kid: ""` fails at step 6 as `kid-unknown`; §8 as written, no new rule |
+| Q2 | **Confirmed** | `readonly Jwk[]`; `for…of` already accepts any iterable at a call site |
+
+**P4 was understated, and the measurement changed the contract.** The review asked for
+exception normalization, which is right — a 31-byte raw key is a `DataError` in both
+runtimes, and §10's set is closed. But probing further found a **Bun/Node divergence**: a
+private JWK whose `d` and `x` disagree is *accepted* by bun (which signs with `d` and
+ignores `x`) and *rejected* by node at `importKey`. Go is a third answer again — it derives
+from the seed and never reads `x`.
+
+That would be this repository's first **intra-binding** divergence: one binding, two
+answers, depending on which runtime executes it. It is worse than the cross-language
+divergences already documented, because no API-surface golden and no corpus claim can
+see it.
+
+It is fixed rather than disclosed, on RFC-0014's precedent, because a uniform answer is
+reachable: §9 now requires rejecting a private JWK whose `d` does not correspond to its
+`x`, with the existing `key-unsupported` token. TypeScript enforces it by signing a probe
+and verifying against the advertised `x`; Go compares `NewKeyFromSeed(d).Public()` to `x`
+directly. A `sign` corpus case pins it, taking that kind from four cases to five.
+
+**I2 was adopted but its proposed shapes had two bugs.** `TypedDict(total=False)` on
+`ProtectedHeader` makes `kid` optional, and `kid` is required. And a `TypedDict` for `Jwk`
+is closed, which makes the decorated-JWK case — the one that proves §5's projection —
+inexpressible under `mypy --strict`. That is the same defect the design rejected in the
+review's earlier Go struct, arriving in a second language. `Jwk` is `Mapping[str, object]`;
+`ProtectedHeader` stays a total `TypedDict` with `NotRequired[str]` on `alg` alone.
 
 ## Notes for the executor
 

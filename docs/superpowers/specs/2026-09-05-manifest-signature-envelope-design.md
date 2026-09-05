@@ -726,6 +726,19 @@ asked for:
 counts have been stale since S1. S2 fixes them and adds the sentence to `COUNT_CLAIMS` so
 the drift cannot recur.
 
+### A later measurement added one rule to §9
+
+While verifying the *plan* review's P4, a private JWK whose `d` and `x` disagree turned out
+to be **accepted by bun and rejected by node** — one binding with two answers depending on
+its runtime, which no golden and no corpus claim can see. Go is a third answer, deriving
+from the seed and never reading `x`.
+
+Fixed rather than disclosed, since a uniform answer is reachable: §9 requires rejecting a
+non-corresponding private JWK with the existing `key-unsupported` token. TypeScript
+enforces it by signing a probe and verifying against the advertised `x` — the only
+portable check, because bun can derive `x` from `d` and node cannot — and Go compares
+`NewKeyFromSeed(d).Public()` to `x`. One `sign` corpus case pins it. No eleventh token.
+
 ## Out of scope
 
 - `extension-manifest.schema.json`'s `publisher` / `signature` members, and the `manifest`

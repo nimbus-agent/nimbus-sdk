@@ -114,7 +114,8 @@ contract itself — then reach for a battery as you need it. Every public export
 | [`testing`](./modules/testing.md) | `MockGateway`, contract tests, the sandbox probe |
 | [`connector-kit`](./modules/connector-kit.md) | Dependency-free MCP connector helpers: Zod tool registration, Bearer-auth REST fetch |
 | [`diagnostics`](./modules/diagnostics.md) | The structured, redaction-safe diagnostic and audit envelope |
-| [`signing`](./modules/signing.md) | Deterministic manifest canonicalization for the detached JWS envelope |
+| [`signing`](./modules/signing.md) | Deterministic manifest canonicalization, and the pure half of the detached JWS envelope |
+| [`manifest-signature`](./modules/manifest-signature.md) | Signing, verifying and key generation for the detached JWS envelope |
 
 ## Examples
 

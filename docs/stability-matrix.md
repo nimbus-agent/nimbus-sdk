@@ -24,6 +24,7 @@ binding does not publish the capability at all.
 | [`ipc`](./modules/ipc.md) | `frozen` | `frozen` | `frozen` |
 | [`item-types`](./modules/item-types.md) | `frozen` | — | — |
 | [`jmap-fastmail`](./modules/jmap-fastmail.md) | `frozen` | `frozen` | `frozen` |
+| [`manifest-signature`](./modules/manifest-signature.md) | `experimental` | — | `experimental` |
 | [`server`](./modules/server.md) | `stable` | — | — |
 | [`signing`](./modules/signing.md) | `experimental` | `experimental` | `experimental` |
 | [`storybook`](./modules/storybook.md) | `experimental` | — | — |

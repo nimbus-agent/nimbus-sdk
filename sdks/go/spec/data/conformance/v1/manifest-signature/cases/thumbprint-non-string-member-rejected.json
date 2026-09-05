@@ -1,0 +1,12 @@
+{
+  "description": "A JWK whose crv is a number rather than a string is not thumbprintable.",
+  "kind": "thumbprint",
+  "jwk": {
+    "kty": "OKP",
+    "crv": 25519,
+    "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+  },
+  "expect": {
+    "rejected": "key-unsupported"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "description": "A valid-base64url-but-malformed-JSON protected together with a padded signature reports base64url-invalid, not protected-malformed.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "e25vdCBqc29u",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1b=="
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    }
+  ],
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

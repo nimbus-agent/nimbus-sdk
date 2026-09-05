@@ -1,0 +1,26 @@
+{
+  "description": "A protected string that is valid base64url of a well-formed but non-canonically serialized header still verifies, because §7 signs the received string verbatim.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyAia2lkIjogImtQcktfcW14VldhWVZBOXd3QkY2SXVvM3ZWeno3VHhIQ1R3WEJ5Z3JTNGsiLCAiYWxnIjogIkVkRFNBIiB9",
+      "signature": "-YDrrJjd5Hdku0f4mB4P6iXAvjcKEeVfShtDP1nZg08poGLnCJC9qcaMtoMKQOiTvWC8Lwr18UWwi1l3ILbpBQ"
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+    }
+  ],
+  "expect": {
+    "ok": true
+  }
+}

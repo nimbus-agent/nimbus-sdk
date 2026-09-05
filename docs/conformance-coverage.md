@@ -21,11 +21,12 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `item` | 6 | 6 | — | — |
 | `jmap` | 61 | 61 | 61 | 61 |
 | `manifest` | 31 | 31 | — | — |
+| `manifest-signature` | 61 | 61 | 23 of 61 | 61 |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **478** | **478** | **377** | **377** |
+| **Total** | **539** | **539** | **400** | **438** |
 
 ## What each binding does not run, and why
 
@@ -49,7 +50,44 @@ Runs every published corpus.
 
 ## Deferred cases
 
-None. Every binding runs every case of every corpus it claims.
+- `python` defers `manifest-signature` case `cases/ed25519-non-canonical-s.json`
+- `python` defers `manifest-signature` case `cases/ed25519-public-key-all-zero.json`
+- `python` defers `manifest-signature` case `cases/ed25519-public-key-y-equals-p-plus-1.json`
+- `python` defers `manifest-signature` case `cases/ed25519-public-key-y-equals-p.json`
+- `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-1.json`
+- `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-2.json`
+- `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-3.json`
+- `python` defers `manifest-signature` case `cases/ed25519-small-order-1.json`
+- `python` defers `manifest-signature` case `cases/ed25519-small-order-2.json`
+- `python` defers `manifest-signature` case `cases/ed25519-small-order-8.json`
+- `python` defers `manifest-signature` case `cases/sign-non-corresponding-d-rejected.json`
+- `python` defers `manifest-signature` case `cases/sign-rfc8032-seed-1.json`
+- `python` defers `manifest-signature` case `cases/sign-rfc8032-seed-1024.json`
+- `python` defers `manifest-signature` case `cases/sign-rfc8032-seed-2.json`
+- `python` defers `manifest-signature` case `cases/sign-rfc8032-seed-3.json`
+- `python` defers `manifest-signature` case `cases/verify-alg-unsupported-absent.json`
+- `python` defers `manifest-signature` case `cases/verify-alg-unsupported-beats-canonicalization-failed.json`
+- `python` defers `manifest-signature` case `cases/verify-alg-unsupported-es256.json`
+- `python` defers `manifest-signature` case `cases/verify-base64url-invalid-decodes-both-before-parsing.json`
+- `python` defers `manifest-signature` case `cases/verify-canonicalization-failed.json`
+- `python` defers `manifest-signature` case `cases/verify-crit-unsupported.json`
+- `python` defers `manifest-signature` case `cases/verify-envelope-malformed-empty-publisher-id.json`
+- `python` defers `manifest-signature` case `cases/verify-envelope-malformed-extra-member.json`
+- `python` defers `manifest-signature` case `cases/verify-key-unsupported-short-x.json`
+- `python` defers `manifest-signature` case `cases/verify-key-unsupported-x25519.json`
+- `python` defers `manifest-signature` case `cases/verify-kid-unknown-beats-alg-unsupported.json`
+- `python` defers `manifest-signature` case `cases/verify-kid-unknown-ec-projection-hash.json`
+- `python` defers `manifest-signature` case `cases/verify-kid-unknown-empty-key-set.json`
+- `python` defers `manifest-signature` case `cases/verify-kid-unknown-wrong-key.json`
+- `python` defers `manifest-signature` case `cases/verify-known-kid-with-bogus-alg-reaches-alg-unsupported.json`
+- `python` defers `manifest-signature` case `cases/verify-non-canonical-protected-still-verifies.json`
+- `python` defers `manifest-signature` case `cases/verify-ok.json`
+- `python` defers `manifest-signature` case `cases/verify-protected-malformed-absent-kid-beats-crit.json`
+- `python` defers `manifest-signature` case `cases/verify-protected-malformed-non-string-alg.json`
+- `python` defers `manifest-signature` case `cases/verify-protected-unknown-member.json`
+- `python` defers `manifest-signature` case `cases/verify-signature-invalid-flipped-octet.json`
+- `python` defers `manifest-signature` case `cases/verify-signature-invalid-wrong-length.json`
+- `python` defers `manifest-signature` case `cases/verify-skips-unthumbprintable-keys-in-rotation-set.json`
 
 ## Running the reports locally
 

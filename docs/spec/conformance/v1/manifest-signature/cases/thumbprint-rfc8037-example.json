@@ -1,0 +1,13 @@
+{
+  "description": "RFC 8037 §2's public key thumbprints to RFC 7638's published value, over the 79 canonical octets §5 prints.",
+  "kind": "thumbprint",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo"
+  },
+  "expect": {
+    "ok": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k",
+    "canonical": "7b22637276223a2245643235353139222c226b7479223a224f4b50222c2278223a223131715941594b7843726656535f3754795751484f6737686376506170694d6c727749616150634855526f227d"
+  }
+}

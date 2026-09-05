@@ -53,9 +53,9 @@ func TestRejections(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			_, err := Canonicalize(c.value)
-			var e *Error
+			var e *CanonicalizationError
 			if !errorsAs(err, &e) {
-				t.Fatalf("got %v, want *Error", err)
+				t.Fatalf("got %v, want *CanonicalizationError", err)
 			}
 			if e.Reason != c.want {
 				t.Errorf("reason %q, want %q", e.Reason, c.want)
@@ -117,8 +117,8 @@ func TestManifestStripsOnlyTopLevelSignature(t *testing.T) {
 	}
 }
 
-func errorsAs(err error, target **Error) bool {
-	e, ok := err.(*Error)
+func errorsAs(err error, target **CanonicalizationError) bool {
+	e, ok := err.(*CanonicalizationError)
 	if ok {
 		*target = e
 	}

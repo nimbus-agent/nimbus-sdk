@@ -343,6 +343,98 @@ export const SMOKE_CALLS = [
       }
     },
   },
+  {
+    module: "signing/base64url",
+    // "QR" is the whole reason this codec is hand-rolled: Node's Buffer, CPython's base64
+    // and Go's base64.RawURLEncoding all decode it to the same 0x41 as "QQ", silently
+    // discarding non-zero trailing bits. Rejecting it is the behaviour worth executing.
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, signing) => {
+      const encoded = signing.base64urlEncode(new Uint8Array([0x41]));
+      if (encoded !== "QQ") throw new Error(`base64urlEncode produced ${encoded}`);
+      const bytes = signing.base64urlDecode(encoded);
+      if (bytes.length !== 1 || bytes[0] !== 0x41) {
+        throw new Error(`base64urlDecode produced ${JSON.stringify([...bytes])}`);
+      }
+      let rejected = false;
+      try {
+        signing.base64urlDecode("QR");
+      } catch (err) {
+        rejected = err?.reason === "base64url-invalid";
+      }
+      if (!rejected) throw new Error('base64urlDecode accepted "QR" — trailing bits unchecked');
+    },
+  },
+  {
+    module: "signing/errors",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, signing) => {
+      if (signing.SIGNATURE_REASONS.length !== 10) {
+        throw new Error(`SIGNATURE_REASONS has ${signing.SIGNATURE_REASONS.length} tokens, not 10`);
+      }
+      const error = new signing.SignatureError("canonicalization-failed", {
+        canonicalizationReason: "non-integer-number",
+      });
+      if (error.reason !== "canonicalization-failed" || !(error instanceof Error)) {
+        throw new Error(`SignatureError did not carry its reason: ${error.reason}`);
+      }
+      if (error.canonicalizationReason !== "non-integer-number") {
+        throw new Error("SignatureError dropped the wrapped canonicalization reason");
+      }
+    },
+  },
+  {
+    module: "signing/jwk",
+    // RFC 8037 §A.3's key, and its RFC 7638 thumbprint. Pinned rather than merely
+    // length-checked: a thumbprint that is deterministic but wrong still selects no key.
+    run: async (_sdk, _testing, _ipc, _connectorKit, _diagnostics, signing) => {
+      const thumbprint = await signing.jwkThumbprint({
+        kty: "OKP",
+        crv: "Ed25519",
+        x: "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+        kid: "ignored — RFC 7638 hashes only crv, kty and x",
+      });
+      if (thumbprint !== "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k") {
+        throw new Error(`jwkThumbprint produced ${thumbprint}`);
+      }
+    },
+  },
+  {
+    module: "signing/jws",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, signing) => {
+      const kid = "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k";
+      const encoded = signing.encodeProtectedHeader({ alg: "EdDSA", kid });
+      const header = signing.parseProtectedHeader(encoded);
+      if (header.kid !== kid || header.alg !== "EdDSA") {
+        throw new Error(`parseProtectedHeader round trip lost members: ${JSON.stringify(header)}`);
+      }
+      const input = new TextDecoder().decode(signing.signingInput(encoded, new Uint8Array([0x41])));
+      if (input !== `${encoded}.QQ`) throw new Error(`signingInput produced ${input}`);
+    },
+  },
+  {
+    module: "signing/manifest-signature",
+    // Keygen, sign and verify in one round trip — the only way to prove WebCrypto's
+    // Ed25519 is reachable from the built dist/ under plain Node.
+    run: async (_sdk, _testing, _ipc, _connectorKit, _diagnostics, signing) => {
+      const { privateKey, publicKey } = await signing.generateSigningKey();
+      const manifest = { id: "smoke-connector", version: "0.1.0", publisher: { id: "nimbus" } };
+      const envelope = await signing.signManifest(manifest, privateKey);
+      if (typeof envelope.protected !== "string" || typeof envelope.signature !== "string") {
+        throw new Error(`signManifest produced ${JSON.stringify(envelope)}`);
+      }
+      await signing.verifyManifestSignature({ ...manifest, signature: envelope }, [publicKey]);
+
+      let rejected = false;
+      try {
+        await signing.verifyManifestSignature(
+          { ...manifest, version: "0.1.1", signature: envelope },
+          [publicKey],
+        );
+      } catch (err) {
+        rejected = err?.reason === "signature-invalid";
+      }
+      if (!rejected) throw new Error("verifyManifestSignature accepted a mutated manifest");
+    },
+  },
 ];
 
 /** A minimal manifest that satisfies runContractTests. */

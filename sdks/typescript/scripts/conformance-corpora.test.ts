@@ -9,7 +9,7 @@ import { describe, expect, test } from "bun:test";
 import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 
 describe("publishedCorpora", () => {
-  test("finds all thirteen published corpora, both shapes", () => {
+  test("finds all fourteen published corpora, both shapes", () => {
     expect(corpusNames()).toEqual([
       "canonical-json",
       "data-profile",
@@ -20,6 +20,7 @@ describe("publishedCorpora", () => {
       "item",
       "jmap",
       "manifest",
+      "manifest-signature",
       "negotiation",
       "predicates",
       "sandbox",
@@ -35,6 +36,7 @@ describe("publishedCorpora", () => {
     expect(corpora.get("negotiation")?.length).toBeGreaterThanOrEqual(38);
     expect(corpora.get("framing")?.length).toBeGreaterThanOrEqual(33);
     expect(corpora.get("url-resolution")?.length).toBeGreaterThanOrEqual(28);
+    expect(corpora.get("manifest-signature")?.length).toBeGreaterThanOrEqual(40);
     expect(corpora.get("data-profile")?.length).toBeGreaterThanOrEqual(30);
     expect(corpora.get("distribution-channel")?.length).toBeGreaterThanOrEqual(24);
     expect(corpora.get("icalendar")?.length).toBeGreaterThanOrEqual(50);

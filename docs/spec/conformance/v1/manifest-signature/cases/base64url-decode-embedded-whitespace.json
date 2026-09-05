@@ -1,0 +1,9 @@
+{
+  "description": "An embedded space is not in the alphabet and is rejected.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "Q QQ",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

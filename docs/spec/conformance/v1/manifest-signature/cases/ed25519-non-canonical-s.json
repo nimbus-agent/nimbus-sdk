@@ -1,0 +1,10 @@
+{
+  "description": "TEST 1's signature with S replaced by S + L: the same signature mathematically, and rejected because S must lie in [0, L).",
+  "kind": "ed25519",
+  "publicKey": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+  "message": "",
+  "signature": "e5564300c360ac729086e2cc806e828a84877f1eb8e5d974d873e065224901554c8c7872aa064e049dbb3013fbf29380d25bf5f0595bbe24655141438e7a101b",
+  "expect": {
+    "ok": false
+  }
+}

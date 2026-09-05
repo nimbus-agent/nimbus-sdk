@@ -1,0 +1,18 @@
+{
+  "description": "A JWK decorated with kid, use, alg and key_ops thumbprints to the projection of itself.",
+  "kind": "thumbprint",
+  "jwk": {
+    "kty": "OKP",
+    "crv": "Ed25519",
+    "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+    "kid": "not-the-thumbprint",
+    "use": "sig",
+    "alg": "EdDSA",
+    "key_ops": [
+      "verify"
+    ]
+  },
+  "expect": {
+    "ok": "kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k"
+  }
+}

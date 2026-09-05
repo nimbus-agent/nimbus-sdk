@@ -369,7 +369,9 @@ canonicalizer, and the SDK version accessor. It executes **every published confo
 — in full, nothing deferred in any: `negotiation` — across all three of its kinds,
 `negotiate`, `hello`, and `declaration` — `framing` — `diagnostics` — across `encode`,
 `parse`, and `level` — `url-resolution` — against `ResolveURLWithBase` — `canonical-json`
-— against `signing.Canonicalize` / `signing.CanonicalizeManifest` — and the four
+— against `signing.Canonicalize` / `signing.CanonicalizeManifest` — `manifest-signature`
+— across all five of its kinds, `base64url`, `thumbprint`, `ed25519`, `verify` and
+`sign` — and the four
 battery corpora against the packages that bind them: `data-profile` against `dataprofile`,
 `distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
 `jmap` against `jmapfastmail`. The other four —
@@ -381,7 +383,9 @@ binding claims which corpus, and every case count behind these numbers, is gener
 [`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
 rather than restated here.
 
-That is the same set Python runs, and it is what
+That is the same set of corpora Python claims — though no longer the same set of cases:
+Python defers `manifest-signature`'s three Ed25519 kinds, where this module runs all
+five — and it is what
 [GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)
 criterion 1 asks for. **This binding is official**, by
 [RFC-0013](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0013-go-sdk-official.md),

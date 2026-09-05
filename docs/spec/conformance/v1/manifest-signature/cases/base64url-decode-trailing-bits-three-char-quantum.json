@@ -1,0 +1,9 @@
+{
+  "description": "\"QUJ\" carries nonzero trailing bits in a three-character final quantum and is rejected; \"QUI\" is the canonical encoding of the same two octets.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "QUJ",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

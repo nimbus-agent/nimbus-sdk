@@ -166,10 +166,13 @@ U+FEFF, U+0085 and U+001C–U+001F. See
 
 ### `conformance/v1/`
 
-Eleven kinds of assertion, across **twelve** corpus directories — the two counts differ
+Thirteen kinds of assertion, across **fourteen** corpus directories — the two counts differ
 because the document fixtures cover both `manifest` and `item` from one top-level index.
-The groups below are the eleven kinds; `corpusNames()` in
-`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the twelve.
+The groups below are the thirteen kinds; `corpusNames()` in
+`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the fourteen.
+Both numbers are pinned by `COUNT_CLAIMS` in
+`sdks/typescript/scripts/corpus-parity.test.ts`, because they had already drifted once:
+the `canonical-json` shipment added a directory and a kind and bumped neither.
 
 **Document fixtures** — [`index.json`](./conformance/v1/index.json) is the machine-readable
 manifest; every fixture carries a shape, an expected verdict, a class, and a reason, so a
@@ -282,7 +285,7 @@ draft actually made.
 
 **JMAP cases** — [`jmap/`](./conformance/v1/jmap/) is the executable form of
 [`batteries/v1/jmap.md`](./batteries/v1/jmap.md). It carries **ten case kinds**, the most
-of any corpus — not to be confused with the eleven *groups* counted above — because §1's
+of any corpus — not to be confused with the thirteen *groups* counted above — because §1's
 surface is ten operations rather than one or two, and
 one of them is unlike anything else in the tree: `validateApiUrl` **raises** where every
 other function in every battery returns an absence. §5.1 says why, and it is a control
@@ -298,6 +301,29 @@ that a document is named for what it specifies, and nothing here is Fastmail-spe
 `request` cases compare a **parsed structure**, never serialised bytes. §9 records why:
 Go's `encoding/json` sorts a map's keys on marshal where the other two emit insertion
 order, so the same conforming request serialises differently in different bindings.
+
+**Canonical-JSON cases** — [`canonical-json/`](./conformance/v1/canonical-json/) is the
+executable form of [`signing/v1/canonical-json.md`](./signing/v1/canonical-json.md), with
+its own [`index.json`](./conformance/v1/canonical-json/index.json) and
+[`case.schema.json`](./conformance/v1/canonical-json/case.schema.json). Its claim is
+neither a verdict nor a structure, but **exact bytes** — a JSON value in,
+one canonical serialization out, or one of §9's closed rejection tokens. It is the only
+corpus whose whole point is that three independent serializers produce the *same octets*,
+because a detached signature over anything less is unverifiable across languages.
+
+**Manifest-signature cases** — [`manifest-signature/`](./conformance/v1/manifest-signature/)
+is the executable form of
+[`signing/v1/manifest-signature.md`](./signing/v1/manifest-signature.md), with its own
+[`index.json`](./conformance/v1/manifest-signature/index.json) and
+[`case.schema.json`](./conformance/v1/manifest-signature/case.schema.json). It is the first
+corpus that reaches a **cryptographic** primitive, and the first any binding claims only in
+part: its cases
+are discriminated by a `kind` — `base64url` (§4), `thumbprint` (§5), `ed25519` (§7),
+`verify` (§8) and `sign` (§9) — so a binding that publishes only the pure layer can
+execute the first two and declare the rest deferred, which §9's last paragraph admits as
+conformant on its own. `verify` cases pin **precedence** as well as verdict: several name
+two defects at once and require the earlier rejection token, because two bindings that
+both refuse an envelope for different reasons leak different information to a publisher.
 
 Two classes, because the schemas and the TypeScript runtime do not check identical things:
 
@@ -334,9 +360,9 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Thirteen guards run on every pull request as part of `bun run test` (see
-`.github/workflows/ci.yml`), the newest of which is `canonical-json-guard.test.ts`,
-alongside the twelve described below.
+Fourteen guards run on every pull request as part of `bun run test` (see
+`.github/workflows/ci.yml`), the newest of which is `manifest-signature-guard.test.ts`,
+alongside the thirteen described below.
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
 holds the contract to being **language-neutral** is that other bindings execute the
@@ -354,8 +380,9 @@ obvious path and environment helpers would answer differently. `str.replace` aga
 `PurePath.as_posix`, and `strings.ReplaceAll` against `filepath.ToSlash`, are the same trap
 twice: each pair agrees on Windows and diverges on Linux, so only a corpus that runs in
 every language catches it.
-A case added to any of these eight therefore runs in all three languages as soon
-as it is indexed, and a claim only one binding can satisfy fails somewhere. The first three hold a wire-level claim — a byte
+A case added to any of these therefore runs in all three languages as soon
+as it is indexed, and a claim only one binding can satisfy fails somewhere — with the one
+exception the `manifest-signature` sentence below records. The first three hold a wire-level claim — a byte
 stream, a handshake frame, a diagnostic envelope decoded the same way by both peers;
 `url-resolution` holds a narrower one — that `resolveUrlWithBase`,
 `resolve_url_with_base` and `ResolveURLWithBase`, three separate implementations of the
@@ -368,7 +395,7 @@ pins byte for byte. It is the corpus where the three languages' defaults disagre
 naive `mailto:` search is wrong in opposite directions in Go and in the other two, a naive
 trim is wrong differently again, and a naive fold at "75" cuts in three different places
 because `len` counts bytes, code points and UTF-16 units respectively.
-They also all three run the `jmap` corpus, the eighth of nine. It holds a sixth
+They also all three run the `jmap` corpus, the eighth of ten. It holds a sixth
 kind of claim — that independent implementations of a wire *protocol's client half*
 agree, both on the request structures they build and on the verdict for the one value a
 remote party chooses, which §5 guards because a spoofed session would otherwise redirect
@@ -380,6 +407,17 @@ unpinnable by any case.
 holds a seventh kind of claim: that three independent serializers, given the same JSON
 value, produce byte-identical canonical output, which is the one thing a detached
 signature can verify across languages at all.
+All three also run the `manifest-signature` corpus, the tenth, which holds an eighth kind
+of claim — that three implementations of a *detached JWS* agree on the exact signing input,
+on the thumbprint that names the key, and on **which** rejection token wins when an
+envelope carries two defects at once. It is also the first corpus a binding claims only in
+part: `sdks/python/` executes the `base64url` and `thumbprint` kinds and defers `ed25519`,
+`verify` and `sign`, because CPython ships no stdlib Ed25519 and this package takes no
+runtime dependency to get one — so on those three kinds the parity above is between
+TypeScript and Go alone. The deferred case files are enumerated in
+[`docs/conformance-coverage.json`](../conformance-coverage.json), and
+`sdks/python/tests/test_manifest_signature_corpus.py` fails if the runner and that list
+disagree, in either direction.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. Four corpora are executed by the **TypeScript** binding alone.
@@ -535,6 +573,18 @@ U+FFFD for a lone surrogate rather than preserving it, and §3 restricts `unsupp
 to a value no conforming JSON decoder can itself produce, so a case's `input` — already
 decoded by that same JSON decoder before the binding sees it — can never carry one. It
 also asserts that every pinnable section, §4 through §8, is cited by at least one case.
+
+`sdks/typescript/scripts/manifest-signature-guard.test.ts` validates the
+manifest-signature corpus against its schemas, holds the index and the cases directory to
+each other, and drives every case of all five kinds — `base64url`, `thumbprint`,
+`ed25519`, `verify` and `sign` — through the reference binding. It asserts that every one
+of [§10](./signing/v1/manifest-signature.md#10-rejection-tokens)'s ten tokens is expected
+by at least one `verify` case, so a token the closed set publishes but no case reaches
+cannot exist, and that every pinnable section, §3 through §9, is cited by at least one
+case. The `ed25519` kind is deliberately not a test of anything this package exports: it
+pins the *runtime's* Ed25519, which is why `ed25519-node.mjs` re-runs those cases under
+plain Node — Bun ships BoringSSL and Node ships OpenSSL, and a Bun-only suite could not
+notice them diverging.
 
 Every one of them refuses to pass vacuously — an empty corpus, a fixture on disk that no
 index lists, a published rule or segment no fixture asserts, or a predicate corpus that only

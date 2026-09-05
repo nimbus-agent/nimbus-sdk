@@ -1,0 +1,9 @@
+{
+  "description": "\"QQ==\" is the padded form and is rejected; base64url in JWS is unpadded.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "QQ==",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

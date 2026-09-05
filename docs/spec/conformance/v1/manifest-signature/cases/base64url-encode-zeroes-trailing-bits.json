@@ -1,0 +1,9 @@
+{
+  "description": "Encoding the single octet 0x41 zeroes the final quantum's unused low bits, producing \"QQ\".",
+  "kind": "base64url",
+  "mode": "encode",
+  "input": "41",
+  "expect": {
+    "ok": "QQ"
+  }
+}

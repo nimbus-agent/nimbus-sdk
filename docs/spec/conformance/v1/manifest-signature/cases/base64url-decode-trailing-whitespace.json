@@ -1,0 +1,9 @@
+{
+  "description": "A trailing newline is not in the alphabet and is rejected.",
+  "kind": "base64url",
+  "mode": "decode",
+  "input": "QQQ\n",
+  "expect": {
+    "rejected": "base64url-invalid"
+  }
+}

@@ -230,13 +230,30 @@ not even another package inside this module.
 
 ## `signing`
 
-5 exports.
+22 exports.
 
-- `func (e *Error) Error() string` — **experimental** — from `signing/canonicaljson`
+- `func (e *CanonicalizationError) Error() string` — **experimental** — from `signing/canonicaljson`
+- `func (e *SignatureError) Error() string` — **experimental** — from `signing/errors`
+- `func (e *SignatureError) Unwrap() error` — **experimental** — from `signing/errors`
+- `func Base64URLDecode(s string) ([]byte, error)` — **experimental** — from `signing/base64url`
+- `func Base64URLEncode(data []byte) string` — **experimental** — from `signing/base64url`
 - `func Canonicalize(value any) (string, error)` — **experimental** — from `signing/canonicaljson`
 - `func CanonicalizeManifest(manifest map[string]any) ([]byte, error)` — **experimental** — from `signing/canonicaljson`
-- `type Error struct { Reason string }` — **experimental** — from `signing/canonicaljson`
-- `var Reasons = []string{ "lone-surrogate", "nesting-too-deep", "non-integer-number", "number-out-of-range", "unsupported-type", }` — **experimental** — from `signing/canonicaljson`
+- `func EncodeProtectedHeader(header ProtectedHeader) (string, error)` — **experimental** — from `signing/jws`
+- `func GenerateSigningKey() (PrivateJWK, JWK, error)` — **experimental** — from `signing/manifestsignature`
+- `func JWKThumbprint(key JWK) (string, error)` — **experimental** — from `signing/jwk`
+- `func ParseProtectedHeader(b64url string) (ProtectedHeader, error)` — **experimental** — from `signing/jws`
+- `func SignManifest(manifest map[string]any, key PrivateJWK) (SignatureEnvelope, error)` — **experimental** — from `signing/manifestsignature`
+- `func SigningInput(protectedB64URL string, canonical []byte) []byte` — **experimental** — from `signing/jws`
+- `func VerifyManifestSignature(manifest map[string]any, trusted []JWK) error` — **experimental** — from `signing/manifestsignature`
+- `type CanonicalizationError struct { Reason string }` — **experimental** — from `signing/canonicaljson`
+- `type JWK struct { Crv string; Extra map[string]any; Kid string; Kty string; X string }` — **experimental** — from `signing/jwk`
+- `type PrivateJWK struct { D string; JWK }` — **experimental** — from `signing/jwk`
+- `type ProtectedHeader struct { Alg string; Kid string }` — **experimental** — from `signing/jws`
+- `type SignatureEnvelope struct { Protected string; Signature string }` — **experimental** — from `signing/manifestsignature`
+- `type SignatureError struct { CanonicalizationReason string; Err error; Reason string }` — **experimental** — from `signing/errors`
+- `var CanonicalizationReasons = []string{ "lone-surrogate", "nesting-too-deep", "non-integer-number", "number-out-of-range", "unsupported-type", }` — **experimental** — from `signing/canonicaljson`
+- `var SignatureReasons = []string{ "envelope-malformed", "base64url-invalid", "protected-malformed", "crit-unsupported", "protected-unknown-member", "kid-unknown", "key-unsupported", "alg-unsupported", "canonicalization-failed", "signature-invalid", }` — **experimental** — from `signing/errors`
 
 ## `spec`
 

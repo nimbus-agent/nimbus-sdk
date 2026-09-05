@@ -289,10 +289,23 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.signing`
 
-4 exports.
+14 exports.
 
 - `CANONICALIZATION_REASONS: tuple[str, ...]` — **experimental** — from `signing/canonical_json`
 - `class CanonicalizationError(Exception)` — **experimental** — from `signing/canonical_json`
   - `def __init__(self, reason: str) -> None`
+- `Jwk = Mapping[str, object]` — **experimental** — from `signing/jwk`
+- `class ProtectedHeader` — **experimental** — from `signing/jws`
+  - `alg: NotRequired[str]`
+  - `kid: str`
+- `SIGNATURE_REASONS: tuple[str, ...]` — **experimental** — from `signing/errors`
+- `class SignatureError(Exception)` — **experimental** — from `signing/errors`
+  - `def __init__(self, reason: str, *, canonicalization_reason: str | None = ...) -> None`
+- `def base64url_decode(text: str) -> bytes` — **experimental** — from `signing/base64url`
+- `def base64url_encode(data: bytes) -> str` — **experimental** — from `signing/base64url`
 - `def canonicalize(value: object) -> str` — **experimental** — from `signing/canonical_json`
 - `def canonicalize_manifest(manifest: dict[str, object]) -> bytes` — **experimental** — from `signing/canonical_json`
+- `def encode_protected_header(header: ProtectedHeader) -> str` — **experimental** — from `signing/jws`
+- `def jwk_thumbprint(jwk: Jwk) -> str` — **experimental** — from `signing/jwk`
+- `def parse_protected_header(b64url: str) -> ProtectedHeader` — **experimental** — from `signing/jws`
+- `def signing_input(protected_b64url: str, canonical_bytes: bytes) -> bytes` — **experimental** — from `signing/jws`

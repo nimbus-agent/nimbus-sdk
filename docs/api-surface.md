@@ -992,7 +992,7 @@ export type PreflightDownstream = {
 
 ### `PublisherKeyMismatch`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead. The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape this error class belongs to has now shipped, specified at `docs/spec/signing/v1/manifest-signature.md`. That surface reports **one** error class carrying a `reason` from §10's closed ten (`SIGNATURE_REASONS`) in place of one class per failure mode, so there is no subclass to catch. This one has no direct counterpart at all: the envelope resolves a key by RFC 7638 thumbprint against a caller-supplied trusted set rather than comparing a key the manifest declares, so the nearest reason is `kid-unknown`. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1088,7 +1088,7 @@ export interface SignJwtOptions {
 
 ### `SignatureDisableReason` *(type-only)*
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this type describes (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `SignatureReason` from `@nimbus-dev/sdk/signing` instead. The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape this type describes has now shipped (`docs/spec/signing/v1/manifest-signature.md`), and §10's ten tokens are the closed set that supersedes these four. The two sets are not a renaming of one another: `publisher_key_missing` has no counterpart, because an envelope carries no key of its own, and the ten distinguish failures these four collapse. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1100,7 +1100,7 @@ export type SignatureDisableReason = "publisher_key_missing" | "publisher_key_mi
 
 ### `SignatureInvalid`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead. The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape this error class belongs to has now shipped, specified at `docs/spec/signing/v1/manifest-signature.md`. That surface reports **one** error class carrying a `reason` from §10's closed ten (`SIGNATURE_REASONS`) in place of one class per failure mode, so there is no subclass to catch. This one maps cleanly: reason `signature-invalid`. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1114,7 +1114,7 @@ export declare class SignatureInvalid extends Error {
 
 ### `SignatureInvalidFormat`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS envelope replacement ships in a later shipment; that envelope replaces the flat `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`). May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead. The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape this error class belongs to has now shipped, specified at `docs/spec/signing/v1/manifest-signature.md`. That surface reports **one** error class carrying a `reason` from §10's closed ten (`SIGNATURE_REASONS`) in place of one class per failure mode, so there is no subclass to catch. This one splits three ways there, by what was malformed: `envelope-malformed`, `base64url-invalid`, or `key-unsupported` for a key whose `x` does not decode to 32 octets. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1462,7 +1462,7 @@ export declare function declaredVersionsMatch(manifestVersions: readonly unknown
 
 ### `decodeBase64`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there — its detached JWS envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `base64urlDecode` from `@nimbus-dev/sdk/signing` instead, which has now shipped. **It is not a drop-in.** That pair is strict base64**url** per `docs/spec/signing/v1/manifest-signature.md` §4 — the `-_` alphabet, no `=` padding, and a decoder that rejects a non-canonical final quantum — where this function is standard base64 over `+/` with padding. Bytes encoded here do not round-trip through `base64urlDecode`. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1474,7 +1474,7 @@ export declare function decodeBase64(s: string): Uint8Array;
 
 ### `encodeBase64`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there — its detached JWS envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `base64urlEncode` from `@nimbus-dev/sdk/signing` instead, which has now shipped. **It is not a drop-in.** That pair is strict base64**url** per `docs/spec/signing/v1/manifest-signature.md` §4 — the `-_` alphabet, no `=` padding, and a decoder that rejects a non-canonical final quantum — where this function is standard base64 over `+/` with padding. Bytes encoded here do not round-trip through `base64urlDecode`. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1486,7 +1486,7 @@ export declare function encodeBase64(bytes: Uint8Array): string;
 
 ### `errorToHardDisableReason`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there; this function maps the errors of the flat `publisher.key` + `signature` shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `SignatureError#reason` from `@nimbus-dev/sdk/signing` directly instead, with no mapper at all. The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape whose errors this function maps has now shipped (`docs/spec/signing/v1/manifest-signature.md`), and its single error class already carries one of §10's closed ten (`SIGNATURE_REASONS`), so there is nothing left to map from. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1561,7 +1561,7 @@ export declare function formatAddresses(v: unknown): string[];
 
 ### `generateEd25519Keypair`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement appears there — its detached JWS envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `generateSigningKey` from `@nimbus-dev/sdk/signing` instead, which has now shipped. It returns a `{ privateKey, publicKey }` pair of JWKs (`kty: "OKP"`, `crv: "Ed25519"`, base64url `x` / `d`) rather than raw 32-byte arrays, and it is **async**, because it uses `crypto.subtle.generateKey` where this function uses `node:crypto` synchronously. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1872,7 +1872,7 @@ export declare function signJwt(opts: SignJwtOptions): string;
 
 ### `signManifest`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement signer ships there; this function produces the flat `publisher.key` + `signature` shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `signManifest` from `@nimbus-dev/sdk/signing` instead, which has now shipped and implements `docs/spec/signing/v1/manifest-signature.md` §9. The name is the same; the contract is not. It takes a `PrivateJwk` rather than a raw 32-byte seed and returns a `ManifestSignatureEnvelope` (`{ protected, signature }`, both base64url) rather than a base64 string, and it signs the §6 signing input — the protected header and the canonical bytes joined by `.` — not the canonical bytes alone, so the two signatures are not interchangeable. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -1924,7 +1924,7 @@ export declare function validateManifest(manifest: unknown): ManifestViolation[]
 
 ### `verifyManifestSignature`
 
-**Deprecated:** since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement verifier ships there; this function verifies the flat `publisher.key` + `signature` shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
+**Deprecated:** since 1.32.0 — use `verifyManifestSignature` from `@nimbus-dev/sdk/signing` instead, which has now shipped and implements `docs/spec/signing/v1/manifest-signature.md` §8. The name is the same; the contract is not. It takes `(manifest, trustedKeys: readonly Jwk[])` and reads the detached JWS envelope out of `manifest.signature` itself, in place of this function's `(manifest, resolvedPubkey)` over the flat `publisher.key` + `signature` shape. It rejects with a single `SignatureError` carrying one of §10's ten reasons rather than three distinct classes, and it canonicalizes without NFC — see `canonical-json.ts`'s own doc for why that changes the signed bytes. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
 
 **Stability:** stable
 
@@ -2877,7 +2877,7 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ## `./signing`
 
-5 exports.
+21 exports.
 
 ### `CANONICALIZATION_REASONS`
 
@@ -2913,6 +2913,118 @@ From `./canonical-json.js`.
 export type CanonicalizationReason = "non-integer-number" | "number-out-of-range" | "unsupported-type" | "nesting-too-deep" | "lone-surrogate";
 ```
 
+### `Jwk` *(type-only)*
+
+**Stability:** experimental
+
+From `./jwk.js`.
+
+```ts
+export interface Jwk {
+    readonly kty: string;
+    readonly crv: string;
+    readonly x: string;
+    readonly [member: string]: unknown;
+}
+```
+
+### `ManifestSignatureEnvelope` *(type-only)*
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export interface ManifestSignatureEnvelope {
+    readonly protected: string;
+    readonly signature: string;
+}
+```
+
+### `PrivateJwk` *(type-only)*
+
+**Stability:** experimental
+
+From `./jwk.js`.
+
+```ts
+export interface PrivateJwk extends Jwk {
+    readonly d: string;
+}
+```
+
+### `ProtectedHeader` *(type-only)*
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export interface ProtectedHeader {
+
+    readonly alg?: string;
+    readonly kid: string;
+}
+```
+
+### `SIGNATURE_REASONS`
+
+**Stability:** experimental
+
+From `./errors.js`.
+
+```ts
+export declare const SIGNATURE_REASONS: readonly SignatureReason[];
+```
+
+### `SignatureError`
+
+**Stability:** experimental
+
+From `./errors.js`.
+
+```ts
+export declare class SignatureError extends Error {
+    readonly reason: SignatureReason;
+
+    readonly canonicalizationReason?: CanonicalizationReason;
+    constructor(reason: SignatureReason, options?: {
+        canonicalizationReason?: CanonicalizationReason;
+        cause?: unknown;
+    });
+}
+```
+
+### `SignatureReason` *(type-only)*
+
+**Stability:** experimental
+
+From `./errors.js`.
+
+```ts
+export type SignatureReason = "envelope-malformed" | "base64url-invalid" | "protected-malformed" | "crit-unsupported" | "protected-unknown-member" | "kid-unknown" | "key-unsupported" | "alg-unsupported" | "canonicalization-failed" | "signature-invalid";
+```
+
+### `base64urlDecode`
+
+**Stability:** experimental
+
+From `./base64url.js`.
+
+```ts
+export declare function base64urlDecode(s: string): Uint8Array;
+```
+
+### `base64urlEncode`
+
+**Stability:** experimental
+
+From `./base64url.js`.
+
+```ts
+export declare function base64urlEncode(bytes: Uint8Array): string;
+```
+
 ### `canonicalize`
 
 **Stability:** experimental
@@ -2931,6 +3043,79 @@ From `./canonical-json.js`.
 
 ```ts
 export declare function canonicalizeManifest(manifest: object): Uint8Array;
+```
+
+### `encodeProtectedHeader`
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export declare function encodeProtectedHeader(header: ProtectedHeader): string;
+```
+
+### `generateSigningKey`
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export declare function generateSigningKey(): Promise<{
+    privateKey: PrivateJwk;
+    publicKey: Jwk;
+}>;
+```
+
+### `jwkThumbprint`
+
+**Stability:** experimental
+
+From `./jwk.js`.
+
+```ts
+export declare function jwkThumbprint(jwk: Jwk): Promise<string>;
+```
+
+### `parseProtectedHeader`
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export declare function parseProtectedHeader(b64url: string): ProtectedHeader;
+```
+
+### `signManifest`
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export declare function signManifest(manifest: object, privateKey: PrivateJwk): Promise<ManifestSignatureEnvelope>;
+```
+
+### `signingInput`
+
+**Stability:** experimental
+
+From `./jws.js`.
+
+```ts
+export declare function signingInput(protectedB64url: string, canonicalBytes: Uint8Array): Uint8Array;
+```
+
+### `verifyManifestSignature`
+
+**Stability:** experimental
+
+From `./manifest-signature.js`.
+
+```ts
+export declare function verifyManifestSignature(manifest: object, trustedKeys: readonly Jwk[]): Promise<void>;
 ```
 
 ## `./testing`

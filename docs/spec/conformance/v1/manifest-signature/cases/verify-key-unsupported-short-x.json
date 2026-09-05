@@ -1,0 +1,26 @@
+{
+  "description": "A selected Ed25519 key whose x decodes to 31 octets is key-unsupported: the length check is step 7's, not the platform's.",
+  "kind": "verify",
+  "manifest": {
+    "id": "com.acme.calendar",
+    "name": "Acme Calendar",
+    "publisher": {
+      "id": "acme"
+    },
+    "version": "1.4.0",
+    "signature": {
+      "protected": "eyJhbGciOiJFZERTQSIsImtpZCI6IlYtZXRVSGVjVHdfSzhORUlpT3lvSGEtTmM3cFp5alduWExnbFRKY1lpTE0ifQ",
+      "signature": "sxnBMqzXGTg_9YZlCo9Fhjrm6-lyuOZZBdg0O0MVgUGnINkN8bpPEMiVyC-lnxnbeW3CeUyPe1-6DKDNrB1bAQ"
+    }
+  },
+  "trustedKeys": [
+    {
+      "kty": "OKP",
+      "crv": "Ed25519",
+      "x": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHUQ"
+    }
+  ],
+  "expect": {
+    "rejected": "key-unsupported"
+  }
+}

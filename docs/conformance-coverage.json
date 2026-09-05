@@ -12,6 +12,7 @@
         "item",
         "jmap",
         "manifest",
+        "manifest-signature",
         "negotiation",
         "predicates",
         "sandbox",
@@ -29,6 +30,7 @@
         "framing",
         "icalendar",
         "jmap",
+        "manifest-signature",
         "negotiation",
         "url-resolution"
       ],
@@ -38,7 +40,48 @@
         "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",
         "sandbox": "binds the sandbox probe protocol, which nimbus_sdk does not publish"
       },
-      "deferred": {}
+      "deferred": {
+        "manifest-signature": [
+          "cases/ed25519-non-canonical-s.json",
+          "cases/ed25519-public-key-all-zero.json",
+          "cases/ed25519-public-key-y-equals-p-plus-1.json",
+          "cases/ed25519-public-key-y-equals-p.json",
+          "cases/ed25519-rfc8032-vector-1.json",
+          "cases/ed25519-rfc8032-vector-2.json",
+          "cases/ed25519-rfc8032-vector-3.json",
+          "cases/ed25519-small-order-1.json",
+          "cases/ed25519-small-order-2.json",
+          "cases/ed25519-small-order-8.json",
+          "cases/sign-non-corresponding-d-rejected.json",
+          "cases/sign-rfc8032-seed-1.json",
+          "cases/sign-rfc8032-seed-1024.json",
+          "cases/sign-rfc8032-seed-2.json",
+          "cases/sign-rfc8032-seed-3.json",
+          "cases/verify-alg-unsupported-absent.json",
+          "cases/verify-alg-unsupported-beats-canonicalization-failed.json",
+          "cases/verify-alg-unsupported-es256.json",
+          "cases/verify-base64url-invalid-decodes-both-before-parsing.json",
+          "cases/verify-canonicalization-failed.json",
+          "cases/verify-crit-unsupported.json",
+          "cases/verify-envelope-malformed-empty-publisher-id.json",
+          "cases/verify-envelope-malformed-extra-member.json",
+          "cases/verify-key-unsupported-short-x.json",
+          "cases/verify-key-unsupported-x25519.json",
+          "cases/verify-kid-unknown-beats-alg-unsupported.json",
+          "cases/verify-kid-unknown-ec-projection-hash.json",
+          "cases/verify-kid-unknown-empty-key-set.json",
+          "cases/verify-kid-unknown-wrong-key.json",
+          "cases/verify-known-kid-with-bogus-alg-reaches-alg-unsupported.json",
+          "cases/verify-non-canonical-protected-still-verifies.json",
+          "cases/verify-ok.json",
+          "cases/verify-protected-malformed-absent-kid-beats-crit.json",
+          "cases/verify-protected-malformed-non-string-alg.json",
+          "cases/verify-protected-unknown-member.json",
+          "cases/verify-signature-invalid-flipped-octet.json",
+          "cases/verify-signature-invalid-wrong-length.json",
+          "cases/verify-skips-unthumbprintable-keys-in-rotation-set.json"
+        ]
+      }
     },
     "go": {
       "claims": [
@@ -49,6 +92,7 @@
         "framing",
         "icalendar",
         "jmap",
+        "manifest-signature",
         "negotiation",
         "url-resolution"
       ],

@@ -257,10 +257,34 @@ The full sequence, for reference:
 |---|---|
 | S0 | This RFC: the envelope, the four divergences, the NFC drop, replace-not-coexist, the Python side-channel disclosure, and the 2.0.0 consequence. Merges before any code, per GOVERNANCE. |
 | S1 | `canonical-json.md` plus its corpus, in all three bindings. Pure, no crypto. Creates the `signing` surface in each and marks the old `crypto/*` signing exports `@deprecated`, opening the window. Additive throughout: `feat:`, no break. |
-| S2 | `manifest-signature.md` plus `base64url` / `jwk` / `jws`, and Ed25519 for Go and TypeScript (both platform-provided). Full `manifest-signature` corpus. Python records a non-claim in `conformance-coverage.json`. |
-| S3 | Python's RFC 8032 implementation, claiming the corpus, plus the §7.1 vector section and the `SECURITY.md` disclosure. Deletes S2's non-claim. |
+| S2 | `manifest-signature.md` plus `base64url` / `jwk` / `jws`, and Ed25519 for Go and TypeScript (both platform-provided). Full `manifest-signature` corpus. Python records a non-claim in `conformance-coverage.json`. **† Amended — see below.** |
+| S3 | Python's RFC 8032 implementation, plus the §7.1 vector section and the `SECURITY.md` disclosure. Empties S2's `deferred` list for `manifest-signature` — the claim itself is already recorded, so S3 removes 38 case paths rather than adding a claim, and `bun run conformance:coverage` then reports Python at 60 of 60. |
 | S4 | `extension-manifest.schema.json` gains `publisher` / `signature`; the `manifest` corpus follows. |
 | S5 | The removal. `feat!:`, cutting 2.0.0. Gated on the deprecation window having elapsed *and* on the Nimbus monorepo having migrated off the flat path. |
+
+**† Amendment (S2, landed 2026-09-05): Python records per-case *deferrals*, not a
+non-claim.** As shipped, `nimbus_sdk.signing` **claims** `manifest-signature` in
+`docs/conformance-coverage.json` and defers the 38 case files whose kinds are `ed25519`,
+`sign` and `verify` — it executes **23 of 61**, namely the `base64url` and `thumbprint`
+kinds, which are pure and need no Ed25519.
+
+The reason the plan's shape was wrong is that the two fields mean different things. The
+`unclaimed` map holds a **permanent structural gap** — "this binding publishes no surface
+this corpus exercises, and is not expected to" — which is why its four existing entries
+(`item`, `manifest`, `predicates`, `sandbox`) each carry a standing reason rather than a
+date. A non-claim there would have said Python has no signing surface at all, which is
+false the moment S1 lands `canonicalize`, and would have hidden the 23 cases Python
+genuinely does execute behind a single "—". A **deferral** names precisely which cases are
+not run, so the gap is enumerated file by file, `conformance-coverage.md` renders
+`23 of 61` instead of a dash, and S3's work is a diff of that list rather than a
+re-argument about whether the surface exists.
+
+This is a governance-visible change to what S2 records, so it is annotated here rather
+than silently corrected: the table above is the plan as accepted, and this note is what
+actually shipped. It also generalised — `deferred` is a new field on every binding's entry
+in `conformance-coverage.json`, and the repository's former "nothing is deferred in either"
+invariant was retired everywhere it was stated, because a claimed corpus may now be only
+partially executed.
 
 ## Compatibility impact
 

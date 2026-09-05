@@ -20,8 +20,10 @@ what protects a consumer there is `sum.golang.org`, the checksum transparency lo
 `go` client verifies automatically. See [Releasing](./RELEASING.md).
 
 The Go binding is the newest and is narrower than the other two in its *batteries*, not in
-its contracts: it executes exactly the corpora Python does — every case, nothing deferred —
-which is every published corpus its surface publishes. Which corpus each binding claims,
+its contracts: it executes exactly the corpora Python claims — every case of every one of
+them, nothing deferred — which is every published corpus its surface publishes. The same
+*corpora*, though, is no longer the same *cases*: Python defers `manifest-signature`'s
+three Ed25519 kinds, so on those Go runs cases Python does not. Which corpus each binding claims,
 and the case counts behind it, is generated into
 [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
 [RFC-0012](./rfcs/0012-go-sdk-binding.md) records its layout, tag format and release model;
@@ -112,7 +114,8 @@ contract itself — then reach for a battery as you need it. Every public export
 | [`testing`](./modules/testing.md) | `MockGateway`, contract tests, the sandbox probe |
 | [`connector-kit`](./modules/connector-kit.md) | Dependency-free MCP connector helpers: Zod tool registration, Bearer-auth REST fetch |
 | [`diagnostics`](./modules/diagnostics.md) | The structured, redaction-safe diagnostic and audit envelope |
-| [`signing`](./modules/signing.md) | Deterministic manifest canonicalization for the detached JWS envelope |
+| [`signing`](./modules/signing.md) | Deterministic manifest canonicalization, and the pure half of the detached JWS envelope |
+| [`manifest-signature`](./modules/manifest-signature.md) | Signing, verifying and key generation for the detached JWS envelope |
 
 ## Examples
 

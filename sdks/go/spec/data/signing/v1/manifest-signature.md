@@ -420,9 +420,21 @@ not. Both are conformant; the outcome is what this document fixes.
 which already exists and already means *this key cannot be used under this contract*. §10's
 set stays closed at ten.
 
-**Signing is optional for a binding; verification is not.** A binding may ship §8 alone —
-verification is the operation a gateway performs, and it operates entirely on public data.
-A binding that ships §9 MUST ship all of it, including the correspondence rule above.
+**Conformance is per-section, and §9 depends on §8.** A binding MAY implement §4 through §7
+alone — the encoding, the key, the header and the signing input — as a primitives layer, and
+is conformant with respect to those sections. A binding MAY implement §8 without §9;
+verification is the operation a gateway performs, it operates entirely on public data, and a
+verifier that never signs is a complete and useful thing. But **a binding that implements §9
+MUST also implement §8.** The dependency runs one way only, and it is not bookkeeping: a
+signer that cannot verify cannot check its own output, so every rule §9 states about the
+envelope it produces — the round trip above, the correspondence rule, the exact `kid` it
+advertises — would be asserted by an implementation with no means of testing it. Signing
+without verification is the one combination that leaves a binding unable to know whether it is
+conformant.
+
+Per-section conformance is not per-rule conformance. Each section a binding implements, it
+implements **in full**: a binding shipping §9 ships all of §9, including the correspondence
+rule above, and a binding shipping §8 ships all ten steps in the stated order.
 
 ## §10 Rejection tokens
 

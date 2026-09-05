@@ -258,7 +258,7 @@ one of them.** Recorded here rather than discovered at the first `go get`:
   drop-the-prefix — `CONTRACT_VERSIONS` stays `ContractVersions`, since `Versions` names
   nothing on its own.
 
-**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 315 files.** `go:embed`
+**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 603 files.** `go:embed`
 refuses paths outside the module directory and `go build` never runs a generator, so Go
 cannot reach `docs/spec/` the way Python's hatch build hook does. Regenerate with
 `go -C sdks/go generate ./spec` after **any** change under `docs/spec/`, or
@@ -281,13 +281,17 @@ Python's `spec_root()` gets no counterpart at all: an embedded copy has no path.
 Go executes `negotiation` (all three kinds — `negotiate`, `hello`, `declaration`), `framing`
 (run against `LineReader`), `diagnostics` (`encode`, `parse`, `level`), `url-resolution`
 (run against `connectorkit.ResolveURLWithBase`), `canonical-json` (run against
-`signing.Canonicalize` / `signing.CanonicalizeManifest`), and the four battery corpora
+`signing.Canonicalize` / `signing.CanonicalizeManifest`), `manifest-signature` (all five
+kinds — `base64url`, `thumbprint`, `ed25519`, `verify`, `sign`), and the four battery corpora
 against the packages that bind them — `data-profile` against `dataprofile`,
 `distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
-`jmap` against `jmapfastmail` — nothing deferred in any. That is the same set Python
-executes.
+`jmap` against `jmapfastmail` — nothing deferred in any. That is the same set of corpora
+Python executes, but no longer the same set of *cases*: Python claims
+`manifest-signature` with its three crypto kinds deferred, where Go runs all five.
+[`docs/conformance-coverage.md`](./docs/conformance-coverage.md) carries the per-corpus
+executed-of-published counts.
 
-**Thirteen corpora are published, and no binding but TypeScript runs them all.** Eleven
+**Fourteen corpora are published, and no binding but TypeScript runs them all.** Twelve
 carry their own `index.json`; two are fixture sets in the *top-level*
 `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and `item`), with
 their case files sitting directly in the corpus directory and no `cases/` subdirectory.
@@ -295,13 +299,13 @@ The four Go does not claim are exactly those two plus `predicates` and `sandbox`
 `predicates` and `sandbox` bind surfaces neither Go nor Python publishes, and `manifest` /
 `item` need a JSON Schema validator the dependency-free rule would make hand-written in
 either. Every case count
-behind these claims — the total across all thirteen corpora,
+behind these claims — the total across all fourteen corpora,
 and how many of them each binding executes — lives in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md), rather than restated
 here.
 
-Nine is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
+Ten is nevertheless what GOVERNANCE criterion 1 asks of this binding, because
 [RFC-0013](./docs/rfcs/0013-go-sdk-official.md) pins "the full conformance suite" to
 **every published corpus whose surface the binding publishes** — the reading RFC-0008
 already promoted Python under, on two corpora of the six then published. RFC-0013 also

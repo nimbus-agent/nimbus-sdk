@@ -46,9 +46,9 @@ an export can be `stable` and `@deprecated` at once (RFC-0015 §1).
 
 | Binding | Officiality | Package | Published through | Corpora executed |
 |---|---|---|---|---|
-| TypeScript | Official — [RFC-0016](./rfcs/0016-typescript-sdk-official.md) | `@nimbus-dev/sdk` | npm | 13 of 13 |
-| Python | Official — [RFC-0008](./rfcs/0008-python-sdk-official.md) | `nimbus-dev-sdk` | PyPI | 9 of 13 |
-| Go | Official — [RFC-0013](./rfcs/0013-go-sdk-official.md) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | module proxy (a `sdks/go/vX.Y.Z` tag) | 9 of 13 |
+| TypeScript | Official — [RFC-0016](./rfcs/0016-typescript-sdk-official.md) | `@nimbus-dev/sdk` | npm | 14 of 14 |
+| Python | Official — [RFC-0008](./rfcs/0008-python-sdk-official.md) | `nimbus-dev-sdk` | PyPI | 10 of 14 |
+| Go | Official — [RFC-0013](./rfcs/0013-go-sdk-official.md) | `github.com/nimbus-agent/nimbus-sdk/sdks/go` | module proxy (a `sdks/go/vX.Y.Z` tag) | 10 of 14 |
 
 Officiality is a governance act, not a test result — it is
 [GOVERNANCE.md's four criteria](./GOVERNANCE.md#how-a-language-becomes-official), the

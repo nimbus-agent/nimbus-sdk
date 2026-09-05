@@ -39,7 +39,18 @@ It is a statement of intent for how the project is run, not a legal document.
     rather than resolving it, and RFC-0016 resolves it — not by promoting a binding that
     was never community, but by holding the binding that *defines* the bar to it. It is
     the only one that satisfies criterion 1 under its literal wording, executing all
-    thirteen published corpora where Python executes nine and Go executes nine.
+    fourteen published corpora where Python executes ten and Go executes ten.
+    Python's ten now includes a **partial** claim: it executes `manifest-signature`'s
+    `base64url` and `thumbprint` kinds and defers the three that need Ed25519, which
+    CPython has no stdlib primitive for — see
+    [`docs/conformance-coverage.md`](./conformance-coverage.md) for the executed-of-published
+    case counts rather than restating generated numbers here. That still satisfies
+    criterion 1 as [RFC-0013](./rfcs/0013-go-sdk-official.md) defines it — *every
+    published corpus whose surface the binding publishes* — read at case granularity:
+    the deferred cases are exactly the ones exercising a surface `nimbus_sdk.signing`
+    does not publish in this shipment. Until now every `deferred` list was empty, so
+    "executes N" meant "executes N in full"; from here it means "claims N", and the
+    generated page is where the difference is visible.
 - **Contributors** — anyone opening issues, PRs, or RFCs. Third-party connector and
   app authors are first-class contributors to the ecosystem.
 
@@ -83,7 +94,7 @@ A new language SDK is promoted from community to **official** when:
 
 **Criterion 1, read.** Its wording — "the full conformance suite" — has a literal reading
 and an applied one, and they differ. **Literally**, "full" is every corpus in the tree:
-thirteen are published, and no binding but the reference implementation runs all thirteen, so
+fourteen are published, and no binding but the reference implementation runs all fourteen, so
 read that way the criterion would admit no binding that did not already define the
 contract. **As applied**, "full" means **every published corpus whose surface the binding
 publishes** — the reading Python was promoted under, on two of six.

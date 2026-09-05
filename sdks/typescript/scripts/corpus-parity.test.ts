@@ -334,6 +334,24 @@ describe("prose that restates the coverage declaration", () => {
         `${capitalize(spell(claimCount("go")))} is nevertheless what GOVERNANCE criterion 1 asks of this binding`,
     },
     {
+      file: "docs/spec/README.md",
+      what: "the conformance section's kinds-and-directories count",
+      near: "kinds of assertion, across",
+      // The two numbers differ by exactly one, always: `manifest` and `item` are two
+      // directories covered by ONE group, the top-level document fixtures, and every
+      // other corpus carries its own index and its own group. So kinds is the own-index
+      // count plus that single shared group.
+      //
+      // This entry exists because the sentence had already drifted once, unnoticed:
+      // `canonical-json` added a directory and a group and bumped neither number, so by
+      // the time this was written the file said eleven and twelve where the tree held
+      // twelve and thirteen. Nothing was checking it — the four entries around this one
+      // gate CLAUDE.md and GOVERNANCE.md, and `docs/spec/README.md` was gated only for
+      // the corpus NAMES it lists, never for its counts.
+      expected: () =>
+        `${capitalize(spell(corpusNamesByIndexShape().ownIndex.length + 1))} kinds of assertion, across **${spell(corpusNames().length)}** corpus directories`,
+    },
+    {
       file: "docs/GOVERNANCE.md",
       what: "the reference implementation's literal satisfaction of criterion 1",
       near: "published corpora where Python executes",

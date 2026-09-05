@@ -426,9 +426,12 @@ jobs:
       - name: Install
         run: bun install --frozen-lockfile
 
-      # The TypeScript leg runs the guards under Bun AND framing-node.mjs under plain Node.
-      # framing is deliberately driven twice — TextDecoder's edge behaviour differs between
-      # the runtimes — so it reports two producers the reconciler unions.
+      # The TypeScript leg runs the guards under Bun AND two producers under plain Node:
+      # framing-node.mjs and ed25519-node.mjs. Both corpora are deliberately driven twice,
+      # for the same reason in two different subsystems — TextDecoder's edge behaviour
+      # differs between the runtimes, and so could BoringSSL's Ed25519 from OpenSSL's — so
+      # each reports two producers the reconciler unions. Adding a third is the same shape:
+      # a step here, and a comment on it saying what only the second runtime can catch.
       # The guards are listed one by one rather than as `bun test scripts/`, which would also
       # pull in api-surface / smoke-calls / docs-snippets — three gates that execute dist/ and
       # belong to build-test, not here. A NEW guard added later is not listed, its corpus goes

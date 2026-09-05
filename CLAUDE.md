@@ -140,8 +140,15 @@ tenth root fails CI until someone adds it there, and this section is what has to
 updated alongside it. Whether a name stays out of the wrong root is checked by review
 alone, as it always was.
 
-Everything Python claims, TypeScript claims too, and nothing is deferred in either — so a
-new case in a corpus both claim runs in both languages the moment it is indexed. The
+Everything Python claims, TypeScript claims too — but since `manifest-signature` a claimed
+corpus may be only **partially** executed, so the claim sets coinciding no longer means the
+executed *cases* do. A new case runs in both languages the moment it is indexed only when
+both bindings publish the surface it exercises; a `verify` case added to
+`manifest-signature` runs in TypeScript and Go and is skipped in Python, because
+`nimbus_sdk.signing` publishes no Ed25519. Check
+[`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — it renders
+executed-of-published per corpus, and the deferred case files are named in the JSON beside
+it — before assuming a new case is language-neutrality evidence. The
 corpora TypeScript claims alone — `predicates`, `sandbox`, `manifest` and `item` — no
 second binding runs, so those carry no language-neutrality evidence; `docs/spec/README.md`
 says so. Which binding claims which corpus, and the case counts behind every one of these

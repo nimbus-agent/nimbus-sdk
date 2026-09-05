@@ -274,7 +274,9 @@ maintained."*
   now official**; Rust is untouched, which is what keeps this box open. The binding lives
   at [`sdks/go/`](../sdks/go/) — module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero
   dependencies — and executes **every published corpus its surface publishes**, in full
-  and with nothing deferred in any. That is the same set Python runs — which corpora those
+  and with nothing deferred in any. That is the same set of corpora Python claims, but no
+  longer the same set of cases — Python defers `manifest-signature`'s three Ed25519 kinds,
+  which Go runs. Which corpora those
   are, and the case counts behind every one of them, are generated into
   [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
   The handshake is bound too: `ipc.PerformHandshake` performs the

@@ -1,5 +1,5 @@
 import { base64urlDecode, base64urlEncode } from "./base64url.js";
-import { canonicalize } from "./canonical-json.js";
+import { CanonicalizationError, canonicalize } from "./canonical-json.js";
 import { SignatureError } from "./errors.js";
 
 /**
@@ -18,11 +18,28 @@ export interface ProtectedHeader {
   readonly kid: string;
 }
 
+/**
+ * **The only failure this raises is `protected-malformed`.** `canonicalize` throws a
+ * `CanonicalizationError` for a lone surrogate, and a `kid` or `alg` carrying one is
+ * reachable straight through this function's public signature — so unwrapped it would put
+ * an error outside §10's closed set of ten in front of a caller that the spec says can
+ * fail exactly ten ways. Go wraps it as `protected-malformed` and Python does too; this is
+ * what makes the three agree. Narrow, not blanket: anything else is a bug and must
+ * still surface. The same shape `jwkThumbprint` uses for `key-unsupported`.
+ */
 export function encodeProtectedHeader(header: ProtectedHeader): string {
-  const json =
-    header.alg === undefined
-      ? canonicalize({ kid: header.kid })
-      : canonicalize({ alg: header.alg, kid: header.kid });
+  let json: string;
+  try {
+    json =
+      header.alg === undefined
+        ? canonicalize({ kid: header.kid })
+        : canonicalize({ alg: header.alg, kid: header.kid });
+  } catch (error) {
+    if (error instanceof CanonicalizationError) {
+      throw new SignatureError("protected-malformed", { cause: error });
+    }
+    throw error;
+  }
   return base64urlEncode(new TextEncoder().encode(json));
 }
 
@@ -35,6 +52,23 @@ export function parseProtectedHeader(b64url: string): ProtectedHeader {
  * decodes them itself and hands the bytes here.
  */
 export function parseProtectedHeaderBytes(bytes: Uint8Array): ProtectedHeader {
+  // DO NOT DELETE THIS AS REDUNDANT against the fatal decoder below — it is not. Measured
+  // on bun 1.3.14: `new TextDecoder("utf-8", { fatal: true })` treats a leading `EF BB BF`
+  // as a byte-order MARK and *silently removes it*, so `EF BB BF 7B 22 6B 69 64 22 3A 22
+  // 61 22 7D` decodes to exactly `{"kid":"a"}` and parses clean. Go's `json.Unmarshal` and
+  // Python's `bytes.decode("utf-8")` both leave the U+FEFF in place, where it is a syntax
+  // error. Without this check TypeScript ACCEPTS an envelope the other two bindings
+  // reject — a manifest that verifies in one binding and fails in two, the worst direction
+  // a divergence can run.
+  //
+  // The check must read the raw bytes: by the time the decoder has run, the BOM is gone,
+  // so a post-decode `text.charCodeAt(0) === 0xfeff` would never fire. A U+FEFF anywhere
+  // else in the header is ordinary data and is left to `JSON.parse`, exactly as in Go and
+  // Python.
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    throw new SignatureError("protected-malformed");
+  }
+
   let text: string;
   try {
     text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);

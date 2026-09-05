@@ -30,6 +30,30 @@ describe("encodeProtectedHeader", () => {
       kid: "abc",
     });
   });
+
+  // Per-binding rather than a corpus case: a lone surrogate cannot survive a shared corpus,
+  // because Go's JSON decoder mangles it (RFC-0020 §5's precedent). `canonicalize` rejects
+  // one, and a `kid` or `alg` carrying one reaches it straight through this function's
+  // public signature — so unwrapped, a `CanonicalizationError` escapes §10's closed ten.
+  // Go wraps it as `protected-malformed`; so does Python.
+  test("a lone surrogate in kid is protected-malformed, not a CanonicalizationError", () => {
+    try {
+      encodeProtectedHeader({ alg: "EdDSA", kid: "\ud800" });
+      throw new Error("expected a rejection");
+    } catch (e) {
+      expect(e).toBeInstanceOf(SignatureError);
+      expect((e as SignatureError).reason).toBe("protected-malformed");
+    }
+  });
+  test("a lone surrogate in alg is protected-malformed too", () => {
+    try {
+      encodeProtectedHeader({ alg: "\udfff", kid: "abc" });
+      throw new Error("expected a rejection");
+    } catch (e) {
+      expect(e).toBeInstanceOf(SignatureError);
+      expect((e as SignatureError).reason).toBe("protected-malformed");
+    }
+  });
 });
 
 describe("parseProtectedHeader", () => {
@@ -60,6 +84,25 @@ describe("parseProtectedHeader", () => {
     rejectsWith(b64({ alg: "EdDSA", kid: "abc", typ: "JWT" }), "protected-unknown-member"));
   // §8: step 3 precedes step 4, so a crit header with no kid is protected-malformed.
   test("an absent kid beats crit", () => rejectsWith(b64({ crit: ["x"] }), "protected-malformed"));
+
+  // A leading UTF-8 BOM. `TextDecoder` strips it and would parse the rest clean, so
+  // TypeScript alone would ACCEPT this header — Go's `json.Unmarshal` and Python's
+  // `bytes.decode("utf-8")` both keep the U+FEFF, where it is a syntax error. The parser
+  // therefore checks the raw bytes; a post-decode check could not see the BOM at all.
+  test("rejects a leading UTF-8 BOM, which the decoder would silently strip", () => {
+    const withBom = new Uint8Array([0xef, 0xbb, 0xbf, ...new TextEncoder().encode('{"kid":"a"}')]);
+    // Guard the guard: prove the decoder really does strip it, so this test cannot go
+    // vacuous if a future runtime stops doing so.
+    expect(new TextDecoder("utf-8", { fatal: true }).decode(withBom)).toBe('{"kid":"a"}');
+    rejectsWith(base64urlEncode(withBom), "protected-malformed");
+  });
+
+  // U+FEFF is only a BOM at the very start. Anywhere else it is ordinary data, in all three
+  // bindings, so the check must not reach into the header's values.
+  test("accepts U+FEFF inside a kid, where it is not a BOM", () => {
+    const kid = "a\ufeffb";
+    expect(parseProtectedHeader(b64({ kid }))).toEqual({ kid });
+  });
 });
 
 describe("signingInput", () => {

@@ -41,13 +41,23 @@ published package.
   structural replacement for `createScopedAuditLogger`'s free-form payload, which
   `audit-logger` now marks `@deprecated` (since `1.16.0`, removal no earlier than
   `2.0.0`).
-- `./signing` (`sdks/typescript/src/signing/index.ts`) — manifest canonicalization:
-  `canonicalize` / `canonicalizeManifest` / `CanonicalizationError` /
-  `CanonicalizationReason` / `CANONICALIZATION_REASONS`, and, from a later shipment, the
-  detached JWS envelope built on top of it. A separate entry point because signing is a
-  separate contract, normatively specified at `docs/spec/signing/v1/canonical-json.md`
-  and governed by [RFC-0020](./docs/rfcs/0020-manifest-signing.md). This makes it a
-  **six**-entry `exports` map.
+- `./signing` (`sdks/typescript/src/signing/index.ts`) — manifest canonicalization
+  **and the detached JWS envelope built on top of it**, both now shipped. Canonicalization
+  is `canonicalize` / `canonicalizeManifest` / `CanonicalizationError` /
+  `CanonicalizationReason` / `CANONICALIZATION_REASONS`, specified at
+  `docs/spec/signing/v1/canonical-json.md`. The envelope is `base64urlEncode` /
+  `base64urlDecode`, `jwkThumbprint` with `Jwk` / `PrivateJwk`, `encodeProtectedHeader` /
+  `parseProtectedHeader` / `signingInput` with `ProtectedHeader`, and
+  `signManifest` / `verifyManifestSignature` / `generateSigningKey` with
+  `ManifestSignatureEnvelope` — rejecting with one `SignatureError` whose `reason` comes
+  from the closed ten in `SIGNATURE_REASONS`, specified at
+  `docs/spec/signing/v1/manifest-signature.md`. **Two specs, one entry point**: the
+  envelope's §10 token set is deliberately independent of `CanonicalizationReason` —
+  §9's `canonicalization-failed` *wraps* that set rather than absorbing it, so a consumer
+  switching on one never has to learn the other. A separate entry point because signing is
+  a separate contract, governed by
+  [RFC-0020](./docs/rfcs/0020-manifest-signing.md). This makes it a **six**-entry
+  `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
@@ -115,11 +125,19 @@ guard's parser has two different code paths keyed on exactly this distinction.
   and Python from four executed corpora to eight. Their exports are listed in
   [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
 - `nimbus_sdk.signing` (`sdks/python/src/nimbus_sdk/signing/`) — the Python binding of
-  `docs/spec/signing/v1/canonical-json.md`: `canonicalize`, `canonicalize_manifest`,
-  `CanonicalizationError`, and `CANONICALIZATION_REASONS`. Declared `experimental`,
-  matching TypeScript's own tier for the module. It is the ninth import root and runs the
-  same `canonical-json` conformance corpus as TypeScript, byte-identically — as does Go's
-  `signing` package.
+  `docs/spec/signing/v1/`, and **the one root that binds only part of the surface it
+  claims**. It has all of `canonical-json.md` (`canonicalize`,
+  `canonicalize_manifest`, `CanonicalizationError`, `CANONICALIZATION_REASONS`) and the
+  *pure* half of `manifest-signature.md` (`base64url_encode` / `base64url_decode`,
+  `jwk_thumbprint` with `Jwk`, `encode_protected_header` / `parse_protected_header` /
+  `signing_input` with `ProtectedHeader`, and `SignatureError` /
+  `SIGNATURE_REASONS`) — but **no Ed25519**, so no `sign_manifest`, no
+  `verify_manifest_signature`, no `generate_signing_key`. The dependency-free rule leaves
+  only a from-scratch RFC 8032, which is RFC-0020's S3 and carries a timing side-channel
+  that needs its own `SECURITY.md` disclosure. Declared `experimental`, matching
+  TypeScript's and Go's tier. It is the ninth import root; it runs `canonical-json` in
+  full and `manifest-signature` **partially** — 22 of 60 cases, the 38 crypto ones
+  recorded as per-case deferrals in `docs/conformance-coverage.json`.
 
 **The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and
 must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
@@ -236,12 +254,21 @@ surface is shaped this way, which the generated file, by design, does not:
   they are what took Go from four executed corpora to eight. Their exported declarations
   are in [`docs/api-surface-go.md`](./docs/api-surface-go.md) rather than here — the same
   treatment the Python section gives its own four battery roots.
-- `signing` (`sdks/go/signing/`) — the Go binding of
-  `docs/spec/signing/v1/canonical-json.md`: `Canonicalize`, `CanonicalizeManifest`,
-  `Error`, and `Reasons`. Declared `experimental`, matching TypeScript's and Python's own
-  tier for the module. It is the tenth package and runs the same `canonical-json`
-  conformance corpus as the other two bindings, byte-identically — the binding that made
-  Go's and Python's claimed corpora match again.
+- `signing` (`sdks/go/signing/`) — the Go binding of `docs/spec/signing/v1/`, and the
+  **only** binding besides TypeScript that publishes the whole of it: `Canonicalize` /
+  `CanonicalizeManifest` / `CanonicalizationError` / `CanonicalizationReasons` for
+  `canonical-json.md`, and `Base64URLEncode` / `Base64URLDecode`, `JWKThumbprint` with
+  `JWK` / `PrivateJWK`, `EncodeProtectedHeader` / `ParseProtectedHeader` / `SigningInput`
+  with `ProtectedHeader`, `SignManifest` / `VerifyManifestSignature` /
+  `GenerateSigningKey` with `SignatureEnvelope`, and `SignatureError` / `SignatureReasons`
+  for `manifest-signature.md` — the last three over `crypto/ed25519`, which the standard
+  library supplies and the zero-dependency rule therefore permits. `Error` and `Reasons`
+  were renamed to `CanonicalizationError` and `CanonicalizationReasons` when the envelope
+  landed — a `feat!:` legal with no deprecation window only because the package is
+  `experimental` — since `signing.Error` could not survive a second error type in the same
+  package. Declared `experimental`, matching TypeScript's and Python's own tier for the
+  module. It is the tenth package and runs both signing corpora in full, byte-identically
+  with TypeScript.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every
@@ -380,8 +407,9 @@ added. Python still has no equivalent of its own — see the five-checks bullet 
 
 ## How the bindings diverge
 
-**The `ipc` and `diagnostics` contract surfaces differ in three *behavioral* ways.**
-Two are long-standing — sync-vs-async `performHandshake`/`perform_handshake`, and
+**The `ipc`, `diagnostics` and `signing` contract surfaces differ in three *behavioral*
+ways.** Signing added **no fourth** — what it did was **widen the first**, which is the
+more alarming outcome of the two. Two are long-standing — sync-vs-async, and
 `isinstance`-vs-tagged-union narrowing. Diagnostics adds a third, verified by execution:
 given
 `extensionId: "\ud800"` (a lone UTF-16 surrogate), `encodeDiagnostic` returns
@@ -406,15 +434,30 @@ own — the U+FFFD count for an invalidated multi-octet prefix — which
   `nil`, a state neither other binding can produce. That is an accepted cost of D4, not an
   oversight: it means **every caller needs a `default:` arm**, and every example in
   `sdks/go/README.md` has one for that reason.
-- **Sync-vs-async is now two-against-one.** `ipc.PerformHandshake` is synchronous over
-  `io.Reader` / `io.Writer`, matching Python's `perform_handshake`, so TypeScript's
-  `async` is the minority position — which weakens the case that async is the contract's
-  natural shape. Go adds one shape of its own on the same function:
-  `(HandshakeResult, error)`, where Python raises `FrameTooLongError` and TypeScript
-  throws. **The result is non-nil if and only if the error is nil**, so a refusal — a
-  defined §7 outcome — is never an error, and a transport failure is never a refusal. The
-  streams are stdlib interfaces rather than the two-method object the other bindings
-  inject, because Go has one worth binding to and they do not.
+- **Sync-vs-async is two-against-one, and it has gone from one function to six.**
+  `ipc.PerformHandshake` is synchronous over `io.Reader` / `io.Writer`, matching Python's
+  `perform_handshake`, so TypeScript's `async` is the minority position — which weakens
+  the case that async is the contract's natural shape. Go adds one shape of its own on
+  that function: `(HandshakeResult, error)`, where Python raises `FrameTooLongError` and
+  TypeScript throws. **The result is non-nil if and only if the error is nil**, so a
+  refusal — a defined §7 outcome — is never an error, and a transport failure is never a
+  refusal. The streams are stdlib interfaces rather than the two-method object the other
+  bindings inject, because Go has one worth binding to and they do not.
+
+  **`performHandshake` used to be the whole of it. It is now one of six**, and TypeScript
+  is still the outlier in every one: `performHandshake`; the emitter `createEmitter`
+  returns, whose five level methods each yield a `Promise<EmitResult>` where
+  `diagnostics.Emitter` is synchronous (recorded in the Go surface section above, never
+  counted here until now); and `signing`'s four — `jwkThumbprint`, `generateSigningKey`,
+  `signManifest`, `verifyManifestSignature`. Two of the six have all three bindings
+  (`performHandshake`, `jwkThumbprint`, both sync in Python and Go); the other four have
+  only two, because Python ships no emitter and no Ed25519. The cause is not a taste
+  difference — `crypto.subtle` has no synchronous form on the web platform, and binding to
+  it is what keeps `./signing` runnable in a browser, Deno or an edge worker, which
+  `node:crypto` would not. But a divergence that grows sixfold on one shipment is
+  **structural**, not incidental, and the honest reading is that every future
+  platform-crypto or I/O capability will land as a seventh, an eighth and a ninth. Nothing
+  in CI counts them; this paragraph is the only census.
 - **Go is a third answer to §8's undefined behaviour, and the nastiest of the three.**
   Given an ill-formed `extensionId`, `encoding/json` **substitutes U+FFFD for each
   ill-formed byte and returns no error** — measured on Go 1.27: a lone surrogate as WTF-8
@@ -451,8 +494,50 @@ own — the U+FFFD count for an invalidated multi-octet prefix — which
   it** — that one because two of three bindings already agreed and the preamble already
   required them to, this one because the correction is a single code point.
 
-This inventory is scoped to `ipc` and `diagnostics` — the contract surfaces with a spec
-and a corpus — and is not exhaustive across the package. The connector kit is batteries,
+**The strongest evidence this repository has for its own thesis came out of signing, and
+it is evidence about the *reference* binding.** Three defects in TypeScript — the binding
+five reviews had already passed — were found only because a second and a third binding
+existed to disagree with it, and every one of them was a `SignatureError` contract
+violation rather than a typo:
+
+- `jwkThumbprint` let a `CanonicalizationError` escape §10's closed ten for a JWK whose
+  `crv` or `x` carried a lone surrogate — reachable from `JSON.parse('"\ud800"')`, i.e.
+  any registry handing back a malformed key set. §8 step 6's loop rethrows anything that
+  is not a `SignatureError`, so it aborted verification outright. **Go answered
+  `kid-unknown`**, and Go was right: step 6 skips a key it cannot thumbprint precisely so
+  one bad entry in a rotation set cannot make every signature under that publisher
+  unverifiable.
+- `encodeProtectedHeader` let the same error escape, for a `kid` or `alg` carrying a lone
+  surrogate — straight through the public signing path. **Go already wrapped it as
+  `protected-malformed`**; TypeScript now does too. Python's binding independently hit the
+  identical bug and fixed it the same way, plus one of its own — `json.loads` honours
+  `NaN` / `Infinity` where `JSON.parse` and `encoding/json` refuse them, producing a
+  *third* answer inside a closed token set on attacker-supplied input.
+- `TextDecoder` **silently strips a leading BOM**: measured on bun 1.3.14, `new
+  TextDecoder("utf-8", { fatal: true })` treats `EF BB BF` at offset 0 as a byte-order
+  mark and removes it, so TypeScript **accepted** a protected header that Go's
+  `json.Unmarshal` and Python's `bytes.decode("utf-8")` both reject as a syntax error.
+  Accepting what the others reject is the worst direction a divergence can run, and it is
+  the one direction a single-binding test suite can never see. The fix reads the raw bytes,
+  because a post-decode check cannot see a BOM the decoder already removed.
+
+None of the three could be pinned by a shared corpus case — neither a BOM nor a lone
+surrogate survives a round trip through all three JSON decoders — so each is held by a
+per-binding test instead. That is the same treatment RFC-0020 §5 already prescribes, and
+it means the guard against regression is weaker here than a corpus case would be.
+
+**What the crypto itself did was agree.** Go's `crypto/ed25519` and WebCrypto over
+*both* BoringSSL (bun) and OpenSSL (node) produce byte-identical output on the four `sign`
+envelopes and on all ten `ed25519` edge-case vectors — the RFC 8032 vectors, a
+non-canonical `S`, the three small-order public keys, and the `y = p` / `y = p + 1`
+encodings. Measured, not assumed, and re-measured in CI: `ci.yml` drives the
+`manifest-signature` corpus twice on the TypeScript leg, once under Bun and once under
+plain Node (`node scripts/ed25519-node.mjs`), because RFC 8032 leaves exactly these edge
+cases to an implementation's own strictness and a Bun-only leg is structurally incapable
+of noticing if the two libraries drift.
+
+This inventory is scoped to `ipc`, `diagnostics` and `signing` — the contract surfaces
+with a spec and a corpus — and is not exhaustive across the package. The connector kit is batteries,
 not a contract, and carries its own divergences: non-finite numbers, where `json_result`
 and Go's `JSONResult` both refuse and **`JSON.stringify` emitting `null` is the outlier**,
 two bindings to one — now measured against shipped Go rather than predicted — and **object

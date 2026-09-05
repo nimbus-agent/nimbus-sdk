@@ -12,9 +12,15 @@ import { generateKeyPairSync } from "node:crypto";
 import { canonicalizeManifest } from "./canonical-json.js";
 
 /**
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
- * envelope replacement ships in a later shipment; that envelope replaces the flat
- * `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`).
+ * @deprecated since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead.
+ * The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape
+ * this error class belongs to has now shipped, specified at
+ * `docs/spec/signing/v1/manifest-signature.md`. That surface reports **one** error class
+ * carrying a `reason` from §10's closed ten (`SIGNATURE_REASONS`) in place of one class
+ * per failure mode, so there is no subclass to catch. This one has no direct
+ * counterpart at all: the envelope resolves a key by RFC 7638 thumbprint against a
+ * caller-supplied trusted set rather than comparing a key the manifest declares, so
+ * the nearest reason is `kid-unknown`.
  * May be removed in 2.0.0, no earlier than the release after next — see
  * docs/DEPRECATION-POLICY.md.
  */
@@ -22,9 +28,14 @@ export class PublisherKeyMismatch extends Error {
   override readonly name = "PublisherKeyMismatch";
 }
 /**
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
- * envelope replacement ships in a later shipment; that envelope replaces the flat
- * `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`).
+ * @deprecated since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead.
+ * The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape
+ * this error class belongs to has now shipped, specified at
+ * `docs/spec/signing/v1/manifest-signature.md`. That surface reports **one** error class
+ * carrying a `reason` from §10's closed ten (`SIGNATURE_REASONS`) in place of one class
+ * per failure mode, so there is no subclass to catch. This one splits three
+ * ways there, by what was malformed: `envelope-malformed`, `base64url-invalid`, or
+ * `key-unsupported` for a key whose `x` does not decode to 32 octets.
  * May be removed in 2.0.0, no earlier than the release after next — see
  * docs/DEPRECATION-POLICY.md.
  */
@@ -32,9 +43,13 @@ export class SignatureInvalidFormat extends Error {
   override readonly name = "SignatureInvalidFormat";
 }
 /**
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
- * envelope replacement ships in a later shipment; that envelope replaces the flat
- * `publisher.key` + `signature` shape this error class belongs to (`docs/spec/signing/v1/`).
+ * @deprecated since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead.
+ * The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape
+ * this error class belongs to has now shipped, specified at
+ * `docs/spec/signing/v1/manifest-signature.md`. That surface reports **one** error class
+ * carrying a `reason` from §10's closed ten (`SIGNATURE_REASONS`) in place of one class
+ * per failure mode, so there is no subclass to catch. This one maps cleanly:
+ * reason `signature-invalid`.
  * May be removed in 2.0.0, no earlier than the release after next — see
  * docs/DEPRECATION-POLICY.md.
  */
@@ -43,9 +58,12 @@ export class SignatureInvalid extends Error {
 }
 
 /**
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its detached JWS
- * envelope replacement ships in a later shipment; that envelope replaces the flat
- * `publisher.key` + `signature` shape this type describes (`docs/spec/signing/v1/`).
+ * @deprecated since 1.32.0 — use `SignatureReason` from `@nimbus-dev/sdk/signing` instead.
+ * The detached JWS envelope that replaces the flat `publisher.key` + `signature` shape
+ * this type describes has now shipped (`docs/spec/signing/v1/manifest-signature.md`), and
+ * §10's ten tokens are the closed set that supersedes these four. The two sets are not a
+ * renaming of one another: `publisher_key_missing` has no counterpart, because an envelope
+ * carries no key of its own, and the ten distinguish failures these four collapse.
  * May be removed in 2.0.0, no earlier than the release after next — see
  * docs/DEPRECATION-POLICY.md.
  */
@@ -56,8 +74,12 @@ export type SignatureDisableReason =
   | "signature_malformed";
 
 /**
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
- * appears there — its detached JWS envelope has not shipped yet, in a later shipment.
+ * @deprecated since 1.32.0 — use `base64urlEncode` from `@nimbus-dev/sdk/signing` instead,
+ * which has now shipped. **It is not a drop-in.** That pair is strict base64**url** per
+ * `docs/spec/signing/v1/manifest-signature.md` §4 — the `-_` alphabet, no `=` padding, and
+ * a decoder that rejects a non-canonical final quantum — where this function is standard
+ * base64 over `+/` with padding. Bytes encoded here do not round-trip through
+ * `base64urlDecode`.
  * May be removed in 2.0.0, no earlier than the release after next — see
  * docs/DEPRECATION-POLICY.md.
  */
@@ -66,8 +88,12 @@ export function encodeBase64(bytes: Uint8Array): string {
 }
 
 /**
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
- * appears there — its detached JWS envelope has not shipped yet, in a later shipment.
+ * @deprecated since 1.32.0 — use `base64urlDecode` from `@nimbus-dev/sdk/signing` instead,
+ * which has now shipped. **It is not a drop-in.** That pair is strict base64**url** per
+ * `docs/spec/signing/v1/manifest-signature.md` §4 — the `-_` alphabet, no `=` padding, and
+ * a decoder that rejects a non-canonical final quantum — where this function is standard
+ * base64 over `+/` with padding. Bytes encoded here do not round-trip through
+ * `base64urlDecode`.
  * May be removed in 2.0.0, no earlier than the release after next — see
  * docs/DEPRECATION-POLICY.md.
  */
@@ -98,10 +124,15 @@ type SignedManifestShape = {
  * Caller must check `manifest.publisher !== undefined` first — this function
  * does not gate the unsigned case.
  *
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement
- * verifier ships there; this function verifies the flat `publisher.key` + `signature`
- * shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that
- * envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier
+ * @deprecated since 1.32.0 — use `verifyManifestSignature` from
+ * `@nimbus-dev/sdk/signing` instead, which has now shipped and implements
+ * `docs/spec/signing/v1/manifest-signature.md` §8. The name is the same; the contract is
+ * not. It takes `(manifest, trustedKeys: readonly Jwk[])` and reads the detached JWS
+ * envelope out of `manifest.signature` itself, in place of this function's
+ * `(manifest, resolvedPubkey)` over the flat `publisher.key` + `signature` shape. It
+ * rejects with a single `SignatureError` carrying one of §10's ten reasons rather than
+ * three distinct classes, and it canonicalizes without NFC — see `canonical-json.ts`'s own
+ * doc for why that changes the signed bytes. May be removed in 2.0.0, no earlier
  * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export async function verifyManifestSignature(
@@ -144,10 +175,13 @@ export async function verifyManifestSignature(
  * `signature` field on the manifest is ignored (stripped by
  * `canonicalizeManifest`).
  *
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once its replacement
- * signer ships there; this function produces the flat `publisher.key` + `signature` shape
- * that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that
- * envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier
+ * @deprecated since 1.32.0 — use `signManifest` from `@nimbus-dev/sdk/signing` instead,
+ * which has now shipped and implements `docs/spec/signing/v1/manifest-signature.md` §9.
+ * The name is the same; the contract is not. It takes a `PrivateJwk` rather than a raw
+ * 32-byte seed and returns a `ManifestSignatureEnvelope` (`{ protected, signature }`, both
+ * base64url) rather than a base64 string, and it signs the §6 signing input — the
+ * protected header and the canonical bytes joined by `.` — not the canonical bytes alone,
+ * so the two signatures are not interchangeable. May be removed in 2.0.0, no earlier
  * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export async function signManifest(
@@ -177,10 +211,12 @@ export async function signManifest(
  * WebCrypto's `generateKey` is async; the rest of this module uses `crypto.subtle`.
  * Changing that would alter the signature, which is a breaking change.
  *
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
- * appears there — its detached JWS envelope has not shipped yet, in a later shipment.
- * May be removed in 2.0.0, no earlier than the release after next — see
- * docs/DEPRECATION-POLICY.md.
+ * @deprecated since 1.32.0 — use `generateSigningKey` from `@nimbus-dev/sdk/signing`
+ * instead, which has now shipped. It returns a `{ privateKey, publicKey }` pair of JWKs
+ * (`kty: "OKP"`, `crv: "Ed25519"`, base64url `x` / `d`) rather than raw 32-byte arrays,
+ * and it is **async**, because it uses `crypto.subtle.generateKey` where this function
+ * uses `node:crypto` synchronously. May be removed in 2.0.0, no earlier than the release
+ * after next — see docs/DEPRECATION-POLICY.md.
  */
 export function generateEd25519Keypair(): { privkey: Uint8Array; pubkey: Uint8Array } {
   const { privateKey, publicKey } = generateKeyPairSync("ed25519");
@@ -195,10 +231,12 @@ export function generateEd25519Keypair(): { privkey: Uint8Array; pubkey: Uint8Ar
  * Map a verification error class to the `SignatureDisableReason` string the
  * `SignatureDisabledRegistry` (hard-disable.ts) records.
  *
- * @deprecated since 1.32.0 — use `@nimbus-dev/sdk/signing` instead, once a replacement
- * appears there; this function maps the errors of the flat `publisher.key` + `signature`
- * shape that surface's detached JWS envelope replaces (`docs/spec/signing/v1/`), and that
- * envelope has not shipped yet, in a later shipment. May be removed in 2.0.0, no earlier
+ * @deprecated since 1.32.0 — use `SignatureError#reason` from `@nimbus-dev/sdk/signing`
+ * directly instead, with no mapper at all. The detached JWS envelope that replaces the
+ * flat `publisher.key` + `signature` shape whose errors this function maps has now shipped
+ * (`docs/spec/signing/v1/manifest-signature.md`), and its single error class already
+ * carries one of §10's closed ten (`SIGNATURE_REASONS`), so there is nothing left to map
+ * from. May be removed in 2.0.0, no earlier
  * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export function errorToHardDisableReason(err: unknown): SignatureDisableReason {

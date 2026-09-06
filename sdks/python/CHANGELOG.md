@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.22.0...python-v0.23.0) (2026-09-06)
+
+
+### Features
+
+* **signing:** Python's Ed25519, and the last three deferred conformance kinds ([#274](https://github.com/nimbus-agent/nimbus-sdk/issues/274)) ([90a2c30](https://github.com/nimbus-agent/nimbus-sdk/commit/90a2c300a9d6c64053f24ca68cc22ed387dcbb31))
+
 ## [0.22.0](https://github.com/nimbus-agent/nimbus-sdk/compare/python-v0.21.0...python-v0.22.0) (2026-09-05)
 
 

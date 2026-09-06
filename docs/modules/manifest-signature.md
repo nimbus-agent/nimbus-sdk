@@ -1,4 +1,5 @@
 <!-- covers: signing/manifest-signature
+     py: signing/manifest_signature
      go: signing/manifestsignature -->
 
 # `manifest-signature`

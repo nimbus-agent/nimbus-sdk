@@ -21,12 +21,12 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `item` | 6 | 6 | — | — |
 | `jmap` | 61 | 61 | 61 | 61 |
 | `manifest` | 31 | 31 | — | — |
-| `manifest-signature` | 61 | 61 | 23 of 61 | 61 |
+| `manifest-signature` | 63 | 63 | 23 of 63 | 63 |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **539** | **539** | **400** | **438** |
+| **Total** | **541** | **541** | **400** | **440** |
 
 ## What each binding does not run, and why
 
@@ -55,8 +55,10 @@ Runs every published corpus.
 - `python` defers `manifest-signature` case `cases/ed25519-public-key-y-equals-p-plus-1.json`
 - `python` defers `manifest-signature` case `cases/ed25519-public-key-y-equals-p.json`
 - `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-1.json`
+- `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-1024.json`
 - `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-2.json`
 - `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-3.json`
+- `python` defers `manifest-signature` case `cases/ed25519-rfc8032-vector-sha-abc.json`
 - `python` defers `manifest-signature` case `cases/ed25519-small-order-1.json`
 - `python` defers `manifest-signature` case `cases/ed25519-small-order-2.json`
 - `python` defers `manifest-signature` case `cases/ed25519-small-order-8.json`

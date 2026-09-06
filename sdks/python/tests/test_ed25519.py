@@ -73,11 +73,13 @@ def test_a_set_sign_bit_on_x_equals_zero_is_rejected(name: str, y: int) -> None:
     Asserts on the DECODER, and this is the rule that most needs it. Routed through
     ``verify`` the pin is vacuous, measurably so: deleting the ``x == 0 and sign == 1``
     branch from ``_ed25519.py`` makes ``decode_point`` succeed and return ``(p, y)`` —
-    the same point, with x unreduced, since the parity fixup turns 0 into ``p - 0`` —
-    and ``verify`` still answers ``False`` on it, because no signature checks out
-    against a point of order 1 or 2 either. Measured 2026-09-06 by deleting the branch:
-    both parameters of this test fail and the other ten in this file still pass, where a
-    ``verify``-routed assertion would have passed too.
+    the same point, with x unreduced, since the parity fixup turns 0 into ``p - 0``.
+    Measured 2026-09-06 by deleting the branch: both parameters of this test fail, the
+    other ten in this file still pass, and ``verify`` on these same encodings still
+    answers ``False`` — so a ``verify``-routed assertion would have passed vacuously.
+    That last observation is all that is claimed: a crafted signature *can* verify
+    against the identity, so the route is vacuous because these inputs do not produce
+    one, not because no input could.
 
     The sign-bit-clear half is the control, exactly as in the non-square test below:
     without it a decoder refusing this y for some other reason would pass. Both y values

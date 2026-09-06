@@ -79,14 +79,18 @@ secret for a timing side-channel to leak, and a pure-Python implementation is so
 it. That is the operation a gateway performs. Canonicalization, base64url, the RFC 7638
 thumbprint and the protected header are public-data operations too.
 
-**It is not free, though, and that is a separate axis from timing.** Verification is
-*two* scalar multiplications where signing is one, so a pure-Python verifier costs on
-the order of 100 ms per call — measured 2026-09-06 on CPython 3.14.6, ~140 ms to verify
-against ~100 ms to sign — which is roughly ten verifications per second per core: a
-service verifying attacker-supplied manifests should rate-limit it or use a native
-implementation, because the cost above is a cheap asymmetric denial of service for
-anyone who can post manifests at it. The budget this half was designed against is CI and
-connector authoring, not a server.
+**It is not free, though, and that is a separate axis from timing.** A pure-Python
+verification costs on the order of 100 ms — measured 2026-09-06 on CPython 3.14.6, best
+of 25 runs: **100.3 ms to sign and 103.8 ms to verify**, a ratio of 1.04. Verification
+is no cheaper than signing, and it is no dearer either: *both* perform two scalar
+multiplications, since `sign` re-derives `[a]B` on every call alongside `[r]B` exactly
+as `verify` computes `[s]B` and `[k]A`. That is roughly ten operations per second per
+core, so a service verifying attacker-supplied manifests should rate-limit it or use a
+native implementation — the cost is a cheap asymmetric denial of service for anyone who
+can post manifests at it. The budget this half was designed against is CI and connector
+authoring, not a server. Quote a **best-of-N** figure if you re-measure and say which N:
+single-shot timings of this same call on a loaded machine ranged from 100 ms to 167 ms,
+wide enough to invent a difference between the two operations that is not there.
 
 ## Security posture as the SDK grows
 

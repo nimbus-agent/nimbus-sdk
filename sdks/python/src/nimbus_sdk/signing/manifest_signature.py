@@ -18,9 +18,11 @@ signing service should use a constant-time implementation. The realistic exposur
 shared CI runner, not a developer laptop.
 :func:`verify_manifest_signature` touches only public data — public key, signature,
 message — so it carries no such caveat, here or in any other binding. It is not free,
-though: verification is *two* scalar multiplications where signing is one, so it costs
-on the order of 100 ms per call in Python, and a service verifying untrusted manifests
-should rate-limit it or use a native implementation. See ``docs/SECURITY.md``.
+though: it costs on the order of 100 ms per call in Python — no cheaper than signing,
+because *both* perform two scalar multiplications, signing re-deriving ``[a]B`` on
+every call alongside ``[r]B`` — so a service verifying untrusted manifests should
+rate-limit it or use a native implementation. See ``docs/SECURITY.md`` for the
+best-of-25 figures.
 
 Every *rejection* leaving :func:`sign_manifest` and :func:`verify_manifest_signature`
 is a :class:`~nimbus_sdk.signing.SignatureError` carrying one of §10's ten tokens. The
@@ -32,11 +34,11 @@ no branch for.
 bindings do not answer alike.** §8 step 1 makes :func:`verify_manifest_signature` total
 over its ``manifest``: a non-mapping is ``envelope-malformed``, because the corpus can
 hand it one. §9 has no such step, so :func:`sign_manifest` given a non-manifest — and
-either function given a ``trusted_keys`` that is not even iterable — raises whatever
-Python raises, typically a bare ``TypeError``. That is deliberate rather than an
-oversight: guarding it here would answer where the document does not, and would move
-this binding away from TypeScript, which succeeds on the same input. The measured
-spread is under :func:`sign_manifest`.
+:func:`verify_manifest_signature` given a ``trusted_keys`` that is not even iterable,
+the one gap §8 step 1 does not close — raises whatever Python raises, typically a bare
+``TypeError``. That is deliberate rather than an oversight: guarding it here would
+answer where the document does not, and would move this binding away from TypeScript,
+which succeeds on the same input. The measured spread is under :func:`sign_manifest`.
 """
 
 from __future__ import annotations

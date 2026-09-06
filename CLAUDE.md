@@ -125,19 +125,25 @@ guard's parser has two different code paths keyed on exactly this distinction.
   and Python from four executed corpora to eight. Their exports are listed in
   [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
 - `nimbus_sdk.signing` (`sdks/python/src/nimbus_sdk/signing/`) — the Python binding of
-  `docs/spec/signing/v1/`, and **the one root that binds only part of the surface it
-  claims**. It has all of `canonical-json.md` (`canonicalize`,
-  `canonicalize_manifest`, `CanonicalizationError`, `CANONICALIZATION_REASONS`) and the
-  *pure* half of `manifest-signature.md` (`base64url_encode` / `base64url_decode`,
-  `jwk_thumbprint` with `Jwk`, `encode_protected_header` / `parse_protected_header` /
-  `signing_input` with `ProtectedHeader`, and `SignatureError` /
-  `SIGNATURE_REASONS`) — but **no Ed25519**, so no `sign_manifest`, no
-  `verify_manifest_signature`, no `generate_signing_key`. The dependency-free rule leaves
-  only a from-scratch RFC 8032, which is RFC-0020's S3 and carries a timing side-channel
-  that needs its own `SECURITY.md` disclosure. Declared `experimental`, matching
-  TypeScript's and Go's tier. It is the ninth import root; it runs `canonical-json` in
-  full and `manifest-signature` **partially** — 23 of 61 cases, the 38 crypto ones
-  recorded as per-case deferrals in `docs/conformance-coverage.json`.
+  `docs/spec/signing/v1/`, **all of it since RFC-0020's S3**. It has `canonical-json.md`
+  (`canonicalize`, `canonicalize_manifest`, `CanonicalizationError`,
+  `CANONICALIZATION_REASONS`), the pure half of `manifest-signature.md`
+  (`base64url_encode` / `base64url_decode`, `jwk_thumbprint` with `Jwk`,
+  `encode_protected_header` / `parse_protected_header` / `signing_input` with
+  `ProtectedHeader`, and `SignatureError` / `SIGNATURE_REASONS`), and the crypto half —
+  `sign_manifest` / `verify_manifest_signature` / `generate_signing_key` with
+  `ManifestSignatureEnvelope`, all three **synchronous**, where TypeScript's are `async`.
+  The Ed25519 under them is a **from-scratch RFC 8032** in the private
+  `nimbus_sdk.signing._ed25519`: CPython ships no primitive and the dependency-free rule
+  forbids `cryptography`, so this is the one binding of the three whose curve arithmetic
+  is written here rather than supplied by the platform. That is why it is **the only
+  signing surface in the repository carrying a security caveat**: signing and key
+  generation both multiply by a secret scalar in CPython `int` arithmetic and are not
+  constant-time, disclosed in `docs/SECURITY.md` and amended into RFC-0020 §8, which as
+  accepted named signing alone. Verification touches only public data and carries no
+  caveat in any binding. `_ed25519` stays private — neither other binding publishes raw
+  Ed25519 either. Declared `experimental`, matching TypeScript's and Go's tier. It is the
+  ninth import root, and it runs both signing corpora in full.
 
 **The names under every root but `nimbus_sdk` are NOT re-exported from `nimbus_sdk`, and
 must not be.** The split mirrors the `.` vs `./ipc` vs `./diagnostics` vs
@@ -161,11 +167,13 @@ alone, as it always was.
 Everything Python claims, TypeScript claims too — but since `manifest-signature` a claimed
 corpus may be only **partially** executed, so the claim sets coinciding no longer means the
 executed *cases* do. A new case runs in both languages the moment it is indexed only when
-both bindings publish the surface it exercises; a `verify` case added to
-`manifest-signature` runs in TypeScript and Go and is skipped in Python, because
-`nimbus_sdk.signing` publishes no Ed25519. Check
-[`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — it renders
-executed-of-published per corpus, and the deferred case files are named in the JSON beside
+both bindings publish the surface it exercises. **As of RFC-0020's S3 no binding defers
+anything** — Python's Ed25519 emptied the repository's only `deferred` map — so today the
+claim sets and the executed case sets do coincide; that is a fact about the current tree,
+not a property of it, and
+[`docs/conformance-coverage.md`](./docs/conformance-coverage.md) is the generated page
+that says so. Check it — it renders
+executed-of-published per corpus, and any deferred case files are named in the JSON beside
 it — before assuming a new case is language-neutrality evidence. The
 corpora TypeScript claims alone — `predicates`, `sandbox`, `manifest` and `item` — no
 second binding runs, so those carry no language-neutrality evidence; `docs/spec/README.md`
@@ -254,8 +262,9 @@ surface is shaped this way, which the generated file, by design, does not:
   they are what took Go from four executed corpora to eight. Their exported declarations
   are in [`docs/api-surface-go.md`](./docs/api-surface-go.md) rather than here — the same
   treatment the Python section gives its own four battery roots.
-- `signing` (`sdks/go/signing/`) — the Go binding of `docs/spec/signing/v1/`, and the
-  **only** binding besides TypeScript that publishes the whole of it: `Canonicalize` /
+- `signing` (`sdks/go/signing/`) — the Go binding of `docs/spec/signing/v1/`, whole since
+  it landed, and since S3 one of **three** bindings that publish the whole of it:
+  `Canonicalize` /
   `CanonicalizeManifest` / `CanonicalizationError` / `CanonicalizationReasons` for
   `canonical-json.md`, and `Base64URLEncode` / `Base64URLDecode`, `JWKThumbprint` with
   `JWK` / `PrivateJWK`, `EncodeProtectedHeader` / `ParseProtectedHeader` / `SigningInput`
@@ -268,7 +277,8 @@ surface is shaped this way, which the generated file, by design, does not:
   `experimental` — since `signing.Error` could not survive a second error type in the same
   package. Declared `experimental`, matching TypeScript's and Python's own tier for the
   module. It is the tenth package and runs both signing corpora in full, byte-identically
-  with TypeScript.
+  with TypeScript — and now with Python, whose `sign` and `verify` cases were the last
+  thing separating the three.
 - `internal/gen` and a test-only `conformance` package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every
@@ -320,8 +330,10 @@ kinds — `base64url`, `thumbprint`, `ed25519`, `verify`, `sign`), and the four 
 against the packages that bind them — `data-profile` against `dataprofile`,
 `distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
 `jmap` against `jmapfastmail` — nothing deferred in any. That is the same set of corpora
-Python executes, but no longer the same set of *cases*: Python claims
-`manifest-signature` with its three crypto kinds deferred, where Go runs all five.
+Python executes, and since RFC-0020's S3 gave `nimbus_sdk.signing` an Ed25519 it is the
+same set of *cases* too: Python no longer defers `manifest-signature`'s three crypto
+kinds. The two statements stay distinct even while they agree, because a claimed corpus
+can be partially executed and the machinery that records it is still in place.
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) carries the per-corpus
 executed-of-published counts.
 
@@ -434,7 +446,8 @@ own — the U+FFFD count for an invalidated multi-octet prefix — which
   `nil`, a state neither other binding can produce. That is an accepted cost of D4, not an
   oversight: it means **every caller needs a `default:` arm**, and every example in
   `sdks/go/README.md` has one for that reason.
-- **Sync-vs-async is two-against-one, and it has gone from one function to six.**
+- **Sync-vs-async is two-against-one on five of six functions, and it has gone from one
+  function to six.**
   `ipc.PerformHandshake` is synchronous over `io.Reader` / `io.Writer`, matching Python's
   `perform_handshake`, so TypeScript's `async` is the minority position — which weakens
   the case that async is the contract's natural shape. Go adds one shape of its own on
@@ -449,13 +462,18 @@ own — the U+FFFD count for an invalidated multi-octet prefix — which
   returns, whose five level methods each yield a `Promise<EmitResult>` where
   `diagnostics.Emitter` is synchronous (recorded in the Go surface section above, never
   counted here until now); and `signing`'s four — `jwkThumbprint`, `generateSigningKey`,
-  `signManifest`, `verifyManifestSignature`. Two of the six have all three bindings
-  (`performHandshake`, `jwkThumbprint`, both sync in Python and Go); the other four have
-  only two, because Python ships no emitter and no Ed25519. The cause is not a taste
-  difference — `crypto.subtle` has no synchronous form on the web platform, and binding to
-  it is what keeps `./signing` runnable in a browser, Deno or an edge worker, which
-  `node:crypto` would not. But a divergence that grows sixfold on one shipment is
-  **structural**, not incidental, and the honest reading is that every future
+  `signManifest`, `verifyManifestSignature`. **Five of the six now have all three
+  bindings, and TypeScript is alone in all five.** RFC-0020's S3 is what changed that:
+  Python's `generate_signing_key`, `sign_manifest` and `verify_manifest_signature` landed
+  synchronous, alongside Go's, so the three that had only two bindings became genuine
+  two-against-one rather than one-to-one. Only the emitter is still a pair, because Python
+  ships none. This is the same entry it always was — not a fourth divergence — with a
+  stronger claim inside it: on five of the six, async is the minority of three rather than
+  one half of a pair, so TypeScript is outvoted rather than merely differing. The
+  cause is not a taste difference — `crypto.subtle` has no synchronous form on the web
+  platform, and binding to it is what keeps `./signing` runnable in a browser, Deno or an
+  edge worker, which `node:crypto` would not. But a divergence that grows sixfold on one
+  shipment is **structural**, not incidental, and the honest reading is that every future
   platform-crypto or I/O capability will land as a seventh, an eighth and a ninth. Nothing
   in CI counts them; this paragraph is the only census.
 - **Go is a third answer to §8's undefined behaviour, and the nastiest of the three.**

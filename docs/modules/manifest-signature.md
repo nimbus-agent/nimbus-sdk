@@ -19,19 +19,23 @@ contract. Where the two disagree, the spec wins and this page is the bug.
 
 ## Why this is a page of its own
 
-**Python does not publish these three functions**, and the stability matrix's `—` in
-Python's column on this row is not an oversight — it is the whole reason this page exists
-separately from `signing.md`. CPython has no standard-library Ed25519 primitive, and this
-package's `[project].dependencies` stays empty, so binding §8 and §9 in Python means a
-from-scratch RFC 8032 implementation rather than a `pip install`. Until that lands, Python
-binds §4 through §7 — the primitives layer §9's last paragraph explicitly admits as
-conformant on its own — and defers the rest, which
-[`conformance-coverage.md`](../conformance-coverage.md) records case by case.
+**These three functions are the only ones in the `signing` surface that need a
+cryptographic primitive**, and each binding obtains that primitive somewhere different:
+TypeScript from WebCrypto, Go from `crypto/ed25519`, and Python from a from-scratch RFC
+8032 implementation, because CPython ships no primitive and this package's
+`[project].dependencies` stays empty. Everything on `signing.md` — canonicalization,
+base64url, the thumbprint, the protected header — is arithmetic and byte-shuffling that
+needs nothing from the platform at all. That is the boundary the two pages draw.
 
-Folding these functions into `signing.md` would have hidden that: one shared row would
-have shown `experimental` in all three columns and told a Python reader that
-`sign_manifest` was one import away. Two pages make the gap a rendered cell in a generated
-document instead.
+It is not the boundary they were originally split on. The first split was blunter: Python
+did not publish these three *at all*, and the stability matrix's `—` in its column was the
+whole argument for a separate page. [RFC-0020](../rfcs/0020-manifest-signing.md)'s S3
+closed that gap — the row now reads `experimental` in all three columns, and Python
+executes every `manifest-signature` conformance case, which
+[`conformance-coverage.md`](../conformance-coverage.md) counts. The page survives its own
+original justification because the primitive boundary was the more durable half of it, and
+because Python's answer to the primitive question carries a caveat neither other binding
+shares — see [Naming across the bindings](#naming-across-the-bindings) below.
 
 ## `generateSigningKey`
 
@@ -47,9 +51,9 @@ const { privateKey, publicKey } = await generateSigningKey();
 ```
 
 Everything on this page is `async`, because `crypto.subtle` is; that keeps the entry point
-runnable in a browser, Deno or an edge worker. Go's binding is synchronous, so TypeScript
-is the minority shape here — the same two-against-one split `performHandshake` already
-carries.
+runnable in a browser, Deno or an edge worker. Go's binding is synchronous and Python's is
+too, so TypeScript is the minority shape here — a real two-against-one, the same split
+`performHandshake` carries.
 
 ## `signManifest`
 
@@ -144,12 +148,25 @@ all three bindings to them.
 
 ## Naming across the bindings
 
-Go binds the same three functions as `GenerateSigningKey`, `SignManifest` and
-`VerifyManifestSignature`, synchronously and with an `error` return rather than a throw.
-Its envelope type is `SignatureEnvelope`, where TypeScript's is
-`ManifestSignatureEnvelope`: the Go package is already named `signing`, so the qualifier
-the TypeScript name carries would be redundant there — the same trim-what-the-package-says
-rule the `contract` package follows.
+Python binds the same three functions as `generate_signing_key`, `sign_manifest` and
+`verify_manifest_signature`, synchronously, raising `SignatureError` where TypeScript
+rejects with it. It spells the envelope type exactly as TypeScript does,
+`ManifestSignatureEnvelope`.
+
+Go binds them as `GenerateSigningKey`, `SignManifest` and `VerifyManifestSignature`,
+synchronously and with an `error` return rather than a throw. Its envelope type is
+`SignatureEnvelope`, where TypeScript's is `ManifestSignatureEnvelope`: the Go package is
+already named `signing`, so the qualifier the TypeScript name carries would be redundant
+there — the same trim-what-the-package-says rule the `contract` package follows.
+
+**Python's signing half is not constant-time, and neither other binding shares that
+caveat.** `sign_manifest` and `generate_signing_key` both multiply by a secret scalar in
+CPython's arbitrary-precision `int` arithmetic, which leaks through timing to an attacker
+able to measure it — intended for connector authoring and CI, not for a multi-tenant
+signing service. `verify_manifest_signature` touches only public data and carries no such
+caveat anywhere. [`SECURITY.md`](../SECURITY.md#pythons-ed25519-timing-side-channel) is
+the disclosure; [RFC-0020 §8](../rfcs/0020-manifest-signing.md#8-pythons-ed25519-side-channel)
+is the reasoning behind it.
 
 ## Every export
 

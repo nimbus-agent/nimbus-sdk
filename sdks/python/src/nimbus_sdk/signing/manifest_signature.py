@@ -9,6 +9,17 @@ are the whole of what this file adds to the surface.
 synchronous too, so this is the majority shape, exactly as ``perform_handshake``
 already is.
 
+**Signing and key generation are not constant-time.** :func:`sign_manifest` multiplies
+by a secret scalar, and :func:`generate_signing_key` does the same one step earlier —
+deriving ``A = [s]B`` from a fresh seed is itself a secret scalar multiplication — both
+in CPython's arbitrary-precision ``int`` arithmetic, which leaks through timing to an
+attacker able to measure it. Intended for connector authoring and CI; a multi-tenant
+signing service should use a constant-time implementation. The realistic exposure is a
+shared CI runner, not a developer laptop.
+:func:`verify_manifest_signature` touches only public data — public key, signature,
+message — so it carries no such caveat, here or in any other binding. See
+``docs/SECURITY.md``.
+
 Every exception leaving :func:`sign_manifest` and :func:`verify_manifest_signature` is a
 :class:`~nimbus_sdk.signing.SignatureError` carrying one of §10's ten tokens. The set is
 closed, so a bare ``TypeError`` or a ``CanonicalizationError`` escaping from here would

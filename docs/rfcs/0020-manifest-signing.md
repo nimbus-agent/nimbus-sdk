@@ -248,6 +248,18 @@ state that Python's signing half is intended for connector authoring and CI, and
 multi-tenant signing service should use a constant-time implementation. Verification —
 the operation the gateway performs — carries no such caveat in any binding.
 
+**† Amendment (S3, landed 2026-09-06): the disclosure covers key generation too, and this
+section named only signing.** `generate_signing_key` derives the public key `A = [s]B`
+from a freshly generated seed, which is a scalar multiplication by a secret — the same
+operation, in the same non-constant-time `int` arithmetic, as the signing step the
+paragraph above describes. The accepted text is left intact rather than reworded, but the
+disclosure it requires is **signing and key generation**, and that is how
+[`SECURITY.md`](../SECURITY.md#pythons-ed25519-timing-side-channel) states it, as do the
+docstrings on `nimbus_sdk.signing._ed25519` and
+`nimbus_sdk.signing.manifest_signature`. Nothing here changes for verification: it
+touches only public data, in every binding, which is the half of this section that was
+already complete.
+
 ## 9. Shipments
 
 This RFC is S0. It authorizes no code; it is the prerequisite the later shipments cite.
@@ -258,7 +270,7 @@ The full sequence, for reference:
 | S0 | This RFC: the envelope, the four divergences, the NFC drop, replace-not-coexist, the Python side-channel disclosure, and the 2.0.0 consequence. Merges before any code, per GOVERNANCE. |
 | S1 | `canonical-json.md` plus its corpus, in all three bindings. Pure, no crypto. Creates the `signing` surface in each and marks the old `crypto/*` signing exports `@deprecated`, opening the window. Additive throughout: `feat:`, no break. |
 | S2 | `manifest-signature.md` plus `base64url` / `jwk` / `jws`, and Ed25519 for Go and TypeScript (both platform-provided). Full `manifest-signature` corpus. Python records a non-claim in `conformance-coverage.json`. **† Amended — see below.** |
-| S3 | Python's RFC 8032 implementation, plus the §7.1 vector section and the `SECURITY.md` disclosure. Empties S2's `deferred` list for `manifest-signature` — the claim itself is already recorded, so S3 removes 38 case paths rather than adding a claim, and `bun run conformance:coverage` then reports Python at 60 of 60. |
+| S3 | Python's RFC 8032 implementation, plus the §7.1 vector section and the `SECURITY.md` disclosure. Empties S2's `deferred` list for `manifest-signature` — the claim itself is already recorded, so S3 removes 38 case paths rather than adding a claim, and `bun run conformance:coverage` then reports Python at 63 of 63. **‡ See below.** |
 | S4 | `extension-manifest.schema.json` gains `publisher` / `signature`; the `manifest` corpus follows. |
 | S5 | The removal. `feat!:`, cutting 2.0.0. Gated on the deprecation window having elapsed *and* on the Nimbus monorepo having migrated off the flat path. |
 
@@ -285,6 +297,24 @@ actually shipped. It also generalised — `deferred` is a new field on every bin
 in `conformance-coverage.json`, and the repository's former "nothing is deferred in either"
 invariant was retired everywhere it was stated, because a claimed corpus may now be only
 partially executed.
+
+**‡ Amendment (S3, landed 2026-09-06): the row's case count is corrected, and the retired
+invariant is not restored.** Two things about the row as accepted are worth recording
+rather than quietly overwriting. The count *"60 of 60"* was wrong when written — the
+corpus S2 shipped held **61** cases, of which Python executed 23 — and S3 itself adds two
+more (RFC 8032 §7.1's second and third vectors, which S2's `ed25519` kind had room for and
+did not carry), so what `bun run conformance:coverage` reports is **63 of 63**. The row
+above is corrected in place, unlike S2's, because it is a forward-looking projection of
+this shipment rather than a record of a landed one; S2's row and its `†` note are left
+exactly as they are.
+
+And the `deferred` field stays. Every binding's map is empty again as of this shipment —
+`docs/conformance-coverage.md` is where that is visible, and it is generated, so it cannot
+drift — but the **field** and the machinery that renders it remain, and so does the
+narrowed prose the `†` note forced: a new case runs in two bindings the moment it is
+indexed only when both publish the surface it exercises. That sentence describes the
+mechanism rather than today's state, and it is what a future deferral will find already
+true instead of needing to re-argue.
 
 ## Compatibility impact
 

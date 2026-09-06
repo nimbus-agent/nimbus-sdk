@@ -316,12 +316,13 @@ is the executable form of
 [`signing/v1/manifest-signature.md`](./signing/v1/manifest-signature.md), with its own
 [`index.json`](./conformance/v1/manifest-signature/index.json) and
 [`case.schema.json`](./conformance/v1/manifest-signature/case.schema.json). It is the first
-corpus that reaches a **cryptographic** primitive, and the first any binding claims only in
-part: its cases
+corpus that reaches a **cryptographic** primitive, and the first any binding ever claimed
+only in part: its cases
 are discriminated by a `kind` — `base64url` (§4), `thumbprint` (§5), `ed25519` (§7),
 `verify` (§8) and `sign` (§9) — so a binding that publishes only the pure layer can
 execute the first two and declare the rest deferred, which §9's last paragraph admits as
-conformant on its own. `verify` cases pin **precedence** as well as verdict: several name
+conformant on its own. No binding does so today; `sdks/python/` did until it gained a
+from-scratch RFC 8032 implementation. `verify` cases pin **precedence** as well as verdict: several name
 two defects at once and require the earlier rejection token, because two bindings that
 both refuse an envelope for different reasons leak different information to a publisher.
 
@@ -410,14 +411,15 @@ signature can verify across languages at all.
 All three also run the `manifest-signature` corpus, the tenth, which holds an eighth kind
 of claim — that three implementations of a *detached JWS* agree on the exact signing input,
 on the thumbprint that names the key, and on **which** rejection token wins when an
-envelope carries two defects at once. It is also the first corpus a binding claims only in
-part: `sdks/python/` executes the `base64url` and `thumbprint` kinds and defers `ed25519`,
-`verify` and `sign`, because CPython ships no stdlib Ed25519 and this package takes no
-runtime dependency to get one — so on those three kinds the parity above is between
-TypeScript and Go alone. The deferred case files are enumerated in
+envelope carries two defects at once. It was also the first corpus a binding claimed only
+in part: `sdks/python/` executed the `base64url` and `thumbprint` kinds and deferred
+`ed25519`, `verify` and `sign`, because CPython ships no stdlib Ed25519 and this package
+takes no runtime dependency to get one. That gap is closed — Python implements RFC 8032
+itself, and the parity claimed above is between all three bindings on all five kinds. The
+per-case machinery it needed stays: any deferred case file is enumerated in
 [`docs/conformance-coverage.json`](../conformance-coverage.json), and
 `sdks/python/tests/test_manifest_signature_corpus.py` fails if the runner and that list
-disagree, in either direction.
+disagree, in either direction — including, as now, when both are empty.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
 whole tree. Four corpora are executed by the **TypeScript** binding alone.

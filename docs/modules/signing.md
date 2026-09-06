@@ -10,9 +10,13 @@ and the signing input. Its own entry point:
 `import { canonicalizeManifest } from "@nimbus-dev/sdk/signing"`.
 
 The sign / verify / keygen half — everything that needs an Ed25519 primitive — lives one
-page over, in [`manifest-signature.md`](./manifest-signature.md). The split is not
-cosmetic: this page's modules are bound in **all three** languages, and that one's are
-bound in two.
+page over, in [`manifest-signature.md`](./manifest-signature.md). Both pages' modules are
+now bound in **all three** languages, so the split is no longer a coverage boundary; it is
+a *primitive* one. Nothing here needs a curve: canonicalization, base64url, the thumbprint
+and the signing input are arithmetic and byte-shuffling any standard library can do. The
+other page's three functions each reach for an Ed25519 implementation, and the three
+bindings get it from three different places — which is where the one security caveat in
+this surface lives.
 
 The normative specifications are
 [`spec/signing/v1/canonical-json.md`](../spec/signing/v1/canonical-json.md) and
@@ -237,10 +241,15 @@ const input = signingInput(protectedB64, canonical);
 // input is a Uint8Array — hand it to an Ed25519 sign or verify.
 ```
 
-Using these four directly is a conformant way to build the envelope by hand, and it is the
-only way available in Python today. If your runtime has Ed25519 —
-every JS runtime this package supports does — reach for
-[`manifest-signature.md`](./manifest-signature.md) instead and let it drive them for you.
+Using these four directly is a conformant way to build the envelope by hand — spec §9's
+last paragraph says so — and it is what you want if the private key lives somewhere this
+package cannot reach, an HSM or a KMS. If you hold the key yourself, reach for
+[`manifest-signature.md`](./manifest-signature.md) instead and let `signManifest` drive
+these four for you. That path exists in **all three** bindings: Ed25519 is a property of
+each binding rather than of the runtime underneath it, supplied by WebCrypto in
+TypeScript, by `crypto/ed25519` in Go, and by a from-scratch RFC 8032 implementation in
+Python, which is the one of the three that carries a
+[timing caveat](../SECURITY.md#pythons-ed25519-timing-side-channel).
 
 ## Every export
 

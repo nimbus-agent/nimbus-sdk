@@ -46,6 +46,38 @@ agree on.
   keygen and manifest sign/verify helpers (`signManifest`,
   `verifyManifestSignature`) plus canonical JSON. The SDK provides the *primitives*;
   the gateway decides *what to trust*. The SDK never carries keys.
+- **One of those primitives carries a timing caveat, and only in Python.** See
+  [the disclosure below](#pythons-ed25519-timing-side-channel). It is scoped to signing
+  and key generation; verification is unaffected in every binding.
+
+## Python's Ed25519 timing side-channel
+
+`nimbus_sdk.signing` implements RFC 8032 directly. Go has `crypto/ed25519` in its
+standard library and TypeScript has WebCrypto; CPython has neither, and `cryptography` is
+a third-party dependency this package forbids — so Python is the one binding of the three
+whose Ed25519 is written here rather than supplied by the platform.
+
+**Signing and key generation are not constant-time.** `sign_manifest` multiplies by a
+secret scalar derived from the private key, and `generate_signing_key` does the same thing
+one step earlier: deriving `A = [s]B` from a freshly generated seed is itself a scalar
+multiplication by a secret. Both run in CPython's arbitrary-precision `int` arithmetic,
+whose running time depends on the values involved, so **both leak through timing to an
+attacker able to measure them**.
+[RFC-0020 §8](./rfcs/0020-manifest-signing.md#8-pythons-ed25519-side-channel) disclosed
+this of signing alone; key generation is on identical terms, and that section carries a
+dated amendment saying so.
+
+**This is disclosed, not mitigated.** Python's signing half is intended for **connector
+authoring and CI** — a developer signing their own connector, or a release pipeline
+signing one artifact. A multi-tenant signing service, where an attacker can submit work
+and measure how long it takes, should use a constant-time implementation instead. The
+realistic exposure is a shared CI runner, not a developer laptop.
+
+**Verification carries no such caveat, in any binding.** `verify_manifest_signature`
+touches only public data — the public key, the signature and the message — so there is no
+secret for a timing side-channel to leak, and a pure-Python implementation is sound for
+it. That is the operation a gateway performs. Canonicalization, base64url, the RFC 7638
+thumbprint and the protected header are public-data operations too.
 
 ## Security posture as the SDK grows
 

@@ -274,9 +274,10 @@ maintained."*
   now official**; Rust is untouched, which is what keeps this box open. The binding lives
   at [`sdks/go/`](../sdks/go/) — module `github.com/nimbus-agent/nimbus-sdk/sdks/go`, zero
   dependencies — and executes **every published corpus its surface publishes**, in full
-  and with nothing deferred in any. That is the same set of corpora Python claims, but no
-  longer the same set of cases — Python defers `manifest-signature`'s three Ed25519 kinds,
-  which Go runs. Which corpora those
+  and with nothing deferred in any. That is the same set of corpora Python claims, and —
+  since [RFC-0020](./rfcs/0020-manifest-signing.md)'s S3 gave `nimbus_sdk.signing` a
+  from-scratch Ed25519 and closed the one gap, `manifest-signature`'s three crypto kinds —
+  the same set of cases again. Which corpora those
   are, and the case counts behind every one of them, are generated into
   [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
   The handshake is bound too: `ipc.PerformHandshake` performs the
@@ -500,13 +501,18 @@ Nimbus connector or app.*
   S1 and S2 shipped the signing contract itself: `docs/spec/signing/v1/canonical-json.md`
   fixes which bytes of a manifest get signed, `docs/spec/signing/v1/manifest-signature.md`
   fixes the detached JWS envelope over them, and both are bound in all three languages
-  behind `@nimbus-dev/sdk/signing`, `nimbus_sdk.signing` and `sdks/go/signing/`. The
-  `canonical-json` corpus runs byte-identically in all three; `manifest-signature`'s 63
-  cases run in full in TypeScript and Go, and 23 of 63 in Python, whose 40 crypto cases
-  are deferred to S3 — see [`conformance-coverage.md`](./conformance-coverage.md). Two
-  bindings can therefore **sign** a manifest and **verify** one another's envelopes today,
-  and the `ed25519` and `sign` kinds are driven under both BoringSSL and OpenSSL so the
-  agreement is measured rather than assumed.
+  behind `@nimbus-dev/sdk/signing`, `nimbus_sdk.signing` and `sdks/go/signing/`. **S3
+  closed the last binding gap**: `nimbus_sdk.signing` now carries a from-scratch RFC 8032
+  Ed25519 — CPython ships no primitive and the dependency-free rule forbids
+  `cryptography` — so `sign_manifest`, `verify_manifest_signature` and
+  `generate_signing_key` exist in Python too, and the whole `manifest-signature` corpus
+  runs in every binding rather than two. Python's signer is not constant-time and says so:
+  see [`SECURITY.md`](./SECURITY.md#pythons-ed25519-timing-side-channel). Both signing
+  corpora therefore run byte-identically in all three bindings — see
+  [`conformance-coverage.md`](./conformance-coverage.md) — so **any** of the three can
+  sign a manifest and **any** of them can verify another's envelope, and the `ed25519` and
+  `sign` kinds are driven under both BoringSSL and OpenSSL so the agreement is measured
+  rather than assumed.
 
   What the box still waits on is everything outside this repository plus one shipment
   inside it. **Outside:** the gateway half — the resolution of a publisher identifier to a

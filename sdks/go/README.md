@@ -383,9 +383,9 @@ binding claims which corpus, and every case count behind these numbers, is gener
 [`docs/conformance-coverage.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/conformance-coverage.md)
 rather than restated here.
 
-That is the same set of corpora Python claims — though no longer the same set of cases:
-Python defers `manifest-signature`'s three Ed25519 kinds, where this module runs all
-five — and it is what
+That is the same set of corpora Python claims, and the same set of cases: Python's
+from-scratch Ed25519 landed in RFC-0020's S3 and retired the one gap there was, this
+corpus's three crypto kinds. It is what
 [GOVERNANCE](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/GOVERNANCE.md#how-a-language-becomes-official)
 criterion 1 asks for. **This binding is official**, by
 [RFC-0013](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0013-go-sdk-official.md),

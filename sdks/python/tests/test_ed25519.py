@@ -53,19 +53,40 @@ def test_non_canonical_s_is_rejected() -> None:
 )
 def test_non_canonical_y_is_rejected(name: str, y: int) -> None:
     """§5.1.3 step 1: the encoded y must be canonical, not merely reduce to
-    something."""
-    assert _ed25519.verify(y.to_bytes(32, "little"), b"", SIG_1) is False
+    something.
+
+    Asserts on the DECODER, never through ``verify``. Routed through ``verify`` this
+    test is vacuous, and measurably so: on 2026-09-06 both ``y >= P`` guards were
+    deleted from ``_ed25519.py`` and all three cases still passed, because the
+    signature does not check out either way. That is the exact trap this file's own
+    docstring says the corpus falls into — a case passing on signature failure rather
+    than on key refusal — so the pin has to name the decoder.
+    """
+    assert _ed25519.decode_point(y.to_bytes(32, "little")) is None
+
+
+#: A y that is off the curve, and a y that is on it. Both halves are the test below:
+#: 2 is the first non-residue above the identity, and 3 is the first small y that does
+#: decode.
+OFF_CURVE_Y = 2
+ON_CURVE_Y = 3
 
 
 def test_a_non_square_does_not_decode() -> None:
     """§5.1.3: if u/v is not a square there is no x, and decoding fails rather than
-    computing a bogus coordinate."""
-    found = False
-    for candidate in range(2, 400):
-        if _ed25519.decode_point(candidate.to_bytes(32, "little")) is None:
-            found = True
-            break
-    assert found, "expected some small y to be off-curve"
+    computing a bogus coordinate.
+
+    The on-curve half is the control. Without it a decoder that returned ``None`` for
+    every input — or refused this y for some reason other than the missing square
+    root — would pass, which is not what the section says. The round trip through
+    ``encode_point`` is what pins the recovered x rather than merely its existence:
+    it re-derives the sign bit from x's parity, so a wrong root fails here.
+    """
+    assert _ed25519.decode_point(OFF_CURVE_Y.to_bytes(32, "little")) is None
+    on_curve = _ed25519.decode_point(ON_CURVE_Y.to_bytes(32, "little"))
+    assert on_curve is not None
+    assert on_curve[1] == ON_CURVE_Y
+    assert _ed25519.encode_point(on_curve) == ON_CURVE_Y.to_bytes(32, "little")
 
 
 def test_verify_returns_false_and_never_raises_on_garbage() -> None:

@@ -222,5 +222,11 @@ def verify(public_key: bytes, message: bytes, signature: bytes) -> bool:
     if r is None:
         return False
     k_digest = hashlib.sha512(signature[:32] + public_key + message).digest()
+    # Reduced mod L, which §6's reference does NOT do, and it is not a no-op: [L]T is
+    # not the identity for a point of order 8, so [k]A and [k mod L]A differ whenever A
+    # carries a torsion component. Reducing is what Go's `SetUniformBytes` and ref10's
+    # `sc_reduce` do, and agreeing with them on exactly the small-order keys the corpus
+    # carries is the point — but it is a departure from the shape this module otherwise
+    # follows, so it is declared here rather than inherited silently.
     k = int.from_bytes(k_digest, "little") % L
     return _scalar_mult(_BASE, s) == _add(r, _scalar_mult(a, k))

@@ -79,6 +79,15 @@ secret for a timing side-channel to leak, and a pure-Python implementation is so
 it. That is the operation a gateway performs. Canonicalization, base64url, the RFC 7638
 thumbprint and the protected header are public-data operations too.
 
+**It is not free, though, and that is a separate axis from timing.** Verification is
+*two* scalar multiplications where signing is one, so a pure-Python verifier costs on
+the order of 100 ms per call — measured 2026-09-06 on CPython 3.14.6, ~140 ms to verify
+against ~100 ms to sign — which is roughly ten verifications per second per core: a
+service verifying attacker-supplied manifests should rate-limit it or use a native
+implementation, because the cost above is a cheap asymmetric denial of service for
+anyone who can post manifests at it. The budget this half was designed against is CI and
+connector authoring, not a server.
+
 ## Security posture as the SDK grows
 
 The [roadmap](./ROADMAP.md) turns the SDK into a language-neutral contract with

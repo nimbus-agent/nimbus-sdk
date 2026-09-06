@@ -17,8 +17,10 @@ attacker able to measure it. Intended for connector authoring and CI; a multi-te
 signing service should use a constant-time implementation. The realistic exposure is a
 shared CI runner, not a developer laptop.
 :func:`verify_manifest_signature` touches only public data — public key, signature,
-message — so it carries no such caveat, here or in any other binding. See
-``docs/SECURITY.md``.
+message — so it carries no such caveat, here or in any other binding. It is not free,
+though: verification is *two* scalar multiplications where signing is one, so it costs
+on the order of 100 ms per call in Python, and a service verifying untrusted manifests
+should rate-limit it or use a native implementation. See ``docs/SECURITY.md``.
 
 Every exception leaving :func:`sign_manifest` and :func:`verify_manifest_signature` is a
 :class:`~nimbus_sdk.signing.SignatureError` carrying one of §10's ten tokens. The set is
@@ -137,7 +139,7 @@ def sign_manifest(
 ) -> ManifestSignatureEnvelope:
     """§9. Returns the envelope; the caller assigns it.
 
-    The manifest is never mutated — §9's last paragraph requires that, and
+    The manifest is never mutated — §9's non-mutation rule requires that, and
     :func:`~nimbus_sdk.signing.canonicalize_manifest` copies before stripping, so
     signing an already-signed manifest reproduces the envelope rather than signing over
     it.
@@ -146,9 +148,16 @@ def sign_manifest(
     §9 defines exactly two failures — ``key-unsupported`` and
     ``canonicalization-failed`` — and neither fits, so inventing a verdict here would be
     a rejection no section of either document defines.
-    Both other bindings behave the same way: TypeScript's ``Object.entries(null)``
-    throws and Go's ``map`` type cannot express the input at all. A signer's manifest is
-    the signer's own, so this is a caller type error rather than untrusted input.
+
+    **The outcome for a non-mapping is therefore undefined, and the three bindings do
+    not agree — including on ``None``.** Measured 2026-09-06: this binding raises a bare
+    ``TypeError`` (``None``, ``42``) or ``ValueError`` (``"x"``) out of the mapping copy
+    in step 4, but signs ``{}`` for ``[]``; TypeScript spreads the value instead, so
+    ``null``, ``[]`` and ``42`` all sign ``{}`` while ``"x"`` signs ``{"0": "x"}``; Go's
+    ``map[string]any`` cannot express a non-mapping at all, and a ``nil`` map signs
+    ``{}``. A signer's manifest is the signer's own, so this is a caller type error
+    rather than untrusted input — but do not depend on which error, or on there being
+    one.
     """
     # §9 step 1.
     if (

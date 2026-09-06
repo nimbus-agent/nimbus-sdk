@@ -65,6 +65,30 @@ def test_non_canonical_y_is_rejected(name: str, y: int) -> None:
     assert _ed25519.decode_point(y.to_bytes(32, "little")) is None
 
 
+@pytest.mark.parametrize(("name", "y"), [("the identity", 1), ("y == p - 1", P - 1)])
+def test_a_set_sign_bit_on_x_equals_zero_is_rejected(name: str, y: int) -> None:
+    """§5.1.3 step 4: x = 0 has one root, so a set sign bit there encodes nothing and
+    the encoding would stop being injective.
+
+    Asserts on the DECODER, and this is the rule that most needs it. Routed through
+    ``verify`` the pin is vacuous, measurably so: deleting the ``x == 0 and sign == 1``
+    branch from ``_ed25519.py`` makes ``decode_point`` succeed and return ``(p, y)`` —
+    the same point, with x unreduced, since the parity fixup turns 0 into ``p - 0`` —
+    and ``verify`` still answers ``False`` on it, because no signature checks out
+    against a point of order 1 or 2 either. Measured 2026-09-06 by deleting the branch:
+    both parameters of this test fail and the other ten in this file still pass, where a
+    ``verify``-routed assertion would have passed too.
+
+    The sign-bit-clear half is the control, exactly as in the non-square test below:
+    without it a decoder refusing this y for some other reason would pass. Both y values
+    here are the only two with x = 0: y = 1 is the identity and y = p - 1 the point of
+    order 2.
+    """
+    assert _ed25519.decode_point((y | 1 << 255).to_bytes(32, "little")) is None
+    decoded = _ed25519.decode_point(y.to_bytes(32, "little"))
+    assert decoded == (0, y)
+
+
 #: A y that is off the curve, and a y that is on it. Both halves are the test below:
 #: 2 is the first non-residue above the identity, and 3 is the first small y that does
 #: decode.

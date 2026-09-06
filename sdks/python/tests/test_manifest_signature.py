@@ -432,7 +432,8 @@ def test_signing_is_deterministic() -> None:
 
 
 def test_sign_does_not_mutate_the_manifest() -> None:
-    """§9's last paragraph: the signer returns the envelope, the caller assigns it."""
+    """§9's non-mutation rule: the signer returns the envelope, the caller assigns
+    it."""
     private, _ = generate_signing_key()
     before = deepcopy(MANIFEST)
     sign_manifest(MANIFEST, private)

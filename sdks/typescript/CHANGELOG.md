@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [1.34.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.33.0...typescript-v1.34.0) (2026-09-06)
+
+
+### Features
+
+* **signing:** Python's Ed25519, and the last three deferred conformance kinds ([#274](https://github.com/nimbus-agent/nimbus-sdk/issues/274)) ([90a2c30](https://github.com/nimbus-agent/nimbus-sdk/commit/90a2c300a9d6c64053f24ca68cc22ed387dcbb31))
+
 ## [1.33.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.32.0...typescript-v1.33.0) (2026-09-05)
 
 

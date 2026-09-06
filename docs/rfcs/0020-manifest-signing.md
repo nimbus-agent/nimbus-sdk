@@ -302,11 +302,28 @@ partially executed.
 invariant is not restored.** Two things about the row as accepted are worth recording
 rather than quietly overwriting. The count *"60 of 60"* was wrong when written — the
 corpus S2 shipped held **61** cases, of which Python executed 23 — and S3 itself adds two
-more (RFC 8032 §7.1's second and third vectors, which S2's `ed25519` kind had room for and
-did not carry), so what `bun run conformance:coverage` reports is **63 of 63**. The row
+more, so what `bun run conformance:coverage` reports is **63 of 63**. The row
 above is corrected in place, unlike S2's, because it is a forward-looking projection of
 this shipment rather than a record of a landed one; S2's row and its `†` note are left
 exactly as they are.
+
+**The two added cases are RFC 8032 §7.1's `TEST 1024` and `TEST SHA(abc)`** — the last two
+of the five published vectors the `ed25519` kind did not already carry; vectors 1, 2 and 3
+shipped with S2. Neither is a make-weight, and the reason is specific to *this* shipment
+introducing the repository's first from-scratch Ed25519. Every `ed25519` case before them
+carried a message of at most two octets, which puts `SHA-512(R || A || M)` at 66 octets and
+a **single** compression block for all ten; `TEST 1024`'s 1023-octet message makes it nine
+blocks, so it is the first case in the corpus to reach a multi-block SHA-512 path at all —
+the path where a length-accumulator bug in a hand-written implementation lives, and the one
+TypeScript and Go pass trivially by delegating to an audited library. `TEST SHA(abc)` takes
+the boundary beside it: its hashed input is 32 + 32 + 64 = **exactly** 128 octets, one whole
+SHA-512 block, so the padding must spill into a second block carrying no message bytes at
+all. That length-mod-blocksize case is unreachable from every other case in the corpus.
+
+The row's *"removes 38 case paths"* is likewise the plan's arithmetic against S2's tree. By
+the time S3 emptied the list it held **40**: the two vectors above were declared as Python
+deferrals in the same shipment that added them, alongside the other `ed25519` files, and
+came off the list one task later when Python's runner landed.
 
 And the `deferred` field stays. Every binding's map is empty again as of this shipment —
 `docs/conformance-coverage.md` is where that is visible, and it is generated, so it cannot

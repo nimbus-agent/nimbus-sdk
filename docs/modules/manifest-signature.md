@@ -151,7 +151,13 @@ all three bindings to them.
 Python binds the same three functions as `generate_signing_key`, `sign_manifest` and
 `verify_manifest_signature`, synchronously, raising `SignatureError` where TypeScript
 rejects with it. It spells the envelope type exactly as TypeScript does,
-`ManifestSignatureEnvelope`.
+`ManifestSignatureEnvelope`. One shape differs: `generate_signing_key() -> tuple[Jwk,
+Jwk]` returns a **positional pair, private first**, where TypeScript returns the named
+`{ privateKey, publicKey }`. Go is positional too — `(PrivateJWK, JWK, error)`, private
+first — so TypeScript is again the odd one out, but Go's two halves are *different types*
+and Python's are both `Jwk`. That makes Python the only binding where
+`public, private = generate_signing_key()` type-checks under `mypy --strict` and hands
+your private key to whoever you publish. Destructure private-first, or index deliberately.
 
 Go binds them as `GenerateSigningKey`, `SignManifest` and `VerifyManifestSignature`,
 synchronously and with an `error` return rather than a throw. Its envelope type is

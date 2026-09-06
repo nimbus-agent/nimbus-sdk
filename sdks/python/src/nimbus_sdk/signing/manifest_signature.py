@@ -22,10 +22,21 @@ though: verification is *two* scalar multiplications where signing is one, so it
 on the order of 100 ms per call in Python, and a service verifying untrusted manifests
 should rate-limit it or use a native implementation. See ``docs/SECURITY.md``.
 
-Every exception leaving :func:`sign_manifest` and :func:`verify_manifest_signature` is a
-:class:`~nimbus_sdk.signing.SignatureError` carrying one of §10's ten tokens. The set is
-closed, so a bare ``TypeError`` or a ``CanonicalizationError`` escaping from here would
-hand a caller an eleventh outcome it has no branch for.
+Every *rejection* leaving :func:`sign_manifest` and :func:`verify_manifest_signature`
+is a :class:`~nimbus_sdk.signing.SignatureError` carrying one of §10's ten tokens. The
+set is closed, so a ``CanonicalizationError`` escaping from here — or a token invented
+for an input neither section rules on — would hand a caller an eleventh outcome it has
+no branch for.
+
+**A caller type error is not a rejection, and it is the one thing here the three
+bindings do not answer alike.** §8 step 1 makes :func:`verify_manifest_signature` total
+over its ``manifest``: a non-mapping is ``envelope-malformed``, because the corpus can
+hand it one. §9 has no such step, so :func:`sign_manifest` given a non-manifest — and
+either function given a ``trusted_keys`` that is not even iterable — raises whatever
+Python raises, typically a bare ``TypeError``. That is deliberate rather than an
+oversight: guarding it here would answer where the document does not, and would move
+this binding away from TypeScript, which succeeds on the same input. The measured
+spread is under :func:`sign_manifest`.
 """
 
 from __future__ import annotations

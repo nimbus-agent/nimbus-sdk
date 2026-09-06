@@ -3,9 +3,10 @@
 Mirrors ``sdks/typescript/src/signing/{base64url,jwk,jws}.test.ts`` case for case, so a
 divergence shows up here rather than only in the shared corpus.
 
-Nothing here tests §8 verification or §9 signing: this binding ships neither. See
-``nimbus_sdk.signing``'s own docstring for why, and
-``test_manifest_signature_corpus.py`` for the corpus deferrals that record it.
+§8 verification and §9 signing are covered at the bottom of this file, against the
+from-scratch Ed25519 in ``nimbus_sdk.signing._ed25519``. The shared corpus pins the
+step order case by case; what lives here is the round trip, the orderings the corpus
+cannot express in Python's types, and §9's correspondence rule.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Callable
+from copy import deepcopy
 
 import pytest
 
@@ -23,9 +25,12 @@ from nimbus_sdk.signing import (
     base64url_decode,
     base64url_encode,
     encode_protected_header,
+    generate_signing_key,
     jwk_thumbprint,
     parse_protected_header,
+    sign_manifest,
     signing_input,
+    verify_manifest_signature,
 )
 
 RFC8037_KEY: Jwk = {
@@ -394,3 +399,150 @@ def test_an_empty_alg_is_protected_malformed() -> None:
 
 def test_signing_input_is_ascii_protected_dot_b64url_payload() -> None:
     assert signing_input("aGVhZGVy", b"{}") == b"aGVhZGVy.e30"
+
+
+# ------------------------------------------------------------------------ §8, §9
+
+MANIFEST: dict[str, object] = {
+    "id": "com.example.demo",
+    "version": "1.0.0",
+    "publisher": {"id": "example"},
+}
+
+
+def test_round_trip() -> None:
+    """§9: an envelope a conformant signer produces MUST verify under §8 — a
+    requirement of the document, not merely a property implementations are expected to
+    have.
+
+    Returning at all is the assertion. §8 either completes step 10 or raises exactly one
+    §10 token; there is no partial success in this contract and nothing to compare
+    against, which is why the verifier is ``-> None`` rather than ``-> bool``.
+    """
+    private, public = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    verify_manifest_signature(signed, [public])
+
+
+def test_signing_is_deterministic() -> None:
+    """RFC 8032 signing is deterministic, so the same manifest and key give the same
+    envelope every time — there is no nonce for a caller to have to pin."""
+    private, _ = generate_signing_key()
+    assert sign_manifest(MANIFEST, private) == sign_manifest(MANIFEST, private)
+
+
+def test_sign_does_not_mutate_the_manifest() -> None:
+    """§9's last paragraph: the signer returns the envelope, the caller assigns it."""
+    private, _ = generate_signing_key()
+    before = deepcopy(MANIFEST)
+    sign_manifest(MANIFEST, private)
+    assert MANIFEST == before
+
+
+def test_an_existing_signature_does_not_affect_the_bytes_signed() -> None:
+    """§9 step 4 strips the top-level ``signature`` member, so re-signing an already
+    signed manifest reproduces the envelope rather than signing over it."""
+    private, _ = generate_signing_key()
+    envelope = sign_manifest(MANIFEST, private)
+    assert sign_manifest({**MANIFEST, "signature": envelope}, private) == envelope
+
+
+def test_a_mutated_manifest_fails() -> None:
+    private, public = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    mutated = {**signed, "version": "1.0.1"}
+    assert (
+        _reason(lambda: verify_manifest_signature(mutated, [public]))
+        == "signature-invalid"
+    )
+
+
+def test_a_non_corresponding_d_is_rejected_before_canonicalization() -> None:
+    """§9 step 1. Go compares the derived key to ``x``; Python does the same.
+
+    The manifest handed in here is uncanonicalizable, so a check performed after step 4
+    would answer ``canonicalization-failed`` where the contract says ``key-unsupported``
+    — the exact divergence §9's step list exists to close, and one that was found and
+    fixed in TypeScript.
+    """
+    private_a, _ = generate_signing_key()
+    _, public_b = generate_signing_key()
+    mismatched = {**private_a, "x": public_b["x"]}
+    assert (
+        _reason(lambda: sign_manifest({**MANIFEST, "bad": 1.5}, mismatched))
+        == "key-unsupported"
+    )
+
+
+@pytest.mark.parametrize("junk", [None, [], "manifest", 7])
+def test_a_non_mapping_manifest_is_envelope_malformed(junk: object) -> None:
+    """§8 step 1 settles the manifest itself before any member is read.
+
+    Reading ``publisher`` off ``None`` raises a bare ``TypeError``, which escapes §10's
+    closed set of ten tokens entirely.
+    """
+    _, public = generate_signing_key()
+    assert (
+        _reason(
+            lambda: verify_manifest_signature(junk, [public])  # type: ignore[arg-type]
+        )
+        == "envelope-malformed"
+    )
+
+
+def test_an_empty_trusted_set_is_kid_unknown() -> None:
+    private, _ = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    assert _reason(lambda: verify_manifest_signature(signed, [])) == "kid-unknown"
+
+
+def test_a_malformed_key_is_skipped_rather_than_fatal() -> None:
+    """§8 step 6 skips a key it cannot thumbprint: a malformed entry in a rotation set
+    must not make every signature under that publisher unverifiable."""
+    private, public = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    junk: Jwk = {"kty": "OKP", "crv": "Ed25519"}
+    verify_manifest_signature(signed, [junk, public])
+
+
+def test_a_key_that_did_not_sign_it_is_kid_unknown() -> None:
+    private_a, _ = generate_signing_key()
+    _, public_b = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private_a)}
+    assert (
+        _reason(lambda: verify_manifest_signature(signed, [public_b])) == "kid-unknown"
+    )
+
+
+def test_a_tampered_signature_fails() -> None:
+    private, public = generate_signing_key()
+    envelope = sign_manifest(MANIFEST, private)
+    raw = bytearray(base64url_decode(envelope["signature"]))
+    raw[0] ^= 0x01
+    tampered = {**envelope, "signature": base64url_encode(bytes(raw))}
+    signed = {**MANIFEST, "signature": tampered}
+    assert (
+        _reason(lambda: verify_manifest_signature(signed, [public]))
+        == "signature-invalid"
+    )
+
+
+def test_a_tampered_payload_fails() -> None:
+    private, public = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    mutated = {**signed, "publisher": {"id": "someone-else"}}
+    assert (
+        _reason(lambda: verify_manifest_signature(mutated, [public]))
+        == "signature-invalid"
+    )
+
+
+def test_canonicalization_failure_carries_its_reason() -> None:
+    """§10: ``canonicalization-failed`` wraps ``canonical-json.md`` §9's closed set of
+    five rather than absorbing it, so the underlying reason travels alongside."""
+    private, public = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    with pytest.raises(SignatureError) as excinfo:
+        verify_manifest_signature({**signed, "bad": float("inf")}, [public])
+    assert excinfo.value.reason == "canonicalization-failed"
+    assert excinfo.value.canonicalization_reason == "number-out-of-range"

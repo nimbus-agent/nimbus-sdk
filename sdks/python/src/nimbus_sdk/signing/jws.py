@@ -106,7 +106,9 @@ def _parse_protected_header_bytes(raw: bytes) -> ProtectedHeader:
     members to decode before either is parsed: a verifier that decoded lazily would
     report ``protected-malformed`` where the contract says ``base64url-invalid``, and
     lazy decoding is the natural way to write it. So the verifier decodes both itself
-    and hands the bytes here. Private until the verifier arrives with §8.
+    and hands the bytes here. Module-private and out of ``__all__``:
+    ``manifest_signature`` imports it, and TypeScript's counterpart is likewise
+    unexported from its own index.
     """
     malformed = "protected-malformed"
     try:

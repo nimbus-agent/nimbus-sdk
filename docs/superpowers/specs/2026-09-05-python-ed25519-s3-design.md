@@ -37,7 +37,7 @@ already made that call and disclosed its cost; this document is how it lands.
 |---|---|
 | New public exports | `sign_manifest`, `verify_manifest_signature`, `generate_signing_key` |
 | New private module | `signing/_ed25519.py` — RFC 8032, roughly 150 lines |
-| `docs/api-surface-python.md` | 133 → **136** exports |
+| `docs/api-surface-python.md` | 133 → **137** exports (see the signatures below) |
 | Corpus | 61 → **63** cases (RFC 8032 §7.1's two remaining vectors) |
 | Python coverage | `23 of 61` → **`63 of 63`**; the `deferred` map is emptied |
 | Stability matrix | `manifest-signature` becomes `experimental` in all three |
@@ -81,6 +81,40 @@ shipment has no reason to create. It would also put a knowingly non-constant-tim
 primitive within reach of callers who want Ed25519 for something other than manifests,
 which is precisely the use the disclosure below argues against.
 
+### Point decoding follows §5.1.3, not §6 — and the corpus will not catch it if we forget
+
+RFC 8032 §6's `decodepoint` is an educational illustration. It reduces `y` modulo `p`
+implicitly, so it accepts a non-canonical encoding; and where it does reject — a point not
+on the curve — it does so by **raising**, which would put an exception outside §10's closed
+ten-token set. `decodepoint` therefore implements §5.1.3 strictly:
+
+1. reject `y ≥ p` — the little-endian integer must be canonical, not reduced;
+2. reject a non-quadratic residue — if `v·x² ≢ ±u (mod p)` there is no square root and
+   decoding fails, rather than computing a bogus coordinate;
+3. reject `x ≡ 0` with the sign bit set (§5.1.3 step 3);
+4. `verify` decodes **both** `A` from the public key and `R` from the first 32 octets of
+   the signature, and returns `False` on any decoding failure rather than propagating an
+   exception.
+
+**The measured part, which corrects the review that raised this.** The review states that
+without the `y < p` check "Python will diverge from Go, Bun, and Node," citing
+`ed25519-public-key-y-equals-p` and `-y-equals-p-plus-1`. Measured against the reference
+shape, that is not so: **all six** of the corpus's edge-case public keys — `y = p`,
+`y = p+1`, all-zero, and small-order 1, 2 and 8 — **decode successfully** under §6's
+`decodepoint`, and none reaches its `raise`. Those cases pass because the *signature* does
+not verify, not because the key was refused. Naive and strict give the same verdict on
+every one.
+
+So the corpus does **not** discriminate here, and believing it does would be worse than
+not knowing. Nor can it easily be made to: only nineteen non-canonical `y` encodings exist
+(`y ∈ [p, 2²⁵⁵−1]`, reducing to `0…18`), and a discriminating case would need a *valid*
+signature under one of them, which requires a seed nobody has.
+
+**The strict decoder is therefore pinned by per-binding unit tests on `decodepoint`
+itself**, asserting rejection rather than an end-to-end verdict — the same treatment
+RFC-0020 §5 already gives lone surrogates, and S2 gave the BOM, for exactly this reason:
+some rules are true of a binding but not expressible as a shared case.
+
 ### Two implementation hazards, both real
 
 **`is_canonical_s` is not optional.** RFC 8032 §5.1.7 requires rejecting a signature whose
@@ -109,6 +143,58 @@ this the way Go does, not the way TypeScript does:** it compares
 in hand. TypeScript has to sign a fixed probe and verify it, because node cannot derive
 `x` from `d` and bun can — the portable check was the only one available there. Same
 rule, same token, cheaper route.
+
+### The signatures, locked
+
+```python
+# nimbus_sdk/signing/manifest_signature.py
+__stability__ = "experimental"
+
+class ManifestSignatureEnvelope(TypedDict):
+    protected: str
+    signature: str
+
+def generate_signing_key() -> tuple[PrivateJwk, Jwk]: ...
+def sign_manifest(manifest: Mapping[str, object],
+                  private_key: PrivateJwk) -> ManifestSignatureEnvelope: ...
+def verify_manifest_signature(manifest: Mapping[str, object],
+                              trusted_keys: Sequence[Jwk]) -> None: ...
+```
+
+**The envelope is a `TypedDict`, which makes the export count 137 rather than 136.** The
+review recommends a bare `dict[str, str]` specifically to keep the count at 136. That
+reasoning runs backwards — the golden pin is a pin, not a budget, and shaping a public API
+to avoid updating a number is how APIs get shaped badly. Both other bindings name this
+type (`ManifestSignatureEnvelope`, `SignatureEnvelope`), and `jws.py` already declares
+`ProtectedHeader` as a `TypedDict` two modules over, so a bare dict would be the odd one
+out twice. `Jwk` stays an open `Mapping` for the reason S2 recorded: a closed type makes
+the decorated-JWK case inexpressible.
+
+`PrivateJwk` does not exist in Python today — TypeScript has it, Go has `PrivateJWK`. If
+adding it is warranted the count is 138; if `Jwk` suffices because the mapping is open
+anyway, it stays 137. That is an implementation call, and the plan records whichever it
+lands on rather than guessing here.
+
+**Defensive checks, so nothing escapes §10.** `verify_manifest_signature` raises
+`envelope-malformed` when `manifest` is not a mapping, before touching a member — a
+`TypeError` or `AttributeError` reaching the caller would break the closed set exactly as
+the escaping `CanonicalizationError` did in S2. Step 6 skips a candidate whose
+`jwk_thumbprint` raises `SignatureError` and continues to the next; an empty
+`trusted_keys` is `kid-unknown`. `sign_manifest` rejects a private key that is not a
+mapping, or whose `kty`/`crv` are wrong, or whose `x`/`d` do not decode to 32 octets, with
+`key-unsupported`.
+
+**Entropy is `secrets.token_bytes(32)`** — PEP 506, over the system CSPRNG. The seed is
+base64url-encoded as `d`; `x` is `publickey_from_seed(seed)`, base64url-encoded.
+
+**`canonicalization-failed` chains**, matching what `jwk.py` already does for
+`key-unsupported`:
+
+```python
+except CanonicalizationError as error:
+    raise SignatureError("canonicalization-failed",
+                         canonicalization_reason=error.reason) from error
+```
 
 ## The corpus
 
@@ -183,7 +269,7 @@ correctly: the numbers describing *structure* do not flinch when *execution* cha
 | Gate | Why it fires | Action |
 |---|---|---|
 | `api-surface-python.md` | three new exports | `python scripts/api_surface.py` |
-| `stability-rules.test.ts` | the Python golden pin | 133 → **136** |
+| `stability-rules.test.ts` | the Python golden pin | 133 → **137** |
 | `docs-coverage.test.ts` | new `manifest_signature.py` | add the `py:` clause |
 | `stability-matrix.test.ts` | the row flips | `bun run build && bun run stability:matrix` |
 | `conformance-coverage.test.ts` | `23 of 61` → `63 of 63` | `bun run conformance:coverage` |
@@ -206,6 +292,28 @@ matrix, and nobody can forget to.
 - The `deferred` entry itself.
 
 ### Prose that is now false
+
+**Four files the first draft of this section missed**, each verified to carry prose that
+becomes false:
+
+- **`docs/modules/signing.md:12-15`** — *"this page's modules are bound in **all three**
+  languages, and that one's are bound in two."* Both pages are bound in all three after
+  S3. And **`:240-243`** — *"Using these four directly is a conformant way to build the
+  envelope by hand, and it is the only way available in Python today"*, followed by *"If
+  your runtime has Ed25519 — every JS runtime this package supports does"*, which frames
+  Ed25519 as a JS-runtime property rather than a per-binding one.
+- **`docs/GOVERNANCE.md:43-53`** — the criterion-1 paragraph records Python's ten as
+  including a **partial** claim deferring the three Ed25519 kinds. That disclosure was
+  added in S2 precisely so the count would not overstate; S3 retires it. The
+  `COUNT_CLAIMS`-pinned sentence above it does not move.
+- **`sdks/python/tests/test_manifest_signature.py:6`** — *"Nothing here tests §8
+  verification or §9 signing: this binding ships neither."* It ships both now, and that
+  file is where the §8/§9 unit tests belong.
+- **`docs/modules/manifest-signature.md`** — beyond Ruling 35's "why Python has no cell"
+  section, its "Why this is a page of its own" and "Naming across the bindings" sections
+  both describe a two-binding page.
+
+And the rest, all in `CLAUDE.md`:
 
 - `CLAUDE.md`'s `nimbus_sdk.signing` bullet — *"the one root that binds only part of the
   surface it claims"*, and *"no Ed25519, so no `sign_manifest`…"*

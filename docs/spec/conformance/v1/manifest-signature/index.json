@@ -112,6 +112,16 @@
       "reason": "RFC 8032 §7.1's third test vector, a two-octet message. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."
     },
     {
+      "file": "cases/ed25519-rfc8032-vector-1024.json",
+      "section": "§7",
+      "reason": "RFC 8032 §7.1's fourth test vector, a 1023-octet message — the only case in this corpus whose message exceeds two octets, and so the only one that reaches a multi-block SHA-512 path at all. Measured 2026-09-06 over the ten ed25519 cases as they stood: the longest message was two octets and 0 of 10 exceeded it, which puts SHA-512(R || A || M) at 66 octets and one compression block for every one of them; this case makes it 1087 octets and nine. That matters now rather than earlier because this shipment introduces the first from-scratch Ed25519 in the repository (Python's, which computes SHA-512 through the standard library but drives it over a message no existing case makes it iterate on), where a length-accumulator or block-boundary bug would live undetected — the TypeScript and Go bindings delegate to audited libraries and pass it trivially. Public key and signature were not transcribed: the seed and message were extracted from RFC 8032 §7.1 and the pair re-derived with Go 1.26.7's crypto/ed25519, then compared against the RFC's own published values, which they matched exactly."
+    },
+    {
+      "file": "cases/ed25519-rfc8032-vector-sha-abc.json",
+      "section": "§7",
+      "reason": "RFC 8032 §7.1's fifth test vector, a 64-octet message that is SHA-512(\"abc\") — verified to be that digest rather than taken on the vector's name. It earns its place separately from the 1023-octet case above: SHA-512(R || A || M) is 32 + 32 + 64 = 128 octets, exactly one SHA-512 block, so the padding must spill into a whole second block that carries no message bytes at all. That is the length-mod-blocksize boundary a hand-written padding routine is most often written one block short of, and it is unreachable from any other case in the corpus. Public key and signature were re-derived with Go 1.26.7's crypto/ed25519 from the RFC's seed and message and matched the RFC's published values exactly."
+    },
+    {
       "file": "cases/ed25519-small-order-1.json",
       "section": "§7",
       "reason": "A point of order 1 — the identity. Small-order public keys make verification succeed for signatures nobody holds a private key for, in implementations that omit the check. Measured 2026-09-05 across bun 1.3.14 (BoringSSL), node 24.18.1 (OpenSSL), go 1.26.7 and go 1.27.0 (crypto/ed25519); all four runtimes agreed."

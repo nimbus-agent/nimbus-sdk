@@ -73,6 +73,18 @@ Protocol, a `ToolRouter`, and the two REST factories. `UrllibTransport` enforces
 `fetch` strips it, so the kit installs a redirect handler that drops the credential on
 an origin change, and only on an origin change.
 
+It also carries the manifest **signing** surface — `from nimbus_sdk.signing import
+canonicalize_manifest, sign_manifest, verify_manifest_signature` — another separate
+import root, binding canonical JSON and the detached JWS envelope in step with the
+TypeScript and Go bindings. **Read the security note before you sign anything in a shared
+environment:** CPython ships no Ed25519 primitive and this package takes no runtime
+dependency, so the curve arithmetic here is written from scratch and is **not
+constant-time**. Signing and key generation both leak through timing to an attacker able
+to measure them, and are intended for connector authoring and CI rather than a
+multi-tenant signing service. Verification touches only public data and carries no such
+caveat. The disclosure is
+[`docs/SECURITY.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/SECURITY.md#pythons-ed25519-timing-side-channel).
+
 `perform_handshake` is the one exchange this package performs end to end: write our
 hello, read the peer's, agree on a contract major or refuse. The stream is **injected**,
 never opened — the package does no I/O of its own — and a refusal comes back as a value,

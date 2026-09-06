@@ -289,12 +289,15 @@ reworded docstring is not a change to the surface.
 
 ## `nimbus_sdk.signing`
 
-14 exports.
+18 exports.
 
 - `CANONICALIZATION_REASONS: tuple[str, ...]` — **experimental** — from `signing/canonical_json`
 - `class CanonicalizationError(Exception)` — **experimental** — from `signing/canonical_json`
   - `def __init__(self, reason: str) -> None`
 - `Jwk = Mapping[str, object]` — **experimental** — from `signing/jwk`
+- `class ManifestSignatureEnvelope` — **experimental** — from `signing/manifest_signature`
+  - `protected: str`
+  - `signature: str`
 - `class ProtectedHeader` — **experimental** — from `signing/jws`
   - `alg: NotRequired[str]`
   - `kid: str`
@@ -306,6 +309,9 @@ reworded docstring is not a change to the surface.
 - `def canonicalize(value: object) -> str` — **experimental** — from `signing/canonical_json`
 - `def canonicalize_manifest(manifest: dict[str, object]) -> bytes` — **experimental** — from `signing/canonical_json`
 - `def encode_protected_header(header: ProtectedHeader) -> str` — **experimental** — from `signing/jws`
+- `def generate_signing_key() -> tuple[Jwk, Jwk]` — **experimental** — from `signing/manifest_signature`
 - `def jwk_thumbprint(jwk: Jwk) -> str` — **experimental** — from `signing/jwk`
 - `def parse_protected_header(b64url: str) -> ProtectedHeader` — **experimental** — from `signing/jws`
+- `def sign_manifest(manifest: Mapping[str, object], private_key: Jwk) -> ManifestSignatureEnvelope` — **experimental** — from `signing/manifest_signature`
 - `def signing_input(protected_b64url: str, canonical_bytes: bytes) -> bytes` — **experimental** — from `signing/jws`
+- `def verify_manifest_signature(manifest: Mapping[str, object], trusted_keys: Sequence[Jwk]) -> None` — **experimental** — from `signing/manifest_signature`

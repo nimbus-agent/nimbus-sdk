@@ -21,9 +21,11 @@ what protects a consumer there is `sum.golang.org`, the checksum transparency lo
 
 The Go binding is the newest and is narrower than the other two in its *batteries*, not in
 its contracts: it executes exactly the corpora Python claims — every case of every one of
-them, nothing deferred — which is every published corpus its surface publishes. The same
-*corpora*, though, is no longer the same *cases*: Python defers `manifest-signature`'s
-three Ed25519 kinds, so on those Go runs cases Python does not. Which corpus each binding claims,
+them, nothing deferred — which is every published corpus its surface publishes. Python
+matches it case for case again as of
+[RFC-0020](./rfcs/0020-manifest-signing.md)'s S3, which gave `nimbus_sdk.signing` a
+from-scratch Ed25519 and retired the one gap between them, `manifest-signature`'s three
+crypto kinds. Which corpus each binding claims,
 and the case counts behind it, is generated into
 [`docs/conformance-coverage.md`](./conformance-coverage.md) rather than restated here.
 [RFC-0012](./rfcs/0012-go-sdk-binding.md) records its layout, tag format and release model;

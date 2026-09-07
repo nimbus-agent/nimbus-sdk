@@ -7,11 +7,23 @@
  * `agentVersion === 1`, `gaps` is an array, and `generatedAt`/`latencyMs` are
  * numbers — plus a connector-supplied `extra` predicate for the brief-specific
  * fields. Some guards additionally require a non-null `query` object; this is
- * opt-in via `requireQuery`. The eight concrete guards this package exports
+ * opt-in via `requireQuery`. The twelve concrete guards this package exports
  * (`./brief-guards.ts`) all pass `requireQuery: true`, matching the gateway —
  * which emits the briefs and so defines the wire. The CLI once kept laxer
  * expert/impact/catchup guards that omitted the check; it now consumes the
  * strict SDK guards, so that divergence is gone.
+ *
+ * These are dispatch-level guards, not depth-level ones: they answer "which
+ * brief is this", not "is every field I am about to render present". Beyond
+ * the base shape check, each guard's `extra` predicate tests a small,
+ * per-agent shape — an array's presence, a boolean, an object — but none of
+ * them ever inspects the contents of any array, so `isWhyBrief` accepts
+ * `{ findings: [42, null] }`.
+ * That is deliberate, for the same reason `docs/modules/agents.md` gives for
+ * not enforcing "exactly one subject arm" on `why`: a guard that walked every
+ * element would reject a fourth arm (or a new field) this package has not
+ * heard of yet. A consumer that renders from a brief, rather than routing it,
+ * needs its own element-deep guards on top of these.
  *
  * The factory exists to remove the byte-mechanical duplication of these guards
  * across the gateway, the CLI, and `@nimbus-dev/client`, all of which now

@@ -5,10 +5,16 @@ import type {
   AgentBriefBase,
   CatchupSection,
   ConflictType,
+  DecisionsEntry,
   ExpertFinding,
+  GlossaryEntry,
+  GlossaryMatchedVia,
   ImpactFinding,
   JanitorPeerTouch,
+  OwnershipCoverage,
+  OwnershipTargetView,
   PreflightDownstream,
+  SynthesisProvenance,
   WhyChangeSubject,
   WhyFinding,
   WhyItemSubject,
@@ -177,6 +183,61 @@ export type WhyBrief = AgentBriefBase & {
   findings: WhyFinding[];
 };
 
+export type GlossaryBrief = AgentBriefBase & {
+  kind: "glossary";
+  query: { term: string | null; limit: number };
+  /** `term` = resolved; `miss` = unknown term with suggestions; `list` = no argument. */
+  mode: "list" | "term" | "miss";
+  entries: GlossaryEntry[];
+  matchedVia: GlossaryMatchedVia;
+  suggestions: string[];
+  stats: {
+    total: number;
+    pending: number;
+    vetoed: number;
+    /** Subset of `total` — authored in `[glossary.terms]`. */
+    manual: number;
+    lastPassAt: number | null;
+    /** Source items indexed with a truncated body, within this brief's window. */
+    truncatedSources: number;
+  };
+};
+
+export type DecisionsBrief = AgentBriefBase & {
+  kind: "decisions";
+  query: {
+    /** The resolved ABSOLUTE cutoff, not the duration the caller sent. */
+    sinceMs: number;
+    service: string | null;
+    minConfidence: number;
+    explain: boolean;
+  };
+  entries: DecisionsEntry[];
+  stats: {
+    total: number;
+    pending: number;
+    extracted: number;
+    vetoed: number;
+    lastPassAt: number | null;
+    truncatedSources: number;
+  };
+};
+
+export type OwnershipBrief = AgentBriefBase & {
+  kind: "ownership";
+  query: {
+    path: string | null;
+    service: string | null;
+    /** The item the caller asked about, when they asked by item. */
+    itemUrl: string | null;
+  };
+  /** Null in summary mode, and when a path resolved to no graph entity. */
+  target: OwnershipTargetView | null;
+  parentDirectory: OwnershipTargetView | null;
+  service: { id: string } | null;
+  coverage: OwnershipCoverage;
+};
+
 export type AgentBrief =
   | ExpertBrief
   | ImpactBrief
@@ -186,7 +247,10 @@ export type AgentBrief =
   | HuddleBrief
   | JanitorBrief
   | PreflightBrief
-  | WhyBrief;
+  | WhyBrief
+  | GlossaryBrief
+  | DecisionsBrief
+  | OwnershipBrief;
 
 /**
  * `agents.whyPeek` result — a synchronous one-line answer, NOT a brief.
@@ -210,6 +274,13 @@ export type BriefReadyPayload<B extends AgentBrief> = {
   sessionId: string;
   brief: string;
   findings: B;
+  /**
+   * Whether `brief`'s markdown came from a local-LLM rewrite or is the
+   * deterministic render, and — when a rewrite was attempted but its output
+   * was not used — why it was discarded. Read this to answer "why is my
+   * brief still deterministic?".
+   */
+  synthesis: SynthesisProvenance;
 };
 
 /** Agent name → its brief type. */
@@ -223,4 +294,7 @@ export type BriefFor<A extends AgentName> = {
   janitor: JanitorBrief;
   preflight: PreflightBrief;
   why: WhyBrief;
+  glossary: GlossaryBrief;
+  decisions: DecisionsBrief;
+  ownership: OwnershipBrief;
 }[A];

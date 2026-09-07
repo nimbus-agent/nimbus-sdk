@@ -99,6 +99,59 @@ const FIXTURES: { [A in AgentName]: { brief: BriefFor<A>; distinguishing: string
     },
     distinguishing: ["findings"],
   },
+  glossary: {
+    brief: {
+      ...base,
+      kind: "glossary",
+      query: { term: "peek", limit: 5 },
+      mode: "term",
+      entries: [],
+      matchedVia: "exact",
+      suggestions: [],
+      stats: { total: 0, pending: 0, vetoed: 0, manual: 0, lastPassAt: null, truncatedSources: 0 },
+    },
+    distinguishing: ["entries", "suggestions"],
+  },
+  decisions: {
+    brief: {
+      ...base,
+      kind: "decisions",
+      query: { sinceMs: 1, service: null, minConfidence: 0, explain: false },
+      entries: [],
+      stats: {
+        total: 0,
+        pending: 0,
+        extracted: 0,
+        vetoed: 0,
+        lastPassAt: null,
+        truncatedSources: 0,
+      },
+    },
+    distinguishing: ["entries"],
+  },
+  ownership: {
+    brief: {
+      ...base,
+      kind: "ownership",
+      query: { path: null, service: null, itemUrl: null },
+      target: null,
+      parentDirectory: null,
+      service: null,
+      coverage: {
+        lastPassAt: null,
+        lastDurationMs: 0,
+        rootsTotal: 0,
+        rootsCovered: 0,
+        rootsWithRemote: 0,
+        filesCovered: 0,
+        filesExcluded: 0,
+        servicesBound: 0,
+        ownersEmitted: 0,
+        entitiesReaped: 0,
+      },
+    },
+    distinguishing: ["coverage"],
+  },
 };
 
 describe("brief guards", () => {

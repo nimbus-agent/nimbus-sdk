@@ -16,7 +16,7 @@
 - **The authority for every type is the gateway**, at `packages/gateway/src/agents/_lib/{glossary,decisions,ownership}-types.ts` and `_lib/synthesize.ts` in the `Nimbus` repo. Transcribe; do not redesign.
 - **Publish the diagnostics too** — `OwnershipBrief.coverage`, `DecisionsEntry.explain`, `DecisionsEntry.matchedVia`. They are on the wire, and a type that describes less than the payload lies by omission.
 - **`bun run build` before `bun test`.** Three tests assert `dist/index.d.ts` exists and fail confusingly otherwise.
-- **Two hardcoded export counts** — `scripts/stability-rules.test.ts` and `scripts/conventional-commit-guard.test.ts` both assert `248`. They fail until bumped to the new total.
+- **Two hardcoded export counts** — `sdks/typescript/scripts/stability-rules.test.ts` and `sdks/typescript/scripts/conventional-commit-guard.test.ts` both assert `248`. They fail until bumped to the new total.
 - **`docs/api-surface.md` and `docs/stability-matrix.md` are byte-compared goldens.** Regenerate with `bun run api:surface` and `bun run stability:matrix` (each needs a build first).
 - **`@moduleStability` tags go above the first export, not above an import block** — `tsc` can elide the trivia if the import stops being used.
 - **Barrel exports are explicit and alphabetically ordered**; Biome's assist rewrites an out-of-order clause.
@@ -37,31 +37,31 @@ Neither blocks this plan. Both should be one Nimbus PR referencing the published
 
 **Modify only — no new files:**
 
-- `src/agents/brief-types.ts` — the fifteen new leaf types (Task 1).
-- `src/agents/brief-composites.ts` — three composites (Task 2), then the `AgentBrief` union and `BriefFor` rows (Task 3).
-- `src/agents/agent-names.ts` — three names, three `AGENT_KIND` rows, and the rewritten deliberately-absent comment (Task 3).
-- `src/agents/brief-guards.ts` — three guards and their `BRIEF_GUARDS` rows (Task 3).
-- `src/agents/brief-guards.test.ts` — three `FIXTURES` rows (Task 3).
-- `src/agents/agent-names.test.ts` — the exact-list golden (Task 3).
-- `src/index.ts` — the new exports (Task 4).
+- `sdks/typescript/src/agents/brief-types.ts` — the eighteen new leaf types (Task 1).
+- `sdks/typescript/src/agents/brief-composites.ts` — three composites (Task 2), then the `AgentBrief` union and `BriefFor` rows (Task 3).
+- `sdks/typescript/src/agents/agent-names.ts` — three names, three `AGENT_KIND` rows, and the rewritten deliberately-absent comment (Task 3).
+- `sdks/typescript/src/agents/brief-guards.ts` — three guards and their `BRIEF_GUARDS` rows (Task 3).
+- `sdks/typescript/src/agents/brief-guards.test.ts` — three `FIXTURES` rows (Task 3).
+- `sdks/typescript/src/agents/agent-names.test.ts` — the exact-list golden (Task 3).
+- `sdks/typescript/src/index.ts` — the new exports (Task 4).
 - `docs/api-surface.md`, `docs/stability-matrix.md` — regenerated (Tasks 4, 5).
-- `scripts/stability-rules.test.ts`, `scripts/conventional-commit-guard.test.ts` — the export counts (Task 4).
-- `src/agents/guard-factory.ts`, `docs/modules/agents.md` — prose (Task 5).
+- `sdks/typescript/scripts/stability-rules.test.ts`, `sdks/typescript/scripts/conventional-commit-guard.test.ts` — the export counts (Task 4).
+- `sdks/typescript/src/agents/guard-factory.ts`, `docs/modules/agents.md` — prose (Task 5).
 
 ---
 
-### Task 1: The fifteen leaf types
+### Task 1: The eighteen leaf types
 
 **Files:**
 
-- Modify: `src/agents/brief-types.ts`
+- Modify: `sdks/typescript/src/agents/brief-types.ts`
 
 **Interfaces:**
 
 - Consumes: nothing.
 - Produces: `GlossaryMatchedVia`, `GlossaryDefinitionSource`, `GlossarySourceRef`, `GlossaryEntry`, `EvidenceKind`, `ExtractionSource`, `ServiceMatchRoute`, `DecisionEvidence`, `DecisionsExplainTerm`, `DecisionsEntry`, `OwnershipOwner`, `OwnershipCoverage`, `OwnershipTargetView`, `PersonaTone`, `PersonaVoice`, `NimbusPersonaToml`, `SynthesisDiscardReason`, `SynthesisProvenance`.
 
-> **Nothing is exported from `src/index.ts` in this task**, so the surface is
+> **Nothing is exported from `sdks/typescript/src/index.ts` in this task**, so the surface is
 > unchanged and both goldens and both `248` counts stay green. That is
 > deliberate: it keeps Tasks 1 and 2 reviewable without golden churn.
 
@@ -244,7 +244,7 @@ Expected: all green, and **both goldens unchanged** — these types are not yet 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/agents/brief-types.ts
+git add sdks/typescript/src/agents/brief-types.ts
 git commit -m "feat(agents): leaf types for the glossary, decisions and ownership briefs"
 ```
 
@@ -254,7 +254,7 @@ git commit -m "feat(agents): leaf types for the glossary, decisions and ownershi
 
 **Files:**
 
-- Modify: `src/agents/brief-composites.ts`
+- Modify: `sdks/typescript/src/agents/brief-composites.ts`
 
 **Interfaces:**
 
@@ -339,7 +339,7 @@ Expected: all green, goldens still unchanged.
 - [ ] **Step 3: Commit**
 
 ```bash
-git add src/agents/brief-composites.ts
+git add sdks/typescript/src/agents/brief-composites.ts
 git commit -m "feat(agents): glossary, decisions and ownership brief composites"
 ```
 
@@ -349,7 +349,7 @@ git commit -m "feat(agents): glossary, decisions and ownership brief composites"
 
 **Files:**
 
-- Modify: `src/agents/agent-names.ts`, `src/agents/brief-composites.ts`, `src/agents/brief-guards.ts`, `src/agents/brief-guards.test.ts`, `src/agents/agent-names.test.ts`
+- Modify: `sdks/typescript/src/agents/agent-names.ts`, `sdks/typescript/src/agents/brief-composites.ts`, `sdks/typescript/src/agents/brief-guards.ts`, `sdks/typescript/src/agents/brief-guards.test.ts`, `sdks/typescript/src/agents/agent-names.test.ts`
 
 **Interfaces:**
 
@@ -500,7 +500,7 @@ That test's own comment records why it exists: a previous version "claimed the s
 
 - [ ] **Step 6: Run the guard suite**
 
-Run: `bun run build && bun test src/agents/`
+Run: `bun run build && bun test sdks/typescript/src/agents/`
 Expected: PASS. The existing loop over `AGENT_NAMES` now runs four assertions for each of the three new names with no new test code — including **cross-exclusion**, which asserts every other agent's fixture fails this guard. If a cross-exclusion assertion fails, two guards are not actually distinguishing; fix the predicate rather than the fixture.
 
 - [ ] **Step 7: Full gates**
@@ -511,7 +511,7 @@ Expected: `api-surface.test.ts` **now fails** — `AgentBrief`'s declaration cha
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/agents/
+git add sdks/typescript/src/agents/
 git commit -m "feat(agents)!: glossary, decisions and ownership join the roster"
 ```
 
@@ -521,7 +521,7 @@ git commit -m "feat(agents)!: glossary, decisions and ownership join the roster"
 
 **Files:**
 
-- Modify: `src/index.ts`, `docs/api-surface.md`, `docs/stability-matrix.md`, `scripts/stability-rules.test.ts`, `scripts/conventional-commit-guard.test.ts`
+- Modify: `sdks/typescript/src/index.ts`, `docs/api-surface.md`, `docs/stability-matrix.md`, `sdks/typescript/scripts/stability-rules.test.ts`, `sdks/typescript/scripts/conventional-commit-guard.test.ts`
 
 **Interfaces:**
 
@@ -530,7 +530,7 @@ git commit -m "feat(agents)!: glossary, decisions and ownership join the roster"
 
 - [ ] **Step 1: Export the new names from the barrel**
 
-Add to `src/index.ts`, extending the existing clauses for `./agents/brief-composites.js`, `./agents/brief-guards.js` and `./agents/brief-types.js` — **alphabetically within each clause**, since Biome's assist will otherwise rewrite it:
+Add to `sdks/typescript/src/index.ts`, extending the existing clauses for `./agents/brief-composites.js`, `./agents/brief-guards.js` and `./agents/brief-types.js` — **alphabetically within each clause**, since Biome's assist will otherwise rewrite it:
 
 - from `brief-composites.js`: `DecisionsBrief`, `GlossaryBrief`, `OwnershipBrief`
 - from `brief-guards.js`: `isDecisionsBrief`, `isGlossaryBrief`, `isOwnershipBrief`
@@ -546,10 +546,16 @@ bun run build && bun run api:surface && bun run stability:matrix
 
 Read the new total off the regenerated `docs/api-surface.md` — do not compute it by hand — then update **both**:
 
-- `scripts/stability-rules.test.ts`, the `expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(248)` assertion
-- `scripts/conventional-commit-guard.test.ts`, the same `248` in its golden-parse assertion
+- `sdks/typescript/sdks/typescript/scripts/stability-rules.test.ts`, the `expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(248)` assertion
+- `sdks/typescript/sdks/typescript/scripts/conventional-commit-guard.test.ts`, the same `248` in its golden-parse assertion
 
 Both are deliberate anti-vacuity gates — the comment beside the first says so. They are the least discoverable thing in this repo, and they fail with a message that does not mention your change.
+
+**Cross-check, not a substitute:** the change adds 24 exports — 18 leaves, 3
+composites, 3 guards — so the total should land at **272**. If the regenerated
+golden says anything else, stop and find out why before bumping the literals: a
+different number means either an export was missed from the barrel or something
+was published that this plan did not intend.
 
 - [ ] **Step 4: Full gates**
 
@@ -559,7 +565,7 @@ Expected: all green, including `api-surface.test.ts`, `stability-matrix.test.ts`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/index.ts docs/api-surface.md docs/stability-matrix.md scripts/stability-rules.test.ts scripts/conventional-commit-guard.test.ts
+git add sdks/typescript/src/index.ts docs/api-surface.md docs/stability-matrix.md sdks/typescript/scripts/stability-rules.test.ts sdks/typescript/scripts/conventional-commit-guard.test.ts
 git commit -m "feat(agents)!: publish the three briefs and synthesis provenance"
 ```
 
@@ -569,7 +575,7 @@ git commit -m "feat(agents)!: publish the three briefs and synthesis provenance"
 
 **Files:**
 
-- Modify: `src/agents/guard-factory.ts`, `docs/modules/agents.md`, `docs/stability-matrix.md`
+- Modify: `sdks/typescript/src/agents/guard-factory.ts`, `docs/modules/agents.md`, `docs/stability-matrix.md`
 
 > **Nothing in this task is enforced by a test.** That is exactly why it is its
 > own task rather than a line at the end of another one: the counts below are
@@ -607,7 +613,7 @@ Expected: green, including `docs-snippets.test.ts` — every ` ```ts ` fence in 
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/agents/guard-factory.ts docs/modules/agents.md docs/stability-matrix.md
+git add sdks/typescript/src/agents/guard-factory.ts docs/modules/agents.md docs/stability-matrix.md
 git commit -m "docs(agents): twelve guards, and what they deliberately do not check"
 ```
 
@@ -620,3 +626,33 @@ git commit -m "docs(agents): twelve guards, and what they deliberately do not ch
 **Type consistency.** Leaf names in Task 1 are used verbatim by the composites in Task 2, the fixtures in Task 3 Step 4, and the barrel list in Task 4 Step 1. `GlossaryDefinitionSource` is named once and referenced only through `GlossaryEntry`. The guard names `isGlossaryBrief`/`isDecisionsBrief`/`isOwnershipBrief` appear identically in Task 3 Step 3 and Task 4 Step 1.
 
 **Known adjustments an implementer should expect.** Task 3 Step 7 predicts a *failing* `api-surface.test.ts`, which Task 4 fixes — that is the one intentionally red gate in the plan, and an implementer who "fixes" it early will produce a golden that Task 4 then regenerates anyway. The three `stats` shapes in Task 2 are transcribed from the gateway; if any field has drifted since, the gateway is the authority and the plan is wrong, not the source.
+
+
+## Review disposition
+
+Reviewed against `2026-09-07-publish-the-remaining-brief-types-review.md`. Each
+finding was checked against the repository before being accepted.
+
+**Accepted — both were real errors in the plan.**
+
+| finding | verified how | resolution |
+| --- | --- | --- |
+| F1.1 monorepo paths | `git add src/agents/brief-types.ts` from the repo root returns `fatal: pathspec … did not match any files`; there is no root `src/` | every source, script and barrel path now carries its `sdks/typescript/` prefix, including the `git add` and `bun test` commands |
+| F1.2 leaf count | 4 glossary + 6 decisions + 3 ownership + 5 synthesis = 18, not 15 | the File Structure line and Task 1's title now say eighteen |
+
+F1.1 is the one that mattered: every commit command in the plan would have
+failed on the first task, and the `bun test src/agents/` invocation would have
+found nothing and reported success at finding nothing.
+
+**Accepted as a cross-check, not as an instruction.**
+
+- **F1.3** computes the expected total as 248 + 24 = 272. Task 4 Step 3 still
+  says to read the number off the regenerated golden rather than compute it —
+  but 272 is now recorded there as the figure to *expect*, so a mismatch becomes
+  a signal instead of a shrug.
+
+**Noted, no change.**
+
+- **S1.1** and **S1.2** confirm the multi-field `distinguishing` strategy for
+  `isGlossaryBrief` and the dedicated prose task. Both are assessments of
+  existing plan content rather than findings; nothing to change.

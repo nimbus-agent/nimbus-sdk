@@ -166,6 +166,8 @@ export type BriefReadyPayload<B extends AgentBrief> = {
     sessionId: string;
     brief: string;
     findings: B;
+
+    synthesis: SynthesisProvenance;
 };
 ```
 

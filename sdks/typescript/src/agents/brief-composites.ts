@@ -14,6 +14,7 @@ import type {
   OwnershipCoverage,
   OwnershipTargetView,
   PreflightDownstream,
+  SynthesisProvenance,
   WhyChangeSubject,
   WhyFinding,
   WhyItemSubject,
@@ -273,6 +274,13 @@ export type BriefReadyPayload<B extends AgentBrief> = {
   sessionId: string;
   brief: string;
   findings: B;
+  /**
+   * Whether `brief`'s markdown came from a local-LLM rewrite or is the
+   * deterministic render, and — when a rewrite was attempted but its output
+   * was not used — why it was discarded. Read this to answer "why is my
+   * brief still deterministic?".
+   */
+  synthesis: SynthesisProvenance;
 };
 
 /** Agent name → its brief type. */

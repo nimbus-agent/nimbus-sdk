@@ -14,9 +14,11 @@
  * strict SDK guards, so that divergence is gone.
  *
  * These are dispatch-level guards, not depth-level ones: they answer "which
- * brief is this", not "is every field I am about to render present". They
- * confirm an array field exists — `Array.isArray`, nothing more — and never
- * inspect what is inside it, so `isWhyBrief` accepts `{ findings: [42, null] }`.
+ * brief is this", not "is every field I am about to render present". Beyond
+ * the base shape check, each guard's `extra` predicate tests a small,
+ * per-agent shape — an array's presence, a boolean, an object — but none of
+ * them ever inspects the contents of any array, so `isWhyBrief` accepts
+ * `{ findings: [42, null] }`.
  * That is deliberate, for the same reason `docs/modules/agents.md` gives for
  * not enforcing "exactly one subject arm" on `why`: a guard that walked every
  * element would reject a fourth arm (or a new field) this package has not

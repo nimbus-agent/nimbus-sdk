@@ -39,9 +39,10 @@ shape of your own.
   consequence is on you: **dispatch across all three**. A consumer that checks two returns
   null on a valid item brief, which reads as "unresolved" and is not. The guard passing is
   not enough to tell those apart — see the example below.
-- **The guards are dispatch-level, not depth-level.** They confirm an array field exists —
-  `Array.isArray`, nothing more — and never inspect what is inside it, so `isWhyBrief`
-  accepts `{ findings: [42, null] }`. That is the same restraint as the `why` bullet above,
+- **The guards are dispatch-level, not depth-level.** Beyond the base shape check, each
+  guard's own predicate tests a small, per-agent shape — an array's presence, a boolean, an
+  object — but none of them ever inspects the contents of any array, so `isWhyBrief` accepts
+  `{ findings: [42, null] }`. That is the same restraint as the `why` bullet above,
   generalized: a guard that walked every element would reject a shape this package has not
   heard of yet. These guards answer "which brief is this", not "is every field I am about to
   render present" — a consumer that renders from a brief, rather than routing it, needs its

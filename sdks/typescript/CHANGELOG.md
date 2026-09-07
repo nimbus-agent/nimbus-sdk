@@ -1,5 +1,16 @@
 # @nimbus-dev/sdk — Changelog
 
+## [2.0.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.34.0...typescript-v2.0.0) (2026-09-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **agents:** glossary, decisions and ownership join the roster, with synthesis provenance ([#279](https://github.com/nimbus-agent/nimbus-sdk/issues/279))
+
+### Features
+
+* **agents:** glossary, decisions and ownership join the roster, with synthesis provenance ([#279](https://github.com/nimbus-agent/nimbus-sdk/issues/279)) ([7865eaa](https://github.com/nimbus-agent/nimbus-sdk/commit/7865eaa82f1915aefc718f92350ca285d9eaabe7))
+
 ## [1.34.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.33.0...typescript-v1.34.0) (2026-09-06)
 
 

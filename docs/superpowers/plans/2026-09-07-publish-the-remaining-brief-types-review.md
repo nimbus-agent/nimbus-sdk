@@ -3,8 +3,8 @@
 **Date:** 2026-09-07  
 **Reviewer:** Antigravity (AI Coding Assistant)  
 **Status:** Approved with Notes  
-**Target Plan:** [`2026-09-07-publish-the-remaining-brief-types.md`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/docs/superpowers/plans/2026-09-07-publish-the-remaining-brief-types.md)  
-**Design Spec:** [`../specs/2026-09-07-publish-the-remaining-brief-types-design.md`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/docs/superpowers/specs/2026-09-07-publish-the-remaining-brief-types-design.md)  
+**Target Plan:** [`2026-09-07-publish-the-remaining-brief-types.md`](2026-09-07-publish-the-remaining-brief-types.md)  
+**Design Spec:** [`../specs/2026-09-07-publish-the-remaining-brief-types-design.md`](../specs/2026-09-07-publish-the-remaining-brief-types-design.md)  
 
 ---
 
@@ -33,16 +33,16 @@ Below are specific technical findings regarding monorepo pathing, leaf type coun
 
 ### F1.2: Leaf Type Inventory Count (15 vs 18 Types)
 * **Issue:** The File Structure header and Task 1 title state *"the fifteen new leaf types"*, but the task declares and exports **18 leaf types**:
-  1. **Glossary (4):** [`GlossaryMatchedVia`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L72), [`GlossaryDefinitionSource`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L75), [`GlossarySourceRef`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L77), [`GlossaryEntry`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L86)
-  2. **Decisions (6):** [`EvidenceKind`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L109), [`ExtractionSource`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L112), [`ServiceMatchRoute`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L115), [`DecisionEvidence`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L117), [`DecisionsExplainTerm`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L127), [`DecisionsEntry`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L133)
-  3. **Ownership (3):** [`OwnershipOwner`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L156), [`OwnershipCoverage`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L169), [`OwnershipTargetView`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L183)
-  4. **Persona & Synthesis (5):** [`PersonaTone`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L202), [`PersonaVoice`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L203), [`NimbusPersonaToml`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L206), [`SynthesisDiscardReason`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L209), [`SynthesisProvenance`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/src/agents/brief-types.ts#L223)
+  1. **Glossary (4):** [`GlossaryMatchedVia`](../../../sdks/typescript/src/agents/brief-types.ts#L72), [`GlossaryDefinitionSource`](../../../sdks/typescript/src/agents/brief-types.ts#L75), [`GlossarySourceRef`](../../../sdks/typescript/src/agents/brief-types.ts#L77), [`GlossaryEntry`](../../../sdks/typescript/src/agents/brief-types.ts#L86)
+  2. **Decisions (6):** [`EvidenceKind`](../../../sdks/typescript/src/agents/brief-types.ts#L109), [`ExtractionSource`](../../../sdks/typescript/src/agents/brief-types.ts#L112), [`ServiceMatchRoute`](../../../sdks/typescript/src/agents/brief-types.ts#L115), [`DecisionEvidence`](../../../sdks/typescript/src/agents/brief-types.ts#L117), [`DecisionsExplainTerm`](../../../sdks/typescript/src/agents/brief-types.ts#L127), [`DecisionsEntry`](../../../sdks/typescript/src/agents/brief-types.ts#L133)
+  3. **Ownership (3):** [`OwnershipOwner`](../../../sdks/typescript/src/agents/brief-types.ts#L156), [`OwnershipCoverage`](../../../sdks/typescript/src/agents/brief-types.ts#L169), [`OwnershipTargetView`](../../../sdks/typescript/src/agents/brief-types.ts#L183)
+  4. **Persona & Synthesis (5):** [`PersonaTone`](../../../sdks/typescript/src/agents/brief-types.ts#L202), [`PersonaVoice`](../../../sdks/typescript/src/agents/brief-types.ts#L203), [`NimbusPersonaToml`](../../../sdks/typescript/src/agents/brief-types.ts#L206), [`SynthesisDiscardReason`](../../../sdks/typescript/src/agents/brief-types.ts#L209), [`SynthesisProvenance`](../../../sdks/typescript/src/agents/brief-types.ts#L223)
 * **Impact:** Cosmetic in the plan, but aligning the header count from 15 to 18 prevents confusion during step-by-step verification.
 
 ---
 
 ### F1.3: Export Count Delta Sanity Check
-* **Observation:** The baseline export count in [`sdks/typescript/scripts/stability-rules.test.ts:481`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/scripts/stability-rules.test.ts#L481) and [`sdks/typescript/scripts/conventional-commit-guard.test.ts:151`](file:///C:/gitrep/nimbus-sdk/.claude/worktrees/remaining-brief-types/sdks/typescript/scripts/conventional-commit-guard.test.ts#L151) is `248`.
+* **Observation:** The baseline export count in [`sdks/typescript/scripts/stability-rules.test.ts:481`](../../../sdks/typescript/scripts/stability-rules.test.ts#L481) and [`sdks/typescript/scripts/conventional-commit-guard.test.ts:151`](../../../sdks/typescript/scripts/conventional-commit-guard.test.ts#L151) is `248`.
 * **Calculation:**
   - 18 new leaf types in `brief-types.ts`
   - 3 new composites in `brief-composites.ts` (`GlossaryBrief`, `DecisionsBrief`, `OwnershipBrief`)

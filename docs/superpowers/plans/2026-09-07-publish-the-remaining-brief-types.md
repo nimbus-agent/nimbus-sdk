@@ -14,6 +14,7 @@
 
 - **This is a `feat!:` — a major.** Appending to `AgentBrief` and `BriefFor` classifies as `signature` at `stable`. The PR title must carry the `!`; the repo squash-merges, so that title is the only subject release-please reads.
 - **The authority for every type is the gateway**, at `packages/gateway/src/agents/_lib/{glossary,decisions,ownership}-types.ts` and `_lib/synthesize.ts` in the `Nimbus` repo. Transcribe; do not redesign.
+- **Transcribe from `Nimbus` at `6f28a8015c82` (`main`, 2026-09-07)**, and record that revision in the commit body of the task that lands the types. The gateway is a separate repo on its own release cadence: without a pinned revision, "transcribe the gateway" names a moving target, and a shape that changed between transcription and publication would ship as a `stable` type that is wrong from birth — recoverable only by another major. Before Task 4 regenerates the goldens, re-read those four files at `HEAD` and diff them against `6f28a8015c82`; if any of the three briefs, `OwnershipCoverage`, `DecisionsEntry.explain` or `DecisionsEntry.matchedVia` moved, stop and re-transcribe rather than publishing the older shape.
 - **Publish the diagnostics too** — `OwnershipBrief.coverage`, `DecisionsEntry.explain`, `DecisionsEntry.matchedVia`. They are on the wire, and a type that describes less than the payload lies by omission.
 - **`bun run build` before `bun test`.** Three tests assert `dist/index.d.ts` exists and fail confusingly otherwise.
 - **Two hardcoded export counts** — `sdks/typescript/scripts/stability-rules.test.ts` and `sdks/typescript/scripts/conventional-commit-guard.test.ts` both assert `248`. They fail until bumped to the new total.
@@ -546,8 +547,8 @@ bun run build && bun run api:surface && bun run stability:matrix
 
 Read the new total off the regenerated `docs/api-surface.md` — do not compute it by hand — then update **both**:
 
-- `sdks/typescript/sdks/typescript/scripts/stability-rules.test.ts`, the `expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(248)` assertion
-- `sdks/typescript/sdks/typescript/scripts/conventional-commit-guard.test.ts`, the same `248` in its golden-parse assertion
+- `sdks/typescript/scripts/stability-rules.test.ts`, the `expect(parseSurface(readFromRepo("docs/api-surface.md")).size).toBe(248)` assertion
+- `sdks/typescript/scripts/conventional-commit-guard.test.ts`, the same `248` in its golden-parse assertion
 
 Both are deliberate anti-vacuity gates — the comment beside the first says so. They are the least discoverable thing in this repo, and they fail with a message that does not mention your change.
 

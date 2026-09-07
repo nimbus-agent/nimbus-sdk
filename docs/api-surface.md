@@ -9,7 +9,7 @@ Every export of every `exports` entry point in `package.json`, as emitted to `di
 
 ## `.`
 
-147 exports.
+171 exports.
 
 ### `AGENT_KIND`
 
@@ -28,6 +28,9 @@ export declare const AGENT_KIND: {
     readonly janitor: "janitor";
     readonly preflight: "preflight";
     readonly why: "why";
+    readonly glossary: "glossary";
+    readonly decisions: "decisions";
+    readonly ownership: "ownership";
 };
 ```
 
@@ -38,7 +41,7 @@ export declare const AGENT_KIND: {
 From `./agents/agent-names.js`.
 
 ```ts
-export declare const AGENT_NAMES: readonly ["expert", "impact", "catchup", "ghost", "conflicts", "huddle", "janitor", "preflight", "why"];
+export declare const AGENT_NAMES: readonly ["expert", "impact", "catchup", "ghost", "conflicts", "huddle", "janitor", "preflight", "why", "glossary", "decisions", "ownership"];
 ```
 
 ### `AgentBrief` *(type-only)*
@@ -48,7 +51,7 @@ export declare const AGENT_NAMES: readonly ["expert", "impact", "catchup", "ghos
 From `./agents/brief-composites.js`.
 
 ```ts
-export type AgentBrief = ExpertBrief | ImpactBrief | CatchupBrief | GhostBrief | ConflictBrief | HuddleBrief | JanitorBrief | PreflightBrief | WhyBrief;
+export type AgentBrief = ExpertBrief | ImpactBrief | CatchupBrief | GhostBrief | ConflictBrief | HuddleBrief | JanitorBrief | PreflightBrief | WhyBrief | GlossaryBrief | DecisionsBrief | OwnershipBrief;
 ```
 
 ### `AgentBriefBase` *(type-only)*
@@ -146,6 +149,9 @@ export type BriefFor<A extends AgentName> = {
     janitor: JanitorBrief;
     preflight: PreflightBrief;
     why: WhyBrief;
+    glossary: GlossaryBrief;
+    decisions: DecisionsBrief;
+    ownership: OwnershipBrief;
 }[A];
 ```
 
@@ -339,6 +345,89 @@ export interface DataColumn {
 }
 ```
 
+### `DecisionEvidence` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type DecisionEvidence = {
+    kind: EvidenceKind;
+    entityId: string | null;
+    itemId: string | null;
+    label: string;
+
+    url: string | null;
+    occurredAt: number | null;
+};
+```
+
+### `DecisionsBrief` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-composites.js`.
+
+```ts
+export type DecisionsBrief = AgentBriefBase & {
+    kind: "decisions";
+    query: {
+
+        sinceMs: number;
+        service: string | null;
+        minConfidence: number;
+        explain: boolean;
+    };
+    entries: DecisionsEntry[];
+    stats: {
+        total: number;
+        pending: number;
+        extracted: number;
+        vetoed: number;
+        lastPassAt: number | null;
+        truncatedSources: number;
+    };
+};
+```
+
+### `DecisionsEntry` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type DecisionsEntry = {
+    id: string;
+    statement: string;
+    rationale: string | null;
+    alternatives: string[];
+    confidence: number;
+    decidedAt: number;
+    hasAdr: boolean;
+    extractionSource: ExtractionSource | null;
+    evidence: DecisionEvidence[];
+
+    explain: DecisionsExplainTerm[];
+    matchedVia: ServiceMatchRoute | null;
+};
+```
+
+### `DecisionsExplainTerm` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type DecisionsExplainTerm = {
+    term: string;
+    value: number;
+    detail: string;
+};
+```
+
 ### `DistributionChannel` *(type-only)*
 
 **Stability:** frozen
@@ -374,6 +463,16 @@ export type Evidence = {
     modifiedAt: number;
     weight: number;
 };
+```
+
+### `EvidenceKind` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type EvidenceKind = "source" | "pr" | "commit" | "migration" | "iac" | "adr";
 ```
 
 ### `ExpertBrief` *(type-only)*
@@ -465,6 +564,16 @@ export interface ExtensionManifest {
     contractVersions?: string[];
     minNimbusVersion: string;
 }
+```
+
+### `ExtractionSource` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type ExtractionSource = "llm" | "snippet";
 ```
 
 ### `FLUX_KINDS`
@@ -571,6 +680,97 @@ export type GhostFinding = {
     rank: ExpertiseRank;
     context: FederatedItemLite[];
     suggestedContact: string;
+};
+```
+
+### `GlossaryBrief` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-composites.js`.
+
+```ts
+export type GlossaryBrief = AgentBriefBase & {
+    kind: "glossary";
+    query: {
+        term: string | null;
+        limit: number;
+    };
+
+    mode: "list" | "term" | "miss";
+    entries: GlossaryEntry[];
+    matchedVia: GlossaryMatchedVia;
+    suggestions: string[];
+    stats: {
+        total: number;
+        pending: number;
+        vetoed: number;
+
+        manual: number;
+        lastPassAt: number | null;
+
+        truncatedSources: number;
+    };
+};
+```
+
+### `GlossaryDefinitionSource` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type GlossaryDefinitionSource = "llm" | "snippet" | "manual";
+```
+
+### `GlossaryEntry` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type GlossaryEntry = {
+    term: string;
+    definition: string | null;
+    definitionSource: GlossaryDefinitionSource | null;
+    docFreq: number;
+
+    score: number;
+    serviceSpread: number;
+    firstSeenAt: number;
+    lastSeenAt: number;
+    topSources: GlossarySourceRef[];
+    synonyms: string[];
+    nearMisses: string[];
+};
+```
+
+### `GlossaryMatchedVia` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type GlossaryMatchedVia = "exact" | "synonym" | null;
+```
+
+### `GlossarySourceRef` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type GlossarySourceRef = {
+    itemId: string;
+    title: string;
+
+    url: string | null;
+    service: string;
+    modifiedAt: number;
 };
 ```
 
@@ -892,6 +1092,19 @@ export interface NimbusItem {
 }
 ```
 
+### `NimbusPersonaToml` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type NimbusPersonaToml = {
+    tone: PersonaTone;
+    voice: PersonaVoice;
+};
+```
+
 ### `NonIntegerNumberInManifest`
 
 **Deprecated:** since 1.32.0 — use `CanonicalizationError` from `@nimbus-dev/sdk/signing` instead, which implements `docs/spec/signing/v1/canonical-json.md` with a single closed error type in place of one class per failure mode. This class is thrown for a *finite* non-integer (e.g. `1.5`), which the new surface classifies as reason `"non-integer-number"` — the same mapping. It is also thrown for `NaN` and `±Infinity`, because `Number.isInteger` is false for those too; the new surface classifies a non-finite value as `"number-out-of-range"` instead, not `"non-integer-number"`, so a migrating caller must branch on finiteness, not on this class alone. May be removed in 2.0.0, no earlier than the release after next — see docs/DEPRECATION-POLICY.md.
@@ -904,6 +1117,88 @@ From `./crypto/canonical-json.js`.
 export declare class NonIntegerNumberInManifest extends Error {
     readonly name = "NonIntegerNumberInManifest";
 }
+```
+
+### `OwnershipBrief` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-composites.js`.
+
+```ts
+export type OwnershipBrief = AgentBriefBase & {
+    kind: "ownership";
+    query: {
+        path: string | null;
+        service: string | null;
+
+        itemUrl: string | null;
+    };
+
+    target: OwnershipTargetView | null;
+    parentDirectory: OwnershipTargetView | null;
+    service: {
+        id: string;
+    } | null;
+    coverage: OwnershipCoverage;
+};
+```
+
+### `OwnershipCoverage` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type OwnershipCoverage = {
+    lastPassAt: number | null;
+    lastDurationMs: number;
+    rootsTotal: number;
+    rootsCovered: number;
+    rootsWithRemote: number;
+    filesCovered: number;
+    filesExcluded: number;
+    servicesBound: number;
+    ownersEmitted: number;
+    entitiesReaped: number;
+};
+```
+
+### `OwnershipOwner` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type OwnershipOwner = {
+    externalId: string;
+    label: string;
+
+    share: number;
+
+    resolved: boolean;
+};
+```
+
+### `OwnershipTargetView` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type OwnershipTargetView = {
+    kind: "source_file" | "directory" | "service";
+
+    displayPath: string;
+    owners: OwnershipOwner[];
+
+    ownerCount: number | null;
+    ownersAboveFloor: number | null;
+    truncated: boolean | null;
+};
 ```
 
 ### `PREVIEW_MAX_CHARS`
@@ -954,6 +1249,26 @@ export interface ParsedEvent {
     readonly rrule: string | null;
     readonly dtstamp: string | null;
 }
+```
+
+### `PersonaTone` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type PersonaTone = "neutral" | "terse" | "formal" | "casual" | "verbose";
+```
+
+### `PersonaVoice` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type PersonaVoice = "neutral" | "opinionated" | "collective";
 ```
 
 ### `PreflightBrief` *(type-only)*
@@ -1069,6 +1384,16 @@ From `./jmap-fastmail/index.js`.
 export declare const SUBMISSION_CAPABILITY = "urn:ietf:params:jmap:submission";
 ```
 
+### `ServiceMatchRoute` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type ServiceMatchRoute = "repo" | "ticket-key";
+```
+
 ### `SignJwtOptions` *(type-only)*
 
 **Stability:** stable
@@ -1141,6 +1466,42 @@ export interface StorybookStory {
     readonly tags: readonly string[];
     readonly entryType: string | null;
 }
+```
+
+### `SynthesisDiscardReason` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type SynthesisDiscardReason = "timeout" | "contract_violation" | "egress_append_failed" | "provider_error" | "empty_result";
+```
+
+### `SynthesisProvenance` *(type-only)*
+
+**Stability:** stable
+
+From `./agents/brief-types.js`.
+
+```ts
+export type SynthesisProvenance = {
+    attempted: false;
+    reason: "disabled" | "no_eligible_provider" | "reserved_extraction_failed";
+} | {
+    attempted: true;
+    used: true;
+    model: string;
+    remote: boolean;
+    persona?: NimbusPersonaToml;
+} | {
+    attempted: true;
+    used: false;
+    reason: SynthesisDiscardReason;
+    violations?: string[];
+    detail?: string;
+    persona?: NimbusPersonaToml;
+};
 ```
 
 ### `UnsupportedManifestValueType`
@@ -1594,6 +1955,16 @@ From `./agents/brief-guards.js`.
 export declare const isConflictBrief: (x: unknown) => x is ConflictBrief;
 ```
 
+### `isDecisionsBrief`
+
+**Stability:** stable
+
+From `./agents/brief-guards.js`.
+
+```ts
+export declare const isDecisionsBrief: (x: unknown) => x is DecisionsBrief;
+```
+
 ### `isExpertBrief`
 
 **Stability:** stable
@@ -1612,6 +1983,16 @@ From `./agents/brief-guards.js`.
 
 ```ts
 export declare const isGhostBrief: (x: unknown) => x is GhostBrief;
+```
+
+### `isGlossaryBrief`
+
+**Stability:** stable
+
+From `./agents/brief-guards.js`.
+
+```ts
+export declare const isGlossaryBrief: (x: unknown) => x is GlossaryBrief;
 ```
 
 ### `isHitlRequest`
@@ -1662,6 +2043,16 @@ From `./item-types.js`.
 
 ```ts
 export declare function isKnownItemType(v: unknown): v is KnownItemType;
+```
+
+### `isOwnershipBrief`
+
+**Stability:** stable
+
+From `./agents/brief-guards.js`.
+
+```ts
+export declare const isOwnershipBrief: (x: unknown) => x is OwnershipBrief;
 ```
 
 ### `isPreflightBrief`

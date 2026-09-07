@@ -173,3 +173,158 @@ export type WhyChangeSubject = {
   /** Epoch ms, as the source reports it. Null when the item carried none. */
   modifiedAt: number | null;
 };
+
+/** How a queried term was resolved; `null` when nothing matched. */
+export type GlossaryMatchedVia = "exact" | "synonym" | null;
+
+/** Where a term's definition came from. `null` when it has none yet. */
+export type GlossaryDefinitionSource = "llm" | "snippet" | "manual";
+
+export type GlossarySourceRef = {
+  itemId: string;
+  title: string;
+  /** The only URL in the glossary tree. Null when the indexed item carried none. */
+  url: string | null;
+  service: string;
+  modifiedAt: number;
+};
+
+export type GlossaryEntry = {
+  term: string;
+  definition: string | null;
+  definitionSource: GlossaryDefinitionSource | null;
+  docFreq: number;
+  /**
+   * The value the list is ORDERED by. Published because it is rendered: the
+   * gateway records that showing only `docFreq` while sorting on this made the
+   * visible number contradict the visible order.
+   */
+  score: number;
+  serviceSpread: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
+  topSources: GlossarySourceRef[];
+  synonyms: string[];
+  nearMisses: string[];
+};
+
+export type EvidenceKind = "source" | "pr" | "commit" | "migration" | "iac" | "adr";
+
+/** How the decision was extracted from its source. */
+export type ExtractionSource = "llm" | "snippet";
+
+/** Which `--service` route matched, when a service filter applied. */
+export type ServiceMatchRoute = "repo" | "ticket-key";
+
+export type DecisionEvidence = {
+  kind: EvidenceKind;
+  entityId: string | null;
+  itemId: string | null;
+  label: string;
+  /** The only URL in the decisions tree. */
+  url: string | null;
+  occurredAt: number | null;
+};
+
+export type DecisionsExplainTerm = {
+  term: string;
+  value: number;
+  detail: string;
+};
+
+export type DecisionsEntry = {
+  id: string;
+  statement: string;
+  rationale: string | null;
+  alternatives: string[];
+  confidence: number;
+  decidedAt: number;
+  hasAdr: boolean;
+  extractionSource: ExtractionSource | null;
+  evidence: DecisionEvidence[];
+  /**
+   * Populated only when the caller asked for it; otherwise empty. Published
+   * because it is on the wire — a type that omits it would describe less than
+   * the payload.
+   */
+  explain: DecisionsExplainTerm[];
+  matchedVia: ServiceMatchRoute | null;
+};
+
+export type OwnershipOwner = {
+  externalId: string;
+  label: string;
+  /** The edge weight: this owner's recency-weighted share of the target, 0..1. */
+  share: number;
+  /** False when the id is the `git:<email>` fallback — no person row matched. */
+  resolved: boolean;
+};
+
+/**
+ * Diagnostics from the ownership pass. Published because `OwnershipBrief`
+ * carries it, not because a reader is expected to render it.
+ */
+export type OwnershipCoverage = {
+  lastPassAt: number | null;
+  lastDurationMs: number;
+  rootsTotal: number;
+  rootsCovered: number;
+  rootsWithRemote: number;
+  filesCovered: number;
+  filesExcluded: number;
+  servicesBound: number;
+  ownersEmitted: number;
+  entitiesReaped: number;
+};
+
+/** One ranked target — the requested path, its parent directory, or a service. */
+export type OwnershipTargetView = {
+  kind: "source_file" | "directory" | "service";
+  /** What to print: the root-relative path, `(repository root)`, or the service id. */
+  displayPath: string;
+  owners: OwnershipOwner[];
+  /**
+   * `null` means NOT RECORDED — never "no truncation". Rows written before the
+   * floor/cap split carry no `ownersAboveFloor`, and their `truncated` boolean
+   * conflated two different facts, so it is discarded rather than reported.
+   */
+  ownerCount: number | null;
+  ownersAboveFloor: number | null;
+  truncated: boolean | null;
+};
+
+export type PersonaTone = "neutral" | "terse" | "formal" | "casual" | "verbose";
+export type PersonaVoice = "neutral" | "opinionated" | "collective";
+
+/** The resolved `[persona]` block in force when a brief was synthesized. */
+export type NimbusPersonaToml = { tone: PersonaTone; voice: PersonaVoice };
+
+/** Every reason a synthesis attempt can be discarded once a runner was invoked. */
+export type SynthesisDiscardReason =
+  | "timeout"
+  | "contract_violation"
+  | "egress_append_failed"
+  | "provider_error"
+  | "empty_result";
+
+/**
+ * Why a synthesized rewrite was — or was not — used.
+ *
+ * `remote` exists ONLY on the `used: true` arm: it is the local/remote bit, and
+ * asking for it on either other arm is asking about a call that produced no text
+ * anybody read. `detail` is redacted upstream before it reaches this type.
+ */
+export type SynthesisProvenance =
+  | {
+      attempted: false;
+      reason: "disabled" | "no_eligible_provider" | "reserved_extraction_failed";
+    }
+  | { attempted: true; used: true; model: string; remote: boolean; persona?: NimbusPersonaToml }
+  | {
+      attempted: true;
+      used: false;
+      reason: SynthesisDiscardReason;
+      violations?: string[];
+      detail?: string;
+      persona?: NimbusPersonaToml;
+    };

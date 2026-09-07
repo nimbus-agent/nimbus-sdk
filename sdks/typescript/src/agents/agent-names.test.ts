@@ -7,7 +7,7 @@ describe("agent names", () => {
   // because this package cannot import the gateway to ask. Its old name — "all nine agents
   // are listed" — claimed the second thing while doing the first, and stayed green across
   // the five agent additions that made the claim false.
-  test("the modelled subset is exactly these nine", () => {
+  test("the modelled subset is exactly these twelve", () => {
     expect([...AGENT_NAMES]).toEqual([
       "expert",
       "impact",
@@ -18,6 +18,9 @@ describe("agent names", () => {
       "janitor",
       "preflight",
       "why",
+      "glossary",
+      "decisions",
+      "ownership",
     ]);
   });
 

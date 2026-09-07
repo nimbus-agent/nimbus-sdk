@@ -246,7 +246,10 @@ export type AgentBrief =
   | HuddleBrief
   | JanitorBrief
   | PreflightBrief
-  | WhyBrief;
+  | WhyBrief
+  | GlossaryBrief
+  | DecisionsBrief
+  | OwnershipBrief;
 
 /**
  * `agents.whyPeek` result — a synchronous one-line answer, NOT a brief.
@@ -283,4 +286,7 @@ export type BriefFor<A extends AgentName> = {
   janitor: JanitorBrief;
   preflight: PreflightBrief;
   why: WhyBrief;
+  glossary: GlossaryBrief;
+  decisions: DecisionsBrief;
+  ownership: OwnershipBrief;
 }[A];

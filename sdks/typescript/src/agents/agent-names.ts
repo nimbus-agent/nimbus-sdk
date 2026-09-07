@@ -8,9 +8,11 @@
  * reachable over `agents.*` IPC and are deliberately absent here, because a name earns its
  * place on this list only once its brief type, its guard and its guard fixture exist.
  * Lagging the gateway is the intended state, not a bug to be closed by appending names.
- * `premortem` is a harder case than "nobody asked": the gateway excludes it from
- * `EXTERNAL_AGENT_NAMES` because building it writes paused `watcher` rows, so it is not a
- * pure read and no external caller can request it.
+ * `premortem` is a harder case than "nobody asked": building it is not a pure read — it
+ * writes paused `watcher` rows — so it has no brief type, guard or fixture here and stays
+ * off this list under the rule above. (The gateway also keeps `agents.preflight` out of
+ * `EXTERNAL_AGENT_NAMES`, and `preflight` IS on this list, so external reachability is not
+ * what decides membership here — only the brief-type/guard/fixture rule is.)
  *
  * So do not read this as "the agents Nimbus has", and do not build a picker, a router or a
  * capability list from it — each of those would silently omit two shipping agents. The

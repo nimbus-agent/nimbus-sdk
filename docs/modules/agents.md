@@ -3,15 +3,14 @@
 
 # `agents`
 
-The wire shapes of nine of Nimbus's built-in read-only agents — their names, their brief
+The wire shapes of twelve of Nimbus's built-in read-only agents — their names, their brief
 types, the runtime guards that recognize a brief, and the factory those guards are built
 from.
 
-**Nine is this package's coverage, not Nimbus's roster.** The gateway also serves
-`ownership`, `premortem`, `glossary`, `decisions` and `negotiate` over `agents.*`; none has
-a brief type or a guard here, so `AGENT_NAMES` is not a list of what Nimbus can do and a
-picker or router built from it would silently omit those five. See `AGENT_NAMES`' own
-doc comment for why the lag is deliberate.
+**Twelve is this package's coverage, not Nimbus's roster.** The gateway also serves
+`premortem` and `negotiate` over `agents.*`; neither has a brief type or a guard here, so
+`AGENT_NAMES` is not a list of what Nimbus can do and a picker or router built from it would
+silently omit those two. See `AGENT_NAMES`' own doc comment for why the lag is deliberate.
 
 ## When you reach for it
 
@@ -29,7 +28,7 @@ shape of your own.
 - **An agent's name is not its brief's `kind`.** The `conflicts` agent emits
   `kind: "conflict"` (singular). `AGENT_KIND` maps one to the other; deriving one from the
   other by string manipulation rejects every valid conflicts brief.
-- **The nine shipped guards are strict.** All of them pass `requireQuery: true`, matching
+- **The twelve shipped guards are strict.** All of them pass `requireQuery: true`, matching
   the gateway that emits the briefs and therefore defines the wire. `requireQuery` defaults
   to `false` in the factory, so a guard of your own is laxer than the shipped ones unless
   you opt in.
@@ -40,6 +39,13 @@ shape of your own.
   consequence is on you: **dispatch across all three**. A consumer that checks two returns
   null on a valid item brief, which reads as "unresolved" and is not. The guard passing is
   not enough to tell those apart — see the example below.
+- **The guards are dispatch-level, not depth-level.** They confirm an array field exists —
+  `Array.isArray`, nothing more — and never inspect what is inside it, so `isWhyBrief`
+  accepts `{ findings: [42, null] }`. That is the same restraint as the `why` bullet above,
+  generalized: a guard that walked every element would reject a shape this package has not
+  heard of yet. These guards answer "which brief is this", not "is every field I am about to
+  render present" — a consumer that renders from a brief, rather than routing it, needs its
+  own element-deep guards on top of these.
 - **Pure.** Guards are total functions over `unknown`; they never throw and never read
   ambient state — see the
   [inclusion policy](../INCLUSION-POLICY.md#2-pure--hidden-ambient-state-is-forbidden-substitutable-effects-are-seamed).
@@ -121,16 +127,23 @@ Signatures live in [`api-surface.md`](../api-surface.md) — the generated snaps
 published contract. They are not repeated here, so there is only ever one copy to keep
 correct. The five claimed modules divide up as follows.
 
-- **`agents/agent-names`** — `AGENT_NAMES` (the nine names, `as const`), the `AgentName`
+- **`agents/agent-names`** — `AGENT_NAMES` (the twelve names, `as const`), the `AgentName`
   union derived from it, and `AGENT_KIND` mapping each name to its brief's discriminant.
 - **`agents/brief-types`** — the leaf shapes the gateway's analysis produces:
   `AgentBriefBase`, `Evidence`, `GapNote`/`GapCategory`, `ExpertFinding`, `ImpactFinding`,
   `CatchupItem`/`CatchupSection`, `ConflictType`, `JanitorPeerTouch`,
-  `PreflightDownstream`, and `WhyFinding`/`WhyLane`/`WhySubject`/`WhyChangeSubject`.
+  `PreflightDownstream`, `WhyFinding`/`WhyLane`/`WhySubject`/`WhyChangeSubject`, and — for
+  the three newest briefs — `GlossaryEntry`/`GlossaryMatchedVia`/`GlossaryDefinitionSource`/
+  `GlossarySourceRef` for `glossary`; `DecisionsEntry`/`DecisionEvidence`/
+  `DecisionsExplainTerm`/`EvidenceKind`/`ExtractionSource`/`ServiceMatchRoute` for
+  `decisions`; `OwnershipOwner`/`OwnershipCoverage`/`OwnershipTargetView` for `ownership`;
+  and `SynthesisProvenance`/`SynthesisDiscardReason`/`NimbusPersonaToml`/`PersonaTone`/
+  `PersonaVoice`, published for wire parity with the gateway's synthesis step even though no
+  composite here embeds them yet.
   `WhySubject` and `WhyChangeSubject` are alternatives, not variants: a `why` brief
   asked about a `ref` resolves the first, one asked about a `prUrl` carries the
   second with `subject` left null.
-- **`agents/brief-composites`** — the nine briefs themselves, the `AgentBrief` union, and
+- **`agents/brief-composites`** — the twelve briefs themselves, the `AgentBrief` union, and
   the `BriefFor<A>` lookup that maps an `AgentName` to its brief type. It also holds the
   finding shapes that only appear inside a composite — `ConflictFinding`, `GhostFinding`,
   `HuddleContribution`, `FederatedItemLite`, `ExpertiseRank` — so "leaf shapes live in
@@ -141,6 +154,6 @@ correct. The five claimed modules divide up as follows.
   `agents.whyPeek` result, deliberately outside the `AgentBrief` union because it carries no
   `AgentBriefBase` fields and no gap notes. `BriefReadyPayload<B>` is the envelope a completed
   brief arrives in.
-- **`agents/brief-guards`** — the nine `is*Brief` guards and `BRIEF_GUARDS`, which indexes
+- **`agents/brief-guards`** — the twelve `is*Brief` guards and `BRIEF_GUARDS`, which indexes
   them by `AgentName` so you can dispatch without a switch.
-- **`agents/guard-factory`** — `createBriefGuard`, which all nine are built from.
+- **`agents/guard-factory`** — `createBriefGuard`, which all twelve are built from.

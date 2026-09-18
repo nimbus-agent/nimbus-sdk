@@ -27,6 +27,22 @@ describe("parseName", () => {
     });
   });
 
+  test("accepts a 64-character name", () => {
+    const raw = "a".repeat(64);
+    expect(parseName(raw)).toEqual({
+      kebab: raw,
+      snake: raw,
+      title: `A${"a".repeat(63)}`,
+    });
+  });
+
+  test("rejects a 65-character name", () => {
+    const raw = "a".repeat(65);
+    expect(parseName(raw)).toEqual({
+      error: `"${raw}" is longer than 64 characters`,
+    });
+  });
+
   // Each of these fails a rule that BOTH ecosystems impose, or that one imposes and the
   // other tolerates — the CLI takes the stricter of the two, since one name has to serve
   // as an npm package name, a Python module name, and a directory name at once.

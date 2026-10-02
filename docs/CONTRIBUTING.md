@@ -230,6 +230,49 @@ Conventional Commit is unreadable to it (and to release-please), so a feature hi
 a `wip` subject is invisible. The job lists such commits as a note. Keep stack commits
 conventional, or land the part directly on `main`.
 
+## Updating dependencies
+
+No bot opens dependency pull requests here: a maintainer updates dependencies in periodic
+bulk PRs. Run `bun outdated -r` from the repository root, edit the ranges in each
+workspace's `package.json`, run `bun install`, then run the full set of checks — everything
+under [Pull requests](#pull-requests), plus the scaffolder's `bun run scaffold:typecheck`,
+`bun run scaffold:lint` and `bun run scaffold:test`, since `tools/create-connector` is the
+second workspace. The `-r` is not optional: the root `package.json` declares no dependencies
+of its own, so a bare `bun outdated` there reports nothing. Title the PR `build(deps): …`,
+the type Dependabot's bumps on `main` carried, which cuts no release on its own.
+
+The notes below are the reasoning the retired Dependabot configuration used to carry, kept
+as guidance for whoever runs the update:
+
+- **Update with Bun, and commit `bun.lock` with the manifests.** `bun.lock` is the only
+  lockfile and npm does not read it, so an npm-driven bump edits `package.json` and leaves
+  the lockfile behind. CI installs the repository with `bun install --frozen-lockfile`,
+  which then fails with `lockfile had changes, but lockfile is frozen`.
+- **Start from the Dependabot alerts.** Alerts are still on — they come from GitHub's
+  advisory database, not from configuration in this repository — so a vulnerable
+  dependency still shows up under the repository's **Security** tab, or via
+  `gh api 'repos/nimbus-agent/nimbus-sdk/dependabot/alerts?state=open'`. What is gone is
+  the automatically opened fix PR, so a high or critical alert is a reason to update out of
+  cycle rather than wait for the next bulk pass.
+- **Move each GitHub Action everywhere it appears, in one commit.** Every third-party action
+  is pinned to a full commit SHA with its release tag as a trailing comment
+  (`uses: owner/action@<sha> # <tag>`); update the two together. The steps of a multi-step
+  action must stay on one SHA: `github/codeql-action/init` and `github/codeql-action/analyze`
+  on different versions make CodeQL fail with `Loaded a configuration file for version X,
+  but running version Y`.
+- **Regenerate the Python verification toolchain; never hand-edit it.**
+  `sdks/python/verify-requirements.txt` is compiled from `verify-requirements.in` by the
+  `uv pip compile` command in that file's header, and CI installs it with
+  `--require-hashes`, so a version edited by hand has no matching hash. `sigstore` arrives
+  through `pypi-attestations` and the two are version-coupled: change the
+  `pypi-attestations` pin in the `.in` and let the resolver move `sigstore` with it, since
+  bumping either alone lands a combination neither project tests. Review the diff as a
+  release-infrastructure change rather than routine dependency noise — this toolchain
+  decides whether a published artifact is trustworthy (see [RELEASING.md](./RELEASING.md)).
+- **Little else has anything to bump.** `[project] dependencies` in
+  `sdks/python/pyproject.toml` is empty by policy, leaving only the `hatchling` floor in
+  `[build-system] requires`, and `sdks/go/go.mod` has no `require` block at all.
+
 ## Releases
 
 Releases are automated by [release-please](https://github.com/googleapis/release-please):

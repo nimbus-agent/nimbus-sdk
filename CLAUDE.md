@@ -813,6 +813,13 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   so the `go` job needs no `proxy.golang.org` or `sum.golang.org` allowance. It is not the
   same as needing no network — `actions/setup-go` still fetches a toolchain, because the
   runners preinstall one Go version and the matrix asks for two.
+- **Dependency updates are manual: a maintainer bumps everything in periodic bulk PRs.**
+  Dependabot's version updates and fix PRs are retired; its alerts stay on. Follow
+  [Updating dependencies](./docs/CONTRIBUTING.md#updating-dependencies), which keeps the
+  reasoning its configuration carried — `bun outdated -r` (a bare `bun outdated` at the root
+  reports nothing), `bun.lock` committed with the manifests, CodeQL's `init` and `analyze`
+  on one SHA, and `sdks/python/verify-requirements.txt` regenerated from its `.in`, never
+  hand-edited.
 
 ## Relationship to other repos
 

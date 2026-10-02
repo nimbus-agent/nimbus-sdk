@@ -91,7 +91,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -151,7 +151,7 @@ jobs:
           version: ${{ steps.published.outputs.version }}
 
       - name: Verify provenance names this repo, workflow and commit
-        uses: nimbus-agent/.github/actions/verify-npm-provenance@5fb42792fa88287048fd24f704183b9a9b807a67
+        uses: nimbus-agent/.github/actions/verify-npm-provenance@75921257abc9596b7de0fb4162402ad7fb7440f6
         with:
           package: "@nimbus-dev/sdk"
           version: ${{ steps.published.outputs.version }}
@@ -186,7 +186,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -246,7 +246,7 @@ jobs:
           version: ${{ needs.release-please.outputs.cc_version }}
 
       - name: Verify provenance names this repo, workflow and commit
-        uses: nimbus-agent/.github/actions/verify-npm-provenance@5fb42792fa88287048fd24f704183b9a9b807a67
+        uses: nimbus-agent/.github/actions/verify-npm-provenance@75921257abc9596b7de0fb4162402ad7fb7440f6
         with:
           package: "@nimbus-dev/create-connector"
           version: ${{ needs.release-please.outputs.cc_version }}

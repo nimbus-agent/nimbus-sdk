@@ -696,7 +696,7 @@ jobs:
           node "$RUNNER_TEMP/package/dist/index.js" demo-connector --dir "$RUNNER_TEMP/demo-connector"
 
       # The tarball goes in first and on purpose: `npm install <tarball>` rewrites the
-      # dependency to a `file:` specifier, so the template's `^1.12.0` range is never
+      # dependency to a `file:` specifier, so the template's `^2.0.0` range is never
       # resolved from the registry and the SDK under test is the one this commit built.
       # Every *other* dependency still comes from npm, which is the range check.
       - name: Install the packed SDK and the project's own dependencies

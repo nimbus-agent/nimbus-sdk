@@ -17,7 +17,9 @@ export { expectNoRejectedDiagnostics } from "./diagnostics-assert.js";
 export { runSandboxContractTests } from "./sandbox-contract.js";
 
 export class MockGateway {
-  async callTool(_toolName: string, _input: Record<string, unknown>): Promise<unknown> {
-    return {};
+  // Not `async`: nothing here awaits, and `Promise.resolve` already hands back the promise a
+  // real gateway call returns. The body cannot throw, so no caller can tell the difference.
+  callTool(_toolName: string, _input: Record<string, unknown>): Promise<unknown> {
+    return Promise.resolve({});
   }
 }

@@ -319,7 +319,10 @@ export function validateManifest(manifest: unknown): ManifestViolation[] {
  * a broken one, and is exported for those tests alone: `index.ts` re-exports this module by
  * name, so neither self-check reaches the published surface.
  */
-export function assertV1AuditLoggerShape(logger: AuditLogger, extensionId: string): void {
+export function assertV1AuditLoggerShape(
+  logger: AuditLogger /* NOSONAR S1874: the deprecated logger is what this v1 self-check verifies */,
+  extensionId: string,
+): void {
   const ret = logger.log("test.action", {});
   if (typeof ret.then !== "function") {
     throw new ExtensionContractError(
@@ -490,7 +493,9 @@ export function assertNoRowDataTools(
 /**
  * Validates a {@link ExtensionManifest} for CI / `nimbus test` (no network, no Gateway).
  */
-export async function runContractTests(manifest: ExtensionManifest): Promise<void> {
+export async function /* NOSONAR S7503: frozen async API; without async a failed check would throw instead of rejecting */ runContractTests(
+  manifest: ExtensionManifest,
+): Promise<void> {
   const violations = validateManifest(manifest);
   if (violations.length > 0) {
     throw new ExtensionContractError(violations.map((v) => v.message).join("; "));

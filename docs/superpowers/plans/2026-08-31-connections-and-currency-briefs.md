@@ -1,5 +1,12 @@
 # A Third `why` Subject, and Two New Agent Briefs — Implementation Plan
 
+> **Status, 2026-10-03:** PR 1 shipped in [#260](https://github.com/nimbus-agent/nimbus-sdk/pull/260).
+> PR 2 has not. The `agents` module has changed since this plan was written: 2.0.0 added
+> `glossary`, `decisions` and `ownership`. Re-derive every count, line number and table this
+> plan quotes before executing PR 2. PR 2 is also a **major** (`feat!:`), not the minor
+> described below: adding members to the `stable` `AgentBrief` union and `BriefFor` is a
+> signature change, as 2.0.0's precedent in `docs/DEPRECATION-POLICY.md` records.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Publish the wire shapes for `why`'s third input arm and for two new read-only agents, without breaking a published contract.

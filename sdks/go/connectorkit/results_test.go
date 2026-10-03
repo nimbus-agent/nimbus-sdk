@@ -31,7 +31,7 @@ func TestJSONResultDoesNotHTMLEscape(t *testing.T) {
 	// Asserted as the ABSENCE OF ANY BACKSLASH rather than by naming the escaped
 	// forms: the only escapes encoding/json would introduce into this value are the
 	// HTML ones, and a test that spells them out has to carry a literal backslash-u
-	// through every copy of this plan, which is exactly the transcription that goes
+	// through every copy of the test, which is exactly the transcription that goes
 	// wrong. This form cannot be mis-transcribed into something that passes.
 	if strings.ContainsRune(text, '\\') {
 		t.Errorf("text carries an escape sequence, so it is HTML-escaped: %s", text)

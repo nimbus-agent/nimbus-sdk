@@ -116,9 +116,10 @@ const HEADING = /^### `([^`]+)`/;
 const TYPE_ONLY_SUFFIX = " *(type-only)*";
 const STABILITY_LINE = /^\*\*Stability:\*\* (frozen|stable|experimental)\b/;
 // The optional trailing ` — from \`key\`` is the defining file the Python and Go
-// generators record (RFC/design §5.1). It is a NON-capturing group on purpose: group 1
-// is this map's key and `declaration` is what `diffSurfaces` compares for a signature
-// change, so anything that reached either would turn a pure rendering change into 294
+// generators record (docs/ARCHITECTURE.md, "The stability matrix"). It is a NON-capturing
+// group on purpose: group 1 is this map's key and `declaration` is what `diffSurfaces`
+// compares for a signature change, so anything that reached either would turn a pure
+// rendering change into 294
 // removals plus 294 additions. Placing it before the tier, or omitting the group while
 // the goldens carry the suffix, are the two ways to get this wrong — the first captures
 // it into the key, the second breaks the end anchor and drops every entry.

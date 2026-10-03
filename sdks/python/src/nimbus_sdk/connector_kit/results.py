@@ -3,7 +3,7 @@
 Every function here is pure and transport-agnostic: the two ``Protocol``s below are the
 only thing it knows about a response, and ``transport.py``'s ``HttpResponse`` satisfies
 them structurally. That is what lets an author skip the kit's transport entirely and
-still use these helpers — see the design's D6.
+still use these helpers — see the design record in ``docs/ARCHITECTURE.md``.
 
 **A third-party response object will not usually satisfy them as-is.**
 ``httpx.Response`` is the obvious candidate and does not: it spells the status

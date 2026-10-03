@@ -29,9 +29,9 @@ describe("docs/conformance-coverage.md", () => {
   });
 
   test("documents that the report variable is for full-suite runs only", () => {
-    // S2.3 from the design review: a developer who sets NIMBUS_CONFORMANCE_REPORT and then
-    // filters tests gets a truthful partial report the reconciler must reject. They should
-    // read that here rather than deduce it from a failure.
+    // A developer who sets NIMBUS_CONFORMANCE_REPORT and then filters tests gets a truthful
+    // partial report the reconciler must reject. They should read that here rather than
+    // deduce it from a failure.
     expect(renderCoverage()).toContain("NIMBUS_CONFORMANCE_REPORT");
     expect(renderCoverage()).toContain("full-suite runs");
   });

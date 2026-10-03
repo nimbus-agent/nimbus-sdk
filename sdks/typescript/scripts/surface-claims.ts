@@ -1,9 +1,10 @@
 /**
  * The defining files a bullet-form surface golden records.
  *
- * Python's and Go's goldens annotate each export with the file that defines it (design
- * §5.1). This reads those annotations back out, so the documentation gate can ask which
- * files a binding publishes without importing Python or Go tooling.
+ * Python's and Go's goldens annotate each export with the file that defines it (see "The
+ * stability matrix" in docs/ARCHITECTURE.md). This reads those annotations back out, so the
+ * documentation gate can ask which files a binding publishes without importing Python or Go
+ * tooling.
  *
  * Pure: it takes markdown text and returns keys. Reading the goldens off disk is the
  * caller's job, which keeps this drivable from synthetic input.

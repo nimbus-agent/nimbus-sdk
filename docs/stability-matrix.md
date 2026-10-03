@@ -3,7 +3,7 @@
 <!-- GENERATED FILE — do not edit by hand.
      Regenerate with `bun run build && bun run stability:matrix`.
      Tiers are read from the three API-surface goldens on every render and are never
-     stored here — see docs/superpowers/specs/2026-08-30-stability-matrix-design.md. -->
+     stored here — see "The stability matrix" in docs/ARCHITECTURE.md. -->
 
 What each capability promises you, in each language that binds it. A `—` means that
 binding does not publish the capability at all.

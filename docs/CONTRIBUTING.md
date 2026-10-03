@@ -84,6 +84,13 @@ previous snapshot and passes while executing none of your edits. CI never hits t
 it installs into a clean checkout — so it is a local-only trap, where Go's is a red CI
 job.
 
+**Commit a corpus case that pins behaviour every binding already has as `test:`.** The
+regenerated `sdks/go/spec/data/` puts the commit in the `sdks/go` release-please component,
+so a `feat:` or `fix:` would publish a Go version that adds no behaviour, and a Go version
+can never be withdrawn. The explicit-`null` declaration case
+([#152](https://github.com/nimbus-agent/nimbus-sdk/pull/152)) landed as `test:` for this
+reason.
+
 ### Changing the public API surface
 
 `docs/api-surface.md` is a generated snapshot of every export of every `exports`

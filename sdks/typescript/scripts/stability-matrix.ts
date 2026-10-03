@@ -4,7 +4,7 @@
  * The tier is READ from the three surface goldens on every render and never stored in the
  * claim comments, which carry grouping only. That is what makes a stale cell
  * unrepresentable rather than merely detectable: there is no second copy of the tier to go
- * stale. See docs/superpowers/specs/2026-08-30-stability-matrix-design.md §6.
+ * stale. See "The stability matrix" in docs/ARCHITECTURE.md's design record.
  *
  * All I/O arrives through `MatrixIO` so the whole renderer is drivable from synthetic
  * input, for the same reason `docs-modules.ts` reads no files.
@@ -33,7 +33,7 @@ const COLUMN: Record<Binding, string> = {
 /** Weakest first — a capability promises no more than its weakest published part. */
 const WEAKEST_FIRST: readonly Tier[] = ["experimental", "stable", "frozen"];
 
-/** A page's optional explanation for a row whose cells disagree (design §7). */
+/** A page's optional reason for a row whose cells disagree; see assertDisagreementsExplained. */
 const TIER_NOTE = /<!--\s*tier-note:([\s\S]*?)-->/;
 
 /** Every tier TypeScript publishes, grouped by the module key a page claims. */
@@ -131,7 +131,7 @@ function noteIn(pageText: string, file: string): string | null {
  * RFC-0015 §3 permits the same helper sitting at different tiers in two bindings, so a
  * disagreement is sometimes correct — which is exactly why it needs a recorded reason
  * rather than a rule. A gap needs none: gaps are the majority case and all say the same
- * thing (design §7).
+ * thing (docs/ARCHITECTURE.md, "The stability matrix").
  */
 function assertDisagreementsExplained(rows: readonly Row[]): void {
   for (const row of rows) {
@@ -152,7 +152,7 @@ function assertDisagreementsExplained(rows: readonly Row[]): void {
  * A row whose bound cells now AGREE must not still carry a note.
  *
  * The mirror image of `assertDisagreementsExplained`: a note is a second copy of the
- * tier, restated in prose, and this design's whole claim is that there is no second copy
+ * tier, restated in prose, and this renderer's whole claim is that there is no second copy
  * to go stale. Left unchecked, a tier could later change until the disagreement a note
  * once explained no longer exists — the disagreement check stops requiring the note, and
  * a now-false explanation lingers, checked by nothing. This closes that path from the
@@ -313,7 +313,7 @@ const BANNER = `# Stability and support matrix
 <!-- GENERATED FILE — do not edit by hand.
      Regenerate with \`bun run build && bun run stability:matrix\`.
      Tiers are read from the three API-surface goldens on every render and are never
-     stored here — see docs/superpowers/specs/2026-08-30-stability-matrix-design.md. -->
+     stored here — see "The stability matrix" in docs/ARCHITECTURE.md. -->
 
 What each capability promises you, in each language that binds it. A \`—\` means that
 binding does not publish the capability at all.

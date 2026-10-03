@@ -105,7 +105,7 @@ describe("stability in the surface", () => {
     expect(surface?.exports[0]?.stability).toBe("stable");
   });
 
-  // The no-default rule is the design's central safety property: a module reachable
+  // The no-default rule is RFC-0015's central safety property: a module reachable
   // from the published surface MUST declare a tier, or resolveStability throws. Every
   // other fixture in this file tags its module, so without this test the throw could be
   // replaced by `?? "stable"` and every other test here — plus the golden — would stay

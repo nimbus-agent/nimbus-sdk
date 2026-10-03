@@ -172,7 +172,8 @@ Stated so they read as decisions, not gaps:
   directly with none. [`INCLUSION-POLICY.md`](../INCLUSION-POLICY.md) §2 requires a
   substitutable effect to be reachable through a caller-replaceable parameter — the
   Python binding meets that criterion where the TypeScript original does not. The
-  TypeScript gap is recorded as a follow-up rather than replicated here for symmetry.
+  TypeScript gap is a [recorded follow-up](../ROADMAP.md#recorded-follow-ups) rather than
+  replicated here for symmetry.
 - **`HttpStatusError`'s `.status` / `.service` / `.snippet`.** TypeScript throws a bare
   `Error` on a non-2xx response, carrying only the formatted message. Python's
   `HttpStatusError` carries the three parts as attributes as well, so a caller can
@@ -304,3 +305,16 @@ Initialisms follow Go's convention: `ResolveURLWithBase`, `JSONResult`, `MCPTool
   which is neither zero nor caught by a negative check made on the float — so `limit=1e19`
   over five matching rows returned **1** row where Python returns **5**, silently. Python
   has no equivalent edge, because `math.floor` returns an arbitrary-precision `int`.
+- **On the hosts [`url-resolution.md`](../spec/connector-kit/v1/url-resolution.md) §9
+  leaves undefined, Go sides with Python.** That section's table shows TypeScript and Python
+  disagreeing on five host spellings (octal, hexadecimal and short-form IPv4, an expanded
+  IPv6 literal, a percent-encoded host octet). Go's `ResolveURLWithBase` gives Python's
+  verdict on all five, and on a backslash, a space and a non-ASCII host as well, so
+  TypeScript is the outlier two to one. `TestUndefinedInV1MatchesPython` pins this.
+  Nothing here is wrong in any binding: §9 defines no verdict, and no corpus case pins one.
+- **Go needs its own control-character guard for the fragment.** `url.Parse` cuts off
+  `#fragment` before it scans for control characters. Without the kit's own §5 check,
+  `https://api.example.com/x#a<TAB>b` would resolve, where TypeScript and Python both refuse
+  it as `malformed`. No corpus case puts a control character in the fragment, so the corpus
+  cannot see this guard: with it deleted, all 28 cases still pass. Only
+  `TestControlCharacterInFragmentIsMalformed` would catch the regression.

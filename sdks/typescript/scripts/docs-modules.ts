@@ -162,8 +162,8 @@ function addClaims(
  * page whose author has not been asked the question yet; a page whose comment is empty
  * is a claim of nothing, which is always a mistake — so it throws rather than passing as
  * a page that documents nothing. A page *may* legitimately claim nothing in one or two
- * of the three bindings — a `py:`/`go:`-only page has an empty `typescript` array — design
- * §8.
+ * of the three bindings — a `py:`/`go:`-only page has an empty `typescript` array (see "The
+ * stability matrix" in docs/ARCHITECTURE.md).
  *
  * The grammar: a comma-separated list of claim keys, optionally interrupted by a `py:` or
  * `go:` prefix that switches the *active* binding — `typescript` until the first prefix —

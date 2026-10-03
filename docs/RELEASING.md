@@ -314,6 +314,14 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   call the same two actions, so the genuinely duplicated machinery (a `npm ↔ npm`
   problem, not a three-language one) is defined once.
 
+  **A composite action's `run:` steps do not inherit the calling job's
+  `defaults.run.working-directory`.** Each caller therefore passes `working-directory` to
+  `npm-publish-preflight` explicitly. Without it, the preflight reads the workspace root's
+  `package.json` instead of the package being published, which fails confusingly at best
+  and passes falsely if the two versions ever coincide. `release-workflow-guard.test.ts`
+  derives the expected value from each job's own default, and both actions' comments record
+  why their retries and guards are shaped as they are.
+
   **No workflow in `.github/workflows/` declares `workflow_call`, and that is deliberate
   and permanent, not an omission awaiting correction.** PyPI's Trusted Publisher does not
   support it — [PyPI's troubleshooting guide](https://docs.pypi.org/trusted-publishers/troubleshooting/)
@@ -326,7 +334,6 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   then verifies a PEP 740 attestation, and Go does not publish at all, it attests an
   archive and resolves through the module proxy — three disjoint publish mechanics with
   only `harden-runner` in common, and each job's egress allowlist is its own. See
-  [the design](./superpowers/specs/2026-08-25-reusable-release-stages-design.md) and
   [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
 
   **The preflight pattern, not the code, is what generalizes.** Every publish path

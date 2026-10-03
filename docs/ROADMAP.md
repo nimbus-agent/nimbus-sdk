@@ -287,7 +287,26 @@ maintained."*
   recorded as met in [RFC-0013](./rfcs/0013-go-sdk-official.md), which names the SDK owner
   and pins what "the full conformance suite" means — every corpus whose surface the
   binding publishes, the reading RFC-0008 promoted Python under without writing it down.
-- [x] The hottest batteries ported to the additional languages — *Pillar 3*
+- [x] The hottest batteries ported to the additional languages — *Pillar 3*. Four were
+  ported to Python and Go: `data-profile`, `distribution-channel`, `icalendar` and
+  `jmap-fastmail`. Each was specified first, under
+  [RFC-0017](./rfcs/0017-battery-specifications.md), and pinned by a corpus all three
+  bindings execute. "Hottest" cannot be measured from this repository, since usage lives in
+  the gateway repo, so the criterion was stated rather than measured: cheapest to port with
+  the highest confidence in the result (pure or purely injectable, algorithmically real, and
+  testable by a shared corpus). Four batteries were deliberately left out:
+  - `storybook` and `flux-cd` qualify but were deferred for size. They are the obvious next
+    port.
+  - `crypto`'s JWT, Google service-account and App Store Connect helpers (RS256 and ES256)
+    cannot be ported to Python: CPython's standard library has no RSA or ECDSA, and the
+    dependency-free rule forbids `cryptography`. Go's standard library could carry them, but
+    a battery that can never reach all three bindings is a governance decision, not a port.
+    Manifest signing's Ed25519 is the one piece of cryptography Python does have, written by
+    hand under [RFC-0020](./rfcs/0020-manifest-signing.md).
+  - `audit-logger` is deprecated.
+
+  `item-types` and `agents` were not candidates at all: they are contract surface, and porting
+  them needs schemas and a different kind of corpus.
 - [x] A **Python `connector-kit`** — *Pillar 3*, and a Go one alongside it. TypeScript
   publishes [`@nimbus-dev/sdk/connector-kit`](./modules/connector-kit.md); Shipment 1 gave
   Python the pure core, and Shipment 2 closed the rest in both bindings — the transport,
@@ -384,9 +403,8 @@ maintained."*
   archive and resolves through the module proxy. The only step every job shares is
   `harden-runner`, and each carries a *different* egress allowlist, so factoring it
   would move the allowlist away from the job that depends on it. The real, dangerous
-  duplication was npm ↔ npm — see
-  [the design](./superpowers/specs/2026-08-25-reusable-release-stages-design.md)
-  and [RELEASING.md](./RELEASING.md#shared-plumbing).
+  duplication was npm ↔ npm. [RELEASING.md](./RELEASING.md#shared-plumbing) records what the
+  two actions do and why, and the actions' own comments explain each retry and guard.
 - [x] A **cross-language CI matrix** running the conformance suite against every
   SDK — *Pillar 5*. `ci.yml`'s `conformance` job takes **language** as its matrix axis and
   runs each binding's corpus suite with `NIMBUS_CONFORMANCE_REPORT` set; `conformance-report`
@@ -527,6 +545,18 @@ Nimbus connector or app.*
   signature format is a strictly weaker claim than a path proven end to end, and RFC-0020's
   own "Out of scope" section says so.
 
+  RFC-0020's last shipment, **S5**, does not gate this box, but it is the other unfinished
+  part of that RFC. S5 removes the deprecated flat signature path in `crypto/`
+  (`crypto/canonical-json.ts` and `crypto/verify-signature.ts`) as a `feat!:`. The
+  [deprecation window](./DEPRECATION-POLICY.md#the-window) has elapsed: the markers shipped
+  in 1.32.0 and were still present in 1.33.0. What S5 still waits on is the Nimbus monorepo
+  moving off that path, which it used when RFC-0020 was written (through
+  `errorToHardDisableReason`). Until S5 lands, those modules keep their existing behaviour
+  unchanged: UTF-16 key order and NFC. RFC-0020 §9 says S5 cuts `@nimbus-dev/sdk` 2.0.0, but
+  2.0.0 shipped first, for the agents roster change
+  ([#279](https://github.com/nimbus-agent/nimbus-sdk/pull/279)). S5 will therefore be a later
+  major.
+
 **Exit criteria:** a third party can author a connector against a published,
 versioned contract without reading the gateway source; published connectors carry
 verifiable provenance / signatures the gateway checks; the registry design is agreed
@@ -549,6 +579,83 @@ for the long haul.*
 **Exit criteria:** an LTS line is published with a stated window; capability
 negotiation is in the spec and exercised by ≥2 languages; the governance + RFC
 process is the documented, normal way changes happen.
+
+---
+
+## Recorded follow-ups
+
+Work that a delivered design deferred on purpose, together with what would bring it back.
+None of it is scheduled. The designs themselves were deleted once their work shipped (see
+the [design record](./ARCHITECTURE.md#design-record)), so this list is where the deferrals
+now live. Smaller items within a module are recorded on that module's page. The Python and
+Go goldens' lack of deprecation markers is recorded in
+[RFC-0015](./rfcs/0015-tiered-stability.md#the-window-check-is-half-checkable-and-only-in-one-binding).
+
+**Connector kit** — *Pillar 3*
+
+- **TypeScript's `requireProcessEnv` has no environment seam.** It reads `process.env`
+  directly, which [`INCLUSION-POLICY.md`](./INCLUSION-POLICY.md) §2 names as a failure.
+  Python's `require_env(name, env=os.environ)` and Go's `RequireEnv(name, nil)` both take
+  one. The fix is an optional parameter, which is additive.
+- **No `AsyncTransport` in Python.** The trigger for adding one is a real connector whose
+  throughput is measurably hurt by the `to_thread` hop. The fact that `mcp` is async does not
+  qualify, since that was already true when the decision was made.
+- **No shared test for a custom transport.** Such a test would prove that a third-party
+  `Transport` calls the exported §8 predicate (`should_strip_auth` / `ShouldStripAuth`). It
+  becomes worth writing once a binding has more than one transport.
+- **The Python router's swallowed exceptions have nowhere structured to go.** `ToolRouter`
+  turns a failing tool into an error result, and the detail belongs in a diagnostics event,
+  but Python has no diagnostics emitter.
+- **No Go connector template.** `create-connector` generates TypeScript and Python only, so
+  `connectorkit.ToolRouter` has no caller in this repository. A Go template would also be the
+  basis for a Go quickstart, which the Go shipment planned as `docs/quickstart-go.md` and never
+  wrote.
+
+**Spec and contract** — *Pillars 1, 8*
+
+- **Should Go export the embedded spec as an `fs.FS`?** Doing so would make the on-disk layout
+  of `docs/spec/` part of Go's public API. It waits for a real consumer that needs to walk the
+  tree rather than call `LoadSchema` / `LoadCorpus`. Adding the export later is a minor;
+  removing it would be a major.
+- **[`diagnostics.md`](./spec/diagnostics/v1/diagnostics.md) §8's undefined behaviour.** For
+  an ill-formed `extensionId`, TypeScript passes the bad code point through, Python raises,
+  and Go substitutes U+FFFD. Closing the gap is a contract change all three bindings must
+  agree on, and §8 itself ties it to the manifest rule registry first constraining the
+  identifier's format.
+- **No `url-resolution` case puts a control character in the fragment.** All three bindings
+  refuse `https://api.example.com/x#a<TAB>b` as `malformed`. But Go's `url.Parse` skips the
+  fragment when it checks for control characters, so Go's own guard is what refuses it, and
+  only a Go unit test exercises that guard: with the guard removed, all 28 corpus cases still
+  pass. A case would cost one case file and one index entry, and every binding would pass it
+  unchanged.
+- **No bulk Wycheproof import.** The `manifest-signature` corpus's `ed25519` vectors are
+  chosen by hand. Wycheproof's several hundred would dwarf every other corpus, and a bulk
+  import could not give each case the written reason the curated corpora carry.
+- **`ConnectionsBrief` and `CurrencyBrief` are not published.** The first PR of the
+  [2026-08-31 agents design](./superpowers/specs/2026-08-31-connections-and-currency-briefs-design.md)
+  shipped in [#260](https://github.com/nimbus-agent/nimbus-sdk/pull/260); its second PR, the
+  two briefs, did not. That design and its plan stay in `docs/superpowers/` until it does.
+  Adding the briefs is a major, not the minor the design assumed, for the reason 2.0.0's
+  [precedent](./DEPRECATION-POLICY.md#three-agents-joining-the-roster-cut-200) records.
+
+**Release and CI** — *Pillar 5*
+
+- **A Python or Go surface change also releases TypeScript.**
+  `sdks/typescript/scripts/stability-rules.test.ts` pins the export counts of all three
+  goldens. A Python or Go surface change therefore edits a file under `sdks/typescript/`, and
+  release-please, which assigns commits by path, cuts a TypeScript release whose changelog
+  names the other binding (TypeScript 1.28.0 and 1.29.0 list the Python and Go `jmap`
+  packages). Decoupling the pins changes how the surface is gated, so it needs its own RFC.
+- **No merge queue for release PRs.** A queue would turn N rebases of release PRs into one,
+  but it changes how everything merges and needs its own decision. The
+  [`Release Drain`](./RELEASING.md#shared-plumbing) workflow covers the immediate cost.
+- **Sonar analyses TypeScript only** (`sonar.sources=sdks/typescript/src`). Whether to add
+  Python and Go is one decision for both bindings, as
+  [RFC-0012](./rfcs/0012-go-sdk-binding.md#what-this-rfc-does-not-do) records.
+- **The `go` CI job does not run `staticcheck`.** Installing it needs `proxy.golang.org`,
+  which the job's Linux egress allowlist leaves out on purpose: a module with no dependencies
+  needs no module downloads. It would belong in a separate Linux-only job with audit-only
+  egress.
 
 ---
 

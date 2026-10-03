@@ -218,3 +218,115 @@ boundary without leaking data:
 
 Both are *contracts the SDK defines*, not I/O the SDK performs — the gateway owns the
 sink, the SDK owns the shape.
+
+## Design record
+
+Contract decisions live in the [RFCs](./rfcs/), each with its rejected alternatives. The
+decisions below shaped the bindings and the CI gates without changing the contract, so no
+RFC carries them. They come from the design specs and implementation plans under
+`docs/superpowers/`, which were deleted once their work shipped. The full documents are in
+git history: `git log --diff-filter=D -- docs/superpowers/`. Work those designs deferred is
+listed under the roadmap's [recorded follow-ups](./ROADMAP.md#recorded-follow-ups).
+
+### The connector kit in Python and Go
+
+- **Python's `Transport` is synchronous only.** A second, async protocol was rejected,
+  because it means two surfaces to keep in step and a doubled test matrix. An author with an
+  async HTTP client uses the pure pieces directly (`resolve_url_with_base`, `HttpResponse`
+  and the `*_if_ok` builders) and loses only `make_rest_tool`.
+- **What `Transport.send` raises is part of the protocol.** Anything that is not an HTTP
+  response surfaces as `TransportError`, and a timeout as `TransportTimeoutError`, so
+  swapping transports does not change a caller's `except` clauses. The name avoids
+  `TimeoutError`, which is a Python builtin.
+- **The kit ships no validator.** A dependency-free package cannot validate JSON Schema, so
+  a tool's `input_schema` / `InputSchema` is sent to the client and never enforced. A
+  caller-supplied `validate` reports failure by raising (Python) or returning an error
+  (Go). The router turns that failure into an error result, as it does for an unknown tool
+  or a handler that fails.
+- **Router output uses the MCP wire keys** (`inputSchema`, `isError`), typed as
+  `TypedDict`s in Python and structs in Go, so a consumer other than the `mcp` package can
+  use it. pydantic appears only in the generated Python template's adapters.
+- **Go's `Transport` is the kit's own interface, not a stdlib `Doer`.** Redirect policy lives
+  on `http.Client.CheckRedirect`, so only a client the kit builds can enforce
+  `url-resolution.md` §8. With a `Doer` seam, a caller passing `http.DefaultClient` would
+  lose that protection without any signal. The cost is that a caller who already has a
+  configured `*http.Client` writes a one-method adapter.
+- **Python and Go export the §8 predicate** (`should_strip_auth` / `ShouldStripAuth`: two
+  URLs in, one bool out). §8 binds every transport a binding accepts, and a custom transport
+  should not have to write its own origin comparison. A predicate shaped around `net/http`
+  types was rejected: it would tie the public surface to `net/http` and break the name match
+  with Python. TypeScript has no counterpart because `fetch` already meets §8.
+
+### Go conventions
+
+[RFC-0012](./rfcs/0012-go-sdk-binding.md) records the module layout, the result idiom and the
+release model. Four smaller conventions were settled while the packages landed:
+
+- **Names follow Python's, spelled the Go way.** Initialisms are fully capitalised
+  (`ResolveURLWithBase`, `JSONResult`, `MCPToolResult`), and `Ok` counts as a word
+  (`JSONResultIfOk`). Where Python has no counterpart, the TypeScript name is converted to Go
+  convention: `createEmitter` became `NewEmitter`, not `CreateEmitter`.
+- **Options are a struct whose zero value is the default**, not functional options, as in
+  `ipc.PerformHandshake(os.Stdin, os.Stdout, ipc.HandshakeConfig{})`. Functional options would
+  have published a type plus one constructor per field.
+- **`contract.SDKVersion()` reads `debug.ReadBuildInfo()`** rather than a constant that
+  release-please maintains. A constant would be a second source of truth that could drift
+  without failing anything. It lives in `contract`, which a consumer already imports, so it
+  needs no new import path, and a separate `version` package would stutter
+  (`version.Version()`).
+- **The second Go shipment cut a release per part** (handshake, diagnostics, connector kit,
+  version accessor) rather than holding one release PR for the whole surface. Extra versions
+  cost nothing at the module proxy, while a release PR held open collects unrelated commits
+  and arrives as one large, hard-to-review diff.
+
+### The conformance matrix
+
+`docs/conformance-coverage.json`, CI's `conformance` and `conformance-report` jobs, and the
+generated `docs/conformance-coverage.md` work together as follows:
+
+- **The declaration lives outside `docs/spec/`.** Which corpora a binding runs is a fact about
+  this repository, not a clause of the contract. Keeping it out of `docs/spec/` also keeps it
+  out of Go's embedded copy.
+- **A case is identified by its `file` entry in the corpus index.** No new identifier was
+  added and neither published loader changed. Each binding's test code reads the index itself
+  and pairs each entry with the loaded case.
+- **A case is recorded only after it passes.** In Go the record is made in a `t.Cleanup` that
+  checks `!t.Failed() && !t.Skipped()`. `t.Run`'s return value is not a pass signal: it is
+  `true` for a skipped subtest, and immediately `true` for a parallel one.
+- **Each language, corpus and producer writes its own report file**, and the reconciler takes
+  their union. A second runner for the same corpus, such as `framing` under Bun and again under
+  Node, therefore never overwrites the first.
+- **The job's matrix axis is language, and it runs on Linux only.** Each language's own job
+  already runs its corpora on all three operating systems.
+
+A single harness driving all three bindings through a command-line interface was rejected. It
+would have added a fourth test harness and a CLI to three packages designed to be idiomatic
+and dependency-free, replacing three index-driven runners that already worked.
+
+### The stability matrix
+
+`sdks/typescript/scripts/stability-matrix.ts` renders `docs/stability-matrix.md` from the three
+API-surface goldens and the `<!-- covers: -->` claims in `docs/modules/`:
+
+- **The unit a page claims is the source file that defines an export.** An entry point is too
+  coarse: TypeScript's `.` mixes tiers, and Go's `ipc` package and Python's `nimbus_sdk.ipc`
+  each span two capabilities. A map of individual exports would need hundreds of entries in
+  three spellings. A claim key is the file's path relative to its binding's source root,
+  without the extension. The Python and Go goldens record it as `` — from `<key>` `` after the
+  tier, matched by a non-capturing group, so the key the commit guard compares on is
+  unchanged.
+- **The rows are the existing `docs/modules/` pages.** `py:` and `go:` prefixes switch the
+  binding a claim belongs to. Only commas separate claims, so a missing comma fails rather than
+  being read as two claims.
+- **Tiers are read from the goldens on every render and never stored**, so the page cannot
+  hold a stale tier.
+- **A row whose tiers differ across bindings must say why**, in a `<!-- tier-note: … -->`
+  comment on its page, and a row whose tiers agree must not carry one. A `—` (not bound in
+  that language) needs no note: gaps are common and would all give the same reason.
+- **A capability with no TypeScript module** gets a page that claims zero TypeScript modules.
+  `docs-coverage.test.ts` gives this advice when it finds an unclaimed Python or Go file.
+
+Three alternatives were rejected: a curated `stability-matrix.json` (a second list of
+capabilities that nothing keeps in step with `docs/modules/`), `@capability` tags in the
+source of all three bindings (one cross-cutting idea declared dozens of times), and a
+required reason for every gap.

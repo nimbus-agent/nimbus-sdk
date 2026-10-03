@@ -690,7 +690,10 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   or `docs/modules/*.md` change; `stability-matrix.test.ts` fails the pull request when
   the committed page no longer matches a fresh render. Every cell is read from the three
   API-surface goldens on every render — never stored in the page — so there is no cell to
-  go stale, only a `covers:` claim that can miss a module.
+  go stale, only a `covers:` claim that can miss a module. **A row whose tiers differ
+  across bindings needs a `<!-- tier-note: … -->` on its `docs/modules/` page saying why,
+  and a row whose tiers agree must not carry one** — the render throws in both cases. A
+  `—` gap needs no note. The reasoning is in `docs/ARCHITECTURE.md`'s design record.
 - **One source file maps to exactly one capability page.** The matrix's claim unit is the
   defining module, resolved the same way `docs-coverage.test.ts` already resolves a
   `covers:` comment — so a file claimed by two pages, or two files that both need the same
@@ -835,6 +838,16 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   their ranges are checked against the registries by hand and proven by generating and
   running a project, as the `scaffold-*` CI jobs do.
 
+- **Delete design specs and plans once their work ships.** `docs/superpowers/` holds only
+  design work that has not shipped yet. When it ships, move what is still useful to its
+  permanent home, then delete the files; git history keeps them. Decisions and rejected
+  alternatives go to the design record in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md#design-record),
+  anything deferred goes to the roadmap's
+  [recorded follow-ups](./docs/ROADMAP.md#recorded-follow-ups), and contributor rules go to
+  this file or `docs/CONTRIBUTING.md`. A source comment should not cite "the design" or "the
+  plan": after the prune there is nothing to follow, so state the reason inline or point at
+  one of those documents.
+
 ## Relationship to other repos
 
 - [`Nimbus`](https://github.com/nimbus-agent/Nimbus) — gateway/CLI monorepo, the
@@ -878,6 +891,13 @@ observed on [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155), which c
 docstring in `sdks/python/src/nimbus_sdk/ipc/ndjson.py` and released `nimbus-dev-sdk`
 0.8.1 for it. Keep a change that spans packages in separate pull requests, or accept that
 every package it touches releases under that one subject line.
+
+**One such span cannot currently be avoided.** `sdks/typescript/scripts/stability-rules.test.ts`
+pins the export count of all three API-surface goldens, so a Python or Go surface change
+must also edit that TypeScript file. Under a releasing type it therefore cuts a TypeScript
+release too, with a changelog entry naming the other binding: `@nimbus-dev/sdk` 1.28.0 and
+1.29.0 list `nimbus_sdk.jmap_fastmail` (#239) and Go's `jmapfastmail` (#244). Decoupling
+the pins is a [recorded follow-up](./docs/ROADMAP.md#recorded-follow-ups).
 
 **No release path uses a long-lived token.** Both npm jobs publish with `--provenance`;
 the PyPI job publishes via Trusted Publishers with

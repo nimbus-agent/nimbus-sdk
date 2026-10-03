@@ -266,9 +266,27 @@ as guidance for whoever runs the update:
   `--require-hashes`, so a version edited by hand has no matching hash. `sigstore` arrives
   through `pypi-attestations` and the two are version-coupled: change the
   `pypi-attestations` pin in the `.in` and let the resolver move `sigstore` with it, since
-  bumping either alone lands a combination neither project tests. Review the diff as a
-  release-infrastructure change rather than routine dependency noise — this toolchain
-  decides whether a published artifact is trustworthy (see [RELEASING.md](./RELEASING.md)).
+  bumping either alone lands a combination neither project tests. For a bulk pass, add
+  `--upgrade` to that command: uv treats the existing `verify-requirements.txt` as the
+  versions to keep, so run in place without it the command changes nothing the `.in` did
+  not. uv leaves `--upgrade` out of the header it writes, so the header still matches.
+  Review the diff as a release-infrastructure change rather than routine dependency noise —
+  this toolchain decides whether a published artifact is trustworthy (see
+  [RELEASING.md](./RELEASING.md)).
+- **The org's own action is untagged.** `nimbus-agent/.github/actions/verify-npm-provenance`
+  in `release.yml` is pinned to a bare SHA with no tag comment, because that repository
+  publishes no releases; move it to the head of its `main`.
+- **The scaffolder's templates are not workspace members, and nothing reports on them.**
+  `tools/create-connector/templates/typescript/package.json` and
+  `tools/create-connector/templates/python/pyproject.toml` declare what a *generated*
+  project installs. `bun outdated -r` cannot see either, and Dependabot never watched them,
+  which is how the TypeScript template once sat two TypeScript majors behind this
+  repository. Compare their ranges with the registries by hand (`npm view <package>
+  version`, and PyPI for the Python template's ceilings), then prove them the way the
+  `scaffold-typescript` and `scaffold-python` jobs in `ci.yml` do: pack, generate outside
+  the repository tree, install, and run the generated project's own suite.
+  `bun run scaffold:test` packs and generates but installs nothing, so it cannot catch a bad
+  range.
 - **Little else has anything to bump.** `[project] dependencies` in
   `sdks/python/pyproject.toml` is empty by policy, leaving only the `hatchling` floor in
   `[build-system] requires`, and `sdks/go/go.mod` has no `require` block at all.

@@ -818,8 +818,11 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   [Updating dependencies](./docs/CONTRIBUTING.md#updating-dependencies), which keeps the
   reasoning its configuration carried — `bun outdated -r` (a bare `bun outdated` at the root
   reports nothing), `bun.lock` committed with the manifests, CodeQL's `init` and `analyze`
-  on one SHA, and `sdks/python/verify-requirements.txt` regenerated from its `.in`, never
-  hand-edited.
+  on one SHA, and `sdks/python/verify-requirements.txt` regenerated from its `.in` with
+  `--upgrade`, never hand-edited. **`bun outdated -r` does not see the scaffolder's
+  templates** (`tools/create-connector/templates/*`): they are not workspace members, so
+  their ranges are checked against the registries by hand and proven by generating and
+  running a project, as the `scaffold-*` CI jobs do.
 
 ## Relationship to other repos
 

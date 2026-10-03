@@ -45,7 +45,8 @@
 // a multi-byte sequence and produce invalid UTF-8. The range loop finds the cap'th rune's
 // byte index without allocating a []rune.
 //
-// trim uses §R7's enumerated set, never strings.TrimSpace, which strips U+0085 that the set
+// Trimming uses §R7's enumerated set — the module's internal/whitespace, shared with
+// dataprofile and icalendar — never strings.TrimSpace, which strips U+0085 that the set
 // excludes and does not strip U+FEFF that it includes.
 //
 // MethodCall carries a MarshalJSON that emits a three-element ARRAY. §9 records that these

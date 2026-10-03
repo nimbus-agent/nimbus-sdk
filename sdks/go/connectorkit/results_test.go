@@ -156,6 +156,46 @@ func TestJSONResultIfOkCapsTheSnippetByCodePoints(t *testing.T) {
 	}
 }
 
+// The two text-body builders build their non-2xx error the same way JSONResultIfOk does —
+// one statusError, so the three cannot drift — but 0 selects the TEXT default, 400, not 300.
+// A parse-path message override must not leak onto the status path either.
+func TestTextBodyBuildersRaiseOnNon2xx(t *testing.T) {
+	builders := []struct {
+		name  string
+		build func(res TextResponse, maxSnippet int) error
+	}{
+		{"JSONResultFromTextIfOk", func(res TextResponse, maxSnippet int) error {
+			_, err := JSONResultFromTextIfOk("svc", res, maxSnippet, "custom")
+			return err
+		}},
+		{"ParseJSONTextIfOk", func(res TextResponse, maxSnippet int) error {
+			_, err := ParseJSONTextIfOk("svc", res, maxSnippet)
+			return err
+		}},
+	}
+	long := fakeResponse{ok: false, status: 502, text: strings.Repeat("\u00e9", 500)}
+	for _, b := range builders {
+		t.Run(b.name, func(t *testing.T) {
+			var status *HTTPStatusError
+			if err := b.build(long, 0); !errors.As(err, &status) {
+				t.Fatalf("err = %v, want *HTTPStatusError", err)
+			}
+			if status.Service != "svc" || status.Status != 502 {
+				t.Errorf("got %+v", status)
+			}
+			if got := len([]rune(status.Snippet)); got != 400 {
+				t.Errorf("default cap: snippet = %d code points, want 400", got)
+			}
+			if err := b.build(long, 10); !errors.As(err, &status) {
+				t.Fatalf("err = %v, want *HTTPStatusError", err)
+			}
+			if got := len([]rune(status.Snippet)); got != 10 {
+				t.Errorf("explicit cap: snippet = %d code points, want 10", got)
+			}
+		})
+	}
+}
+
 func TestJSONResultFromTextIfOkParsesThenWraps(t *testing.T) {
 	res, err := JSONResultFromTextIfOk("svc", fakeResponse{ok: true, status: 200, text: `{"a":1}`}, 0, "")
 	if err != nil {

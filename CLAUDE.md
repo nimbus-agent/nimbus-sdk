@@ -123,7 +123,11 @@ guard's parser has two different code paths keyed on exactly this distinction.
   conformance corpus that pins it (`data-profile`, `distribution-channel`, `icalendar` and
   `jmap` respectively). They are what took this section from four import roots to eight,
   and Python from four executed corpora to eight. Their exports are listed in
-  [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
+  [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here. The three
+  that trim share the batteries preamble's §R7 set through the private
+  `nimbus_sdk._whitespace` — a module file, not a package, because a directory under
+  `nimbus_sdk/` is an import root and `test_api_surface.py` fails on one `IMPORT_ROOTS`
+  does not list.
 - `nimbus_sdk.signing` (`sdks/python/src/nimbus_sdk/signing/`) — the Python binding of
   `docs/spec/signing/v1/`, **all of it since RFC-0020's S3**. It has `canonical-json.md`
   (`canonicalize`, `canonicalize_manifest`, `CanonicalizationError`,
@@ -261,7 +265,9 @@ surface is shaped this way, which the generated file, by design, does not:
   the test-only `conformance` package). They are four of the ten this heading counts, and
   they are what took Go from four executed corpora to eight. Their exported declarations
   are in [`docs/api-surface-go.md`](./docs/api-surface-go.md) rather than here — the same
-  treatment the Python section gives its own four battery roots.
+  treatment the Python section gives its own four battery roots. The three that trim
+  (`dataprofile`, `icalendar`, `jmapfastmail`) share one copy of the batteries preamble's
+  §R7 set, `internal/whitespace`, as TypeScript's share `src/internal/whitespace.ts`.
 - `signing` (`sdks/go/signing/`) — the Go binding of `docs/spec/signing/v1/`, whole since
   it landed, and since S3 one of **three** bindings that publish the whole of it:
   `Canonicalize` /
@@ -279,7 +285,8 @@ surface is shaped this way, which the generated file, by design, does not:
   module. It is the tenth package and runs both signing corpora in full, byte-identically
   with TypeScript — and now with Python, whose `sign` and `verify` cases were the last
   thing separating the three.
-- `internal/gen` and a test-only `conformance` package are not part of the surface.
+- `internal/gen`, `internal/apisurface`, `internal/whitespace` and a test-only `conformance`
+  package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every
 one of them.** Recorded here rather than discovered at the first `go get`:
@@ -766,10 +773,14 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   surviving reference is elided, and the comment goes with it. This happened for real on
   `src/diagnostics/event.ts` during RFC-0015's implementation and was fixed by moving the
   tag to precede the first *export* instead — the `@moduleStability frozen` line at
-  `sdks/typescript/src/diagnostics/event.ts:21` is that fix. Three other modules
+  `sdks/typescript/src/diagnostics/event.ts:22` is that fix. Three other modules
   (`contract-tests.ts`, `agents/brief-composites.ts`, `agents/brief-guards.ts`) still
   place their tag above an import block, and survive only because that block happens to
   retain a reference `tsc` keeps — they are one refactor away from the same elision.
+  `diagnostics/emitter.ts` was a fourth until exactly that refactor reached it: it gained
+  an `../internal/snapshot.js` import, which Biome sorts ahead of its `./event.js` one and
+  `tsc` elides, and `api-surface.ts` threw for `createEmitter` until the tag moved above
+  the first export.
   Prefer placing `@moduleStability` immediately above the module's first export. **This
   is survivable, not silent, only because there is no default tier**: a dropped tag
   makes `api-surface.ts` throw and name the module, rather than the module quietly

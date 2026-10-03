@@ -1,15 +1,13 @@
 /**
  * The authoring ergonomics over the envelope.
  *
- * @moduleStability experimental
- *
  * Three properties this module must never lose:
  *   1. It never throws from a log call. Diagnostics must not be able to take down the
  *      connector they are describing. That includes an error thrown by the caller's own
  *      sink — captured into the returned result, never rethrown — and a throwing getter
  *      on the caller's own `detail` object, snapshotted before it is read a second time
- *      (see {@link snapshotDetail}) for the same reason `event.ts`'s own `snapshot()`
- *      exists: the natural call shape is fire-and-forget, so an uncaught throw here would
+ *      (see {@link snapshotDetail}) for the same reason `event.ts` snapshots what it
+ *      reads: the natural call shape is fire-and-forget, so an uncaught throw here would
  *      surface as an unhandled promise rejection, not a catchable exception.
  *   2. It never writes a line the encoder refused. A half-valid line on a stream a
  *      gateway parses as NDJSON turns an authoring bug into the gateway's problem, which
@@ -21,12 +19,15 @@
  * `docs/spec/predicates/v1/README.md` §5 records the audit-logging operation as one that
  * must not block its caller, and `contract-tests.ts` enforces that for this binding.
  */
+import { snapshot as snapshotOwnMembers } from "../internal/snapshot.js";
 import {
   type DiagnosticError,
   type DiagnosticLevel,
   type EncodeResult,
   encodeDiagnostic,
 } from "./event.js";
+
+/** @moduleStability experimental */
 
 export type DiagnosticEmit = (line: string) => void | Promise<void>;
 
@@ -92,7 +93,8 @@ const DETAIL_KEYS = {
 } as const satisfies Record<keyof EmitDetail, true>;
 
 /**
- * Copies `detail`'s own top-level members into a plain object, reading each one exactly
+ * Takes the same null-prototype snapshot of `detail` (`../internal/snapshot.ts`) that
+ * `event.ts` takes of everything it reads: its own top-level members, each read exactly
  * once, before anything downstream touches `detail` again. Returns `null` if any read
  * throws.
  *
@@ -123,16 +125,8 @@ const DETAIL_KEYS = {
  * an ordinary own key — dropped here, because it is not a declared `EmitDetail` member —
  * and leaves `in` with nothing but own properties to find.
  */
-const snapshotDetail = (detail: EmitDetail): Record<string, unknown> | null => {
-  try {
-    const source = detail as unknown as Record<string, unknown>;
-    const copy = Object.create(null) as Record<string, unknown>;
-    for (const key of Object.keys(source)) copy[key] = source[key];
-    return copy;
-  } catch {
-    return null;
-  }
-};
+const snapshotDetail = (detail: EmitDetail): Record<string, unknown> | null =>
+  snapshotOwnMembers(detail);
 
 export function createEmitter(extensionId: string, emit: DiagnosticEmit): DiagnosticEmitter {
   if (extensionId === "") throw new Error("extensionId must be non-empty");

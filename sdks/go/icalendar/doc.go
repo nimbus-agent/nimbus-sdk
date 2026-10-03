@@ -38,9 +38,9 @@
 // point connectorkit's foldForSearch corrects, and the opposite correction: there the goal
 // is to MATCH the other two languages' full case mapping, here it is to preserve length.
 //
-// trim uses §R7's enumerated set, never strings.TrimSpace, which strips U+0085 that the
-// set excludes and does not strip U+FEFF that it includes. Two corpus cases pin both
-// directions.
+// Trimming uses §R7's enumerated set — the module's internal/whitespace, shared with
+// dataprofile and jmapfastmail — never strings.TrimSpace, which strips U+0085 that the set
+// excludes and does not strip U+FEFF that it includes. Two corpus cases pin both directions.
 //
 // unfold is a single scan, not two ReplaceAll passes. Normalising CRLF→CRLF and then
 // LF→CRLF in sequence double-converts, because the first pass's output feeds the second.

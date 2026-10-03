@@ -4,42 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/nimbus-agent/nimbus-sdk/sdks/go/internal/whitespace"
 )
 
 // §1.1. Unexported, exactly as TypeScript's and Python's are: a binding cannot read it
 // from the module, so the specification states the number in prose instead.
 const maxColumns = 512
-
-// normativeWhitespace is preamble §R7's set, enumerated. NOT unicode.IsSpace and NOT
-// strings.TrimSpace: both strip U+0085, which this set excludes, and neither strips
-// U+FEFF, which it includes. Enumerated rather than derived because ECMA-262 defines
-// WhiteSpace partly by Unicode category Zs, which is version-dependent.
-var normativeWhitespace = map[rune]struct{}{
-	0x0009: {}, 0x000A: {}, 0x000B: {}, 0x000C: {}, 0x000D: {},
-	0x0020: {}, 0x00A0: {}, 0x1680: {},
-	0x2000: {}, 0x2001: {}, 0x2002: {}, 0x2003: {}, 0x2004: {}, 0x2005: {},
-	0x2006: {}, 0x2007: {}, 0x2008: {}, 0x2009: {}, 0x200A: {},
-	0x2028: {}, 0x2029: {}, 0x202F: {}, 0x205F: {}, 0x3000: {}, 0xFEFF: {},
-}
-
-// trim removes preamble §R7's whitespace from both ends of s.
-func trim(s string) string {
-	runes := []rune(s)
-	start, end := 0, len(runes)
-	for start < end {
-		if _, ok := normativeWhitespace[runes[start]]; !ok {
-			break
-		}
-		start++
-	}
-	for end > start {
-		if _, ok := normativeWhitespace[runes[end-1]]; !ok {
-			break
-		}
-		end--
-	}
-	return string(runes[start:end])
-}
 
 // DataColumn is a parsed column: its name, and its kind. Type is empty and Known is false
 // when the kind is not knowable from what was read — which for CSV is always, since a
@@ -98,7 +69,7 @@ func JSKind(value any) string {
 // 4180 quoting would return different columns from the same file.
 func ParseCSVHeader(firstLine string) []DataColumn {
 	line := strings.TrimSuffix(firstLine, "\r")
-	if trim(line) == "" {
+	if whitespace.Trim(line) == "" {
 		return nil
 	}
 	fields := strings.Split(line, ",")
@@ -107,13 +78,13 @@ func ParseCSVHeader(firstLine string) []DataColumn {
 	}
 	columns := make([]DataColumn, 0, len(fields))
 	for _, raw := range fields {
-		field := trim(raw)
+		field := whitespace.Trim(raw)
 		if len(field) >= 2 && strings.HasPrefix(field, `"`) && strings.HasSuffix(field, `"`) {
 			field = field[1 : len(field)-1]
 		}
 		// The second trim is not redundant: the quotes come off before the inner
 		// whitespace, so `" a "` yields `a`.
-		columns = append(columns, DataColumn{Name: trim(field)})
+		columns = append(columns, DataColumn{Name: whitespace.Trim(field)})
 	}
 	return columns
 }

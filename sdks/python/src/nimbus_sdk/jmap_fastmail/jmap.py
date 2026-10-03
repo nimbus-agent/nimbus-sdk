@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from nimbus_sdk._whitespace import trim as _trim
+
 #: Frozen per RFC-0015's mechanical definition: backed by a normative document under
 #: ``docs/spec/`` -- ``batteries/v1/jmap.md`` -- AND executed by a conformance-corpus
 #: guard. Both have held since the corpus went green in all three bindings.
@@ -71,56 +73,6 @@ _BODY_PROPERTIES = ["partId", "blobId", "size", "name", "type", "disposition"]
 
 #: §5.2 -- the ports omitted from a host because they are the scheme's default.
 _DEFAULT_PORTS = {"https": 443, "http": 80}
-
-# ---------------------------------------------------------------------------
-# §R7 whitespace
-# ---------------------------------------------------------------------------
-
-#: preamble §R7's normative set, enumerated. NOT ``str.strip()``: Python strips
-#: U+001C-U+001F, which this set excludes, and does not strip U+FEFF, which it includes.
-_WHITESPACE = frozenset(
-    map(
-        chr,
-        (
-            0x0009,
-            0x000A,
-            0x000B,
-            0x000C,
-            0x000D,
-            0x0020,
-            0x00A0,
-            0x1680,
-            0x2000,
-            0x2001,
-            0x2002,
-            0x2003,
-            0x2004,
-            0x2005,
-            0x2006,
-            0x2007,
-            0x2008,
-            0x2009,
-            0x200A,
-            0x2028,
-            0x2029,
-            0x202F,
-            0x205F,
-            0x3000,
-            0xFEFF,
-        ),
-    )
-)
-
-
-def _trim(value: str) -> str:
-    """Remove a maximal run of §R7 whitespace from each end, nothing from inside."""
-    start, end = 0, len(value)
-    while start < end and value[start] in _WHITESPACE:
-        start += 1
-    while end > start and value[end - 1] in _WHITESPACE:
-        end -= 1
-    return value[start:end]
-
 
 # ---------------------------------------------------------------------------
 # §3 Two primitives

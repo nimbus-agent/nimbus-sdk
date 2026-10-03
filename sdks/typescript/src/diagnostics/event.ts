@@ -16,6 +16,7 @@
  * caught once, at the copy, and reported as the object being malformed rather than
  * escaping as an exception.
  */
+import { snapshot } from "../internal/snapshot.js";
 import { IPC_MAX_LINE_BYTES } from "../ipc/ndjson-line-reader.js";
 
 /** @moduleStability frozen */
@@ -93,13 +94,14 @@ const no = (reason: DiagnosticEncodeReason, path: string): EncodeResult => ({
   path,
 });
 
-/**
- * Copies a record's own enumerable properties into a plain object, reading each value
- * exactly once. Returns `null` if any read throws — a getter that throws (or one that
- * would return a different value on a second read) makes the source indistinguishable
- * from a malformed object, so every caller of this function converts `null` into
- * whatever "not a JSON object at this position" reason applies at its own layer, rather
- * than letting the exception itself escape `encodeDiagnostic`.
+/*
+ * `snapshot` — shared with `emitter.ts`, from `../internal/snapshot.ts` — copies a record's
+ * own enumerable properties into a null-prototype object, reading each value exactly once,
+ * and returns `null` if any read throws. A getter that throws (or one that would return a
+ * different value on a second read) makes the source indistinguishable from a malformed
+ * object, so each of this module's three call sites converts `null` into whatever "not a
+ * JSON object at this position" reason applies at its own layer, rather than letting the
+ * exception itself escape `encodeDiagnostic`.
  *
  * **The copy has a null prototype, and that is load-bearing — not a hardening habit.**
  * `JSON.parse` produces `__proto__` as an ordinary own data property, so it is reachable
@@ -124,15 +126,6 @@ const no = (reason: DiagnosticEncodeReason, path: string): EncodeResult => ({
  * `validateFields`' `validated`), so the null prototype is confined to the inert copy
  * that validation reads from.
  */
-const snapshot = (source: Record<string, unknown>): Record<string, unknown> | null => {
-  try {
-    const copy = Object.create(null) as Record<string, unknown>;
-    for (const key of Object.keys(source)) copy[key] = source[key];
-    return copy;
-  } catch {
-    return null;
-  }
-};
 
 /**
  * RFC 6901 §3 token-escaping for a JSON Pointer segment: `~` becomes `~0` and `/` becomes

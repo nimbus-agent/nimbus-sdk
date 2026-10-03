@@ -83,7 +83,8 @@ benefit.
 Three things it does not delegate to Python:
 
 - **`_fold_ascii` maps U+0041–U+005A only** (§5.3), never `str.lower()`.
-- **`_trim` implements §R7's set**, never `str.strip()`.
+- **`_trim` implements §R7's set** (the shared, private `nimbus_sdk._whitespace`), never
+  `str.strip()`.
 - **`_unescape` is a single left-to-right pass** (§4.2). Sequential `str.replace` calls are
   wrong at *every* ordering: the wire value `\\n` must yield the two characters `\` and `n`,
   and a `\\`→`\` pass followed by a `\n`→newline pass collapses it to one newline.

@@ -26,7 +26,10 @@ Three hard constraints shape every decision here:
 
 ## The public surface (the `exports` map)
 
-The package exposes exactly five entry points. Everything else is internal.
+The TypeScript package exposes exactly six entry points. Everything else is internal.
+(The Python and Go bindings publish import roots and packages instead; see
+[`api-surface-python.md`](./api-surface-python.md) and
+[`api-surface-go.md`](./api-surface-go.md).)
 
 | Entry point | Source | Purpose |
 |---|---|---|
@@ -35,6 +38,7 @@ The package exposes exactly five entry points. Everything else is internal.
 | `@nimbus-dev/sdk/ipc` | `sdks/typescript/src/ipc/index.ts` | The NDJSON line-reader + IPC framing helpers. |
 | `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, the Bearer-auth REST fetcher, and the search kit (`filterByQuery` / `makeQueryFilter` / `matchesResult` and friends) for in-connector query filtering. The generated TypeScript connector template imports from here. |
 | `@nimbus-dev/sdk/diagnostics` | `sdks/typescript/src/diagnostics/index.ts` | The diagnostics / telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the closed `DiagnosticEvent` envelope, and `createEmitter` for a sink-backed `DiagnosticEmitter`. The redaction-safe replacement for the scoped audit logger's free-form payload. |
+| `@nimbus-dev/sdk/signing` | `sdks/typescript/src/signing/index.ts` | Manifest signing under [RFC-0020](./rfcs/0020-manifest-signing.md): canonicalization (`canonicalize` / `canonicalizeManifest`) and the detached JWS envelope (`signManifest` / `verifyManifestSignature` / `generateSigningKey`, base64url, the RFC 7638 thumbprint, the protected header), failing with one `SignatureError`. It replaces the deprecated signing helpers in `crypto/`. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.
@@ -55,9 +59,19 @@ whole ecosystem passes through.
   name registry (`agent-names.ts`).
 - `sdks/typescript/src/hitl-request.ts` / `sdks/typescript/src/audit-logger.ts` — the HITL
   request shape and the scoped audit-logger interface the gateway injects.
+- `sdks/typescript/src/contract-version.ts`, `sdks/typescript/src/diagnostics/` and
+  `sdks/typescript/src/signing/` — contract-version negotiation, the diagnostics envelope
+  and manifest signing. Each binds a normative document under [`spec/`](./spec/README.md)
+  and runs its conformance corpus, and each is bound in Python and Go too.
 
-This layer is frozen under semver (Plugin API v1 — see
-[`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md)).
+Plugin API v1 froze this layer's original core under semver (see
+[`../sdks/typescript/CHANGELOG.md`](../sdks/typescript/CHANGELOG.md)). Since
+[RFC-0015](./rfcs/0015-tiered-stability.md) every module also declares a stability tier, and
+the tiers differ. `types`, `item-types`, `hitl-request` and `contract-version` are `frozen`.
+`agents` and `audit-logger` are `stable`. `signing` and the diagnostics emitter are still
+`experimental` in TypeScript, while the diagnostics envelope itself is `frozen`.
+[`stability-matrix.md`](./stability-matrix.md) gives every capability's tier in every
+binding.
 
 ### 2. The server scaffolding
 
@@ -75,8 +89,12 @@ This layer is frozen under semver (Plugin API v1 — see
 Pure, dep-free helpers connector authors reach for so common work isn't
 reinvented. Each is self-contained and independently testable:
 
-- `sdks/typescript/src/crypto/` — Ed25519 keygen + manifest signing/verification, JWT
-  signing, Google service-account tokens, App Store Connect JWTs, canonical JSON.
+- `sdks/typescript/src/connector-kit/` — helpers for hand-rolled MCP connectors: tool
+  registration, MCP results, the Bearer-auth REST fetcher behind the `resolveUrlWithBase`
+  SSRF chokepoint, and the search kit. Bound in Python and Go too.
+- `sdks/typescript/src/crypto/` — JWT signing, Google service-account tokens and App Store
+  Connect JWTs, plus the original Ed25519 manifest signing and canonical JSON, which are
+  deprecated in favour of `signing/`.
 - `sdks/typescript/src/jmap-fastmail/` — JMAP session parsing + email header/preview
   extraction (headers, attachment metadata, and a server-truncated body preview capped
   at 2 KB per email — a hard scope constraint keeps full bodies and attachment bytes out).
@@ -147,7 +165,9 @@ for `ExtensionManifest` / `NimbusItem` are published and CI-pinned in
 ([`negotiation/v1/contract-version.md`](./spec/negotiation/v1/contract-version.md)).
 Together they are the single source of truth. TypeScript is the *reference binding*,
 not the definition, and every other official SDK is another binding validated
-against **one shared conformance suite**.
+against **one shared conformance suite**. Two such bindings exist today, both official:
+Python ([RFC-0008](./rfcs/0008-python-sdk-official.md)) and Go
+([RFC-0013](./rfcs/0013-go-sdk-official.md)). Rust has not started.
 
 ```mermaid
 flowchart TD
@@ -172,8 +192,9 @@ flowchart TD
 
 "It compiles" then means "it speaks the real contract," because a binding only
 ships once it passes the same suite the reference implementation does. The
-conformance suite is seeded from today's `runContractTests` + sandbox probe, so the
-mechanism already has a foothold in this repo.
+conformance suite was seeded from `runContractTests` and the sandbox probe, and has
+since grown a corpus for every specified contract and battery;
+[`conformance-coverage.md`](./conformance-coverage.md) shows which binding runs which.
 
 See the [roadmap phases](./ROADMAP.md#phases) for the sequence that gets us there —
 Phase 1 lifts the contract into the spec; Phase 2 proves the model with Python;
@@ -186,7 +207,10 @@ explicit rules rather than ad hoc. The `exports` map is guarded by an API-surfac
 snapshot test — [`api-surface.md`](./api-surface.md), regenerated with
 `bun run build && bun run api:surface` and enforced by
 `sdks/typescript/scripts/api-surface.test.ts` — so that an unintended surface change
-fails CI. Deprecations follow the
+fails CI. Python and Go have the same kind of gate over
+[`api-surface-python.md`](./api-surface-python.md) and
+[`api-surface-go.md`](./api-surface-go.md), and the `commit-guard` check compares all three
+snapshots against the pull request's declared Conventional Commit type. Deprecations follow the
 [deprecation policy](./DEPRECATION-POLICY.md) (mark in a released minor → carried
 through a later, separate minor release → removal at a major bump), and a
 **contract-version** is negotiated between connector and gateway — specified in
@@ -212,7 +236,7 @@ boundary without leaking data:
   rule as the batteries: no secrets, no row/body data, enforced structurally by a
   closed envelope shape rather than left to author discipline. Published as the
   fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`, with the Python
-  binding at `nimbus_sdk.diagnostics`. See
+  binding at `nimbus_sdk.diagnostics` and the Go binding at `diagnostics`. See
   [roadmap Pillar 8](./ROADMAP.md#8-observability--diagnostics) and the normative
   spec at [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md).
 

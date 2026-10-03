@@ -49,8 +49,12 @@ result = negotiate_contract_version(["1"], ["1"])  # NegotiationOk(version="1")
 
 ## Status
 
-Early. This release carries the contract-version constants, the negotiation algorithm,
-and the published JSON Schemas. It also carries the IPC surface —
+Official, under
+[RFC-0008](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0008-python-sdk-official.md),
+and still pre-1.0: the
+[stability matrix](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/stability-matrix.md)
+says what each capability promises. This release carries the contract-version constants, the
+negotiation algorithm, and the published JSON Schemas. It also carries the IPC surface —
 `from nimbus_sdk.ipc import NdjsonLineReader, parse_hello, perform_handshake` —
 deliberately a separate import root from `nimbus_sdk`, mirroring the `.` vs `./ipc`
 split the TypeScript package publishes. It now also carries the diagnostics /
@@ -72,6 +76,12 @@ Protocol, a `ToolRouter`, and the two REST factories. `UrllibTransport` enforces
 §8 itself — `urllib` carries `Authorization` across a cross-origin redirect where
 `fetch` strips it, so the kit installs a redirect handler that drops the credential on
 an origin change, and only on an origin change.
+
+It carries the four batteries ported from TypeScript under
+[RFC-0017](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/rfcs/0017-battery-specifications.md):
+`nimbus_sdk.data_profile`, `nimbus_sdk.distribution_channel`, `nimbus_sdk.icalendar` and
+`nimbus_sdk.jmap_fastmail`. Each is its own import root, and each runs the conformance
+corpus that pins it.
 
 It also carries the manifest **signing** surface — `from nimbus_sdk.signing import
 canonicalize_manifest, sign_manifest, verify_manifest_signature` — another separate

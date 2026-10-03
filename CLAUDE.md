@@ -17,9 +17,9 @@ published package.
 ## Public surface (the `exports` map)
 
 - `.` (`sdks/typescript/src/index.ts`) — the main contract: connector/extension types,
-  the Plugin API v1 surface, `server`, `hitl-request`, `item-types`, `contract-tests`,
-  `distribution-channel`, `audit-logger`, `icalendar`, and the `agents` / `crypto` /
-  `data-profile` / `jmap-fastmail` / `flux-cd` / `storybook` helper modules.
+  the Plugin API v1 surface, `server`, `contract-version`, `hitl-request`, `item-types`,
+  `contract-tests`, `distribution-channel`, `audit-logger`, `icalendar`, and the `agents` /
+  `crypto` / `data-profile` / `jmap-fastmail` / `flux-cd` / `storybook` helper modules.
 - `./testing` (`sdks/typescript/src/testing/index.ts`) — contract-test + sandbox-probe
   utilities connectors use in their own test suites.
 - `./ipc` (`sdks/typescript/src/ipc/index.ts`) — the NDJSON line-reader + IPC framing
@@ -185,8 +185,11 @@ says so. Which binding claims which corpus, and the case counts behind every one
 numbers, is declared in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json) and rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
-home for what used to be restated by hand here. **Go is narrower still, in its batteries
-rather than its corpora** — it claims exactly what Python does.
+home for what used to be restated by hand here. **Go claims exactly the corpora Python
+does, and publishes the same capabilities.** Both are narrower than TypeScript by the same
+set: neither binds `agents`, `audit-logger`, `crypto`, `flux-cd`, `hitl-request`,
+`item-types`, `server`, `storybook` or `types`. [`docs/stability-matrix.md`](./docs/stability-matrix.md)
+shows the gaps capability by capability.
 
 **Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
 declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`
@@ -309,7 +312,7 @@ one of them.** Recorded here rather than discovered at the first `go get`:
   drop-the-prefix — `CONTRACT_VERSIONS` stays `ContractVersions`, since `Versions` names
   nothing on its own.
 
-**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 603 files.** `go:embed`
+**`sdks/go/spec/data/` is a committed copy of `docs/spec/`, file for file.** `go:embed`
 refuses paths outside the module directory and `go build` never runs a generator, so Go
 cannot reach `docs/spec/` the way Python's hatch build hook does. Regenerate with
 `go -C sdks/go generate ./spec` after **any** change under `docs/spec/`, or
@@ -552,9 +555,9 @@ per-binding test instead. That is the same treatment RFC-0020 §5 already prescr
 it means the guard against regression is weaker here than a corpus case would be.
 
 **What the crypto itself did was agree.** Go's `crypto/ed25519` and WebCrypto over
-*both* BoringSSL (bun) and OpenSSL (node) produce byte-identical output on the four `sign`
-envelopes and on all ten `ed25519` edge-case vectors — the RFC 8032 vectors, a
-non-canonical `S`, the three small-order public keys, and the `y = p` / `y = p + 1`
+*both* BoringSSL (bun) and OpenSSL (node) produce byte-identical output on every `sign`
+envelope and every `ed25519` vector in the corpus — the RFC 8032 vectors, a non-canonical
+`S`, an all-zero key, the three small-order public keys, and the `y = p` / `y = p + 1`
 encodings. Measured, not assumed, and re-measured in CI: `ci.yml` drives the
 `manifest-signature` corpus twice on the TypeScript leg, once under Bun and once under
 plain Node (`node scripts/ed25519-node.mjs`), because RFC 8032 leaves exactly these edge
@@ -653,6 +656,8 @@ Python commands run from `sdks/python/`:
 
 ```bash
 cd sdks/python
+python -m pip install build hatchling ruff mypy pytest
+python -m pip install --require-hashes -r verify-requirements.txt  # mypy and pytest import it
 python -m pip install -e .      # editable install
 python -m ruff check . && python -m ruff format --check .
 python -m mypy                  # strict
@@ -769,21 +774,37 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   root would leave the golden file matching while a whole surface went unrecorded. Neither
   is one of the five above, which read TypeScript only — except the fifth's surface-diff
   half, which reads all three.
-- **A `@moduleStability` tag above an `import` can be silently dropped from the emitted
-  `.d.ts` by `tsc` itself, if that import turns out to be otherwise unused.** `tsc` emits
-  an import's leading trivia — including a JSDoc comment sitting on the line above it —
-  only when the import itself survives into the declaration output; an import with no
-  surviving reference is elided, and the comment goes with it. This happened for real on
-  `src/diagnostics/event.ts` during RFC-0015's implementation and was fixed by moving the
-  tag to precede the first *export* instead — the `@moduleStability frozen` line at
-  `sdks/typescript/src/diagnostics/event.ts:22` is that fix. Three other modules
-  (`contract-tests.ts`, `agents/brief-composites.ts`, `agents/brief-guards.ts`) still
-  place their tag above an import block, and survive only because that block happens to
-  retain a reference `tsc` keeps — they are one refactor away from the same elision.
-  `diagnostics/emitter.ts` was a fourth until exactly that refactor reached it: it gained
-  an `../internal/snapshot.js` import, which Biome sorts ahead of its `./event.js` one and
-  `tsc` elides, and `api-surface.ts` threw for `createEmitter` until the tag moved above
-  the first export.
+- **A pull request runs only the CI jobs its paths reach.** `ci.yml`'s `changes` job
+  evaluates [`.github/path-filters.yml`](./.github/path-filters.yml), and each heavy job runs
+  only when its filter matches. A push to `main` always runs everything, because a branch
+  does not have to be up to date to merge, so the merged tree can differ from the tested one.
+  A filter that is too narrow fails *open*: the job is skipped and `ci-complete` stays green.
+  The filters are therefore deliberately generous, and `path-filters.test.ts` holds the
+  couplings that are easy to forget. For example, `docs/spec/` reaches every binding and the
+  scaffolder, and `CLAUDE.md` reaches `build-test` because `corpus-parity.test.ts` gates prose
+  in it. `ci-complete` accepts a skipped job only if the `changes` job itself succeeded. The
+  checks `main` requires (the `General` ruleset) are `ci-complete`,
+  `Analyze (javascript-typescript)`, `cla` and `commit-guard`, and merges are squash-only.
+- **A `@moduleStability` tag in a comment attached directly to an `import` is silently
+  dropped from the emitted `.d.ts` if `tsc` elides that import.** `tsc` emits an import's
+  attached leading comment only when the import itself survives into the declaration
+  output; an import with no surviving reference is elided, and the comment goes with it.
+  Measured on TypeScript 7.0.2: the comment is lost only when nothing separates it from the
+  import. With a blank line in between it is emitted as a detached comment, and it survives
+  even when the import is elided. This has happened twice:
+  - On `src/diagnostics/event.ts` during RFC-0015's implementation. It was fixed by moving
+    the tag above the first *export*; the `@moduleStability frozen` line at
+    `sdks/typescript/src/diagnostics/event.ts:22` is that fix.
+  - On `diagnostics/emitter.ts`, whose module docblock sat directly on its imports. It
+    gained an `../internal/snapshot.js` import, which Biome sorts first and `tsc` elides,
+    and `api-surface.ts` threw for `createEmitter` until the tag moved above the first
+    export.
+
+  One module is still exposed in the same way: `testing/diagnostics-assert.ts`'s docblock
+  sits directly on `import type { EmitResult }`, which survives only because `EmitResult`
+  appears in a declaration. `contract-tests.ts`, `agents/brief-composites.ts`,
+  `agents/brief-guards.ts` and `connector-kit/search-filter.ts` keep their tags because a
+  blank line separates each tag from the imports below it.
   Prefer placing `@moduleStability` immediately above the module's first export. **This
   is survivable, not silent, only because there is no default tier**: a dropped tag
   makes `api-surface.ts` throw and name the module, rather than the module quietly

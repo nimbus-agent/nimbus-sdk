@@ -57,10 +57,12 @@ suite** so "it compiles" means "it speaks the real contract."
 
 Beyond the bare contract, the SDK ships the pure, dep-free helpers a connector or
 app author actually reaches for, so common work isn't reinvented per connector.
-Already shipped: `crypto` (Ed25519 signing, JWT, Google / Apple service tokens),
-`jmap-fastmail`, `icalendar`, `data-profile` (CSV / JSON / Parquet), `flux-cd`,
-`storybook`, distribution-channel resolution, the scoped audit logger, and HITL
-requests. Growth is governed by an [inclusion policy](./INCLUSION-POLICY.md) (dep-free, pure, genuinely
+Already shipped: `crypto` (JWT, Google / Apple service tokens, and the original Ed25519
+manifest signing, now deprecated in favour of the `signing` contract), `jmap-fastmail`,
+`icalendar`, `data-profile` (CSV / JSON / Parquet), `flux-cd`, `storybook`,
+distribution-channel resolution, the connector kit, the scoped audit logger, and HITL
+requests. The connector kit and four of the batteries are bound in Python and Go too.
+Growth is governed by an [inclusion policy](./INCLUSION-POLICY.md) (dep-free, pure, genuinely
 reused, contract-shaped) so the surface grows on purpose, not by accretion.
 
 ### 4. Authoring experience
@@ -215,10 +217,11 @@ same contract.*
   conformance corpus both bindings execute byte-identically — published as TypeScript's
   fifth `exports` entry point, `@nimbus-dev/sdk/diagnostics`, and Python's third import
   root, `nimbus_sdk.diagnostics`. `createScopedAuditLogger`'s free-form payload is
-  `@deprecated` in favor of it. **Emitting is TypeScript-only**: `createEmitter` /
+  `@deprecated` in favor of it. **Python ships no emitter**: `createEmitter` /
   `DiagnosticEmitter` have no Python counterpart, so a Python connector encodes and
   parses events but has no built-in helper that writes one to a sink — see
-  `CLAUDE.md` and `sdks/python/README.md`.
+  `CLAUDE.md` and `sdks/python/README.md`. (Go, which came later, has one:
+  `diagnostics.NewEmitter`.)
 - [x] **Automated Python releases via release-please** — add a `python` component to
   `release-please-config.json` so merged Conventional Commits open a release PR and
   maintain the Python `CHANGELOG`, exactly as the `node` component does today — *Pillars 5, 7*
@@ -420,8 +423,9 @@ maintained."*
   per-language guard knows the corpus exists.
 - [x] **Tiered stability** markers separating battle-tested helpers from the frozen
   core — *Pillars 3, 7*. Three tiers — `frozen`, `stable`, `experimental` — declared per
-  export in source across all three bindings (57 modules or packages: 35 TypeScript, 17
-  Python, 5 Go), projected into the three generated API-surface goldens, and enforced by
+  export in source across all three bindings (57 modules or packages when RFC-0015
+  classified them: 35 TypeScript, 17 Python, 5 Go; every module added since declares its
+  own), projected into the three generated API-surface goldens, and enforced by
   a second rule inside `conventional-commit-guard.ts` mapping a surface diff to the
   minimum Conventional Commit type it requires. The tier definitions, the rule table, and
   the full 57-row classification are [RFC-0015](./rfcs/0015-tiered-stability.md)'s, not
@@ -431,7 +435,7 @@ maintained."*
   the correction is recorded the same way.** "Separating battle-tested helpers from the
   frozen core" reads as a *per-export* property: which tier a given export gets. The
   Phase 3 exit criterion below reads differently — "each SDK's stability tier is
-  documented and enforced" — as if a binding had one tier rather than 35, 16 or 5. What
+  documented and enforced" — as if a binding had one tier rather than 35, 17 or 5. What
   actually shipped is the per-export tier axis, enforced independently per binding: each
   of the three carries its own classification table and its own guard, and the same
   helper may honestly sit at a different tier in two bindings (RFC-0015 §3). Phase 4's

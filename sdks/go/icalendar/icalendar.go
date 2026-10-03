@@ -38,7 +38,7 @@ func foldASCII(s string) string {
 
 // ParsedEvent is one VEVENT, reduced to the members this battery reads (§1).
 //
-// The nine optional string members are *string rather than string, and §R6's "a Go absence
+// The ten optional string members are *string rather than string, and §R6's "a Go absence
 // is the zero value" does not apply to them. §1 makes an empty value a REACHABLE answer
 // distinct from a property that was absent: SUMMARY: with nothing after the colon yields
 // the empty string, and ORGANIZER:mailto: yields the empty address, both of which a
@@ -47,7 +47,7 @@ func foldASCII(s string) string {
 // reachable zero.
 //
 // Measured rather than argued: collapsing an absence into the empty string — which is
-// exactly what a plain string member yields — fails 42 of the corpus's 48 parse cases,
+// exactly what a plain string member yields — fails 42 of the corpus's 46 parse cases,
 // because nearly every one of them expects at least one member to be absent. The four
 // empty-versus-absent cases are what make the requirement unambiguous; the other 38 are
 // what make it unavoidable.

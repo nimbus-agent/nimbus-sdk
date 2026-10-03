@@ -24,10 +24,10 @@
  * from `ci.yml`, because this guard reads the PR *title* and must re-run on an `edited`
  * event, which `ci.yml`'s full matrix cannot afford to re-run on every retitle. On
  * anything else it exits 0 with a note rather than being skipped by an `if:` in the
- * workflow: once branch protection marks `commit-guard` as a required check (RFC-0015
- * Shipment 5's still-outstanding deployment step — see docs/ROADMAP.md), a run that
- * never reports a check because `if:` skipped the job blocks the PR forever, since
- * GitHub has no way to read "skipped" as "not applicable" for a required check. So the
+ * workflow: `commit-guard` is a required check (the `General` ruleset on `main`, since
+ * 2026-08-25 — see docs/ROADMAP.md), so a run that never reports a check because `if:`
+ * skipped the job blocks the PR forever, since GitHub has no way to read "skipped" as
+ * "not applicable" for a required check. So the
  * job must always report a real conclusion, and it does so by exiting 0 with an
  * explanatory note rather than by not running at all.
  *

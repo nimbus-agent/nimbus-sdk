@@ -1,5 +1,5 @@
 name: Feature request
-description: Suggest an improvement to @nimbus-dev/sdk
+description: Suggest an improvement to the Nimbus SDK (TypeScript, Python, Go or the scaffolder)
 labels: ["enhancement"]
 body:
   - type: textarea

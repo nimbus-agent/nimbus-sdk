@@ -7,8 +7,9 @@ process.
 ## The contract
 
 **Contract** — the set of shapes and rules every connector and every Nimbus product
-agrees on. Today expressed as TypeScript types; the [roadmap](./ROADMAP.md#phases)
-lifts it into a language-neutral spec (JSON Schemas + wire protocol).
+agrees on. Defined language-neutrally in [`spec/`](./spec/README.md) (JSON Schemas, the
+wire protocol and the other normative documents, each with its conformance corpus);
+TypeScript, Python and Go are bindings of it.
 
 **Narrow waist** — the deliberately small, stable core the whole ecosystem passes
 through: `NimbusItem`, `ExtensionManifest`, the Plugin API v1 surface, and the agent
@@ -41,9 +42,10 @@ need, and drives consent. Lives in the
 [Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, **not** here.
 
 **Wire protocol** — the language-agnostic message framing between a connector and
-the gateway: NDJSON (one JSON value per line) over stdio, via the
-`sdks/typescript/src/ipc/` helpers (shipped as the `@nimbus-dev/sdk/ipc` export).
-Being a wire protocol is what makes the SDK polyglot-able.
+the gateway: NDJSON (one JSON value per line) over stdio, specified in
+[`spec/wire/v1/framing.md`](./spec/wire/v1/framing.md) and bound as `@nimbus-dev/sdk/ipc`,
+`nimbus_sdk.ipc` and Go's `ipc` package. Being a wire protocol is what makes the SDK
+polyglot-able.
 
 **HITL (human-in-the-loop)** — the consent mechanism. A tool returns a `HitlRequest`
 **value**; the gateway drives the actual human approval. `isHitlRequest` narrows it.
@@ -61,8 +63,8 @@ accepts only booleans and bounded integers, never a string — the successor to 
 audit logger's free-form payload. The guarantee is about closing off free-form
 channels, not about every member: `extensionId`, `event`, and `error.code` are still
 caller-controlled strings the contract does not length-bound (see spec §8). Published
-from `@nimbus-dev/sdk/diagnostics` (TypeScript) and `nimbus_sdk.diagnostics`
-(Python), specified normatively in
+from `@nimbus-dev/sdk/diagnostics` (TypeScript), `nimbus_sdk.diagnostics` (Python) and
+the `diagnostics` package (Go), specified normatively in
 [`spec/diagnostics/v1/diagnostics.md`](./spec/diagnostics/v1/diagnostics.md).
 
 **Sandbox** — the gateway-side isolation a connector process runs inside. Defined and
@@ -75,7 +77,8 @@ Governed by the [inclusion policy](./INCLUSION-POLICY.md).
 ## Polyglot & conformance
 
 **Binding** — one language's implementation of the contract. TypeScript is the
-**reference binding**; Python / Go / Rust follow.
+**reference binding**; Python and Go are official bindings too, and Rust has not
+started.
 
 **Reference implementation** — the binding the spec is proven against first (today:
 TypeScript). When spec and reference disagree, that's a bug to reconcile.
@@ -113,8 +116,9 @@ the suite (north-star horizon).
 per [GOVERNANCE.md](./GOVERNANCE.md).
 
 **Provenance** — the verifiable attestation a published artifact carries about how
-and where it was built (npm `--provenance` via OIDC today; per-ecosystem equivalents
-as other languages land). See [RELEASING.md](./RELEASING.md).
+and where it was built: npm `--provenance` and PyPI's PEP 740 attestations, both via
+OIDC. Go's equivalent is different in kind, the `sum.golang.org` checksum log plus an
+attestation on the tagged tree. See [RELEASING.md](./RELEASING.md).
 
 **Release parity** — the rule that every official SDK is published with the same
 guarantees (automated from Conventional Commits, tokenless auth, provenance, hardened
@@ -130,9 +134,10 @@ registry push and no publish token; integrity comes from the checksum database
 (`sum.golang.org`).
 
 **Manifest signing** — signing a canonicalized `ExtensionManifest` with an Ed25519
-key (`signManifest` / `verifyManifestSignature`) so the gateway can verify a
-connector's authenticity. The SDK supplies primitives, never keys or trust
-decisions.
+key, as a detached JWS envelope (`signManifest` / `verifyManifestSignature`), so the
+gateway can verify a connector's authenticity. Specified by
+[RFC-0020](./rfcs/0020-manifest-signing.md) and `spec/signing/v1/`, and bound in all three
+languages. The SDK supplies primitives, never keys or trust decisions.
 
 ## Where things live
 

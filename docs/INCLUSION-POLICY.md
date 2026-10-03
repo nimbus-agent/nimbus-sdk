@@ -2,8 +2,8 @@
 
 `@nimbus-dev/sdk` ships **batteries**: pure, dependency-free helper modules so common
 connector work isn't reinvented per connector. `crypto`, `jmap-fastmail`, `icalendar`,
-`data-profile`, `flux-cd`, `storybook`, `distribution-channel`, the scoped audit logger,
-and HITL requests are the ones that exist today.
+`data-profile`, `flux-cd`, `storybook`, `distribution-channel`, the connector kit, the
+scoped audit logger, and HITL requests are the ones that exist today.
 
 This policy is the test [maintainers](./GOVERNANCE.md#roles) apply — by consensus, or a
 documented maintainer vote if consensus fails, the same authority
@@ -50,10 +50,12 @@ parameters and
 calls Node's `generateKeyPairSync` directly, and there is no seam that would make two
 calls return the same keypair without destroying the reason the function exists. The
 same reasoning covers `signJwt`'s reliance on `crypto.sign` under ES256 (ECDSA signing
-is randomized per call even with the same injected key) and `signManifest` /
-`verifyManifestSignature`'s use of `crypto.subtle` — each is nondeterministic in a way
-no parameter could seam away without producing a function that no longer performs the
-primitive it is named for.
+is randomized per call even with the same injected key) and `generateSigningKey`'s use
+of `crypto.subtle.generateKey` — each is nondeterministic in a way no parameter could seam
+away without producing a function that no longer performs the primitive it is named for.
+Ed25519 signing and verification need no carve-out: given the same key and manifest,
+`signManifest` returns the same bytes, which is what the `manifest-signature` corpus's
+`sign` cases pin.
 
 This carve-out is narrow: it excuses the nondeterminism *inherent to the primitive*, not
 ambient configuration a helper reaches for out of convenience. A helper that reads

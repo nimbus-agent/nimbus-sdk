@@ -22,8 +22,8 @@ The corpus is how a claim in a normative document becomes something every bindin
 
 ## The one rule
 
-> **The `index.json` is the corpus, not the `cases/` directory.** Every runner — in both
-> languages — reads the index and loads only what it lists. A case file on disk that no
+> **The `index.json` is the corpus, not the `cases/` directory.** Every runner — in every
+> language — reads the index and loads only what it lists. A case file on disk that no
 > index lists is executed by nothing, and every guard fails on the mismatch:
 > *"a case on disk that no index lists is a case no runner executes — the corpus would
 > report it as covered while testing nothing."*
@@ -40,6 +40,12 @@ The case file and its index entry land in the same commit. Always.
 | `conformance/v1/framing/` | `wire/v1/framing.md` | `scripts/framing-guard.test.ts` (+ `framing-node.mjs` under Node LTS) | `tests/test_framing_corpus.py` | `conformance/framing_test.go` |
 | `conformance/v1/diagnostics/` | `diagnostics/v1/diagnostics.md` | `scripts/diagnostics-guard.test.ts` | `tests/test_diagnostics_corpus.py` | `conformance/diagnostics_test.go` |
 | `conformance/v1/url-resolution/` | `connector-kit/v1/url-resolution.md` | `scripts/url-resolution-guard.test.ts` | `tests/test_url_resolution_corpus.py` | `conformance/urlresolution_test.go` |
+| `conformance/v1/canonical-json/` | `signing/v1/canonical-json.md` | `scripts/canonical-json-guard.test.ts` | `tests/test_canonical_json_corpus.py` | `conformance/canonicaljson_test.go` |
+| `conformance/v1/manifest-signature/` | `signing/v1/manifest-signature.md` | `scripts/manifest-signature-guard.test.ts` (+ `ed25519-node.mjs` under Node) | `tests/test_manifest_signature_corpus.py` | `conformance/manifestsignature_test.go` |
+| `conformance/v1/data-profile/` | `batteries/v1/data-profile.md` | `scripts/data-profile-guard.test.ts` | `tests/test_data_profile_corpus.py` | `conformance/dataprofile_test.go` |
+| `conformance/v1/distribution-channel/` | `batteries/v1/distribution-channel.md` | `scripts/distribution-channel-guard.test.ts` | `tests/test_distribution_channel_corpus.py` | `conformance/distributionchannel_test.go` |
+| `conformance/v1/icalendar/` | `batteries/v1/icalendar.md` | `scripts/icalendar-guard.test.ts` | `tests/test_icalendar_corpus.py` | `conformance/icalendar_test.go` |
+| `conformance/v1/jmap/` | `batteries/v1/jmap.md` | `scripts/jmap-guard.test.ts` | `tests/test_jmap_corpus.py` | `conformance/jmap_test.go` |
 | `conformance/v1/predicates/` | `predicates/v1/README.md` | `scripts/predicates-guard.test.ts` | — TypeScript only | — TypeScript only |
 | `conformance/v1/sandbox/` | `probe/v1/` | `scripts/sandbox-guard.test.ts` (+ `probe-runtime.test.ts`) | — TypeScript only | — TypeScript only |
 | `conformance/v1/index.json` → `manifest/`, `item/` | `schemas/v1/` + `rules/v1/` | `scripts/schema-guard.test.ts`, `scripts/rules-guard.test.ts` | — TypeScript only | — TypeScript only |
@@ -59,7 +65,7 @@ guard passes.
 `conformance/v1/index.json` under a `fixtures` key (not `cases`), each entry carrying
 `shape` / `expect` / `class` / `violations`, and the case files sit directly in
 `manifest/` and `item/` with no `cases/` subdirectory. Do not pattern-match it against
-the five per-area corpora.
+the per-area corpora, each of which has its own `index.json`.
 
 ---
 
@@ -93,7 +99,7 @@ deliberately:
 | Corpus | `section` pattern | Example |
 |---|---|---|
 | `negotiation` | `^§[0-9]+$` | `"§6"` |
-| `diagnostics`, `url-resolution` | `^§[0-9]+(\.[0-9]+)*$` — wider on purpose, because `diagnostics.md` has a real subsection (§5.1) a chapter-only pattern cannot name | `"§5.1"` |
+| `diagnostics`, `url-resolution`, `canonical-json`, `manifest-signature`, `data-profile`, `distribution-channel`, `icalendar`, `jmap` | `^§[0-9]+(\.[0-9]+)*$` — wider on purpose, because these documents have real subsections (`diagnostics.md`'s §5.1, for one) a chapter-only pattern cannot name | `"§5.1"` |
 | `framing`, `predicates`, `sandbox` | `^[0-9]+$` — bare, no section sign | `"3"` |
 
 ### The two size pins
@@ -128,7 +134,9 @@ cd sdks/python && python -m pip install -e . && python -m pytest -q
 
 (`pytest`, `ruff` and `mypy` are installed directly — `[project].dependencies` is empty by
 policy and there is no `[dev]` extra here. The `".[dev]"` form in `ci.yml` belongs to the
-*generated* Python connector, not to this package.)
+*generated* Python connector, not to this package. `pytest` and `mypy` also need `hatchling`
+and the hash-pinned `verify-requirements.txt`, as `docs/CONTRIBUTING.md`'s Develop section
+explains; without them `pytest` fails while collecting tests.)
 
 Without the reinstall, `pytest` reads the *previous* snapshot and **passes while
 executing none of your new cases**. CI never hits this — it installs into a clean
@@ -175,6 +183,11 @@ weight, not coverage.
   accepted and indexed in `docs/rfcs/README.md`.
 
 If a case would newly fail a shipped binding, it is the second kind.
+
+**Commit a case of the first kind as `test:`.** Regenerating `sdks/go/spec/data/` puts the
+commit in the `sdks/go` release-please component, so a `feat:` or `fix:` would publish a Go
+version that changes no behaviour, and the module proxy keeps every version forever. The
+explicit-`null` declaration case (#152) landed as `test:` for this reason.
 
 ---
 

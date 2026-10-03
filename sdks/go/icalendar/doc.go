@@ -26,7 +26,7 @@
 //
 // # Four things this binding must do that the obvious Go does not
 //
-// The nine optional string members of ParsedEvent are *string, not string. §R6 says a Go
+// The ten optional string members of ParsedEvent are *string, not string. §R6 says a Go
 // absence is the zero value, and that is wrong here: §1 makes an empty value a reachable
 // answer distinct from an absent property, and only a pointer separates them. Four corpus
 // cases fail the zero-value shape.

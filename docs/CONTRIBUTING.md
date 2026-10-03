@@ -40,12 +40,22 @@ Python commands run from `sdks/python/`:
 
 ```bash
 cd sdks/python
+python -m pip install build hatchling ruff mypy pytest
+python -m pip install --require-hashes -r verify-requirements.txt
 python -m pip install -e .      # editable install
 python -m ruff check . && python -m ruff format --check .
 python -m mypy                  # strict
 python -m pytest -q
 python -m build                 # sdist + wheel into dist/
 ```
+
+The second line is not optional, even though the package itself is dependency-free.
+`mypy` and `pytest` both reach `scripts/verify_publish.py` and its tests, which import the
+release-verification toolchain (`pypi-attestations`, `sigstore` and the rest) that
+`verify-requirements.txt` pins. Without it, `mypy` reports missing imports and `pytest`
+fails while collecting tests. `hatchling` is listed for the same reason: `mypy` checks
+`hatch_build.py`, which imports it, and an editable install does not put it in your
+environment. CI's `python` job installs the same set.
 
 Go commands run from the repository root, via `go -C`. There is no `cd` step and no
 install step — the module has zero dependencies, so a checkout is a working build:
@@ -120,8 +130,9 @@ that this file will not show; review those by hand.
 ### Changing the Go public API surface
 
 `docs/api-surface-go.md` is the Go equivalent: a generated snapshot of every exported
-declaration across `connectorkit`, `contract`, `diagnostics`, `ipc`, and `spec`. If you
-add, remove, rename, or change
+declaration in every non-internal package (the `packages` list in
+`sdks/go/internal/apisurface/cmd/main.go`, which a test holds to the directories on disk).
+If you add, remove, rename, or change
 the signature of an exported Go declaration, regenerate it in the same commit:
 
 ```bash
@@ -155,10 +166,10 @@ Code examples in `docs/modules/` and [`sdks/typescript/README.md`](../sdks/types
 are typechecked against the built `dist/` by
 `sdks/typescript/scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
 standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, one of its
-other entry points — `./testing`, `./ipc`, `./connector-kit`, `./diagnostics` — or
-`node:` builtins. The allowed set is read from the package's own `exports` map, so an
-entry point added there is importable in a snippet the moment it exists. Use ` ```text `
-for anything that is not meant to compile.
+other entry points — `./testing`, `./ipc`, `./connector-kit`, `./diagnostics`,
+`./signing` — or `node:` builtins. The allowed set is read from the package's own
+`exports` map, so an entry point added there is importable in a snippet the moment it
+exists. Use ` ```text ` for anything that is not meant to compile.
 
 Whether the export is additive or breaking is governed by the
 [deprecation policy](./DEPRECATION-POLICY.md); whether a new *battery* belongs here
@@ -180,8 +191,8 @@ at all is governed by the [inclusion policy](./INCLUSION-POLICY.md).
   narrow with a type guard. Biome enforces the rules in `biome.json`, including
   `noExplicitAny` and `noConsole` in `sdks/typescript/src/`.
 - **Public surface is the `exports` map.** The package exposes `.`, `./testing`,
-  `./ipc`, `./connector-kit`, and `./diagnostics`. Changing an exported type is a
-  semver-relevant change — bump accordingly (Conventional Commits drive
+  `./ipc`, `./connector-kit`, `./diagnostics`, and `./signing`. Changing an exported type
+  is a semver-relevant change — bump accordingly (Conventional Commits drive
   release-please).
 
 ## Relationship to other repos
@@ -196,12 +207,22 @@ at all is governed by the [inclusion policy](./INCLUSION-POLICY.md).
 - Keep PRs focused; include tests for behavior changes.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) — release-please
   derives the version bump and changelog from them.
-- `bun run typecheck && bun run lint && bun run build && bun test` must pass
-  (CI runs the same on Linux, macOS and Windows, plus a Node 22/24 ESM smoke of the
-  built `dist/` on each — see `.github/workflows/ci.yml`).
+- `bun run typecheck && bun run lint && bun run build && bun run test` must pass, from
+  the repository root. CI runs the same on Linux, macOS and Windows, plus an ESM smoke of
+  the built `dist/` under Node 22 and 24 (Node 24 only on macOS) — see
+  `.github/workflows/ci.yml`.
+- If your change touches `sdks/python/` or `docs/spec/`, the Python commands under
+  [Develop](#develop) must pass too. CI runs them on Python 3.11 to 3.14 on Linux, and on
+  3.11 and 3.14 on macOS and Windows.
 - If your change touches `sdks/go/` or `docs/spec/`, the four Go commands under
-  [Develop](#develop) must pass too — CI runs them on Go 1.26 and 1.27 across the same
-  three operating systems, in its own `go` job.
+  [Develop](#develop) must pass too — CI runs them on Go 1.26 and 1.27 on Linux and
+  Windows, and on 1.27 on macOS, in its own `go` job.
+- If your change touches `tools/create-connector/`, run `bun run scaffold:typecheck`,
+  `bun run scaffold:lint` and `bun run scaffold:test` as well. CI's `scaffold-typescript`
+  and `scaffold-python` jobs also generate a project from the packed scaffolder, install
+  it, and run its own tests.
+- CI runs only the jobs your changed paths reach (`.github/path-filters.yml`), so a green
+  run is a statement about those jobs alone. A push to `main` runs everything.
 
 ### Stacking a multi-part change
 
@@ -300,10 +321,13 @@ as guidance for whoever runs the update:
 
 ## Releases
 
-Releases are automated by [release-please](https://github.com/googleapis/release-please):
-merged Conventional Commits open a release PR; merging it tags the release and
-publishes `@nimbus-dev/sdk` to npm with provenance via GitHub OIDC (no long-lived
-npm token).
+Releases are automated by [release-please](https://github.com/googleapis/release-please),
+with one component per package: `@nimbus-dev/sdk` and `@nimbus-dev/create-connector` (npm),
+`nimbus-dev-sdk` (PyPI), and the Go module (an `sdks/go/vX.Y.Z` tag the module proxy
+serves). Merged Conventional Commits open a release PR per component, and merging one tags
+that release and publishes it, with no long-lived token anywhere. Which component a commit
+belongs to is decided by the paths it touches, not by its scope. See
+[RELEASING.md](./RELEASING.md).
 
 Only the commits that reach `main` are parsed — see [Stacking a multi-part
 change](#stacking-a-multi-part-change) for why that distinction decides the version

@@ -79,6 +79,21 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 
 This is the reference pipeline the other languages mirror.
 
+### The scaffolder → npm
+
+`@nimbus-dev/create-connector` (`tools/create-connector`) is a fourth release-please
+component, tagged `create-connector-vX.Y.Z`, and publishes the same way:
+`publish-create-connector` builds, typechecks, lints and tests the package, runs the shared
+preflight (with `expected-version` from release-please's `cc_version`), publishes with
+`--provenance`, and verifies the registry signature and the provenance attestation.
+`smoke-create-connector` then runs the two invocations the quickstarts document,
+`npm create @nimbus-dev/connector@<version>` and
+`npx @nimbus-dev/create-connector@<version> … --lang python`, against the registry, and
+checks that each produced a project in the right language, with its `.gitignore`. No
+pre-publish job can run them, since both resolve the package from npm. It is a separate job
+for the same reason `verify-python-publish` is: it only downloads and reads, so it can be
+re-run safely while the registry catches up.
+
 ## Python → PyPI (implemented today)
 
 Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).

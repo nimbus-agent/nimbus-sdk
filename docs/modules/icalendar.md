@@ -104,10 +104,10 @@ Session nor Email nor Request, so `jmapfastmail.Parse` would name nothing.
 
 Two things it does that the obvious Go does not:
 
-- **`ParsedEvent`'s nine optional string members are `*string`, not `string`.** §R6's
+- **`ParsedEvent`'s ten optional string members are `*string`, not `string`.** §R6's
   zero-value rule is wrong here: `SUMMARY:` with an empty value is a reachable, real answer
   that a zero-valued string cannot tell from no `SUMMARY` line at all. Measured: collapsing an
-  absence into `""` fails **42 of the corpus's 48 parse cases**.
+  absence into `""` fails **42 of the corpus's 46 parse cases**.
 - **`foldASCII` iterates BYTES**, not runes, for §5.3's `mailto:` search. `strings.ToLower` is
   wrong twice over: it applies simple case mapping, so `İ` becomes one byte where JavaScript
   and Python produce two, and Go indexes bytes, so the resulting index is short rather than

@@ -523,7 +523,8 @@ export function isDiagnosticEvent(value: unknown): value is DiagnosticEvent {
 /**
  * Whether `level` is at or above `threshold` in the published order — a host filtering
  * at `threshold` keeps the event. Defined on `DIAGNOSTIC_LEVELS`' index rather than a
- * hard-coded number, which is what the drift guard in Task 4 protects.
+ * hard-coded number, so `scripts/diagnostics-guard.test.ts`, which holds that list to the
+ * published level data, protects the order too.
  *
  * **Total: an argument that is not a published level answers `false`.** The types say
  * both arguments are levels, but the types are erased at runtime and this is a published

@@ -1,8 +1,9 @@
 """The handshake runtime, driven by scripted peers.
 
 Synchronous by design: Python's standard streams block, so an async variant would buy
-nothing at connector startup. See the design doc for why this does not count as a
-divergence from the TypeScript binding.
+nothing at connector startup. That makes it one of the deliberate behavioural
+differences from TypeScript's async ``performHandshake`` that CLAUDE.md lists; Go's
+handshake is synchronous too.
 """
 
 from __future__ import annotations

@@ -95,7 +95,7 @@ describe("generate", () => {
     await expect(
       generate({ templateDir: FIXTURE, targetDir: target, name: nameOrThrow("my-conn") }),
     ).rejects.toThrow(/not empty/);
-    // The exit-code contract (Task 5's CI jobs branch on it) is structural, not a message
+    // The exit-code contract (both quickstarts document it) is structural, not a message
     // regex: `index.ts` narrows on this class, not on wording either side could change.
     await expect(
       generate({ templateDir: FIXTURE, targetDir: target, name: nameOrThrow("my-conn") }),

@@ -32,6 +32,18 @@ describe("jwkThumbprint", () => {
     expect(await jwkThumbprint(priv)).toBe(RFC8037_THUMBPRINT);
   });
 
+  // `typeof null` is "object", so `null` gets past the first check and must be refused by
+  // the next one; anything else that is not an object never gets that far.
+  test("rejects null and a non-object key as key-unsupported", async () => {
+    await expect(jwkThumbprint(null as unknown as Jwk)).rejects.toBeInstanceOf(SignatureError);
+    await expect(jwkThumbprint(null as unknown as Jwk)).rejects.toMatchObject({
+      reason: "key-unsupported",
+    });
+    await expect(jwkThumbprint("OKP" as unknown as Jwk)).rejects.toMatchObject({
+      reason: "key-unsupported",
+    });
+  });
+
   test("rejects a key whose required members are not strings", async () => {
     await expect(jwkThumbprint({ kty: "OKP", crv: "Ed25519" } as unknown as Jwk)).rejects.toThrow(
       SignatureError,

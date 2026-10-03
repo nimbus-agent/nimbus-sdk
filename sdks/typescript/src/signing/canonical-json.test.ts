@@ -86,6 +86,15 @@ describe("§6 strings", () => {
     expect(canonicalize('a"b\\c/d')).toBe('"a\\"b\\\\c/d"');
   });
 
+  // `JSON.stringify` escapes every C0 control exactly as §6 does — the five short forms and
+  // a lowercase `\u00xx` for the rest — so it is an independent oracle for all 32 at once.
+  test("escapes every C0 control exactly as JSON.stringify does", () => {
+    for (let cp = 0; cp < 0x20; cp++) {
+      const ch = String.fromCodePoint(cp);
+      expect(canonicalize(ch)).toBe(JSON.stringify(ch));
+    }
+  });
+
   test("rejects a lone surrogate", () => {
     expect(reasonOf(() => canonicalize("\ud800"))).toBe("lone-surrogate");
   });

@@ -9,7 +9,7 @@
 
 import { generateKeyPairSync } from "node:crypto";
 
-import { canonicalizeManifest } from "./canonical-json.js";
+import { canonicalizeManifest } from "./canonical-json.js"; // NOSONAR S1874: the deprecated signer and verifier below must sign and verify exactly the legacy NFC bytes
 
 /**
  * @deprecated since 1.32.0 — use `SignatureError` from `@nimbus-dev/sdk/signing` instead.
@@ -144,15 +144,15 @@ export async function verifyManifestSignature(
       "verifyManifestSignature called on unsigned manifest — caller must check first",
     );
   }
-  if (resolvedPubkey.length !== 32) throw new SignatureInvalidFormat();
-  const declaredPubkey = decodeBase64(manifest.publisher.key);
-  if (declaredPubkey.length !== 32) throw new SignatureInvalidFormat();
+  if (resolvedPubkey.length !== 32) throw new SignatureInvalidFormat(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract (errorToHardDisableReason maps it)
+  const declaredPubkey = decodeBase64(manifest.publisher.key); // NOSONAR S1874: the legacy key is standard base64, which the replacement base64urlDecode rejects
+  if (declaredPubkey.length !== 32) throw new SignatureInvalidFormat(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract (errorToHardDisableReason maps it)
   if (!constantTimeBytesEqual(declaredPubkey, resolvedPubkey)) {
-    throw new PublisherKeyMismatch();
+    throw new PublisherKeyMismatch(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract (errorToHardDisableReason maps it)
   }
-  const sig = decodeBase64(manifest.signature);
-  if (sig.length !== 64) throw new SignatureInvalidFormat();
-  const canonical = canonicalizeManifest(manifest);
+  const sig = decodeBase64(manifest.signature); // NOSONAR S1874: the legacy signature is standard base64, which the replacement base64urlDecode rejects
+  if (sig.length !== 64) throw new SignatureInvalidFormat(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract (errorToHardDisableReason maps it)
+  const canonical = canonicalizeManifest(manifest); // NOSONAR S1874: legacy signatures cover the NFC bytes this emits; the replacement's bytes and errors differ
   const cryptoKey = await crypto.subtle.importKey(
     "raw",
     new Uint8Array(resolvedPubkey),
@@ -166,7 +166,7 @@ export async function verifyManifestSignature(
     new Uint8Array(sig),
     new Uint8Array(canonical),
   );
-  if (!ok) throw new SignatureInvalid();
+  if (!ok) throw new SignatureInvalid(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract (errorToHardDisableReason maps it)
 }
 
 /**
@@ -188,7 +188,7 @@ export async function signManifest(
   manifest: SignedManifestShape,
   privkey: Uint8Array,
 ): Promise<string> {
-  if (privkey.length !== 32) throw new SignatureInvalidFormat();
+  if (privkey.length !== 32) throw new SignatureInvalidFormat(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract (errorToHardDisableReason maps it)
   const d = Buffer.from(privkey).toString("base64url");
   const cryptoKey = await crypto.subtle.importKey(
     "jwk",
@@ -197,9 +197,9 @@ export async function signManifest(
     false,
     ["sign"],
   );
-  const canonical = canonicalizeManifest(manifest);
+  const canonical = canonicalizeManifest(manifest); // NOSONAR S1874: legacy signatures cover the NFC bytes this emits; the replacement's bytes and errors differ
   const sig = await crypto.subtle.sign("Ed25519", cryptoKey, new Uint8Array(canonical));
-  return encodeBase64(new Uint8Array(sig));
+  return encodeBase64(new Uint8Array(sig)); // NOSONAR S1874: the legacy signature is standard base64; the replacement base64urlEncode emits another alphabet
 }
 
 /**
@@ -239,9 +239,11 @@ export function generateEd25519Keypair(): { privkey: Uint8Array; pubkey: Uint8Ar
  * from. May be removed in 2.0.0, no earlier
  * than the release after next — see docs/DEPRECATION-POLICY.md.
  */
-export function errorToHardDisableReason(err: unknown): SignatureDisableReason {
-  if (err instanceof PublisherKeyMismatch) return "publisher_key_mismatch";
-  if (err instanceof SignatureInvalidFormat) return "signature_malformed";
-  if (err instanceof SignatureInvalid) return "signature_failed";
+export function errorToHardDisableReason(
+  err: unknown,
+): SignatureDisableReason /* NOSONAR S1874: this deprecated mapper's published return type */ {
+  if (err instanceof PublisherKeyMismatch) return "publisher_key_mismatch"; // NOSONAR S1874: recognizing the deprecated classes is this deprecated mapper's whole purpose
+  if (err instanceof SignatureInvalidFormat) return "signature_malformed"; // NOSONAR S1874: recognizing the deprecated classes is this deprecated mapper's whole purpose
+  if (err instanceof SignatureInvalid) return "signature_failed"; // NOSONAR S1874: recognizing the deprecated classes is this deprecated mapper's whole purpose
   return "signature_failed";
 }

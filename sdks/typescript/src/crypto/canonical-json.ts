@@ -81,7 +81,7 @@ const MAX_DEPTH = 32;
  * earlier than the release after next — see docs/DEPRECATION-POLICY.md.
  */
 export function canonicalize(value: unknown, depth = 0): string {
-  if (depth > MAX_DEPTH) throw new ManifestNestedTooDeep();
+  if (depth > MAX_DEPTH) throw new ManifestNestedTooDeep(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract; the replacement throws CanonicalizationError
   if (value === null) return "null";
   if (value === true) return "true";
   if (value === false) return "false";
@@ -89,11 +89,11 @@ export function canonicalize(value: unknown, depth = 0): string {
     return JSON.stringify(value.normalize("NFC"));
   }
   if (typeof value === "number") {
-    if (!Number.isInteger(value)) throw new NonIntegerNumberInManifest();
+    if (!Number.isInteger(value)) throw new NonIntegerNumberInManifest(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract; the replacement throws CanonicalizationError
     return String(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((v) => canonicalize(v, depth + 1)).join(",")}]`;
+    return `[${value.map((v) => canonicalize(v, depth + 1)).join(",")}]`; // NOSONAR S1874: the deprecated function recursing into itself; the replacement emits different bytes
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
@@ -104,11 +104,11 @@ export function canonicalize(value: unknown, depth = 0): string {
     });
     return (
       "{" +
-      keys.map((k) => `${JSON.stringify(k)}:${canonicalize(obj[k], depth + 1)}`).join(",") +
+      keys.map((k) => `${JSON.stringify(k)}:${canonicalize(obj[k], depth + 1)}`).join(",") + // NOSONAR S1874: the deprecated function recursing into itself; the replacement emits different bytes
       "}"
     );
   }
-  throw new UnsupportedManifestValueType();
+  throw new UnsupportedManifestValueType(); // NOSONAR S1874: throwing this deprecated class is this deprecated function's contract; the replacement throws CanonicalizationError
 }
 
 /**
@@ -124,5 +124,5 @@ export function canonicalize(value: unknown, depth = 0): string {
 export function canonicalizeManifest(manifest: object): Uint8Array {
   const clone: Record<string, unknown> = { ...(manifest as Record<string, unknown>) };
   delete clone["signature"];
-  return new TextEncoder().encode(canonicalize(clone));
+  return new TextEncoder().encode(canonicalize(clone)); // NOSONAR S1874: legacy signatures cover the NFC bytes only this deprecated canonicalize emits; the replacement's differ
 }

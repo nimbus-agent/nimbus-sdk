@@ -2,11 +2,10 @@ import { SignatureError } from "./errors.js";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
-const VALUES: readonly number[] = (() => {
-  const table = new Array<number>(128).fill(-1);
-  for (let i = 0; i < ALPHABET.length; i++) table[ALPHABET.charCodeAt(i)] = i;
-  return table;
-})();
+/** Each ASCII code's 6-bit value, or -1 for a code outside the alphabet. */
+const VALUES: readonly number[] = Array.from({ length: 128 }, (_, code) =>
+  ALPHABET.indexOf(String.fromCodePoint(code)),
+);
 
 /**
  * Strict base64url, per `docs/spec/signing/v1/manifest-signature.md` §4.
@@ -41,8 +40,11 @@ export function base64urlDecode(s: string): Uint8Array {
   let bits = 0;
   let written = 0;
   for (let i = 0; i < s.length; i++) {
-    const code = s.charCodeAt(i);
-    const value = code < 128 ? VALUES[code] : -1;
+    // A code point where a code unit would do equally well: every alphabet character is
+    // ASCII, and the first position that is not — a surrogate pair or a lone half alike —
+    // reads as at least 128 either way, so it rejects before any later index is read.
+    const code = s.codePointAt(i);
+    const value = code !== undefined && code < 128 ? VALUES[code] : -1;
     if (value === undefined || value < 0) throw new SignatureError("base64url-invalid");
     acc = ((acc << 6) | value) & 0x3ffff;
     bits += 6;

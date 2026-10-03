@@ -110,8 +110,8 @@ export async function signManifest(
   // §9 step 1.
   if (
     typeof privateKey !== "object" ||
-    privateKey === null ||
-    privateKey.kty !== "OKP" ||
+    // `typeof null` is "object"; the optional chain is what refuses `null` here.
+    privateKey?.kty !== "OKP" ||
     privateKey.crv !== "Ed25519" ||
     typeof privateKey.x !== "string" ||
     typeof privateKey.d !== "string"
@@ -182,19 +182,24 @@ export async function signManifest(
   return { protected: protectedB64, signature: base64urlEncode(signature) };
 }
 
-export async function verifyManifestSignature(
-  manifest: object,
-  trustedKeys: readonly Jwk[],
-): Promise<void> {
-  // Step 1 — the manifest itself, before any member is read. A corpus case can carry
-  // `null` or a primitive, and reading `publisher` off `null` throws a raw TypeError that
-  // escapes the closed token set entirely.
+/** What §8 step 1 hands on: the manifest as a record, and the envelope's two members. */
+interface EnvelopeMembers {
+  readonly document: Record<string, unknown>;
+  readonly protectedMember: string;
+  readonly signatureMember: string;
+}
+
+/** §8 step 1. Every refusal here is `envelope-malformed`, in the order the checks run. */
+function readEnvelope(manifest: object): EnvelopeMembers {
+  // The manifest itself, before any member is read. A corpus case can carry `null` or a
+  // primitive, and reading `publisher` off `null` throws a raw TypeError that escapes the
+  // closed token set entirely.
   if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
     throw new SignatureError("envelope-malformed");
   }
   const document = manifest as Record<string, unknown>;
 
-  // Step 1 — envelope shape.
+  // Envelope shape.
   const publisher = document["publisher"];
   if (typeof publisher !== "object" || publisher === null || Array.isArray(publisher)) {
     throw new SignatureError("envelope-malformed");
@@ -217,53 +222,42 @@ export async function verifyManifestSignature(
   ) {
     throw new SignatureError("envelope-malformed");
   }
+  return { document, protectedMember, signatureMember };
+}
 
-  // Step 2 — BOTH members decode before either is parsed. Decoding lazily is the natural
-  // way to write this and reports `protected-malformed` where the contract says
-  // `base64url-invalid`.
-  const protectedBytes = base64urlDecode(protectedMember);
-  const signatureBytes = base64urlDecode(signatureMember);
-
-  // Steps 3-5.
-  const header = parseProtectedHeaderBytes(protectedBytes);
-
-  // Step 6 — thumbprintable keys only; a malformed entry in a rotation set must not make
-  // every signature under that publisher unverifiable. `jwkThumbprint` rejects a non-OKP
-  // key, so the skip has to be driven by its verdict rather than by a coarser type check
-  // here — and it accepts any `crv`, which is what keeps step 7 reachable.
+/**
+ * §8 step 6 — thumbprintable keys only; a malformed entry in a rotation set must not make
+ * every signature under that publisher unverifiable. `jwkThumbprint` rejects a non-OKP key,
+ * so the skip has to be driven by its verdict rather than by a coarser type check here — and
+ * it accepts any `crv`, which is what keeps step 7 reachable.
+ */
+async function selectTrustedKey(trustedKeys: readonly Jwk[], kid: string): Promise<Jwk> {
   let selected: Jwk | undefined;
   for (const candidate of trustedKeys) {
     let thumbprint: string;
     try {
-      thumbprint = await jwkThumbprint(candidate);
+      thumbprint = await jwkThumbprint(candidate); // NOSONAR S9382: §8 step 6 is an ordered first-match walk; Promise.all would thumbprint keys past the match and surface their errors
     } catch (error) {
       // Only a rejection is a skip. A bug must still surface.
       if (error instanceof SignatureError) continue;
       throw error;
     }
-    if (thumbprint === header.kid) {
+    if (thumbprint === kid) {
       selected = candidate;
       break;
     }
   }
   if (selected === undefined) throw new SignatureError("kid-unknown");
+  return selected;
+}
 
-  // Step 7 — X25519 is thumbprintable and is NOT a signing curve, which is why steps 6
-  // and 7 are two steps rather than one.
-  if (selected.kty !== "OKP" || selected.crv !== "Ed25519" || typeof selected.x !== "string") {
-    throw new SignatureError("key-unsupported");
-  }
-  const publicKeyBytes = forCrypto(decodeKeyOctets(selected.x));
-
-  // Step 8 — the algorithm comes from the resolved key, never from the attacker-supplied
-  // header, so this is checked only now. An absent `alg` lands here too (§10 has no
-  // `alg-missing`), which is why `ProtectedHeader.alg` is optional rather than literal.
-  if (header.alg !== "EdDSA") throw new SignatureError("alg-unsupported");
-
-  // Step 9.
-  const canonical = canonicalizeOrWrap(document);
-
-  // Step 10.
+/** §8 step 10: the length check, then Ed25519 itself, both inside §10's closed set. */
+async function verifySignatureBytes(
+  publicKeyBytes: Uint8Array<ArrayBuffer>,
+  signatureBytes: Uint8Array,
+  protectedMember: string,
+  canonical: Uint8Array,
+): Promise<void> {
   if (signatureBytes.length !== 64) throw new SignatureError("signature-invalid");
   try {
     const key = await crypto.subtle.importKey("raw", publicKeyBytes, { name: "Ed25519" }, false, [
@@ -293,4 +287,43 @@ export async function verifyManifestSignature(
     if (error instanceof SignatureError) throw error;
     throw new SignatureError("signature-invalid", { cause: error });
   }
+}
+
+// §8's ten steps, in order: each phase above is called exactly where its step runs.
+export async function verifyManifestSignature(
+  manifest: object,
+  trustedKeys: readonly Jwk[],
+): Promise<void> {
+  // Step 1.
+  const { document, protectedMember, signatureMember } = readEnvelope(manifest);
+
+  // Step 2 — BOTH members decode before either is parsed. Decoding lazily is the natural
+  // way to write this and reports `protected-malformed` where the contract says
+  // `base64url-invalid`.
+  const protectedBytes = base64urlDecode(protectedMember);
+  const signatureBytes = base64urlDecode(signatureMember);
+
+  // Steps 3-5.
+  const header = parseProtectedHeaderBytes(protectedBytes);
+
+  // Step 6.
+  const selected = await selectTrustedKey(trustedKeys, header.kid);
+
+  // Step 7 — X25519 is thumbprintable and is NOT a signing curve, which is why steps 6
+  // and 7 are two steps rather than one.
+  if (selected.kty !== "OKP" || selected.crv !== "Ed25519" || typeof selected.x !== "string") {
+    throw new SignatureError("key-unsupported");
+  }
+  const publicKeyBytes = forCrypto(decodeKeyOctets(selected.x));
+
+  // Step 8 — the algorithm comes from the resolved key, never from the attacker-supplied
+  // header, so this is checked only now. An absent `alg` lands here too (§10 has no
+  // `alg-missing`), which is why `ProtectedHeader.alg` is optional rather than literal.
+  if (header.alg !== "EdDSA") throw new SignatureError("alg-unsupported");
+
+  // Step 9.
+  const canonical = canonicalizeOrWrap(document);
+
+  // Step 10.
+  await verifySignatureBytes(publicKeyBytes, signatureBytes, protectedMember, canonical);
 }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
+import { NonIntegerNumberInManifest } from "./canonical-json.js";
 import {
   decodeBase64,
   encodeBase64,
@@ -37,6 +38,44 @@ describe("base64 round-trip", () => {
   test("encode then decode is identity", () => {
     const bytes = new Uint8Array([0, 1, 2, 250, 255]);
     expect(Array.from(decodeBase64(encodeBase64(bytes)))).toEqual(Array.from(bytes));
+  });
+});
+
+// Each case below is a contract a legacy caller depends on and that the `@nimbus-dev/sdk/signing`
+// replacement does not reproduce: the wire alphabet, the error class that escapes, and the bytes
+// a signature covers. They are why this deprecated module keeps calling its own deprecated
+// members rather than the replacements those members name, under `NOSONAR S1874` markers.
+describe("legacy contract the signing replacement does not share", () => {
+  test("encodeBase64 and decodeBase64 use the standard alphabet with padding", () => {
+    expect(encodeBase64(new Uint8Array([0xfb, 0xff]))).toBe("+/8=");
+    expect(Array.from(decodeBase64("+/8="))).toEqual([0xfb, 0xff]);
+  });
+
+  test("a non-integer field rejects with NonIntegerNumberInManifest, not a SignatureError", async () => {
+    const { manifest, pubkey, privkey } = await signedManifest();
+    manifest["ratio"] = 1.5;
+    await expect(verifyManifestSignature(manifest, pubkey)).rejects.toBeInstanceOf(
+      NonIntegerNumberInManifest,
+    );
+    await expect(signManifest(manifest, privkey)).rejects.toBeInstanceOf(
+      NonIntegerNumberInManifest,
+    );
+  });
+
+  test("a signature covers NFC-normalized values, so re-normalizing one still verifies", async () => {
+    // Built from code points rather than typed, so no editor can fold the two forms into one.
+    const decomposed = `Cafe${String.fromCodePoint(0x301)}`;
+    const precomposed = `Caf${String.fromCodePoint(0xe9)}`;
+    expect(decomposed).not.toBe(precomposed);
+    const { privkey, pubkey } = generateEd25519Keypair();
+    const manifest: Manifest = {
+      id: "com.example.demo",
+      name: decomposed,
+      publisher: { id: "demo", key: encodeBase64(pubkey) },
+    };
+    manifest.signature = await signManifest(manifest, privkey);
+    manifest["name"] = precomposed;
+    await expect(verifyManifestSignature(manifest, pubkey)).resolves.toBeUndefined();
   });
 });
 

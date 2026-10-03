@@ -97,6 +97,32 @@ describe("§8 steps 1 and 2", () => {
       [pub],
       "envelope-malformed",
     ));
+  // Step 1 refuses a manifest that is not a plain object before reading any member: reading
+  // `publisher` off `null` would throw a raw TypeError, outside §10's closed set.
+  test("a manifest that is not a plain object is envelope-malformed", () =>
+    Promise.all(
+      [null, [], "manifest", 7].map((m) =>
+        rejectsWith(m as unknown as object, [pub], "envelope-malformed"),
+      ),
+    ));
+  test("every malformed publisher or envelope shape is envelope-malformed", () => {
+    const envelope = signed["signature"] as { protected: string; signature: string };
+    const shapes: Record<string, unknown>[] = [
+      { ...signed, publisher: undefined },
+      { ...signed, publisher: null },
+      { ...signed, publisher: [] },
+      { ...signed, publisher: "example" },
+      { ...signed, publisher: { id: 7 } },
+      { ...signed, publisher: { id: "" } },
+      { ...signed, signature: null },
+      { ...signed, signature: [] },
+      { ...signed, signature: "protected.signature" },
+      { ...signed, signature: { protected: envelope.protected } },
+      { ...signed, signature: { protected: 7, signature: envelope.signature } },
+      { ...signed, signature: { protected: envelope.protected, signature: 7 } },
+    ];
+    return Promise.all(shapes.map((m) => rejectsWith(m, [pub], "envelope-malformed")));
+  });
   // The discriminating case, and the only shape that discriminates: `protected` must be
   // VALID base64url whose bytes are malformed JSON, while `signature` is invalid
   // base64url. A lazy verifier — decode `protected`, parse it, decode `signature` only
@@ -129,6 +155,23 @@ describe("key selection", () => {
     const surrogate: Jwk = { kty: "OKP", crv: "Ed25519", x: "\ud800" };
     await rejectsWith(signed, [surrogate], "kid-unknown");
     await expect(verifyManifestSignature(signed, [surrogate, pub])).resolves.toBeUndefined();
+  });
+  test("a null entry in the trusted set is skipped, not fatal", async () => {
+    const hole = null as unknown as Jwk;
+    await rejectsWith(signed, [hole], "kid-unknown");
+    await expect(verifyManifestSignature(signed, [hole, pub])).resolves.toBeUndefined();
+  });
+  // Step 6 is an ordered, first-match walk: it stops at the first key whose thumbprint is the
+  // `kid`, and an error that is not a `SignatureError` surfaces only if the walk reaches the
+  // key that raises it. Thumbprinting every key up front would surface it in both cases.
+  test("a non-SignatureError aborts the walk only if the walk reaches that key", async () => {
+    const hostile = {
+      get kty(): string {
+        throw new TypeError("hostile key");
+      },
+    } as unknown as Jwk;
+    await expect(verifyManifestSignature(signed, [hostile, pub])).rejects.toBeInstanceOf(TypeError);
+    await expect(verifyManifestSignature(signed, [pub, hostile])).resolves.toBeUndefined();
   });
   test("an X25519 key that matches the kid is key-unsupported", async () => {
     const x25519: Jwk = { kty: "OKP", crv: "X25519", x: pub.x };
@@ -179,6 +222,15 @@ describe("§9 signing", () => {
     } catch (e) {
       expect((e as SignatureError).reason).toBe("key-unsupported");
     }
+  });
+  // `typeof null` is "object": the first check passes it, so the next one must refuse it.
+  test("a null or non-object private key is key-unsupported", async () => {
+    const hole = null as unknown as PrivateJwk;
+    await expect(signManifest(MANIFEST, hole)).rejects.toBeInstanceOf(SignatureError);
+    await expect(signManifest(MANIFEST, hole)).rejects.toMatchObject({ reason: "key-unsupported" });
+    await expect(signManifest(MANIFEST, "jwk" as unknown as PrivateJwk)).rejects.toMatchObject({
+      reason: "key-unsupported",
+    });
   });
   test("a non-Ed25519 private key is rejected", async () => {
     const bad: PrivateJwk = { kty: "OKP", crv: "X25519", x: pub.x, d: priv.d };

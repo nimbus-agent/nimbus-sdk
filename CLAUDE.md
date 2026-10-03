@@ -798,7 +798,8 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   - On `diagnostics/emitter.ts`, whose module docblock sat directly on its imports. It
     gained an `../internal/snapshot.js` import, which Biome sorts first and `tsc` elides,
     and `api-surface.ts` threw for `createEmitter` until the tag moved above the first
-    export.
+    export. The rest of the docblock was being dropped from the `.d.ts` the same way, so a
+    blank line now separates it from the imports.
 
   One module is still exposed in the same way: `testing/diagnostics-assert.ts`'s docblock
   sits directly on `import type { EmitResult }`, which survives only because `EmitResult`

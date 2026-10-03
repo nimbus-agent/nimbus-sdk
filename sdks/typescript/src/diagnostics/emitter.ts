@@ -19,6 +19,7 @@
  * `docs/spec/predicates/v1/README.md` §5 records the audit-logging operation as one that
  * must not block its caller, and `contract-tests.ts` enforces that for this binding.
  */
+
 import { snapshot as snapshotOwnMembers } from "../internal/snapshot.js";
 import {
   type DiagnosticError,

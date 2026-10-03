@@ -374,8 +374,8 @@ func exportedFields(fset *token.FileSet, fields *ast.FieldList, kind memberKind)
 			// this file's syntax tree alone when the embedded type lives in
 			// another file, or another package entirely. What this snapshot
 			// does still catch is the embedding itself appearing, changing name,
-			// or being removed, and — per finding 2 — an *exported* embedded
-			// field or interface no longer disappearing silently.
+			// or being removed, and an *exported* embedded field or interface
+			// no longer disappearing silently.
 			continue
 		}
 		for _, ident := range field.Names {

@@ -112,7 +112,7 @@ const HEADING = /^### `([^`]+)`/;
 // it. Folded into `declaration` below rather than left unparsed: a barrel flip from
 // `export { SomeClass }` to `export type { SomeClass }` is breaking for value
 // consumers, and without this the flip changed the golden but produced zero detected
-// changes. See Finding 6.
+// changes.
 const TYPE_ONLY_SUFFIX = " *(type-only)*";
 const STABILITY_LINE = /^\*\*Stability:\*\* (frozen|stable|experimental)\b/;
 // The optional trailing ` — from \`key\`` is the defining file the Python and Go

@@ -173,7 +173,7 @@ describe("parseSurface / diffSurfaces", () => {
     expect(diffSurfaces(base, head, "typescript")[0]?.kind).toBe("signature");
   });
 
-  // Finding 6: renderSurface appends " *(type-only)*" OUTSIDE the backticks, where
+  // renderSurface appends " *(type-only)*" OUTSIDE the backticks, where
   // HEADING's capture group cannot see it. A barrel flip from `export { SomeClass }`
   // to `export type { SomeClass }` is breaking for value consumers, so it must be
   // detected — folded into `declaration` rather than dropped on the floor.

@@ -175,7 +175,7 @@ func TestRenderPackageRefusesADirectoryWithNoGoFiles(t *testing.T) {
 // PackageStability. Left unvalidated, an idiomatic full-sentence doc comment like
 // "// Stability: frozen." renders as "**frozen.**" — a value the golden's own parser
 // (which requires \*\*(frozen|stable|experimental)\*\*) silently discards, so the
-// export vanishes from every future base/head diff undetected. See Finding 1.
+// export vanishes from every future base/head diff undetected.
 func TestRenderPackageRejectsAMalformedDeclOverride(t *testing.T) {
 	dir := writeFixture(t, "x.go", `// Stability: stable
 package demo

@@ -109,7 +109,7 @@ describe("stability in the surface", () => {
   // from the published surface MUST declare a tier, or resolveStability throws. Every
   // other fixture in this file tags its module, so without this test the throw could be
   // replaced by `?? "stable"` and every other test here — plus the golden — would stay
-  // green. See Finding 3.
+  // green.
   test("buildSurface throws when a module has no @moduleStability tag", () => {
     const untagged: Record<string, string> = {
       "package.json": JSON.stringify({ exports: { ".": { types: "./dist/untagged.d.ts" } } }),

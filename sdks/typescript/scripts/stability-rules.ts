@@ -119,10 +119,10 @@ const STABILITY_LINE = /^\*\*Stability:\*\* (frozen|stable|experimental)\b/;
 // generators record (docs/ARCHITECTURE.md, "The stability matrix"). It is a NON-capturing
 // group on purpose: group 1 is this map's key and `declaration` is what `diffSurfaces`
 // compares for a signature change, so anything that reached either would turn a pure
-// rendering change into 294
-// removals plus 294 additions. Placing it before the tier, or omitting the group while
-// the goldens carry the suffix, are the two ways to get this wrong — the first captures
-// it into the key, the second breaks the end anchor and drops every entry.
+// rendering change into 294 removals plus 294 additions. Placing it before the tier, or
+// omitting the group while the goldens carry the suffix, are the two ways to get this
+// wrong — the first captures it into the key, the second breaks the end anchor and drops
+// every entry.
 const BULLET = /^- `(.+)` — \*\*(frozen|stable|experimental)\*\*(?: — from `[^`]+`)?\s*$/;
 // An indented continuation of a bullet entry: a Python class's member or Protocol
 // method, rendered as `  - \`...\`` under the class's own bullet.

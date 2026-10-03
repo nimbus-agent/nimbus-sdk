@@ -27,9 +27,8 @@
  * workflow: `commit-guard` is a required check (the `General` ruleset on `main`, since
  * 2026-08-25 — see docs/ROADMAP.md), so a run that never reports a check because `if:`
  * skipped the job blocks the PR forever, since GitHub has no way to read "skipped" as
- * "not applicable" for a required check. So the
- * job must always report a real conclusion, and it does so by exiting 0 with an
- * explanatory note rather than by not running at all.
+ * "not applicable" for a required check. So the job must always report a real conclusion,
+ * and it does so by exiting 0 with an explanatory note rather than by not running at all.
  *
  * Also usable locally against any PR, which is how the carried-commits rule was checked
  * against the release this guard exists to prevent:

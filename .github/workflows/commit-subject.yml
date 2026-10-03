@@ -17,8 +17,9 @@ name: Commit Subject
 # via `if:` on a non-pull_request event: `commit-guard` is a required check (the
 # `General` ruleset on `main`, since 2026-08-25 — see docs/ROADMAP.md), so a run that
 # never reports a check because `if:` skipped the job blocks the PR forever, since GitHub
-# has no way to read "skipped" as "not applicable" for a required check. So the job always reports a real conclusion, by exiting 0 from
-# the inside with an explanatory note rather than by not running at all.
+# has no way to read "skipped" as "not applicable" for a required check. So the job always
+# reports a real conclusion, by exiting 0 from the inside with an explanatory note rather
+# than by not running at all.
 on:
   pull_request:
     branches: [main]

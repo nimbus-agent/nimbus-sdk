@@ -220,6 +220,14 @@ def test_nested_string_empties_a_missing_or_non_record_segment() -> None:
     assert nested_string({"a": "not-a-record"}, ["a", "b"]) == ""
 
 
+def test_nested_string_stops_at_the_first_non_record_segment() -> None:
+    # The cases above lose the record on the LAST intermediate segment. Losing it on an
+    # earlier one leaves segments still to walk, and walking them must stop rather than
+    # call `.get` on nothing.
+    assert nested_string({"a": "not-a-record"}, ["a", "b", "c"]) == ""
+    assert nested_string({"a": {"b": 1}}, ["a", "b", "c", "d"]) == ""
+
+
 def test_nested_string_empties_a_non_string_or_missing_leaf() -> None:
     assert nested_string({"a": 1}, ["a"]) == ""
     assert nested_string({"a": {"b": "v"}}, ["a", "missing"]) == ""

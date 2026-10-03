@@ -560,3 +560,86 @@ func (*hidden) AlsoInvisible() {}
 		}
 	}
 }
+
+// Every way RenderPackage can fail to read a package is an error naming the problem —
+// never a partial snapshot, which the golden comparison would accept as the truth.
+func TestRenderPackageFailsRatherThanRenderingPartOfAPackage(t *testing.T) {
+	cases := []struct {
+		name string
+		dir  string
+		want string
+	}{
+		{"a directory that does not exist", filepath.Join(t.TempDir(), "absent"), "apisurface: reading"},
+		{"a file that does not parse", writeFixture(t, "x.go", "// Stability: stable\npackage demo\n\nfunc (\n"), "apisurface: parsing x.go"},
+		{"a package with no tier", writeFixture(t, "x.go", "package demo\n\nfunc A() {}\n"), "declares no `// Stability:` line"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := RenderPackage(c.dir)
+			if err == nil || got != "" {
+				t.Fatalf("RenderPackage = %q, %v; want no output and an error", got, err)
+			}
+			if !strings.Contains(err.Error(), c.want) {
+				t.Errorf("error %q does not mention %q", err.Error(), c.want)
+			}
+		})
+	}
+}
+
+// The const/var counterpart of TestRenderPackageRejectsAMalformedDeclOverride: a spec
+// inside a grouped declaration carries its own doc comment, and a malformed tier there
+// fails the render the same way, naming the spec.
+func TestRenderPackageRejectsAMalformedOverrideOnAGroupedSpec(t *testing.T) {
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
+
+const (
+	// Limit is a limit.
+	//
+	// Stability: frozen.
+	Limit = 1
+)
+`)
+	_, err := RenderPackage(dir)
+	if err == nil {
+		t.Fatal("want an error for a malformed override on a grouped spec, got nil")
+	}
+	if !strings.Contains(err.Error(), "frozen.") || !strings.Contains(err.Error(), "Limit") {
+		t.Errorf("error does not name the bad value or the spec: %v", err)
+	}
+}
+
+// An embedded instantiated generic type is named by the type underneath its type
+// arguments, so its export status is that type's: exported ones are listed, written as
+// the source writes them, and an unexported one is omitted like any unexported embed.
+func TestRenderPackageNamesAnEmbeddedGenericTypeByItsBaseType(t *testing.T) {
+	dir := writeFixture(t, "x.go", `// Stability: stable
+package demo
+
+type Box[T any] struct{ Value T }
+
+type Pair[K comparable, V any] struct {
+	Key   K
+	Value V
+}
+
+type box[T any] struct{ value T }
+
+type Holder struct {
+	Box[int]
+	Pair[string, int]
+	box[bool]
+}
+`)
+	got, err := RenderPackage(dir)
+	if err != nil {
+		t.Fatalf("RenderPackage: %v", err)
+	}
+	want := "- `type Holder struct { Box[int]; Pair[string, int] }`"
+	if !strings.Contains(got, want) {
+		t.Errorf("missing %q in:\n%s", want, got)
+	}
+	if strings.Contains(got, "box[bool]") {
+		t.Errorf("an unexported embedded generic leaked into the surface:\n%s", got)
+	}
+}

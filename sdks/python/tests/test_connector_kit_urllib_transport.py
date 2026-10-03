@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import threading
 import time
+import urllib.error
 from collections.abc import Iterator
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import NoReturn
 
 import pytest
 
@@ -62,6 +64,11 @@ class _Handler(BaseHTTPRequestHandler):
             self._send(500, b"<html>boom</html>")
         elif self.path == "/nocontent":
             self._send(204, b"")
+        elif self.path == "/hangup":
+            # The request has been read in full; close without sending a status line.
+            # Graceful, not abortive: nothing is left unread to turn the close into an
+            # RST (see the drain above), so the client sees a clean end of stream.
+            self.close_connection = True
         elif self.path == "/slow":
             # A microsecond timeout against loopback is not enough to reach the timeout
             # branch — measured: the request completes first. The branch is one of the
@@ -221,6 +228,61 @@ def test_a_timeout_raises_transport_timeout_error(origin_a: str) -> None:
     # /slow blocks for two seconds; the request gives up after a tenth of one.
     with pytest.raises(TransportTimeoutError):
         UrllibTransport().send(HttpRequest(url=f"{origin_a}/slow", timeout_s=0.1))
+
+
+class _RaisingOpener:
+    """Stands in for the transport's opener, raising one prepared exception."""
+
+    def __init__(self, error: BaseException) -> None:
+        self._error = error
+
+    def open(self, *_args: object, **_kwargs: object) -> NoReturn:
+        raise self._error
+
+
+def test_a_timeout_urllib_wraps_in_a_url_error_is_still_a_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The /slow test above times out READING the response, which urllib raises bare.
+    A timeout hit while CONNECTING or SENDING is raised wrapped in a ``URLError``
+    instead, so it reaches a different arm — and must still come out as a
+    ``TransportTimeoutError`` rather than a generic ``TransportError``.
+
+    Raised by a stand-in opener on this one instance, because a loopback server cannot
+    produce it portably: measured on Windows, a 64 MiB body sent to a peer that never
+    reads is absorbed by the kernel, and the timeout lands on the response read — the
+    bare arm — instead. The same wrapper around a refusal is the control.
+    """
+    transport = UrllibTransport()
+    timeout = TimeoutError("timed out")
+    monkeypatch.setattr(
+        transport, "_opener", _RaisingOpener(urllib.error.URLError(timeout))
+    )
+    with pytest.raises(TransportTimeoutError) as excinfo:
+        transport.send(HttpRequest(url="http://127.0.0.1:1/x", method="POST"))
+    assert excinfo.value.method == "POST"
+    assert isinstance(excinfo.value.__cause__, urllib.error.URLError)
+    assert excinfo.value.__cause__.reason is timeout
+
+    refused = urllib.error.URLError(ConnectionRefusedError("refused"))
+    monkeypatch.setattr(transport, "_opener", _RaisingOpener(refused))
+    with pytest.raises(TransportError) as plain:
+        transport.send(HttpRequest(url="http://127.0.0.1:1/x"))
+    assert not isinstance(plain.value, TransportTimeoutError)
+
+
+def test_a_connection_dropped_before_any_response_is_a_transport_error(
+    origin_a: str,
+) -> None:
+    # /hangup reads the request and closes without a status line. http.client raises
+    # that as RemoteDisconnected — a ConnectionResetError, so an OSError that is neither
+    # an HTTPError nor a URLError — and obligation 3 still makes it a TransportError
+    # rather than letting a bare OSError past a caller's `except ConnectorKitError`.
+    with pytest.raises(TransportError) as excinfo:
+        UrllibTransport().send(HttpRequest(url=f"{origin_a}/hangup"))
+    assert not isinstance(excinfo.value, TransportTimeoutError)
+    assert isinstance(excinfo.value.__cause__, OSError)
+    assert not isinstance(excinfo.value.__cause__, urllib.error.URLError)
 
 
 def test_a_post_body_reaches_the_server(origin_a: str) -> None:

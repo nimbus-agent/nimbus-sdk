@@ -121,3 +121,41 @@ func TestThumbprintCanonicalizationIsAReuse(t *testing.T) {
 		t.Fatalf("the projection canonicalizes to %d octets, want 79", len(canonical))
 	}
 }
+
+// TestAMemberShadowedInExtraIsUnthumbprintable covers the shadowing rule on a key whose
+// three struct fields are themselves valid: a JSON member that arrived twice, once as the
+// field and once preserved in Extra, is ambiguous, so the key is refused rather than
+// thumbprinted from whichever copy the struct happened to keep.
+func TestAMemberShadowedInExtraIsUnthumbprintable(t *testing.T) {
+	for _, member := range []string{"crv", "kty", "x"} {
+		t.Run(member, func(t *testing.T) {
+			key := JWK{Kty: "OKP", Crv: "Ed25519", X: rfc8037X, Extra: map[string]any{member: "shadow"}}
+			_, err := JWKThumbprint(key)
+			var rejection *SignatureError
+			if !errors.As(err, &rejection) || rejection.Reason != "key-unsupported" {
+				t.Fatalf("got %v, want key-unsupported", err)
+			}
+		})
+	}
+	// The control: an Extra member outside the projection is projected away.
+	decorated := JWK{Kty: "OKP", Crv: "Ed25519", X: rfc8037X, Extra: map[string]any{"use": "sig"}}
+	if got, err := JWKThumbprint(decorated); err != nil || got != rfc7638Kid {
+		t.Fatalf("got %q, %v; want %q", got, err, rfc7638Kid)
+	}
+}
+
+// TestAMemberThatIsNotUTF8IsKeyUnsupported is Go's spelling of the lone-surrogate case
+// the other two bindings pin: canonicalization refuses the member, and a key is not an
+// envelope, so the token is key-unsupported, never canonicalization-failed. The
+// underlying refusal stays reachable through Unwrap.
+func TestAMemberThatIsNotUTF8IsKeyUnsupported(t *testing.T) {
+	_, err := JWKThumbprint(JWK{Kty: "OKP", Crv: "Ed25519\xff", X: rfc8037X})
+	var rejection *SignatureError
+	if !errors.As(err, &rejection) || rejection.Reason != "key-unsupported" {
+		t.Fatalf("got %v, want key-unsupported", err)
+	}
+	var underlying *CanonicalizationError
+	if !errors.As(err, &underlying) || underlying.Reason != "lone-surrogate" {
+		t.Fatalf("Unwrap reaches %v, want a lone-surrogate *CanonicalizationError", err)
+	}
+}

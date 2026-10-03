@@ -186,6 +186,12 @@ def test_thumbprint_step_2_is_a_reuse_of_canonicalization() -> None:
         # and treating it as one would let an unrelated key match a kid.
         pytest.param({"kty": "EC", "crv": "P-256", "x": "abc"}, id="non-okp"),
         pytest.param({}, id="empty"),
+        # Mirrors TypeScript's "rejects null and a non-object key": a rotation set read
+        # off the wire can hold anything, and `.get` on one of these would raise a bare
+        # AttributeError — outside §10's closed set, and fatal to §8 step 6's skip.
+        pytest.param(None, id="none"),
+        pytest.param("OKP", id="string"),
+        pytest.param([("kty", "OKP")], id="pairs-list"),
     ],
 )
 def test_an_unthumbprintable_key_is_key_unsupported(key: Jwk) -> None:
@@ -471,6 +477,101 @@ def test_a_non_corresponding_d_is_rejected_before_canonicalization() -> None:
     mismatched = {**private_a, "x": public_b["x"]}
     assert (
         _reason(lambda: sign_manifest({**MANIFEST, "bad": 1.5}, mismatched))
+        == "key-unsupported"
+    )
+
+
+@pytest.mark.parametrize("junk", [None, "jwk", 7, ["OKP"]])
+def test_a_private_key_that_is_not_a_mapping_is_key_unsupported(junk: object) -> None:
+    """§9 step 1, mirroring TypeScript's "a null or non-object private key" case: the
+    key's type is settled before any member is read, so ``.get`` never meets one of
+    these and raises a bare ``AttributeError`` instead of a §10 token."""
+    assert (
+        _reason(lambda: sign_manifest(MANIFEST, junk))  # type: ignore[arg-type]
+        == "key-unsupported"
+    )
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        pytest.param({"kty": "EC"}, id="non-okp"),
+        pytest.param({"crv": "X25519"}, id="x25519"),
+    ],
+)
+def test_a_private_key_that_is_not_ed25519_is_key_unsupported(
+    override: dict[str, str],
+) -> None:
+    """``x`` and ``d`` stay a genuine, corresponding pair, so the key type is the only
+    thing left that can be refused."""
+    private, _ = generate_signing_key()
+    assert (
+        _reason(lambda: sign_manifest(MANIFEST, {**private, **override}))
+        == "key-unsupported"
+    )
+
+
+@pytest.mark.parametrize(
+    ("member", "value"),
+    [
+        pytest.param("x", None, id="x-null"),
+        pytest.param("x", 7, id="x-not-a-string"),
+        pytest.param("x", "!" * 43, id="x-not-base64url"),
+        pytest.param("d", "*" * 43, id="d-not-base64url"),
+        pytest.param("x", "AAAA", id="x-not-32-octets"),
+    ],
+)
+def test_a_key_member_that_is_not_32_base64url_octets_is_key_unsupported(
+    member: str, value: object
+) -> None:
+    """§9 step 1. A key member that does not decode is a bad KEY, so the verdict is
+    ``key-unsupported`` — never ``base64url-invalid``, which belongs to §8 step 2's two
+    ENVELOPE members, and a signer that has produced no envelope cannot owe it.
+    Mirrors TypeScript's "a key whose x or d is not base64url at all"."""
+    private, _ = generate_signing_key()
+    assert (
+        _reason(lambda: sign_manifest(MANIFEST, {**private, member: value}))
+        == "key-unsupported"
+    )
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        pytest.param({"publisher": None}, id="publisher-null"),
+        pytest.param({"publisher": []}, id="publisher-list"),
+        pytest.param({"publisher": "example"}, id="publisher-string"),
+        pytest.param({"publisher": {"id": 7}}, id="publisher-id-not-a-string"),
+        pytest.param({"publisher": {"id": ""}}, id="publisher-id-empty"),
+        pytest.param({"signature": None}, id="envelope-null"),
+        pytest.param({"signature": []}, id="envelope-list"),
+        pytest.param({"signature": "protected.signature"}, id="envelope-string"),
+    ],
+)
+def test_every_malformed_publisher_or_envelope_shape_is_envelope_malformed(
+    shape: dict[str, object],
+) -> None:
+    """§8 step 1, mirroring TypeScript's test of the same name. Each shape replaces one
+    member of an otherwise valid signed manifest, so the shape is the only fault."""
+    private, public = generate_signing_key()
+    signed = {**MANIFEST, "signature": sign_manifest(MANIFEST, private)}
+    assert (
+        _reason(lambda: verify_manifest_signature({**signed, **shape}, [public]))
+        == "envelope-malformed"
+    )
+
+
+def test_a_selected_key_whose_x_is_not_base64url_is_key_unsupported() -> None:
+    """§8 step 7 decodes the KEY, so an unreadable ``x`` is ``key-unsupported`` rather
+    than step 2's ``base64url-invalid``. The thumbprint never decodes ``x``, which is
+    what lets such a key be the one a ``kid`` selects. Mirrors the TypeScript case."""
+    unreadable: Jwk = {"kty": "OKP", "crv": "Ed25519", "x": "!" * 43}
+    header = encode_protected_header(
+        {"alg": "EdDSA", "kid": jwk_thumbprint(unreadable)}
+    )
+    manifest = {**MANIFEST, "signature": {"protected": header, "signature": "A" * 86}}
+    assert (
+        _reason(lambda: verify_manifest_signature(manifest, [unreadable]))
         == "key-unsupported"
     )
 

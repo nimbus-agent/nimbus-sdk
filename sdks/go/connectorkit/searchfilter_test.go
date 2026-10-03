@@ -105,6 +105,29 @@ func TestFilterByQuerySkipsRowsTheExtractorRejects(t *testing.T) {
 	}
 }
 
+// FieldsFromKeys refuses a row that is not objectish, so FilterByQuery skips it rather
+// than reading it as a row with empty fields — mirroring TypeScript's "returns null for a
+// non-objectish item" and Python's test_fields_from_keys_returns_none_for_a_non_objectish_item.
+// An array is objectish, and is the control: it is read, as a row whose fields and tags
+// are all empty.
+func TestFieldsFromKeysRefusesARowThatIsNotObjectish(t *testing.T) {
+	extract := FieldsFromKeys([]string{"name"}, true)
+	for _, item := range []any{nil, "Alpha", 42, true} {
+		if parts, ok := extract(item); ok || parts != nil {
+			t.Errorf("extract(%#v) = %#v, %v; want nil, false", item, parts, ok)
+		}
+	}
+	if parts, ok := extract([]any{"Alpha"}); !ok || len(parts) != 2 || parts[0] != "" || parts[1] != "" {
+		t.Errorf("extract(an array) = %#v, %v; want two empty parts, true", parts, ok)
+	}
+	// An empty query matches every row that is read at all, so the count is the number of
+	// rows the extractor accepted: the object and the array, not the two scalars.
+	mixed := []any{"Alpha", 42, map[string]any{"name": "Alpha"}, []any{"Alpha"}}
+	if got := FilterByQuery(mixed, "", extract, nil); len(got) != 2 {
+		t.Errorf("got %d matches, want the 2 objectish rows", len(got))
+	}
+}
+
 // M12/M13. Go's strings.ToLower is the SIMPLE case mapping; Python's str.lower() and
 // JavaScript's toLowerCase() are the FULL one, and they differ for U+0130 alone.
 // Measured: row "İstanbul Office" + query "istanbul" matches under plain ToLower and

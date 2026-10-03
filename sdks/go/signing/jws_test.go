@@ -167,3 +167,22 @@ func TestSigningInput(t *testing.T) {
 		t.Fatalf("signing input holds %d separators, want 1", dots)
 	}
 }
+
+// TestAHeaderThatCannotBeCanonicalizedIsProtectedMalformed is Go's spelling of the
+// lone-surrogate kid the other two bindings pin: §6's serialization refuses it, and the
+// refusal is protected-malformed, with the canonicalization error kept underneath.
+func TestAHeaderThatCannotBeCanonicalizedIsProtectedMalformed(t *testing.T) {
+	_, err := EncodeProtectedHeader(ProtectedHeader{Alg: "EdDSA", Kid: "\xed\xa0\x80"})
+	var rejection *SignatureError
+	if !errors.As(err, &rejection) || rejection.Reason != "protected-malformed" {
+		t.Fatalf("got %v, want protected-malformed", err)
+	}
+	var underlying *CanonicalizationError
+	if !errors.As(err, &underlying) || underlying.Reason != "lone-surrogate" {
+		t.Fatalf("Unwrap reaches %v, want a lone-surrogate *CanonicalizationError", err)
+	}
+	// The message every binding shares, so a log line reads the same whichever wrote it.
+	if err.Error() != "manifest signature rejected: protected-malformed" {
+		t.Fatalf("message %q", err.Error())
+	}
+}

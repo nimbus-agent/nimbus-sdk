@@ -312,7 +312,14 @@ export function validateManifest(manifest: unknown): ManifestViolation[] {
   return violations;
 }
 
-function assertV1AuditLoggerShape(logger: AuditLogger, extensionId: string): void {
+/**
+ * One of the two v1 self-checks `runContractTests` ends with, both of which check this SDK's
+ * own code — here the logger `createScopedAuditLogger` builds — so in a working build
+ * neither can fail. Each takes the thing it checks as a parameter so its tests can hand it
+ * a broken one, and is exported for those tests alone: `index.ts` re-exports this module by
+ * name, so neither self-check reaches the published surface.
+ */
+export function assertV1AuditLoggerShape(logger: AuditLogger, extensionId: string): void {
   const ret = logger.log("test.action", {});
   if (typeof ret.then !== "function") {
     throw new ExtensionContractError(
@@ -321,15 +328,19 @@ function assertV1AuditLoggerShape(logger: AuditLogger, extensionId: string): voi
   }
 }
 
-function assertV1HitlRequestGuard(): void {
+/**
+ * The other v1 self-check, against `isHitlRequest` unless a test passes a stand-in. Same
+ * arrangement as {@link assertV1AuditLoggerShape}: exported for its tests, never re-exported.
+ */
+export function assertV1HitlRequestGuard(guard: (value: unknown) => boolean = isHitlRequest): void {
   const good: HitlRequest = { actionId: "x", summary: "y" };
-  if (!isHitlRequest(good)) {
+  if (!guard(good)) {
     throw new ExtensionContractError("isHitlRequest must accept a valid HitlRequest");
   }
-  if (isHitlRequest({})) {
+  if (guard({})) {
     throw new ExtensionContractError("isHitlRequest must reject an empty object");
   }
-  if (isHitlRequest({ actionId: "", summary: "y" })) {
+  if (guard({ actionId: "", summary: "y" })) {
     throw new ExtensionContractError("isHitlRequest must reject empty actionId");
   }
 }

@@ -12,6 +12,7 @@ from nimbus_sdk import __all__ as top_level
 from nimbus_sdk import spec_root
 from nimbus_sdk.diagnostics import (
     DIAGNOSTIC_LEVELS,
+    EncodeOk,
     EncodeRejected,
     ParseRejected,
     encode_diagnostic,
@@ -136,6 +137,39 @@ def test_non_string_fields_key_is_refused_not_raised() -> None:
     assert encode_diagnostic(event) == EncodeRejected(
         reason="invalid-field-key", path="/fields/1"
     )
+
+
+@pytest.mark.parametrize("error", ["token.expired", ["token.expired"], None, 1])
+def test_an_error_that_is_not_an_object_is_invalid_error(error: object) -> None:
+    """§5 checks ``error`` as a whole before any of its members. ``None`` included: an
+    explicit JSON ``null`` is a present member, not an absent one — the same verdict
+    TypeScript gives ``error: null``."""
+    event = {**_BASE_EVENT, "error": error}
+    assert encode_diagnostic(event) == EncodeRejected(
+        reason="invalid-error", path="/error"
+    )
+
+
+def test_error_retriable_is_a_boolean_or_absent() -> None:
+    """Mirrors TypeScript's ``error.retriable`` test. ``0`` and ``1`` are what a binding
+    with no distinct boolean on the wire would send, and coercing them would let two
+    implementations disagree about whether a caller retries. In Python they matter
+    twice over: ``bool`` subclasses ``int``, so the check must refuse ``1`` without
+    refusing ``True``."""
+    for retriable, encoded in ((True, "true"), (False, "false")):
+        event = {
+            **_BASE_EVENT,
+            "error": {"code": "rate.limited", "retriable": retriable},
+        }
+        result = encode_diagnostic(event)
+        assert isinstance(result, EncodeOk)
+        assert f'"error":{{"code":"rate.limited","retriable":{encoded}}}' in result.line
+    not_booleans: tuple[object, ...] = (1, 0, "true", None, {})
+    for bad in not_booleans:
+        event = {**_BASE_EVENT, "error": {"code": "rate.limited", "retriable": bad}}
+        assert encode_diagnostic(event) == EncodeRejected(
+            reason="invalid-error", path="/error/retriable"
+        )
 
 
 def test_line_too_long_is_measured_in_utf8_bytes_not_characters() -> None:

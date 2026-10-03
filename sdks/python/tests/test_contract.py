@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.metadata
+import importlib.util
 import tomllib
 from pathlib import Path
+
+import pytest
 
 import nimbus_sdk
 from nimbus_sdk import (
@@ -27,6 +31,32 @@ def test_version_matches_pyproject() -> None:
     with PYPROJECT.open("rb") as handle:
         declared = tomllib.load(handle)["project"]["version"]
     assert nimbus_sdk.__version__ == declared
+
+
+def test_version_falls_back_when_no_distribution_is_installed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A source tree run without installing has no ``nimbus-dev-sdk`` metadata, and the
+    import must still succeed — with a version that cannot be mistaken for a release.
+
+    The package's ``__init__`` is executed afresh, as a module of another name, while
+    the metadata lookup reports nothing installed: ``import nimbus_sdk`` itself is
+    cached, so re-running its first lines is the only way to reach the fallback, and the
+    real package other tests import is left exactly as it was."""
+
+    def not_installed(name: str) -> str:
+        raise importlib.metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr(importlib.metadata, "version", not_installed)
+    spec = importlib.util.spec_from_file_location(
+        "_nimbus_sdk_uninstalled", nimbus_sdk.__file__
+    )
+    assert spec is not None
+    assert spec.loader is not None
+    uninstalled = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(uninstalled)
+    assert uninstalled.__version__ == "0.0.0+unknown"
+    assert nimbus_sdk.__version__ != "0.0.0+unknown"
 
 
 def test_distribution_name_differs_from_import_name() -> None:

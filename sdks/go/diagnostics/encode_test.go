@@ -187,3 +187,32 @@ func TestParseNeverReportsLineTooLong(t *testing.T) {
 		}
 	}
 }
+
+// The two 32-bit host types a Go caller can put in fields are widened, then judged on
+// their value exactly as their 64-bit counterparts are: an int32 is an integer, an
+// integral float32 encodes without a fraction, and a fractional or non-finite float32 is
+// refused at its own pointer.
+func TestEncodeWidensThe32BitHostTypes(t *testing.T) {
+	for _, tc := range []struct {
+		value any
+		want  string
+	}{
+		{int32(-7), `"fields":{"n":-7}`},
+		{float32(16777216), `"fields":{"n":16777216}`},
+	} {
+		event := validEvent()
+		event["fields"] = map[string]any{"n": tc.value}
+		ok, isOk := Encode(event).(EncodeOk)
+		if !isOk || !strings.Contains(ok.Line, tc.want) {
+			t.Errorf("%T(%v): got %#v, want a line containing %s", tc.value, tc.value, Encode(event), tc.want)
+		}
+	}
+	for _, value := range []any{float32(1.5), float32(math.Inf(1)), float32(math.NaN())} {
+		event := validEvent()
+		event["fields"] = map[string]any{"n": value}
+		want := EncodeRejected{Reason: "invalid-field-value", Path: "/fields/n"}
+		if got := Encode(event); got != want {
+			t.Errorf("float32(%v): got %#v, want %#v", value, got, want)
+		}
+	}
+}

@@ -343,6 +343,23 @@ describe("previewFor", () => {
       }),
     ).toBe("noPart");
   });
+
+  // The test above cannot fail by the guard alone: an absent partId indexes `bodyValues`
+  // as "undefined", which it does not hold. A non-string partId is the sharper case —
+  // property access stringifies its key, so ["p1"] would read bodyValues["p1"] and select
+  // a part the server never named. Python and Go pin the same skip.
+  test("skips a part whose partId is not a string, even one that stringifies to a key", () => {
+    expect(
+      previewFor({
+        textBody: ["not-a-part", { blobId: "b1" }, { partId: ["p1"] }, { partId: "p2" }],
+        bodyValues: {
+          p1: { value: "from a part named by an array" },
+          p2: { value: "from the last part" },
+        },
+        preview: "server preview",
+      }),
+    ).toBe("from the last part");
+  });
 });
 
 // ─── viewEmail ────────────────────────────────────────────────────────────────

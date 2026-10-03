@@ -9,7 +9,12 @@ from __future__ import annotations
 
 import pytest
 
-from nimbus_sdk.ipc import FlushResult, FrameTooLongError, NdjsonLineReader
+from nimbus_sdk.ipc import (
+    IPC_MAX_LINE_BYTES,
+    FlushResult,
+    FrameTooLongError,
+    NdjsonLineReader,
+)
 
 
 def test_a_bom_split_across_three_pushes_is_still_stripped() -> None:
@@ -81,3 +86,25 @@ def test_a_clean_end_of_stream_is_not_truncated() -> None:
     reader = NdjsonLineReader()
     assert reader.push(b"whole\n") == ["whole"]
     assert reader.flush_frames() == FlushResult(frames=(), truncated=False)
+
+
+def test_the_limit_binds_what_the_drain_decodes_too() -> None:
+    # Every push checks the pending buffer, so a remainder can only cross the limit at
+    # the drain, through the decoder. Pending text at exactly the limit is conformant —
+    # the limit is inclusive, which the control below pins — but a stream that ends two
+    # octets into a three-octet sequence leaves those octets with the decoder until the
+    # final decode turns them into U+FFFD: three more octets, and over the limit. The
+    # drain must refuse that frame and latch, not hand it back as truncated data.
+    at_limit = NdjsonLineReader()
+    assert at_limit.push(b"a" * IPC_MAX_LINE_BYTES) == []
+    assert at_limit.flush_frames() == FlushResult(
+        frames=("a" * IPC_MAX_LINE_BYTES,), truncated=True
+    )
+
+    reader = NdjsonLineReader()
+    assert reader.push(b"a" * IPC_MAX_LINE_BYTES) == []
+    assert reader.push(b"\xe2\x82") == []
+    with pytest.raises(FrameTooLongError):
+        reader.flush_frames()
+    with pytest.raises(FrameTooLongError):
+        reader.push(b"after\n")

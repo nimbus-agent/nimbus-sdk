@@ -409,3 +409,22 @@ func TestPerformHandshakeResultIsNonNilExactlyWhenErrIsNil(t *testing.T) {
 		})
 	}
 }
+
+// The over-long case above trips the limit on a push. A peer can also cross it only at
+// end of stream: a frame of exactly the limit is conformant, and two octets of a
+// three-octet sequence after it are held back by the decoder until the final drain turns
+// them into U+FFFD. That drain is still a §7 violation, and still an error return rather
+// than a refusal or a silently truncated hello.
+func TestPerformHandshakeReturnsErrFrameTooLongFromTheFinalDrain(t *testing.T) {
+	peer := &scriptedPeer{chunks: [][]byte{
+		[]byte(strings.Repeat("x", IPCMaxLineBytes)),
+		{0xe2, 0x82},
+	}}
+	got, err := PerformHandshake(peer, peer, HandshakeConfig{})
+	if !errors.Is(err, ErrFrameTooLong) {
+		t.Fatalf("err = %v, want ErrFrameTooLong", err)
+	}
+	if got != nil {
+		t.Errorf("result = %#v, want nil — non-nil if and only if err is nil", got)
+	}
+}

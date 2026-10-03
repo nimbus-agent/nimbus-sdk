@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+import nimbus_sdk.spec
 from nimbus_sdk import load_corpus, load_schema, spec_root
 
 PACKAGE_DIR = Path(__file__).resolve().parents[1]
@@ -51,6 +52,52 @@ def test_framing_corpus_loads() -> None:
 def test_missing_schema_names_what_it_looked_for() -> None:
     with pytest.raises(FileNotFoundError, match=r"no-such\.schema\.json"):
         load_schema("no-such.schema.json")
+
+
+def test_missing_corpus_names_the_area_it_looked_for() -> None:
+    with pytest.raises(FileNotFoundError, match=r"no conformance corpus for 'no-such'"):
+        load_corpus("no-such")
+
+
+# The three below call `spec_root.__wrapped__`, the function under its `lru_cache`, with
+# the two candidate directories pointed at a temporary tree. The process-wide cached
+# answer every other test reads is neither consulted nor replaced.
+
+
+def test_spec_root_prefers_the_bundled_copy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    bundled, repository = tmp_path / "bundled", tmp_path / "repository"
+    bundled.mkdir()
+    repository.mkdir()
+    monkeypatch.setattr(nimbus_sdk.spec, "_BUNDLED", bundled)
+    monkeypatch.setattr(nimbus_sdk.spec, "_REPO_SPEC", repository)
+    assert nimbus_sdk.spec.spec_root.__wrapped__() == bundled
+
+
+def test_spec_root_falls_back_to_the_repository_copy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A fresh clone has no bundled copy until the build hook has run once."""
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    monkeypatch.setattr(nimbus_sdk.spec, "_BUNDLED", tmp_path / "bundled")
+    monkeypatch.setattr(nimbus_sdk.spec, "_REPO_SPEC", repository)
+    assert nimbus_sdk.spec.spec_root.__wrapped__() == repository
+
+
+def test_spec_root_raises_naming_both_places_when_neither_exists(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """What an installed wheel built without the spec-data hook meets: it has no
+    repository beside it, so it must fail loudly rather than read from elsewhere."""
+    bundled, repository = tmp_path / "bundled", tmp_path / "repository"
+    monkeypatch.setattr(nimbus_sdk.spec, "_BUNDLED", bundled)
+    monkeypatch.setattr(nimbus_sdk.spec, "_REPO_SPEC", repository)
+    with pytest.raises(RuntimeError, match="no specification data") as excinfo:
+        nimbus_sdk.spec.spec_root.__wrapped__()
+    assert str(bundled) in str(excinfo.value)
+    assert str(repository) in str(excinfo.value)
 
 
 @pytest.mark.slow

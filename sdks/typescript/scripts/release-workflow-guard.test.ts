@@ -308,7 +308,7 @@ describe("the release workflow", () => {
     expect(Object.keys(verify.inputs).sort()).toEqual(["package", "version"]);
   });
 
-  test("the composite actions' run scripts still pin the values the plan calls out", () => {
+  test("the composite actions' run scripts still pin their load-bearing values", () => {
     // Parsed, never substring-matched against the raw file — the same reasoning as the
     // npmPublishJobs comment above: an action's own comments discuss these values, so a
     // naive check of the raw file text would keep passing after the `run:` script itself

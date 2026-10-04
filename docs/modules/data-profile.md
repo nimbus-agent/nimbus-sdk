@@ -108,7 +108,8 @@ and runs that document's **34-case** corpus alongside TypeScript and Go.
 
 Two things it does not delegate to Python:
 
-- **`_trim` implements §R7's enumerated set**, never `str.strip()`. Python strips
+- **`_trim` implements §R7's enumerated set** — the private `nimbus_sdk._whitespace.trim`,
+  shared with `icalendar` and `jmap_fastmail` — never `str.strip()`. Python strips
   U+001C–U+001F, which the set excludes, and does not strip U+FEFF, which it includes — and a
   UTF-8 BOM is what Excel writes at the front of every CSV it exports, so a delegating binding
   names the first column `U+FEFF` + `id` where TypeScript names it `id`.
@@ -138,5 +139,6 @@ Three things it does that the obvious Go does not:
   value by its opening delimiter and skips it by depth counting, so there is no recursive
   decode to get wrong — and `Token()` is a real tokenizer, so a `{` inside a string literal
   cannot fool it the way manual brace counting would.
-- **`trim` uses §R7's set**, never `strings.TrimSpace`, which strips U+0085 that the set
-  excludes and does not strip U+FEFF that it includes.
+- **Trimming uses §R7's set** — `internal/whitespace.Trim`, shared with `icalendar` and
+  `jmapfastmail` — never `strings.TrimSpace`, which strips U+0085 that the set excludes and
+  does not strip U+FEFF that it includes.

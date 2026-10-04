@@ -70,71 +70,84 @@ function encodeString(s: string): string {
   for (const ch of s) {
     const cp = ch.codePointAt(0) ?? 0;
     if (cp >= 0xd800 && cp <= 0xdfff) throw new CanonicalizationError("lone-surrogate");
-    if (ch === '"') out += '\\"';
+    if (ch === '"') out += String.raw`\"`;
     else if (ch === "\\") out += "\\\\";
-    else if (cp === 0x08) out += "\\b";
-    else if (cp === 0x0c) out += "\\f";
-    else if (cp === 0x0a) out += "\\n";
-    else if (cp === 0x0d) out += "\\r";
-    else if (cp === 0x09) out += "\\t";
-    else if (cp < 0x20) out += `\\u${cp.toString(16).padStart(4, "0")}`;
+    else if (cp === 0x08) out += String.raw`\b`;
+    else if (cp === 0x0c) out += String.raw`\f`;
+    else if (cp === 0x0a) out += String.raw`\n`;
+    else if (cp === 0x0d) out += String.raw`\r`;
+    else if (cp === 0x09) out += String.raw`\t`;
+    else if (cp < 0x20) out += String.raw`\u${cp.toString(16).padStart(4, "0")}`;
     else out += ch;
   }
   return `${out}"`;
 }
 
+/** §5. A number at any depth; the depth check has already run in `canonicalizeAt`. */
+function canonicalizeNumber(value: number): string {
+  // Order is load-bearing: non-finite, then integrality, then magnitude. Python
+  // (`if not math.isfinite(value)`) and Go (`math.IsInf(f, 0) || math.IsNaN(f)`) both
+  // check finiteness before integrality and both answer `number-out-of-range` for
+  // Infinity/-Infinity/NaN; `Number.isInteger` is false for all three, so checking
+  // integrality first would answer `non-integer-number` and disagree with them.
+  if (!Number.isFinite(value)) throw new CanonicalizationError("number-out-of-range");
+  if (!Number.isInteger(value)) throw new CanonicalizationError("non-integer-number");
+  if (value > MAX_MAGNITUDE || value < -MAX_MAGNITUDE) {
+    throw new CanonicalizationError("number-out-of-range");
+  }
+  // `Object.is(-0, -0)` is true, and `String(-0)` is already "0"; stated so a reader
+  // does not add a branch that would diverge from the other two bindings.
+  return String(value);
+}
+
+/** An array at `depth`: its elements, in index order, one level deeper. */
+function canonicalizeArray(value: readonly unknown[], depth: number): string {
+  // `Array.prototype.map` preserves holes: `[, 1].map(String)` skips index 0
+  // rather than visiting it with `undefined`, so `.join(",")` on the result
+  // silently drops the missing element and emits `[,1]` — not valid JSON.
+  // Neither Python nor Go can represent a sparse array, so a hole is rejected
+  // outright rather than given some invented per-language meaning. `JSON.parse`
+  // never produces holes, so this is only reachable from in-memory construction.
+  const items: string[] = new Array(value.length);
+  for (let i = 0; i < value.length; i++) {
+    if (!(i in value)) throw new CanonicalizationError("unsupported-type");
+    items[i] = canonicalizeAt(value[i], depth + 1);
+  }
+  return `[${items.join(",")}]`;
+}
+
+/** An object at `depth`: plain objects only, members in §4 order, one level deeper. */
+function canonicalizeObject(value: object, depth: number): string {
+  // `typeof value === "object"` alone is not enough: it is also true of a `Date`, a
+  // `Map`, a `RegExp`, and every other class instance, none of which `JSON.parse`
+  // can itself produce. Python's `isinstance(value, dict)` and Go's
+  // `case map[string]any` both reject those as `unsupported-type`, and §3 requires
+  // "anything else a host language's JSON decoder cannot itself produce" to be
+  // rejected the same way. A plain object's prototype is either `Object.prototype`
+  // (from `JSON.parse` or an object literal) or `null` (from `Object.create(null)`).
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) {
+    throw new CanonicalizationError("unsupported-type");
+  }
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort(compareCodePoints);
+  const members = keys.map((k) => `${encodeString(k)}:${canonicalizeAt(obj[k], depth + 1)}`);
+  return `{${members.join(",")}}`;
+}
+
+/**
+ * The depth check runs first for every value, then one branch per kind of value. `null` is
+ * matched before the `typeof value === "object"` branch can claim it.
+ */
 function canonicalizeAt(value: unknown, depth: number): string {
   if (depth > MAX_DEPTH) throw new CanonicalizationError("nesting-too-deep");
   if (value === null) return "null";
   if (value === true) return "true";
   if (value === false) return "false";
   if (typeof value === "string") return encodeString(value);
-  if (typeof value === "number") {
-    // Order is load-bearing: non-finite, then integrality, then magnitude. Python
-    // (`if not math.isfinite(value)`) and Go (`math.IsInf(f, 0) || math.IsNaN(f)`) both
-    // check finiteness before integrality and both answer `number-out-of-range` for
-    // Infinity/-Infinity/NaN; `Number.isInteger` is false for all three, so checking
-    // integrality first would answer `non-integer-number` and disagree with them.
-    if (!Number.isFinite(value)) throw new CanonicalizationError("number-out-of-range");
-    if (!Number.isInteger(value)) throw new CanonicalizationError("non-integer-number");
-    if (value > MAX_MAGNITUDE || value < -MAX_MAGNITUDE) {
-      throw new CanonicalizationError("number-out-of-range");
-    }
-    // `Object.is(-0, -0)` is true, and `String(-0)` is already "0"; stated so a reader
-    // does not add a branch that would diverge from the other two bindings.
-    return String(value);
-  }
-  if (Array.isArray(value)) {
-    // `Array.prototype.map` preserves holes: `[, 1].map(String)` skips index 0
-    // rather than visiting it with `undefined`, so `.join(",")` on the result
-    // silently drops the missing element and emits `[,1]` — not valid JSON.
-    // Neither Python nor Go can represent a sparse array, so a hole is rejected
-    // outright rather than given some invented per-language meaning. `JSON.parse`
-    // never produces holes, so this is only reachable from in-memory construction.
-    const items: string[] = new Array(value.length);
-    for (let i = 0; i < value.length; i++) {
-      if (!(i in value)) throw new CanonicalizationError("unsupported-type");
-      items[i] = canonicalizeAt(value[i], depth + 1);
-    }
-    return `[${items.join(",")}]`;
-  }
-  if (typeof value === "object") {
-    // `typeof value === "object"` alone is not enough: it is also true of a `Date`, a
-    // `Map`, a `RegExp`, and every other class instance, none of which `JSON.parse`
-    // can itself produce. Python's `isinstance(value, dict)` and Go's
-    // `case map[string]any` both reject those as `unsupported-type`, and §3 requires
-    // "anything else a host language's JSON decoder cannot itself produce" to be
-    // rejected the same way. A plain object's prototype is either `Object.prototype`
-    // (from `JSON.parse` or an object literal) or `null` (from `Object.create(null)`).
-    const proto = Object.getPrototypeOf(value);
-    if (proto !== Object.prototype && proto !== null) {
-      throw new CanonicalizationError("unsupported-type");
-    }
-    const obj = value as Record<string, unknown>;
-    const keys = Object.keys(obj).sort(compareCodePoints);
-    const members = keys.map((k) => `${encodeString(k)}:${canonicalizeAt(obj[k], depth + 1)}`);
-    return `{${members.join(",")}}`;
-  }
+  if (typeof value === "number") return canonicalizeNumber(value);
+  if (Array.isArray(value)) return canonicalizeArray(value, depth);
+  if (typeof value === "object") return canonicalizeObject(value, depth);
   throw new CanonicalizationError("unsupported-type");
 }
 

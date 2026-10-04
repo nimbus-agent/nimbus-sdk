@@ -40,12 +40,22 @@ Python commands run from `sdks/python/`:
 
 ```bash
 cd sdks/python
+python -m pip install build hatchling ruff mypy pytest
+python -m pip install --require-hashes -r verify-requirements.txt
 python -m pip install -e .      # editable install
 python -m ruff check . && python -m ruff format --check .
 python -m mypy                  # strict
 python -m pytest -q
 python -m build                 # sdist + wheel into dist/
 ```
+
+The second line is not optional, even though the package itself is dependency-free.
+`mypy` and `pytest` both reach `scripts/verify_publish.py` and its tests, which import the
+release-verification toolchain (`pypi-attestations`, `sigstore` and the rest) that
+`verify-requirements.txt` pins. Without it, `mypy` reports missing imports and `pytest`
+fails while collecting tests. `hatchling` is listed for the same reason: `mypy` checks
+`hatch_build.py`, which imports it, and an editable install does not put it in your
+environment. CI's `python` job installs the same set.
 
 Go commands run from the repository root, via `go -C`. There is no `cd` step and no
 install step — the module has zero dependencies, so a checkout is a working build:
@@ -84,6 +94,13 @@ previous snapshot and passes while executing none of your edits. CI never hits t
 it installs into a clean checkout — so it is a local-only trap, where Go's is a red CI
 job.
 
+**Commit a corpus case that pins behaviour every binding already has as `test:`.** The
+regenerated `sdks/go/spec/data/` puts the commit in the `sdks/go` release-please component,
+so a `feat:` or `fix:` would publish a Go version that adds no behaviour, and a Go version
+can never be withdrawn. The explicit-`null` declaration case
+([#152](https://github.com/nimbus-agent/nimbus-sdk/pull/152)) landed as `test:` for this
+reason.
+
 ### Changing the public API surface
 
 `docs/api-surface.md` is a generated snapshot of every export of every `exports`
@@ -113,8 +130,9 @@ that this file will not show; review those by hand.
 ### Changing the Go public API surface
 
 `docs/api-surface-go.md` is the Go equivalent: a generated snapshot of every exported
-declaration across `connectorkit`, `contract`, `diagnostics`, `ipc`, and `spec`. If you
-add, remove, rename, or change
+declaration in every non-internal package (the `packages` list in
+`sdks/go/internal/apisurface/cmd/main.go`, which a test holds to the directories on disk).
+If you add, remove, rename, or change
 the signature of an exported Go declaration, regenerate it in the same commit:
 
 ```bash
@@ -148,10 +166,10 @@ Code examples in `docs/modules/` and [`sdks/typescript/README.md`](../sdks/types
 are typechecked against the built `dist/` by
 `sdks/typescript/scripts/docs-snippets.test.ts`. Every ` ```ts ` fence must be a complete,
 standalone module that compiles on its own, importing only `@nimbus-dev/sdk`, one of its
-other entry points — `./testing`, `./ipc`, `./connector-kit`, `./diagnostics` — or
-`node:` builtins. The allowed set is read from the package's own `exports` map, so an
-entry point added there is importable in a snippet the moment it exists. Use ` ```text `
-for anything that is not meant to compile.
+other entry points — `./testing`, `./ipc`, `./connector-kit`, `./diagnostics`,
+`./signing` — or `node:` builtins. The allowed set is read from the package's own
+`exports` map, so an entry point added there is importable in a snippet the moment it
+exists. Use ` ```text ` for anything that is not meant to compile.
 
 Whether the export is additive or breaking is governed by the
 [deprecation policy](./DEPRECATION-POLICY.md); whether a new *battery* belongs here
@@ -173,8 +191,8 @@ at all is governed by the [inclusion policy](./INCLUSION-POLICY.md).
   narrow with a type guard. Biome enforces the rules in `biome.json`, including
   `noExplicitAny` and `noConsole` in `sdks/typescript/src/`.
 - **Public surface is the `exports` map.** The package exposes `.`, `./testing`,
-  `./ipc`, `./connector-kit`, and `./diagnostics`. Changing an exported type is a
-  semver-relevant change — bump accordingly (Conventional Commits drive
+  `./ipc`, `./connector-kit`, `./diagnostics`, and `./signing`. Changing an exported type
+  is a semver-relevant change — bump accordingly (Conventional Commits drive
   release-please).
 
 ## Relationship to other repos
@@ -189,12 +207,22 @@ at all is governed by the [inclusion policy](./INCLUSION-POLICY.md).
 - Keep PRs focused; include tests for behavior changes.
 - Use [Conventional Commits](https://www.conventionalcommits.org/) — release-please
   derives the version bump and changelog from them.
-- `bun run typecheck && bun run lint && bun run build && bun test` must pass
-  (CI runs the same on Linux, macOS and Windows, plus a Node 22/24 ESM smoke of the
-  built `dist/` on each — see `.github/workflows/ci.yml`).
+- `bun run typecheck && bun run lint && bun run build && bun run test` must pass, from
+  the repository root. CI runs the same on Linux, macOS and Windows, plus an ESM smoke of
+  the built `dist/` under Node 22 and 24 (Node 24 only on macOS) — see
+  `.github/workflows/ci.yml`.
+- If your change touches `sdks/python/` or `docs/spec/`, the Python commands under
+  [Develop](#develop) must pass too. CI runs them on Python 3.11 to 3.14 on Linux, and on
+  3.11 and 3.14 on macOS and Windows.
 - If your change touches `sdks/go/` or `docs/spec/`, the four Go commands under
-  [Develop](#develop) must pass too — CI runs them on Go 1.26 and 1.27 across the same
-  three operating systems, in its own `go` job.
+  [Develop](#develop) must pass too — CI runs them on Go 1.26 and 1.27 on Linux and
+  Windows, and on 1.27 on macOS, in its own `go` job.
+- If your change touches `tools/create-connector/`, run `bun run scaffold:typecheck`,
+  `bun run scaffold:lint` and `bun run scaffold:test` as well. CI's `scaffold-typescript`
+  and `scaffold-python` jobs also generate a project from the packed scaffolder, install
+  it, and run its own tests.
+- CI runs only the jobs your changed paths reach (`.github/path-filters.yml`), so a green
+  run is a statement about those jobs alone. A push to `main` runs everything.
 
 ### Stacking a multi-part change
 
@@ -230,12 +258,76 @@ Conventional Commit is unreadable to it (and to release-please), so a feature hi
 a `wip` subject is invisible. The job lists such commits as a note. Keep stack commits
 conventional, or land the part directly on `main`.
 
+## Updating dependencies
+
+No bot opens dependency pull requests here: a maintainer updates dependencies in periodic
+bulk PRs. Run `bun outdated -r` from the repository root, edit the ranges in each
+workspace's `package.json`, run `bun install`, then run the full set of checks — everything
+under [Pull requests](#pull-requests), plus the scaffolder's `bun run scaffold:typecheck`,
+`bun run scaffold:lint` and `bun run scaffold:test`, since `tools/create-connector` is the
+second workspace. The `-r` is not optional: the root `package.json` declares no dependencies
+of its own, so a bare `bun outdated` there reports nothing. Title the PR `build(deps): …`,
+the type Dependabot's bumps on `main` carried, which cuts no release on its own.
+
+The notes below are the reasoning the retired Dependabot configuration used to carry, kept
+as guidance for whoever runs the update:
+
+- **Update with Bun, and commit `bun.lock` with the manifests.** `bun.lock` is the only
+  lockfile and npm does not read it, so an npm-driven bump edits `package.json` and leaves
+  the lockfile behind. CI installs the repository with `bun install --frozen-lockfile`,
+  which then fails with `lockfile had changes, but lockfile is frozen`.
+- **Start from the Dependabot alerts.** Alerts are still on — they come from GitHub's
+  advisory database, not from configuration in this repository — so a vulnerable
+  dependency still shows up under the repository's **Security** tab, or via
+  `gh api 'repos/nimbus-agent/nimbus-sdk/dependabot/alerts?state=open'`. What is gone is
+  the automatically opened fix PR, so a high or critical alert is a reason to update out of
+  cycle rather than wait for the next bulk pass.
+- **Move each GitHub Action everywhere it appears, in one commit.** Every third-party action
+  is pinned to a full commit SHA with its release tag as a trailing comment
+  (`uses: owner/action@<sha> # <tag>`); update the two together. The steps of a multi-step
+  action must stay on one SHA: `github/codeql-action/init` and `github/codeql-action/analyze`
+  on different versions make CodeQL fail with `Loaded a configuration file for version X,
+  but running version Y`.
+- **Regenerate the Python verification toolchain; never hand-edit it.**
+  `sdks/python/verify-requirements.txt` is compiled from `verify-requirements.in` by the
+  `uv pip compile` command in that file's header, and CI installs it with
+  `--require-hashes`, so a version edited by hand has no matching hash. `sigstore` arrives
+  through `pypi-attestations` and the two are version-coupled: change the
+  `pypi-attestations` pin in the `.in` and let the resolver move `sigstore` with it, since
+  bumping either alone lands a combination neither project tests. For a bulk pass, add
+  `--upgrade` to that command: uv treats the existing `verify-requirements.txt` as the
+  versions to keep, so run in place without it the command changes nothing the `.in` did
+  not. uv leaves `--upgrade` out of the header it writes, so the header still matches.
+  Review the diff as a release-infrastructure change rather than routine dependency noise —
+  this toolchain decides whether a published artifact is trustworthy (see
+  [RELEASING.md](./RELEASING.md)).
+- **The org's own action is untagged.** `nimbus-agent/.github/actions/verify-npm-provenance`
+  in `release.yml` is pinned to a bare SHA with no tag comment, because that repository
+  publishes no releases; move it to the head of its `main`.
+- **The scaffolder's templates are not workspace members, and nothing reports on them.**
+  `tools/create-connector/templates/typescript/package.json` and
+  `tools/create-connector/templates/python/pyproject.toml` declare what a *generated*
+  project installs. `bun outdated -r` cannot see either, and Dependabot never watched them,
+  which is how the TypeScript template once sat two TypeScript majors behind this
+  repository. Compare their ranges with the registries by hand (`npm view <package>
+  version`, and PyPI for the Python template's ceilings), then prove them the way the
+  `scaffold-typescript` and `scaffold-python` jobs in `ci.yml` do: pack, generate outside
+  the repository tree, install, and run the generated project's own suite.
+  `bun run scaffold:test` packs and generates but installs nothing, so it cannot catch a bad
+  range.
+- **Little else has anything to bump.** `[project] dependencies` in
+  `sdks/python/pyproject.toml` is empty by policy, leaving only the `hatchling` floor in
+  `[build-system] requires`, and `sdks/go/go.mod` has no `require` block at all.
+
 ## Releases
 
-Releases are automated by [release-please](https://github.com/googleapis/release-please):
-merged Conventional Commits open a release PR; merging it tags the release and
-publishes `@nimbus-dev/sdk` to npm with provenance via GitHub OIDC (no long-lived
-npm token).
+Releases are automated by [release-please](https://github.com/googleapis/release-please),
+with one component per package: `@nimbus-dev/sdk` and `@nimbus-dev/create-connector` (npm),
+`nimbus-dev-sdk` (PyPI), and the Go module (an `sdks/go/vX.Y.Z` tag the module proxy
+serves). Merged Conventional Commits open a release PR per component, and merging one tags
+that release and publishes it, with no long-lived token anywhere. Which component a commit
+belongs to is decided by the paths it touches, not by its scope. See
+[RELEASING.md](./RELEASING.md).
 
 Only the commits that reach `main` are parsed — see [Stacking a multi-part
 change](#stacking-a-multi-part-change) for why that distinction decides the version

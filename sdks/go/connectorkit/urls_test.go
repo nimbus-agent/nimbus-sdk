@@ -113,3 +113,29 @@ func TestShouldStripAuth(t *testing.T) {
 		})
 	}
 }
+
+// A relative input that extends the authority into something with no origin at all — here
+// a port that is not a number — is refused as cross-origin, naming the concatenation it
+// built, since there is no origin to name. TypeScript and Python answer this input with
+// the same message, byte for byte.
+func TestARelativeInputThatLeavesNoOriginIsCrossOrigin(t *testing.T) {
+	_, err := ResolveURLWithBase("https://api.example.com", ":8443x/y")
+	want := "resolveUrlWithBase: refusing to fetch cross-origin URL " +
+		"(got https://api.example.com:8443x/y, expected https://api.example.com)"
+	if err == nil || err.Error() != want {
+		t.Fatalf("err = %v, want %q", err, want)
+	}
+}
+
+// A bracketed host that url.Parse accepts but that is not a plain IPv6 address — one with
+// a zone — has no origin under §6, so an absolute URL naming it is malformed. TypeScript
+// and Python refuse it with the same message. A plain IPv6 literal is the control.
+func TestAZonedIPv6HostIsMalformed(t *testing.T) {
+	_, err := ResolveURLWithBase("https://[::1]", "https://[fe80::1%25en0]/x")
+	if err == nil || err.Error() != "resolveUrlWithBase: refusing to fetch malformed absolute URL" {
+		t.Fatalf("err = %v, want the malformed-URL refusal", err)
+	}
+	if got, err := ResolveURLWithBase("https://[::1]", "https://[::1]/x"); err != nil || got != "https://[::1]/x" {
+		t.Fatalf("a plain IPv6 literal: got %q, %v", got, err)
+	}
+}

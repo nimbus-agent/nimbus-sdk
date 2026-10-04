@@ -19,7 +19,7 @@ var icalendarKinds = []string{"parse", "build"}
 // struct cannot silently change what the corpus is compared against — the corpus is the
 // authority, and a test that reuses the thing under test loses that.
 //
-// The nine optional members are *string, which is the whole point of decoding rather than
+// The ten optional members are *string, which is the whole point of decoding rather than
 // type-asserting: encoding/json maps a JSON null to a nil pointer and a JSON string to a
 // pointer to it, natively. Comma-ok'ing a nil interface into "" is exactly the bug the
 // empty-versus-absent cases exist to catch, and it would make them pass.

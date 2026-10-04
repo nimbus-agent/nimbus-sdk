@@ -12,5 +12,5 @@ var data embed.FS
 
 // Deliberately unexported. Exporting an fs.FS would make the on-disk layout of
 // docs/spec part of this module's public API — moving conformance/v1/framing/ would
-// become a Go breaking change while staying invisible to the other bindings. See
-// Follow-up 5 in the design.
+// become a Go breaking change while staying invisible to the other bindings. Whether it
+// should ever be exported is a recorded follow-up in docs/ROADMAP.md.

@@ -17,9 +17,9 @@ published package.
 ## Public surface (the `exports` map)
 
 - `.` (`sdks/typescript/src/index.ts`) — the main contract: connector/extension types,
-  the Plugin API v1 surface, `server`, `hitl-request`, `item-types`, `contract-tests`,
-  `distribution-channel`, `audit-logger`, `icalendar`, and the `agents` / `crypto` /
-  `data-profile` / `jmap-fastmail` / `flux-cd` / `storybook` helper modules.
+  the Plugin API v1 surface, `server`, `contract-version`, `hitl-request`, `item-types`,
+  `contract-tests`, `distribution-channel`, `audit-logger`, `icalendar`, and the `agents` /
+  `crypto` / `data-profile` / `jmap-fastmail` / `flux-cd` / `storybook` helper modules.
 - `./testing` (`sdks/typescript/src/testing/index.ts`) — contract-test + sandbox-probe
   utilities connectors use in their own test suites.
 - `./ipc` (`sdks/typescript/src/ipc/index.ts`) — the NDJSON line-reader + IPC framing
@@ -123,7 +123,11 @@ guard's parser has two different code paths keyed on exactly this distinction.
   conformance corpus that pins it (`data-profile`, `distribution-channel`, `icalendar` and
   `jmap` respectively). They are what took this section from four import roots to eight,
   and Python from four executed corpora to eight. Their exports are listed in
-  [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here.
+  [`docs/api-surface-python.md`](./docs/api-surface-python.md) rather than here. The three
+  that trim share the batteries preamble's §R7 set through the private
+  `nimbus_sdk._whitespace` — a module file, not a package, because a directory under
+  `nimbus_sdk/` is an import root and `test_api_surface.py` fails on one `IMPORT_ROOTS`
+  does not list.
 - `nimbus_sdk.signing` (`sdks/python/src/nimbus_sdk/signing/`) — the Python binding of
   `docs/spec/signing/v1/`, **all of it since RFC-0020's S3**. It has `canonical-json.md`
   (`canonicalize`, `canonicalize_manifest`, `CanonicalizationError`,
@@ -181,8 +185,11 @@ says so. Which binding claims which corpus, and the case counts behind every one
 numbers, is declared in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json) and rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) — that is the generated
-home for what used to be restated by hand here. **Go is narrower still, in its batteries
-rather than its corpora** — it claims exactly what Python does.
+home for what used to be restated by hand here. **Go claims exactly the corpora Python
+does, and publishes the same capabilities.** Both are narrower than TypeScript by the same
+set: neither binds `agents`, `audit-logger`, `crypto`, `flux-cd`, `hitl-request`,
+`item-types`, `server`, `storybook` or `types`. [`docs/stability-matrix.md`](./docs/stability-matrix.md)
+shows the gaps capability by capability.
 
 **Every module also carries a [stability tier](./docs/rfcs/0015-tiered-stability.md)** —
 declared with a module-level `__stability__ = "frozen" | "stable" | "experimental"`
@@ -261,7 +268,9 @@ surface is shaped this way, which the generated file, by design, does not:
   the test-only `conformance` package). They are four of the ten this heading counts, and
   they are what took Go from four executed corpora to eight. Their exported declarations
   are in [`docs/api-surface-go.md`](./docs/api-surface-go.md) rather than here — the same
-  treatment the Python section gives its own four battery roots.
+  treatment the Python section gives its own four battery roots. The three that trim
+  (`dataprofile`, `icalendar`, `jmapfastmail`) share one copy of the batteries preamble's
+  §R7 set, `internal/whitespace`, as TypeScript's share `src/internal/whitespace.ts`.
 - `signing` (`sdks/go/signing/`) — the Go binding of `docs/spec/signing/v1/`, whole since
   it landed, and since S3 one of **three** bindings that publish the whole of it:
   `Canonicalize` /
@@ -279,7 +288,8 @@ surface is shaped this way, which the generated file, by design, does not:
   module. It is the tenth package and runs both signing corpora in full, byte-identically
   with TypeScript — and now with Python, whose `sign` and `verify` cases were the last
   thing separating the three.
-- `internal/gen` and a test-only `conformance` package are not part of the surface.
+- `internal/gen`, `internal/apisurface`, `internal/whitespace` and a test-only `conformance`
+  package are not part of the surface.
 
 **Three asymmetries against the other bindings sit in that list, and a tag freezes every
 one of them.** Recorded here rather than discovered at the first `go get`:
@@ -302,7 +312,7 @@ one of them.** Recorded here rather than discovered at the first `go get`:
   drop-the-prefix — `CONTRACT_VERSIONS` stays `ContractVersions`, since `Versions` names
   nothing on its own.
 
-**`sdks/go/spec/data/` is a committed copy of `docs/spec/` — 603 files.** `go:embed`
+**`sdks/go/spec/data/` is a committed copy of `docs/spec/`, file for file.** `go:embed`
 refuses paths outside the module directory and `go build` never runs a generator, so Go
 cannot reach `docs/spec/` the way Python's hatch build hook does. Regenerate with
 `go -C sdks/go generate ./spec` after **any** change under `docs/spec/`, or
@@ -545,9 +555,9 @@ per-binding test instead. That is the same treatment RFC-0020 §5 already prescr
 it means the guard against regression is weaker here than a corpus case would be.
 
 **What the crypto itself did was agree.** Go's `crypto/ed25519` and WebCrypto over
-*both* BoringSSL (bun) and OpenSSL (node) produce byte-identical output on the four `sign`
-envelopes and on all ten `ed25519` edge-case vectors — the RFC 8032 vectors, a
-non-canonical `S`, the three small-order public keys, and the `y = p` / `y = p + 1`
+*both* BoringSSL (bun) and OpenSSL (node) produce byte-identical output on every `sign`
+envelope and every `ed25519` vector in the corpus — the RFC 8032 vectors, a non-canonical
+`S`, an all-zero key, the three small-order public keys, and the `y = p` / `y = p + 1`
 encodings. Measured, not assumed, and re-measured in CI: `ci.yml` drives the
 `manifest-signature` corpus twice on the TypeScript leg, once under Bun and once under
 plain Node (`node scripts/ed25519-node.mjs`), because RFC 8032 leaves exactly these edge
@@ -646,6 +656,8 @@ Python commands run from `sdks/python/`:
 
 ```bash
 cd sdks/python
+python -m pip install build hatchling ruff mypy pytest
+python -m pip install --require-hashes -r verify-requirements.txt  # mypy and pytest import it
 python -m pip install -e .      # editable install
 python -m ruff check . && python -m ruff format --check .
 python -m mypy                  # strict
@@ -683,7 +695,10 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   or `docs/modules/*.md` change; `stability-matrix.test.ts` fails the pull request when
   the committed page no longer matches a fresh render. Every cell is read from the three
   API-surface goldens on every render — never stored in the page — so there is no cell to
-  go stale, only a `covers:` claim that can miss a module.
+  go stale, only a `covers:` claim that can miss a module. **A row whose tiers differ
+  across bindings needs a `<!-- tier-note: … -->` on its `docs/modules/` page saying why,
+  and a row whose tiers agree must not carry one** — the render throws in both cases. A
+  `—` gap needs no note. The reasoning is in `docs/ARCHITECTURE.md`'s design record.
 - **One source file maps to exactly one capability page.** The matrix's claim unit is the
   defining module, resolved the same way `docs-coverage.test.ts` already resolves a
   `covers:` comment — so a file claimed by two pages, or two files that both need the same
@@ -759,17 +774,38 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   root would leave the golden file matching while a whole surface went unrecorded. Neither
   is one of the five above, which read TypeScript only — except the fifth's surface-diff
   half, which reads all three.
-- **A `@moduleStability` tag above an `import` can be silently dropped from the emitted
-  `.d.ts` by `tsc` itself, if that import turns out to be otherwise unused.** `tsc` emits
-  an import's leading trivia — including a JSDoc comment sitting on the line above it —
-  only when the import itself survives into the declaration output; an import with no
-  surviving reference is elided, and the comment goes with it. This happened for real on
-  `src/diagnostics/event.ts` during RFC-0015's implementation and was fixed by moving the
-  tag to precede the first *export* instead — the `@moduleStability frozen` line at
-  `sdks/typescript/src/diagnostics/event.ts:21` is that fix. Three other modules
-  (`contract-tests.ts`, `agents/brief-composites.ts`, `agents/brief-guards.ts`) still
-  place their tag above an import block, and survive only because that block happens to
-  retain a reference `tsc` keeps — they are one refactor away from the same elision.
+- **A pull request runs only the CI jobs its paths reach.** `ci.yml`'s `changes` job
+  evaluates [`.github/path-filters.yml`](./.github/path-filters.yml), and each heavy job runs
+  only when its filter matches. A push to `main` always runs everything, because a branch
+  does not have to be up to date to merge, so the merged tree can differ from the tested one.
+  A filter that is too narrow fails *open*: the job is skipped and `ci-complete` stays green.
+  The filters are therefore deliberately generous, and `path-filters.test.ts` holds the
+  couplings that are easy to forget. For example, `docs/spec/` reaches every binding and the
+  scaffolder, and `CLAUDE.md` reaches `build-test` because `corpus-parity.test.ts` gates prose
+  in it. `ci-complete` accepts a skipped job only if the `changes` job itself succeeded. The
+  checks `main` requires (the `General` ruleset) are `ci-complete`,
+  `Analyze (javascript-typescript)`, `cla` and `commit-guard`, and merges are squash-only.
+- **A `@moduleStability` tag in a comment attached directly to an `import` is silently
+  dropped from the emitted `.d.ts` if `tsc` elides that import.** `tsc` emits an import's
+  attached leading comment only when the import itself survives into the declaration
+  output; an import with no surviving reference is elided, and the comment goes with it.
+  Measured on TypeScript 7.0.2: the comment is lost only when nothing separates it from the
+  import. With a blank line in between it is emitted as a detached comment, and it survives
+  even when the import is elided. This has happened twice:
+  - On `src/diagnostics/event.ts` during RFC-0015's implementation. It was fixed by moving
+    the tag above the first *export*; the `@moduleStability frozen` line at
+    `sdks/typescript/src/diagnostics/event.ts:22` is that fix.
+  - On `diagnostics/emitter.ts`, whose module docblock sat directly on its imports. It
+    gained an `../internal/snapshot.js` import, which Biome sorts first and `tsc` elides,
+    and `api-surface.ts` threw for `createEmitter` until the tag moved above the first
+    export. The rest of the docblock was being dropped from the `.d.ts` the same way, so a
+    blank line now separates it from the imports.
+
+  One module is still exposed in the same way: `testing/diagnostics-assert.ts`'s docblock
+  sits directly on `import type { EmitResult }`, which survives only because `EmitResult`
+  appears in a declaration. `contract-tests.ts`, `agents/brief-composites.ts`,
+  `agents/brief-guards.ts` and `connector-kit/search-filter.ts` keep their tags because a
+  blank line separates each tag from the imports below it.
   Prefer placing `@moduleStability` immediately above the module's first export. **This
   is survivable, not silent, only because there is no default tier**: a dropped tag
   makes `api-surface.ts` throw and name the module, rather than the module quietly
@@ -813,6 +849,26 @@ go -C sdks/go run ./internal/apisurface/cmd        # regenerate docs/api-surface
   so the `go` job needs no `proxy.golang.org` or `sum.golang.org` allowance. It is not the
   same as needing no network — `actions/setup-go` still fetches a toolchain, because the
   runners preinstall one Go version and the matrix asks for two.
+- **Dependency updates are manual: a maintainer bumps everything in periodic bulk PRs.**
+  Dependabot's version updates and fix PRs are retired; its alerts stay on. Follow
+  [Updating dependencies](./docs/CONTRIBUTING.md#updating-dependencies), which keeps the
+  reasoning its configuration carried — `bun outdated -r` (a bare `bun outdated` at the root
+  reports nothing), `bun.lock` committed with the manifests, CodeQL's `init` and `analyze`
+  on one SHA, and `sdks/python/verify-requirements.txt` regenerated from its `.in` with
+  `--upgrade`, never hand-edited. **`bun outdated -r` does not see the scaffolder's
+  templates** (`tools/create-connector/templates/*`): they are not workspace members, so
+  their ranges are checked against the registries by hand and proven by generating and
+  running a project, as the `scaffold-*` CI jobs do.
+
+- **Delete design specs and plans once their work ships.** `docs/superpowers/` holds only
+  design work that has not shipped yet. When it ships, move what is still useful to its
+  permanent home, then delete the files; git history keeps them. Decisions and rejected
+  alternatives go to the design record in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md#design-record),
+  anything deferred goes to the roadmap's
+  [recorded follow-ups](./docs/ROADMAP.md#recorded-follow-ups), and contributor rules go to
+  this file or `docs/CONTRIBUTING.md`. A source comment should not cite "the design" or "the
+  plan": after the prune there is nothing to follow, so state the reason inline or point at
+  one of those documents.
 
 ## Relationship to other repos
 
@@ -857,6 +913,13 @@ observed on [#155](https://github.com/nimbus-agent/nimbus-sdk/pull/155), which c
 docstring in `sdks/python/src/nimbus_sdk/ipc/ndjson.py` and released `nimbus-dev-sdk`
 0.8.1 for it. Keep a change that spans packages in separate pull requests, or accept that
 every package it touches releases under that one subject line.
+
+**One such span cannot currently be avoided.** `sdks/typescript/scripts/stability-rules.test.ts`
+pins the export count of all three API-surface goldens, so a Python or Go surface change
+must also edit that TypeScript file. Under a releasing type it therefore cuts a TypeScript
+release too, with a changelog entry naming the other binding: `@nimbus-dev/sdk` 1.28.0 and
+1.29.0 list `nimbus_sdk.jmap_fastmail` (#239) and Go's `jmapfastmail` (#244). Decoupling
+the pins is a [recorded follow-up](./docs/ROADMAP.md#recorded-follow-ups).
 
 **No release path uses a long-lived token.** Both npm jobs publish with `--provenance`;
 the PyPI job publishes via Trusted Publishers with

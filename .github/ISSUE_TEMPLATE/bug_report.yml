@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a problem with @nimbus-dev/sdk
+description: Report a problem with the Nimbus SDK (TypeScript, Python, Go or the scaffolder)
 labels: ["bug"]
 body:
   - type: markdown
@@ -19,15 +19,15 @@ body:
   - type: input
     id: sdk-version
     attributes:
-      label: SDK version
-      placeholder: "1.3.0"
+      label: Package and version
+      placeholder: "@nimbus-dev/sdk 2.0.0 / nimbus-dev-sdk 0.23.0 / sdks/go v0.22.0"
     validations:
       required: true
   - type: input
     id: runtime
     attributes:
       label: Runtime & version
-      placeholder: "Bun 1.2.x / Node 22.x"
+      placeholder: "Node 22.x / Bun 1.3.x / CPython 3.13 / Go 1.27"
     validations:
       required: true
   - type: textarea

@@ -1,6 +1,6 @@
 """The wire shapes the kit returns.
 
-Wire-shaped, per the design's D8: the keys are the MCP wire keys — ``inputSchema``,
+Wire-shaped, by design: the keys are the MCP wire keys — ``inputSchema``,
 ``isError`` — not snake_case, because the kit's job is producing the MCP contract shape
 and a consumer that is not the ``mcp`` package should get something usable.
 

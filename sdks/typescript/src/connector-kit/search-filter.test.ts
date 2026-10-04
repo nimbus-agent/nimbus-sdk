@@ -155,6 +155,12 @@ describe("tagText", () => {
   test("returns empty string for an array of only non-string entries", () => {
     expect(tagText({ tags: [1, 2, { a: 1 }] })).toBe("");
   });
+
+  test("keeps an empty-string tag, as Python's tag_text and Go's TagText do", () => {
+    // Where tagNamesFromObjects skips an empty `name`. Both share one join, so this pins
+    // that the shared half skips only what a caller's rule rejects, never `""` itself.
+    expect(tagText({ tags: ["a", "", "b"] })).toBe("a  b");
+  });
 });
 
 describe("tagNamesFromObjects", () => {

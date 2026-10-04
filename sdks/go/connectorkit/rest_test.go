@@ -243,3 +243,35 @@ func TestMakeRESTToolReadsTheEnvOnEveryCall(t *testing.T) {
 		t.Errorf("seen = %v", seen)
 	}
 }
+
+// RESTOption is a plain function, so it can meet a request with no header map yet.
+func TestWithHeaderStartsAHeaderMapWhenThereIsNone(t *testing.T) {
+	var request HTTPRequest
+	WithHeader("Accept", "application/json")(&request)
+	if len(request.Headers) != 1 || request.Headers["Accept"] != "application/json" {
+		t.Fatalf("Headers = %#v", request.Headers)
+	}
+}
+
+// A fetch failure is returned exactly as the fetcher raised it — not wrapped, and not
+// turned into an error RESULT — so the caller's errors.As still reaches the transport's
+// taxonomy. Only a RESPONSE becomes a result.
+func TestMakeRESTToolReturnsAFetchFailureUnchanged(t *testing.T) {
+	failure := &TransportError{Op: "GET", URL: "https://api.example.com/x", Err: errors.New("connection refused")}
+	handler := MakeRESTTool(RESTToolConfig{
+		TokenEnv:     "GH_TOKEN",
+		ServiceLabel: "github",
+		Fetch: func(context.Context, string, string) (HTTPResponse, error) {
+			return HTTPResponse{}, failure
+		},
+		BuildPath: func(map[string]any) string { return "/x" },
+		Env:       func(string) string { return "TOK" },
+	})
+	result, err := handler(context.Background(), nil)
+	if err != failure {
+		t.Fatalf("err = %#v, want the fetcher's own error", err)
+	}
+	if len(result.Content) != 0 || result.IsError {
+		t.Errorf("result = %#v, want the zero result alongside an error", result)
+	}
+}

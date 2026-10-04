@@ -3,6 +3,7 @@ package spec
 import (
 	"encoding/json"
 	"path"
+	"strings"
 	"testing"
 )
 
@@ -91,5 +92,17 @@ func TestLoadSchemaReadsAPublishedSchema(t *testing.T) {
 	}
 	if schema["title"] == nil {
 		t.Error(`schema has no "title" key`)
+	}
+}
+
+// The schema counterpart of TestLoadCorpusRejectsAnUnknownName, and its message names
+// what was asked for, as Python's FileNotFoundError does.
+func TestLoadSchemaRejectsAnUnknownName(t *testing.T) {
+	schema, err := LoadSchema("no-such")
+	if err == nil || schema != nil {
+		t.Fatalf("LoadSchema = %v, %v; want a nil schema and an error", schema, err)
+	}
+	if want := `spec: no schema "no-such"`; !strings.HasPrefix(err.Error(), want) {
+		t.Errorf("error %q does not begin %q", err.Error(), want)
 	}
 }

@@ -30,7 +30,7 @@ describe("path anchors", () => {
     expect(joinRepo("a", "b")).toBe(join(repoRoot, "a", "b"));
   });
 
-  // Guards against a half-finished Task 2: if repoRoot is reverted to point at packageRoot
+  // Guards the move to sdks/typescript (#70): if repoRoot is reverted to point at packageRoot
   // (e.g. `join(here, "..")`), docs/spec would resolve under sdks/typescript instead of the
   // repository root. The real post-move invariant is that packageRoot is strictly inside
   // repoRoot, not merely "not deeper than" it — so assert containment in both directions.

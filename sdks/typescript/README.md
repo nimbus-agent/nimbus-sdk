@@ -179,6 +179,13 @@ each half with its own test — keep them.
   envelope: `extensionId`, `event`, and `error.code` are still caller-controlled
   strings this contract does not length-bound (spec §8). The redaction-safe
   replacement for the scoped audit logger's free-form payload above.
+- **`@nimbus-dev/sdk/signing`** — manifest signing: `canonicalize` /
+  `canonicalizeManifest`, and the detached JWS envelope (`signManifest`,
+  `verifyManifestSignature`, `generateSigningKey`), which rejects with one
+  `SignatureError`. The envelope functions are asynchronous because they run on WebCrypto
+  (`crypto.subtle`), which keeps them usable in a browser, Deno or an edge worker. This
+  entry point replaces the deprecated signing helpers in `crypto/`, which sign different
+  bytes.
 
 Changing an exported type is a semver-relevant change.
 

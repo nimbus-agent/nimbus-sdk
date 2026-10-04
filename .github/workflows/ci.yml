@@ -99,7 +99,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -419,7 +419,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -585,7 +585,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -653,7 +653,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -696,7 +696,7 @@ jobs:
           node "$RUNNER_TEMP/package/dist/index.js" demo-connector --dir "$RUNNER_TEMP/demo-connector"
 
       # The tarball goes in first and on purpose: `npm install <tarball>` rewrites the
-      # dependency to a `file:` specifier, so the template's `^1.12.0` range is never
+      # dependency to a `file:` specifier, so the template's `^2.0.0` range is never
       # resolved from the registry and the SDK under test is the one this commit built.
       # Every *other* dependency still comes from npm, which is the range check.
       - name: Install the packed SDK and the project's own dependencies
@@ -784,7 +784,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: latest
 
@@ -829,8 +829,8 @@ jobs:
       - name: Install the packed SDK and the project's own dependencies
         run: |
           cd "$RUNNER_TEMP/demo-connector"
-          # The wheel first: `nimbus-dev-sdk>=0.3.0` need not resolve from PyPI at the
-          # version this commit builds, and installing it up front satisfies the requirement
+          # The wheel first: the template's `nimbus-dev-sdk` floor need not resolve from PyPI at
+          # the version this commit builds, and installing it up front satisfies the requirement
           # so the editable install never asks. Note the underscores — PEP 427 normalises
           # `-` to `_` in wheel filenames, so this glob does *not* spell the distribution
           # name the way the npm tarball does.
@@ -840,7 +840,7 @@ jobs:
           python -m pip install -e ".[dev]"
 
       # Ordering is not provenance. The step above works today only because the wheel's version
-      # happens to satisfy the template's `nimbus-dev-sdk>=0.3.0`, so pip finds the requirement
+      # happens to satisfy the template's `nimbus-dev-sdk` floor, so pip finds the requirement
       # already met and never asks the index. The moment that floor rises above the version this
       # commit builds — or the wheel carries a pre-release qualifier, which a bare `>=` will not
       # accept — pip silently resolves the *published* SDK and this job goes green having tested

@@ -32,6 +32,18 @@ describe("jwkThumbprint", () => {
     expect(await jwkThumbprint(priv)).toBe(RFC8037_THUMBPRINT);
   });
 
+  // `typeof null` is "object", so `null` gets past the first check and must be refused by
+  // the next one; anything else that is not an object never gets that far.
+  test("rejects null and a non-object key as key-unsupported", async () => {
+    await expect(jwkThumbprint(null as unknown as Jwk)).rejects.toBeInstanceOf(SignatureError);
+    await expect(jwkThumbprint(null as unknown as Jwk)).rejects.toMatchObject({
+      reason: "key-unsupported",
+    });
+    await expect(jwkThumbprint("OKP" as unknown as Jwk)).rejects.toMatchObject({
+      reason: "key-unsupported",
+    });
+  });
+
   test("rejects a key whose required members are not strings", async () => {
     await expect(jwkThumbprint({ kty: "OKP", crv: "Ed25519" } as unknown as Jwk)).rejects.toThrow(
       SignatureError,
@@ -63,6 +75,42 @@ describe("jwkThumbprint", () => {
   test("a lone surrogate in crv is key-unsupported too", async () => {
     const key: Jwk = { kty: "OKP", crv: "Ed25519\udfff", x: RFC8037_KEY.x };
     await expect(jwkThumbprint(key)).rejects.toMatchObject({ reason: "key-unsupported" });
+  });
+
+  // Narrow, not blanket: the wrap turns a `CanonicalizationError` into `key-unsupported` and
+  // lets everything else through, because §8 step 6 SKIPS a key on a `SignatureError` and
+  // aborts on anything else — a bug relabelled as `key-unsupported` would be skipped in
+  // silence. Every member is type-checked as a string before it is canonicalized, so a
+  // member that throws when READ is the only way to raise a foreign error here; this fails
+  // the Nth read of `x` for every N the function performs, so whichever read raises it —
+  // a type check before the wrapped canonicalization, or the canonicalization itself — the
+  // error has to arrive unchanged.
+  test("an error that is not a CanonicalizationError surfaces unchanged, from any read", async () => {
+    let surfaced = 0;
+    let lastThumbprint: string | undefined;
+    for (let failOn = 1; failOn <= 10; failOn++) {
+      let reads = 0;
+      const hostile = new TypeError(`read ${failOn} of x`);
+      const key = {
+        kty: "OKP",
+        crv: "Ed25519",
+        get x(): string {
+          reads += 1;
+          if (reads === failOn) throw hostile;
+          return RFC8037_KEY.x;
+        },
+      } as unknown as Jwk;
+      try {
+        lastThumbprint = await jwkThumbprint(key);
+      } catch (e) {
+        expect(e).toBe(hostile);
+        surfaced += 1;
+      }
+    }
+    // Some read raised, and the last `failOn` lies past every read — so every read the
+    // function makes was failed once, the one inside the wrapped canonicalization included.
+    expect(surfaced).toBeGreaterThan(0);
+    expect(lastThumbprint).toBe(RFC8037_THUMBPRINT);
   });
 
   // X25519 must stay thumbprintable: §8 step 7 is what rejects a non-signing curve, and

@@ -127,6 +127,24 @@ def test_undefined_host_is_refused_by_this_binding_and_that_is_not_pinned() -> N
         resolve_url_with_base("https://пример.рф", "https://пример.рф/x")
 
 
+def test_a_bracketed_host_that_is_not_an_ipv6_address_has_no_origin() -> None:
+    # urlsplit accepts an RFC 3986 IPvFuture literal and hands back its contents as the
+    # hostname, colon and all. That is not an IPv6 address, so it has no origin here —
+    # the same verdict TypeScript's URL reaches by refusing to parse it. A genuine IPv6
+    # literal is the control: it must still resolve and compare.
+    with pytest.raises(UrlResolutionError) as excinfo:
+        resolve_url_with_base(BASE, "https://[v1.fe80::a+en1]/x")
+    assert str(excinfo.value) == (
+        "resolveUrlWithBase: refusing to fetch malformed absolute URL"
+    )
+    future = "https://[v1.fe80::a+en1]"
+    assert should_strip_auth(f"{future}/a", f"{future}/b") is True
+    assert (
+        resolve_url_with_base("https://[::1]", "https://[::1]/x") == "https://[::1]/x"
+    )
+    assert should_strip_auth("https://[::1]/a", "https://[::1]/b") is False
+
+
 def test_should_strip_auth_is_false_for_the_same_origin() -> None:
     assert (
         should_strip_auth("https://api.example.com/a", "https://api.example.com/b")

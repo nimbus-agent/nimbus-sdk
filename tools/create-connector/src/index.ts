@@ -69,7 +69,7 @@ export function parseArgv(argv: readonly string[]): Parsed | { readonly error: s
 
 /**
  * Exit code for a failure `generate` raises. `2` is reserved for "the target exists and is not
- * empty" specifically — Task 5's CI jobs branch on it — everything else is a generic usage/
+ * empty" specifically — both quickstarts document it — everything else is a generic usage/
  * validation failure. Narrowing on the exported error class rather than pattern-matching
  * `Error#message` keeps this correct if either side's wording ever changes independently.
  */

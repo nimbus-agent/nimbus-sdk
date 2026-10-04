@@ -135,6 +135,28 @@ describe("NdjsonLineReader", () => {
     expect(r.flushFrames()).toEqual({ frames: [], truncated: false });
   });
 
+  // Every push checks the pending buffer, so a remainder can only cross the limit at the
+  // drain, through the decoder. A remainder of exactly the limit is conformant — the
+  // limit is inclusive — but a stream that ends two octets into a three-octet sequence
+  // leaves them with the decoder until the final decode turns them into U+FFFD: three
+  // more octets, and over. Removing the drain's own check fails nothing else in the suite.
+  test("flushFrames() refuses a remainder the final decode carries over the limit", () => {
+    const atLimit = new NdjsonLineReader();
+    atLimit.push(new TextEncoder().encode("a".repeat(IPC_MAX_LINE_BYTES)));
+    expect(atLimit.flushFrames()).toEqual({
+      frames: ["a".repeat(IPC_MAX_LINE_BYTES)],
+      truncated: true,
+    });
+
+    const r = new NdjsonLineReader();
+    expect(r.push(new TextEncoder().encode("a".repeat(IPC_MAX_LINE_BYTES)))).toEqual([]);
+    expect(r.push(new Uint8Array([0xe2, 0x82]))).toEqual([]);
+    expect(() => r.flushFrames()).toThrow("Message exceeds 1MB line limit");
+    expect(() => r.push(new TextEncoder().encode("after\n"))).toThrow(
+      "Message exceeds 1MB line limit",
+    );
+  });
+
   test("a line-limit violation latches — a later push throws rather than resuming", () => {
     const r = new NdjsonLineReader();
     const huge = "x".repeat(IPC_MAX_LINE_BYTES + 1);

@@ -1,11 +1,14 @@
 /**
  * release-please guard — the config, the manifest, and the packages on disk cannot drift.
  *
- * `refactor:` commits cut no release, so the component migration in PR 1 is not exercised
- * by CI until the next `feat:` or `fix:` — potentially weeks later, when the cause is no
- * longer obvious. This asserts the structural half of that correctness at every commit.
+ * `refactor:` commits cut no release, so the component migration that came with the move to
+ * sdks/typescript (#70) is not exercised by CI until the next `feat:` or `fix:` —
+ * potentially weeks later, when the cause is no longer obvious. This asserts the structural
+ * half of that correctness at every commit.
  *
- * It cannot assert the git tag exists. That stays a human step; see the plan's P2.
+ * It cannot assert the git tag exists. That stays a human step: without the component's
+ * last release tag (for the migration, the bootstrap `typescript-v1.10.0`), the next release
+ * walks the whole history into one changelog.
  */
 import { describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";

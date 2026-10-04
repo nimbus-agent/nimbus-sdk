@@ -141,6 +141,22 @@ promising support the project does not test. But it is why a support narrowing w
 a release note even as a minor, and why the bar is "the excluded line is already EOL"
 rather than "we would rather not test it."
 
+### Three agents joining the roster cut 2.0.0
+
+Adding `glossary`, `decisions` and `ownership` to `AGENT_NAMES`
+([#279](https://github.com/nimbus-agent/nimbus-sdk/pull/279)) also appended their briefs to
+the `AgentBrief` union and added rows to `BriefFor`, and both are `stable`.
+[RFC-0015's rule table](./rfcs/0015-tiered-stability.md#2-the-rule-table) treats any change
+to an existing `stable` declaration as a signature change, which needs a major. The one
+exception is a change that only adds optional members, which
+[RFC-0019](./rfcs/0019-additive-signature-changes.md) made a minor, and a new union member
+is not an optional member. So the change shipped as `feat!:` and cut 2.0.0.
+
+The minor alternative was to publish the three brief types without adding the agents to the
+roster, and it was rejected. The consumer that asked only needed the types, but routing by
+name (`BRIEF_GUARDS`, `BriefFor`, `AgentName` narrowing) was judged worth a major now rather
+than later. The same rule applies to any future roster addition.
+
 ## `manifest.contractVersions` — optional now, required at the next contract major
 
 `manifest.contractVersions` is **optional** in contract `v1`: a manifest that omits it declares

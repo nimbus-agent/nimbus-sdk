@@ -122,6 +122,62 @@ def test_verify_returns_false_and_never_raises_on_garbage() -> None:
             assert _ed25519.verify(pk, b"msg", sig) is False
 
 
+def test_verify_rejects_a_signature_whose_r_does_not_decode() -> None:
+    """§5.1.7 decodes R as well as A, and R comes off the wire. A canonical S and a
+    valid public key leave R as the only fault: its y is p itself, so not canonical.
+
+    Not vacuous the way a ``verify``-routed decoder pin is (see above): with the R check
+    gone, ``_add`` is handed ``None`` and raises, so what this asserts is that the
+    refusal arrives as ``False`` rather than as an exception escaping §10's set.
+    """
+    undecodable_r = P.to_bytes(32, "little")
+    signature = undecodable_r + SIG_1[32:]
+    assert _ed25519.decode_point(undecodable_r) is None
+    assert _ed25519.is_canonical_s(signature) is True
+    assert _ed25519.verify(PK_1, b"", signature) is False
+
+
+def test_decode_point_refuses_a_wrong_length_encoding() -> None:
+    """§5.1.3 decodes exactly 32 octets. ``PK_1`` is the control: one trailing zero
+    octet leaves its integer value unchanged, so without the length check the 33-octet
+    form would decode to the very same point."""
+    assert _ed25519.decode_point(PK_1) is not None
+    for wrong in (b"", PK_1[:31], PK_1 + b"\x00"):
+        assert _ed25519.decode_point(wrong) is None
+
+
+def test_is_canonical_s_refuses_a_wrong_length_signature() -> None:
+    """``verify`` checks both lengths before calling this, so the guard inside
+    ``is_canonical_s`` is reachable only directly — and it has to hold there too: a
+    63-octet input would otherwise read S from 31 octets and call it canonical."""
+    assert _ed25519.is_canonical_s(SIG_1) is True
+    assert _ed25519.is_canonical_s(SIG_1[:63]) is False
+    assert _ed25519.is_canonical_s(SIG_1 + b"\x00") is False
+
+
+@pytest.mark.parametrize("length", [0, 31, 33, 64])
+def test_a_seed_that_is_not_32_octets_is_refused(length: int) -> None:
+    """Both functions that take a seed refuse a wrong-length one with the same
+    ``ValueError`` — a caller bug rather than an untrusted input, so it raises instead
+    of returning a verdict. SHA-512 accepts any length, so without the guard a
+    wrong-length seed would quietly derive some key rather than fail."""
+    seed = bytes(length)
+    with pytest.raises(ValueError, match="an Ed25519 seed is 32 octets"):
+        _ed25519.publickey_from_seed(seed)
+    with pytest.raises(ValueError, match="an Ed25519 seed is 32 octets"):
+        _ed25519.sign(seed, b"")
+
+
+def test_x_recovery_refuses_a_non_canonical_y_on_its_own() -> None:
+    """``decode_point`` refuses y >= p before it ever calls ``_recover_x``, so this
+    guard is a second line only a direct call reaches. It still has to hold: reduced
+    mod p, y = p is y = 0, which DOES have an x — the control below — so without the
+    guard this would recover a coordinate for an encoding §5.1.3 calls invalid."""
+    assert _ed25519._recover_x(0, 0) is not None
+    assert _ed25519._recover_x(P, 0) is None
+    assert _ed25519._recover_x(P + 1, 0) is None
+
+
 def test_scalar_multiplication_does_not_recurse() -> None:
     """The reference shape recurses once per bit and needs setrecursionlimit(3000);
     a library that raises RecursionError by caller depth is its own defect.

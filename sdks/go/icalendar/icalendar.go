@@ -1,37 +1,10 @@
 package icalendar
 
-import "strings"
+import (
+	"strings"
 
-// normativeWhitespace is preamble §R7's set, enumerated. NOT unicode.IsSpace and NOT
-// strings.TrimSpace: both strip U+0085, which this set excludes, and neither strips
-// U+FEFF, which it includes. Enumerated rather than derived because ECMA-262 defines
-// WhiteSpace partly by Unicode category Zs, which is version-dependent.
-var normativeWhitespace = map[rune]struct{}{
-	0x0009: {}, 0x000A: {}, 0x000B: {}, 0x000C: {}, 0x000D: {},
-	0x0020: {}, 0x00A0: {}, 0x1680: {},
-	0x2000: {}, 0x2001: {}, 0x2002: {}, 0x2003: {}, 0x2004: {}, 0x2005: {},
-	0x2006: {}, 0x2007: {}, 0x2008: {}, 0x2009: {}, 0x200A: {},
-	0x2028: {}, 0x2029: {}, 0x202F: {}, 0x205F: {}, 0x3000: {}, 0xFEFF: {},
-}
-
-// trim removes preamble §R7's whitespace from both ends of s.
-func trim(s string) string {
-	runes := []rune(s)
-	start, end := 0, len(runes)
-	for start < end {
-		if _, ok := normativeWhitespace[runes[start]]; !ok {
-			break
-		}
-		start++
-	}
-	for end > start {
-		if _, ok := normativeWhitespace[runes[end-1]]; !ok {
-			break
-		}
-		end--
-	}
-	return string(runes[start:end])
-}
+	"github.com/nimbus-agent/nimbus-sdk/sdks/go/internal/whitespace"
+)
 
 // foldASCII lowercases only 'A'–'Z', for §5.3's mailto: search.
 //
@@ -65,7 +38,7 @@ func foldASCII(s string) string {
 
 // ParsedEvent is one VEVENT, reduced to the members this battery reads (§1).
 //
-// The nine optional string members are *string rather than string, and §R6's "a Go absence
+// The ten optional string members are *string rather than string, and §R6's "a Go absence
 // is the zero value" does not apply to them. §1 makes an empty value a REACHABLE answer
 // distinct from a property that was absent: SUMMARY: with nothing after the colon yields
 // the empty string, and ORGANIZER:mailto: yields the empty address, both of which a
@@ -74,7 +47,7 @@ func foldASCII(s string) string {
 // reachable zero.
 //
 // Measured rather than argued: collapsing an absence into the empty string — which is
-// exactly what a plain string member yields — fails 42 of the corpus's 48 parse cases,
+// exactly what a plain string member yields — fails 42 of the corpus's 46 parse cases,
 // because nearly every one of them expects at least one member to be absent. The four
 // empty-versus-absent cases are what make the requirement unambiguous; the other 38 are
 // what make it unavoidable.
@@ -247,7 +220,7 @@ func extractMailto(value string) *string {
 	}
 	// The index slices `value`, not the folded copy. Sound only because foldASCII
 	// preserves byte length — see its doc comment.
-	return ptr(trim(value[idx+len("mailto:"):]))
+	return ptr(whitespace.Trim(value[idx+len("mailto:"):]))
 }
 
 // splitVEvents applies §5.1, returning each complete block's lines in document order.
@@ -284,16 +257,16 @@ func parseBlock(lines []string) *ParsedEvent {
 	haveUID := false
 
 	for _, line := range lines {
-		if trim(line) == "" {
+		if whitespace.Trim(line) == "" {
 			continue
 		}
 		raw := extractValue(line)
 
 		switch extractName(line) {
 		case "UID":
-			uid, haveUID = trim(raw), true
+			uid, haveUID = whitespace.Trim(raw), true
 		case "RECURRENCE-ID":
-			event.RecurrenceID = ptr(trim(raw))
+			event.RecurrenceID = ptr(whitespace.Trim(raw))
 		case "SUMMARY":
 			// Not trimmed: whitespace here is text the user typed.
 			event.Summary = ptr(unescapeValue(raw))
@@ -302,13 +275,13 @@ func parseBlock(lines []string) *ParsedEvent {
 		case "LOCATION":
 			event.Location = ptr(unescapeValue(raw))
 		case "DTSTART":
-			event.Start = ptr(trim(raw))
+			event.Start = ptr(whitespace.Trim(raw))
 			// Recomputed per line, so it reflects the LAST DTSTART only.
 			event.AllDay = hasParam(line, "VALUE=DATE")
 		case "DTEND":
-			event.End = ptr(trim(raw))
+			event.End = ptr(whitespace.Trim(raw))
 		case "STATUS":
-			event.Status = ptr(trim(raw))
+			event.Status = ptr(whitespace.Trim(raw))
 		case "ORGANIZER":
 			// Set to the extraction result, absence included.
 			event.Organizer = extractMailto(raw)
@@ -318,9 +291,9 @@ func parseBlock(lines []string) *ParsedEvent {
 				event.Attendees = append(event.Attendees, *address)
 			}
 		case "RRULE":
-			event.RRule = ptr(trim(raw))
+			event.RRule = ptr(whitespace.Trim(raw))
 		case "DTSTAMP":
-			event.DTStamp = ptr(trim(raw))
+			event.DTStamp = ptr(whitespace.Trim(raw))
 		}
 		// Any other name is ignored. Unknown properties are not an error.
 	}

@@ -64,3 +64,19 @@ func TestParseHelloRefusalReasons(t *testing.T) {
 		})
 	}
 }
+
+// A nil slice is Go's spelling of "no versions", and it must encode as the empty array
+// every other binding emits — never as null. The far side refuses both, but as
+// empty-versions for one and missing-versions for the other, and only the first is true.
+func TestEncodeHelloEncodesANilSliceAsAnEmptyArray(t *testing.T) {
+	want := `{"nimbus":"hello","contractVersions":[]}`
+	if got := EncodeHello(nil); got != want {
+		t.Errorf("EncodeHello(nil) = %s, want %s", got, want)
+	}
+	if got := EncodeHello([]string{}); got != want {
+		t.Errorf("EncodeHello([]string{}) = %s, want %s", got, want)
+	}
+	if got := ParseHello(EncodeHello(nil)); got != (HelloRefused{Reason: "empty-versions"}) {
+		t.Errorf("ParseHello(EncodeHello(nil)) = %#v, want an empty-versions refusal", got)
+	}
+}

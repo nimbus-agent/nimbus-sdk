@@ -29,7 +29,7 @@ export interface GenerateResult {
 /**
  * Thrown when `targetDir` already exists and is not empty. A distinct class rather than a
  * message an index.ts caller pattern-matches on: exit code 2 is part of the CLI's contract
- * (Task 5's CI jobs consume it), and a regex over `Error#message` breaks silently the moment
+ * (both quickstarts document it), and a regex over `Error#message` breaks silently the moment
  * either side's wording changes.
  */
 export class TargetNotEmptyError extends Error {

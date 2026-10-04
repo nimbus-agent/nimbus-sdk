@@ -83,7 +83,8 @@ benefit.
 Three things it does not delegate to Python:
 
 - **`_fold_ascii` maps U+0041–U+005A only** (§5.3), never `str.lower()`.
-- **`_trim` implements §R7's set**, never `str.strip()`.
+- **`_trim` implements §R7's set** (the shared, private `nimbus_sdk._whitespace`), never
+  `str.strip()`.
 - **`_unescape` is a single left-to-right pass** (§4.2). Sequential `str.replace` calls are
   wrong at *every* ordering: the wire value `\\n` must yield the two characters `\` and `n`,
   and a `\\`→`\` pass followed by a `\n`→newline pass collapses it to one newline.
@@ -103,10 +104,10 @@ Session nor Email nor Request, so `jmapfastmail.Parse` would name nothing.
 
 Two things it does that the obvious Go does not:
 
-- **`ParsedEvent`'s nine optional string members are `*string`, not `string`.** §R6's
+- **`ParsedEvent`'s ten optional string members are `*string`, not `string`.** §R6's
   zero-value rule is wrong here: `SUMMARY:` with an empty value is a reachable, real answer
   that a zero-valued string cannot tell from no `SUMMARY` line at all. Measured: collapsing an
-  absence into `""` fails **42 of the corpus's 48 parse cases**.
+  absence into `""` fails **42 of the corpus's 46 parse cases**.
 - **`foldASCII` iterates BYTES**, not runes, for §5.3's `mailto:` search. `strings.ToLower` is
   wrong twice over: it applies simple case mapping, so `İ` becomes one byte where JavaScript
   and Python produce two, and Go indexes bytes, so the resulting index is short rather than

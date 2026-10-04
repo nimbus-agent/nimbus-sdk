@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from nimbus_sdk._whitespace import trim as _trim
+
 #: Frozen per RFC-0015's mechanical definition: backed by a normative document under
 #: ``docs/spec/`` -- ``batteries/v1/icalendar.md`` -- AND executed by a
 #: conformance-corpus guard. Both have held since the corpus went green in all three
@@ -27,54 +29,8 @@ from dataclasses import dataclass, field
 __stability__ = "frozen"
 
 # ---------------------------------------------------------------------------
-# §R7 whitespace, §5.3 case folding
+# §5.3 case folding. §R7 trimming is the shared ``nimbus_sdk._whitespace.trim``.
 # ---------------------------------------------------------------------------
-
-#: preamble §R7's normative set, enumerated. NOT ``str.strip()``: Python strips
-#: U+001C-U+001F, which this set excludes, and does not strip U+FEFF, which it includes.
-#: Two corpus cases pin exactly those two disagreements, in opposite directions.
-_WHITESPACE = frozenset(
-    map(
-        chr,
-        (
-            0x0009,
-            0x000A,
-            0x000B,
-            0x000C,
-            0x000D,
-            0x0020,
-            0x00A0,
-            0x1680,
-            0x2000,
-            0x2001,
-            0x2002,
-            0x2003,
-            0x2004,
-            0x2005,
-            0x2006,
-            0x2007,
-            0x2008,
-            0x2009,
-            0x200A,
-            0x2028,
-            0x2029,
-            0x202F,
-            0x205F,
-            0x3000,
-            0xFEFF,
-        ),
-    )
-)
-
-
-def _trim(value: str) -> str:
-    """Remove a maximal run of §R7 whitespace from each end, nothing from inside."""
-    start, end = 0, len(value)
-    while start < end and value[start] in _WHITESPACE:
-        start += 1
-    while end > start and value[end - 1] in _WHITESPACE:
-        end -= 1
-    return value[start:end]
 
 
 def _fold_ascii(value: str) -> str:

@@ -74,6 +74,26 @@ describe("encodeProtectedHeader", () => {
   test("an absent alg still emits §6's one-member form", () => {
     expect(encodeProtectedHeader({ kid: "abc" })).toBe("eyJraWQiOiJhYmMifQ");
   });
+
+  // Narrow, not blanket: only a `CanonicalizationError` becomes `protected-malformed`. A
+  // `kid` that is not a string at all and throws when canonicalization reads it is a bug in
+  // the caller, and relabelling it as a malformed header would hide where it came from.
+  test("an error that is not a CanonicalizationError surfaces unchanged", () => {
+    const hostile = new TypeError("hostile kid");
+    const kid = {
+      get member(): string {
+        throw hostile;
+      },
+    } as unknown as string;
+    let caught: unknown;
+    try {
+      encodeProtectedHeader({ alg: "EdDSA", kid });
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBe(hostile);
+    expect(caught).not.toBeInstanceOf(SignatureError);
+  });
 });
 
 describe("parseProtectedHeader", () => {

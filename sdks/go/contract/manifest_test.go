@@ -50,3 +50,14 @@ func TestDeclaredVersionsMatchRejectsAMalformedDeclaration(t *testing.T) {
 		t.Error("a non-string declaration matched")
 	}
 }
+
+// Equal sizes are not equal sets. Every test above differs in count or matches outright,
+// so without this one a comparison that stopped at the sizes would pass them all.
+func TestDeclaredVersionsMatchComparesMembersNotJustCounts(t *testing.T) {
+	if DeclaredVersionsMatch([]any{"1"}, []string{"2"}) {
+		t.Error("one declared major matched one different announced major")
+	}
+	if DeclaredVersionsMatch([]any{"1", "2"}, []string{"1", "3"}) {
+		t.Error("two declared majors matched a different pair of the same size")
+	}
+}

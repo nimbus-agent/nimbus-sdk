@@ -148,7 +148,7 @@ describe("doc coverage", () => {
         `${binding} files claimed by no page: ${unclaimed.join(", ")}. ` +
           "Add them to the covers comment of the page that documents them. If no page " +
           "does, this binding has a capability TypeScript lacks — add a page claiming " +
-          "zero TypeScript modules (design §8).",
+          "zero TypeScript modules (docs/ARCHITECTURE.md, The stability matrix).",
       ).toEqual([]);
     }
   });

@@ -108,16 +108,22 @@ func snippet(text string, limit, fallback int) string {
 	return string(runes[:limit])
 }
 
+// statusError is what every *IfOk builder returns for a non-2xx response: the service
+// label, the status, and the body capped by snippet at limit, or at fallback when limit is 0.
+func statusError(serviceLabel string, res TextResponse, limit, fallback int) *HTTPStatusError {
+	return &HTTPStatusError{
+		Service: serviceLabel,
+		Status:  res.Status(),
+		Snippet: snippet(res.Text(), limit, fallback),
+	}
+}
+
 // JSONResultIfOk returns an HTTPStatusError on a non-2xx, else wraps res.JSON().
 //
 // snippetMax caps the body snippet carried in the error; 0 selects 300.
 func JSONResultIfOk(serviceLabel string, res JSONBodyResponse, snippetMax int) (MCPToolResult, error) {
 	if !res.Ok() {
-		return MCPToolResult{}, &HTTPStatusError{
-			Service: serviceLabel,
-			Status:  res.Status(),
-			Snippet: snippet(res.Text(), snippetMax, defaultJSONBodySnippetMax),
-		}
+		return MCPToolResult{}, statusError(serviceLabel, res, snippetMax, defaultJSONBodySnippetMax)
 	}
 	return JSONResult(res.JSON())
 }
@@ -131,11 +137,7 @@ func JSONResultIfOk(serviceLabel string, res JSONBodyResponse, snippetMax int) (
 // "<serviceLabel>: invalid JSON response".
 func JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet int, jsonParseErrorMessage string) (MCPToolResult, error) {
 	if !res.Ok() {
-		return MCPToolResult{}, &HTTPStatusError{
-			Service: serviceLabel,
-			Status:  res.Status(),
-			Snippet: snippet(res.Text(), maxSnippet, defaultTextSnippetMax),
-		}
+		return MCPToolResult{}, statusError(serviceLabel, res, maxSnippet, defaultTextSnippetMax)
 	}
 	var parsed any
 	if err := json.Unmarshal([]byte(res.Text()), &parsed); err != nil {
@@ -156,11 +158,7 @@ func JSONResultFromTextIfOk(serviceLabel string, res TextResponse, maxSnippet in
 // flattened message. maxSnippet caps the non-2xx snippet; 0 selects 400.
 func ParseJSONTextIfOk(serviceLabel string, res TextResponse, maxSnippet int) (any, error) {
 	if !res.Ok() {
-		return nil, &HTTPStatusError{
-			Service: serviceLabel,
-			Status:  res.Status(),
-			Snippet: snippet(res.Text(), maxSnippet, defaultTextSnippetMax),
-		}
+		return nil, statusError(serviceLabel, res, maxSnippet, defaultTextSnippetMax)
 	}
 	var parsed any
 	if err := json.Unmarshal([]byte(res.Text()), &parsed); err != nil {

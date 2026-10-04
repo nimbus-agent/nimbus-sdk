@@ -69,6 +69,19 @@ def test_bool_is_not_an_integer() -> None:
     assert canonicalize(True) == "true"
 
 
+def test_false_is_not_zero_either() -> None:
+    # The other half of the bool branch: False == 0 in Python, so the int branch would
+    # emit "0" where the other two bindings emit `false`.
+    assert canonicalize(False) == "false"
+
+
+def test_none_is_null_at_any_depth() -> None:
+    # Mirrors TypeScript's "still canonicalizes a JSON.parse array containing null":
+    # json.loads yields None for JSON null, and it must come back out as `null`.
+    assert canonicalize(None) == "null"
+    assert canonicalize([None, False, {"a": None}]) == '[null,false,{"a":null}]'
+
+
 def test_html_characters_are_literal() -> None:
     assert canonicalize("<&>") == '"<&>"'
 

@@ -4,7 +4,7 @@ TypeScript's ``requireProcessEnv`` reads ``process.env`` directly with no seam, 
 the exact pattern ``docs/INCLUSION-POLICY.md`` §2 names as a failure: *"a helper that
 reads ``process.env.API_ENDPOINT`` with no way to override it still fails criterion 2."*
 This binding is stricter than its original on purpose; the TypeScript fix is tracked as
-a follow-up rather than replicated here for symmetry.
+a follow-up in ``docs/ROADMAP.md`` rather than replicated here for symmetry.
 """
 
 from __future__ import annotations

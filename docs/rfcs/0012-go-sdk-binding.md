@@ -52,8 +52,8 @@ written down **before the first tag**, not after. That is what this RFC is for.
 
 ## The decisions
 
-Nine, labelled as in
-[the design](../superpowers/specs/2026-08-19-go-sdk-design.md). Five are in force in the
+Nine, labelled as in the design, `docs/superpowers/specs/2026-08-19-go-sdk-design.md`. That
+file was removed once the binding shipped and is in git history. Five are in force in the
 code that lands with this RFC; four govern surface that Shipment 2 adds and are recorded
 now because reversing them later is what costs.
 

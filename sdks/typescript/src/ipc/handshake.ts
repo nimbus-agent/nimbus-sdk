@@ -99,7 +99,7 @@ export async function performHandshake(
   let pending: readonly string[] = [];
 
   while (peerFrame === undefined) {
-    const chunk = await io.read();
+    const chunk = await io.read(); // NOSONAR S9382: each read resumes the stream where the last one stopped, so no two can run at once
     if (chunk === null) {
       // End of stream. A peer that stopped mid-frame may still have left a complete hello
       // without its terminating newline, so drain before giving up. flushFrames() yields at

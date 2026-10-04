@@ -341,3 +341,117 @@ func TestAnUnreadableURLErrorFieldCarriesNoCredential(t *testing.T) {
 		t.Errorf("URL field leaked a credential: %q", transportErr.URL)
 	}
 }
+
+// roundTripFunc lets a test stand in for the network inside an *http.Client.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+// failingBody is a response body whose first read fails, as a connection reset partway
+// through a body does.
+type failingBody struct{ err error }
+
+func (b failingBody) Read([]byte) (int, error) { return 0, b.err }
+func (failingBody) Close() error               { return nil }
+
+// WithHTTPClient's client is the one requests go out on, and its CheckRedirect is
+// REPLACED by the kit's — §8 is not something a caller-supplied client can opt out of.
+func TestWithHTTPClientSendsOnTheSuppliedClientAndOwnsItsRedirectPolicy(t *testing.T) {
+	var seen string
+	client := &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			seen = r.URL.String()
+			body := io.NopCloser(strings.NewReader(`{"ok":true}`))
+			return &http.Response{StatusCode: 201, Body: body}, nil
+		}),
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return errors.New("the caller's own policy")
+		},
+	}
+	transport := NewHTTPTransport(WithHTTPClient(client))
+	res, err := transport.Send(context.Background(), HTTPRequest{URL: "https://api.example.com/x"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	if seen != "https://api.example.com/x" || res.Status() != 201 || res.Text() != `{"ok":true}` {
+		t.Fatalf("seen %q, response %d %q", seen, res.Status(), res.Text())
+	}
+	next, via := redirectChain(t, 10)
+	err = client.CheckRedirect(next, via)
+	if err == nil || err.Error() != "stopped after 10 redirects" {
+		t.Fatalf("the supplied client kept its own CheckRedirect: %v", err)
+	}
+}
+
+// redirectChain is a same-origin redirect chain: the request about to be sent, and the
+// hops already made before it.
+func redirectChain(t *testing.T, hops int) (*http.Request, []*http.Request) {
+	t.Helper()
+	request := func() *http.Request {
+		r, err := http.NewRequest(http.MethodGet, "https://api.example.com/x", nil)
+		if err != nil {
+			t.Fatalf("NewRequest: %v", err)
+		}
+		return r
+	}
+	via := make([]*http.Request, hops)
+	for i := range via {
+		via[i] = request()
+	}
+	return request(), via
+}
+
+// The tenth redirect is refused, matching net/http's own default — which a client whose
+// CheckRedirect the kit replaces would otherwise lose. Nine hops are still followed.
+func TestTheRedirectLimitIsTen(t *testing.T) {
+	if err := checkRedirect(redirectChain(t, 9)); err != nil {
+		t.Fatalf("the ninth hop was refused: %v", err)
+	}
+	err := checkRedirect(redirectChain(t, 10))
+	if err == nil || err.Error() != "stopped after 10 redirects" {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+// A request the constructor refuses never reaches the client, and must still come out as
+// the Protocol's TransportError — not a timeout, and with the credential cut from the URL
+// field. An invalid method is a refusal whose cause does not repeat the URL.
+func TestARequestTheConstructorRefusesIsATransportError(t *testing.T) {
+	_, err := NewHTTPTransport().Send(context.Background(), HTTPRequest{
+		URL:    "https://user:sekrit@api.example.com/x",
+		Method: "BAD METHOD",
+	})
+	var transportErr *TransportError
+	if !errors.As(err, &transportErr) {
+		t.Fatalf("want *TransportError, got %#v", err)
+	}
+	if transportErr.Op != "BAD METHOD" || transportErr.URL != "https://api.example.com/x" {
+		t.Errorf("Op %q, URL %q", transportErr.Op, transportErr.URL)
+	}
+	if strings.Contains(err.Error(), "sekrit") {
+		t.Errorf("message leaked a credential: %q", err.Error())
+	}
+	var timeout *TransportTimeoutError
+	if errors.As(err, &timeout) {
+		t.Error("a refused request is not a timeout")
+	}
+}
+
+// A body that fails partway is a transport failure, not a response: the status line
+// arrived but the data did not, and a caller must not be handed part of a document as if
+// it were all of it. The cause stays reachable.
+func TestABodyThatFailsToReadIsATransportError(t *testing.T) {
+	reset := errors.New("connection reset by peer")
+	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: failingBody{err: reset}}, nil
+	})}
+	transport := NewHTTPTransport(WithHTTPClient(client))
+	_, err := transport.Send(context.Background(), HTTPRequest{URL: "https://api.example.com/x"})
+	if !errors.Is(err, ErrTransport) || !errors.Is(err, reset) {
+		t.Fatalf("err = %v, want a TransportError carrying the read failure", err)
+	}
+	var timeout *TransportTimeoutError
+	if errors.As(err, &timeout) {
+		t.Error("a reset is not a timeout")
+	}
+}

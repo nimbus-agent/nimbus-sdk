@@ -502,3 +502,25 @@ func TestSignatureReasonsIsClosedAtTen(t *testing.T) {
 		}
 	}
 }
+
+// TestASigningKeyWithAShadowedMemberIsRefused reaches §9 step 2's own refusal: x and d
+// are a genuine, corresponding pair, so step 1 passes, and it is the thumbprint that
+// refuses a key whose Extra shadows one of the projected members.
+func TestASigningKeyWithAShadowedMemberIsRefused(t *testing.T) {
+	_, private, _ := signed(t)
+	private.Extra = map[string]any{"crv": "X25519"}
+	_, err := SignManifest(map[string]any{"publisher": map[string]any{"id": "example"}}, private)
+	assertReason(t, err, "key-unsupported")
+}
+
+// TestAProtectedMemberThatIsNotBase64URLIsBase64URLInvalid covers §8 step 2's first
+// decode. The ordering test above makes the SIGNATURE member the invalid one; this makes
+// it the protected member, with a signature member that would decode.
+func TestAProtectedMemberThatIsNotBase64URLIsBase64URLInvalid(t *testing.T) {
+	_, _, public := signed(t)
+	m := map[string]any{
+		"publisher": map[string]any{"id": "example"},
+		"signature": map[string]any{"protected": "!!!!", "signature": strings.Repeat("A", 86)},
+	}
+	assertReason(t, VerifyManifestSignature(m, []JWK{public}), "base64url-invalid")
+}

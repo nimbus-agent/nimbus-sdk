@@ -107,9 +107,8 @@ describe("negotiation guard — the published documents exist", () => {
   });
 
   test("the spec tree's version directories agree with CONTRACT_VERSIONS", () => {
-    // Design spec §7: "asserts CONTRACT_VERSIONS and the current version stated by the spec
-    // section agree, so a future v2 path cannot land without the runtime noticing." §3 of the
-    // normative document claims a one-to-one correspondence between a contract version and a
+    // CONTRACT_VERSIONS and the version the spec tree publishes must agree, so that a future
+    // v2 path cannot land without the runtime noticing. §3 of the normative document claims a one-to-one correspondence between a contract version and a
     // published docs/spec/<area>/v1/ segment — this is the test that holds that claim to CI. A
     // new spec-tree major must not land while the runtime's supported set stays behind.
     const versionDirs = readdirSync(join(repoRoot, NEGOTIATION_DIR), { withFileTypes: true })

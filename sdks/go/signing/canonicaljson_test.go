@@ -124,3 +124,83 @@ func errorsAs(err error, target **CanonicalizationError) bool {
 	}
 	return ok
 }
+
+// TestNullAndBooleans covers the three JSON literals, which no canonical-json corpus case
+// carries as an input. A JSON decoder yields nil, true and false for them, and each has
+// exactly one spelling — the one Python's unit tests pin for all three as well.
+func TestNullAndBooleans(t *testing.T) {
+	cases := []struct {
+		value any
+		want  string
+	}{
+		{nil, "null"},
+		{true, "true"},
+		{false, "false"},
+		{[]any{nil, false, map[string]any{"a": nil, "b": true}}, `[null,false,{"a":null,"b":true}]`},
+	}
+	for _, c := range cases {
+		got, err := Canonicalize(c.value)
+		if err != nil {
+			t.Fatalf("Canonicalize(%#v): %v", c.value, err)
+		}
+		if got != c.want {
+			t.Errorf("Canonicalize(%#v) = %q, want %q", c.value, got, c.want)
+		}
+	}
+}
+
+// TestIntegersOutsideTheSafeRangeAreRefused covers the two integer spellings a Go caller
+// can hand in besides float64: a json.Number holding an integer literal, which takes the
+// ParseInt path rather than the float one the corpus's 1e21 case takes, and a native int.
+// Both bound the magnitude at 2**53 - 1, in both directions, exactly as floats are.
+func TestIntegersOutsideTheSafeRangeAreRefused(t *testing.T) {
+	const limit = 9007199254740991
+	accepted := []any{json.Number("9007199254740991"), json.Number("-9007199254740991"), limit, -limit}
+	for _, value := range accepted {
+		if _, err := Canonicalize(value); err != nil {
+			t.Errorf("Canonicalize(%#v) refused a value at the limit: %v", value, err)
+		}
+	}
+	refused := []any{json.Number("9007199254740992"), json.Number("-9007199254740992"), limit + 1, -limit - 1}
+	for _, value := range refused {
+		_, err := Canonicalize(value)
+		var e *CanonicalizationError
+		if !errorsAs(err, &e) || e.Reason != "number-out-of-range" {
+			t.Errorf("Canonicalize(%#v) = %v, want number-out-of-range", value, err)
+		}
+	}
+}
+
+// TestNonFiniteFloatsAreOutOfRangeNotNonInteger pins writeFloat's order for a float64
+// handed in directly: finiteness is checked before integrality, because math.Trunc(NaN)
+// is NaN and NaN != NaN — an integrality-first check would answer non-integer-number,
+// where TypeScript and Python both answer number-out-of-range.
+func TestNonFiniteFloatsAreOutOfRangeNotNonInteger(t *testing.T) {
+	for _, value := range []float64{math.Inf(1), math.Inf(-1), math.NaN()} {
+		_, err := Canonicalize(value)
+		var e *CanonicalizationError
+		if !errorsAs(err, &e) || e.Reason != "number-out-of-range" {
+			t.Errorf("Canonicalize(%v) = %v, want number-out-of-range", value, err)
+		}
+	}
+}
+
+// TestAKeyThatIsNotUTF8IsRefused covers the member-name half of §6: a key is encoded by
+// the same string encoder as a value, so a lone surrogate (ill-formed UTF-8 in Go) is
+// refused there too rather than emitted as replacement characters.
+func TestAKeyThatIsNotUTF8IsRefused(t *testing.T) {
+	_, err := Canonicalize(map[string]any{"ok": 1, "\xed\xa0\x80": 2})
+	var e *CanonicalizationError
+	if !errorsAs(err, &e) || e.Reason != "lone-surrogate" {
+		t.Fatalf("got %v, want lone-surrogate", err)
+	}
+}
+
+// TestCanonicalizationErrorMessage pins the message the other two bindings also emit,
+// "canonicalize: <reason>", so a log line reads the same whichever binding wrote it.
+func TestCanonicalizationErrorMessage(t *testing.T) {
+	_, err := Canonicalize(1.5)
+	if err == nil || err.Error() != "canonicalize: non-integer-number" {
+		t.Fatalf("got %v, want the message \"canonicalize: non-integer-number\"", err)
+	}
+}

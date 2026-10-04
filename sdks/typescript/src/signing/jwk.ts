@@ -41,8 +41,8 @@ export interface PrivateJwk extends Jwk {
 export async function jwkThumbprint(jwk: Jwk): Promise<string> {
   if (
     typeof jwk !== "object" ||
-    jwk === null ||
-    jwk.kty !== "OKP" ||
+    // `typeof null` is "object"; the optional chain is what refuses `null` here.
+    jwk?.kty !== "OKP" ||
     typeof jwk.crv !== "string" ||
     typeof jwk.x !== "string" ||
     // §5 requires `crv` and `x` to be NON-EMPTY strings, and the emptiness half of that

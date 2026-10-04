@@ -79,6 +79,21 @@ Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
 
 This is the reference pipeline the other languages mirror.
 
+### The scaffolder → npm
+
+`@nimbus-dev/create-connector` (`tools/create-connector`) is a fourth release-please
+component, tagged `create-connector-vX.Y.Z`, and publishes the same way:
+`publish-create-connector` builds, typechecks, lints and tests the package, runs the shared
+preflight (with `expected-version` from release-please's `cc_version`), publishes with
+`--provenance`, and verifies the registry signature and the provenance attestation.
+`smoke-create-connector` then runs the two invocations the quickstarts document,
+`npm create @nimbus-dev/connector@<version>` and
+`npx @nimbus-dev/create-connector@<version> … --lang python`, against the registry, and
+checks that each produced a project in the right language, with its `.gitignore`. No
+pre-publish job can run them, since both resolve the package from npm. It is a separate job
+for the same reason `verify-python-publish` is: it only downloads and reads, so it can be
+re-run safely while the registry catches up.
+
 ## Python → PyPI (implemented today)
 
 Defined in [`.github/workflows/release.yml`](../.github/workflows/release.yml).
@@ -314,6 +329,14 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   call the same two actions, so the genuinely duplicated machinery (a `npm ↔ npm`
   problem, not a three-language one) is defined once.
 
+  **A composite action's `run:` steps do not inherit the calling job's
+  `defaults.run.working-directory`.** Each caller therefore passes `working-directory` to
+  `npm-publish-preflight` explicitly. Without it, the preflight reads the workspace root's
+  `package.json` instead of the package being published, which fails confusingly at best
+  and passes falsely if the two versions ever coincide. `release-workflow-guard.test.ts`
+  derives the expected value from each job's own default, and both actions' comments record
+  why their retries and guards are shaped as they are.
+
   **No workflow in `.github/workflows/` declares `workflow_call`, and that is deliberate
   and permanent, not an omission awaiting correction.** PyPI's Trusted Publisher does not
   support it — [PyPI's troubleshooting guide](https://docs.pypi.org/trusted-publishers/troubleshooting/)
@@ -326,7 +349,6 @@ See [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
   then verifies a PEP 740 attestation, and Go does not publish at all, it attests an
   archive and resolves through the module proxy — three disjoint publish mechanics with
   only `harden-runner` in common, and each job's egress allowlist is its own. See
-  [the design](./superpowers/specs/2026-08-25-reusable-release-stages-design.md) and
   [roadmap Phase 3](./ROADMAP.md#phase-3--scale-languages--batteries).
 
   **The preflight pattern, not the code, is what generalizes.** Every publish path

@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 
+import type { AuditLogger } from "./audit-logger.js";
 import {
   assertNoRowDataTools,
+  assertV1AuditLoggerShape,
+  assertV1HitlRequestGuard,
   ExtensionContractError,
   findRowDataTools,
   MANIFEST_RULES,
@@ -52,6 +55,62 @@ describe("runContractTests — v1 additions", () => {
         minNimbusVersion: "0.1.0",
       }),
     ).resolves.toBeUndefined();
+  });
+});
+
+// `runContractTests` hands these two the SDK's own logger and `isHitlRequest`, which work,
+// so the arms that fail are reachable only through a stand-in that does not.
+describe("the v1 self-checks", () => {
+  const thrownBy = (fn: () => void): Error => {
+    try {
+      fn();
+    } catch (e) {
+      expect(e).toBeInstanceOf(ExtensionContractError);
+      return e as Error;
+    }
+    throw new Error("expected the self-check to throw");
+  };
+
+  test("pass against a promise-returning logger and the SDK's own guard", () => {
+    const logger: AuditLogger = { log: async () => {} };
+    expect(() => assertV1AuditLoggerShape(logger, "demo.ext")).not.toThrow();
+    expect(() => assertV1HitlRequestGuard()).not.toThrow();
+  });
+
+  test("a logger whose log returns no promise fails, naming the extension", () => {
+    const logger = { log: () => ({ done: true }) } as unknown as AuditLogger;
+    expect(thrownBy(() => assertV1AuditLoggerShape(logger, "demo.ext")).message).toBe(
+      "AuditLogger.log must return a Promise (extension demo.ext)",
+    );
+  });
+
+  // The guard is probed in a fixed order — accept a valid request, reject `{}`, reject an
+  // empty `actionId` — so each broken stand-in below is reported by the first probe it
+  // gets wrong, and by that probe alone.
+  test("a guard that rejects everything fails on the valid request", () => {
+    expect(thrownBy(() => assertV1HitlRequestGuard(() => false)).message).toBe(
+      "isHitlRequest must accept a valid HitlRequest",
+    );
+  });
+
+  test("a guard that accepts everything fails on the empty object", () => {
+    expect(thrownBy(() => assertV1HitlRequestGuard(() => true)).message).toBe(
+      "isHitlRequest must reject an empty object",
+    );
+  });
+
+  // This stand-in refuses an empty `summary` and lets an empty `actionId` through, so it
+  // fails the third probe only if that probe's `actionId` — and only its `actionId` — is
+  // the empty member.
+  test("a guard that lets an empty actionId through fails on the empty actionId", () => {
+    const blindToActionId = (value: unknown): boolean => {
+      if (typeof value !== "object" || value === null) return false;
+      const { actionId, summary } = value as Record<string, unknown>;
+      return typeof actionId === "string" && typeof summary === "string" && summary !== "";
+    };
+    expect(thrownBy(() => assertV1HitlRequestGuard(blindToActionId)).message).toBe(
+      "isHitlRequest must reject empty actionId",
+    );
   });
 });
 

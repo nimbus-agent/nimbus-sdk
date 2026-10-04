@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/nimbus-agent/nimbus-sdk/sdks/go/internal/whitespace"
 )
 
 // §2. Every one of these is part of the contract and MUST have the exact value given.
@@ -48,35 +50,6 @@ func bodyProperties() []string {
 
 // §5.2 — the ports omitted from a host because they are the scheme's default.
 var defaultPorts = map[string]string{"https": "443", "http": "80"}
-
-// normativeWhitespace is preamble §R7's set, enumerated. NOT unicode.IsSpace and NOT
-// strings.TrimSpace: both strip U+0085, which this set excludes, and neither strips U+FEFF,
-// which it includes.
-var normativeWhitespace = map[rune]struct{}{
-	0x0009: {}, 0x000A: {}, 0x000B: {}, 0x000C: {}, 0x000D: {},
-	0x0020: {}, 0x00A0: {}, 0x1680: {},
-	0x2000: {}, 0x2001: {}, 0x2002: {}, 0x2003: {}, 0x2004: {}, 0x2005: {},
-	0x2006: {}, 0x2007: {}, 0x2008: {}, 0x2009: {}, 0x200A: {},
-	0x2028: {}, 0x2029: {}, 0x202F: {}, 0x205F: {}, 0x3000: {}, 0xFEFF: {},
-}
-
-func trim(s string) string {
-	runes := []rune(s)
-	start, end := 0, len(runes)
-	for start < end {
-		if _, ok := normativeWhitespace[runes[start]]; !ok {
-			break
-		}
-		start++
-	}
-	for end > start {
-		if _, ok := normativeWhitespace[runes[end-1]]; !ok {
-			break
-		}
-		end--
-	}
-	return string(runes[start:end])
-}
 
 // ---------------------------------------------------------------------------
 // §3 Two primitives
@@ -390,7 +363,7 @@ var (
 // := range s` yields each rune's FIRST byte index, so when count reaches the cap, i is
 // exactly the end of the preceding runes.
 func CapPreview(text string) string {
-	normalized := trim(newlinesRe.ReplaceAllString(
+	normalized := whitespace.Trim(newlinesRe.ReplaceAllString(
 		spacesRe.ReplaceAllString(strings.ReplaceAll(text, "\r\n", "\n"), " "),
 		"\n",
 	))

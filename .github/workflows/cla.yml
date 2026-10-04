@@ -42,7 +42,7 @@ env:
   #
   # `allowlisted-status` below does NOT read this — it matches CLA_ALLOWLIST exactly and
   # exempts `user.type == "Bot"` outright, which needs no pattern at all.
-  CLA_ASSISTANT_ALLOWLIST: 'bot*,*[bot],nimbus-release-bot[bot],dependabot[bot],asafgolombek,claude'
+  CLA_ASSISTANT_ALLOWLIST: 'bot*,*[bot],nimbus-release-bot[bot],asafgolombek,claude'
 
 # Keyed by head SHA for push events, so two commits pushed in quick succession do not
 # contend: previously both shared one group, and on PR #38 the newer commit's run was
@@ -56,9 +56,9 @@ concurrency:
 jobs:
   # `cla` is a required status check on main. contributor-assistant SKIPS allowlisted
   # authors and posts no status at all, so for every allowlisted author — the maintainer
-  # and, critically, release-please and Dependabot — the required check simply never
-  # appeared and the PR could only be merged by an org-admin bypass. Every merged PR in
-  # this repository to date went that route, including the release bot's.
+  # and, critically, release-please — the required check simply never appeared and the
+  # PR could only be merged by an org-admin bypass. Every merged PR in this repository
+  # to date went that route, including the release bot's.
   #
   # This job closes that gap by reporting `cla` itself for allowlisted authors. Outside
   # contributors are untouched: they are not allowlisted, so this job no-ops and the

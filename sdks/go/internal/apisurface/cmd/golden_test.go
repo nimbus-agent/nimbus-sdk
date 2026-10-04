@@ -103,6 +103,24 @@ func TestRenderProducesEveryPackage(t *testing.T) {
 	}
 }
 
+// A package Render cannot read fails the whole document rather than leaving a hole in it:
+// a snapshot missing one package would be compared against the golden as if it were the
+// whole surface. The readable package listed first is what makes this more than a test of
+// an empty list — its section is already built when the second one fails.
+func TestRenderFailsRatherThanReturningPartOfTheSurface(t *testing.T) {
+	listed := packages
+	t.Cleanup(func() { packages = listed })
+	packages = []string{"contract", "no-such-package"}
+
+	got, err := renderFromModuleRoot(t)
+	if err == nil || got != "" {
+		t.Fatalf("Render = %d bytes, %v; want no output and an error", len(got), err)
+	}
+	if !strings.Contains(err.Error(), "no-such-package") || strings.Contains(err.Error(), "contract") {
+		t.Errorf("error %q should name the unreadable package, and only that one", err)
+	}
+}
+
 // packagesGuardExceptions lists directories under sdks/go that the walk below
 // would otherwise flag as missing from packages, with the reason recorded here.
 // It is empty today: the only candidate, conformance, is test-only (no non-test

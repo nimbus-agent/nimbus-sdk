@@ -12,6 +12,8 @@ import json
 from dataclasses import dataclass
 from typing import Any
 
+from nimbus_sdk._whitespace import trim as _trim
+
 #: Frozen per RFC-0015's mechanical definition: backed by a normative document under
 #: ``docs/spec/`` AND executed by a conformance-corpus guard. Both have held since the
 #: corpus went green in all three bindings, which is what RFC-0017 §5 recorded as the
@@ -25,54 +27,6 @@ __stability__ = "frozen"
 #: §1.1. Private, exactly as TypeScript's is: a binding cannot read it from the module,
 #: so the specification states the number in prose rather than pointing at a constant.
 _MAX_COLUMNS = 512
-
-#: Preamble §R7, enumerated. NOT ``str.strip()``: Python strips U+001C to U+001F, which
-#: this set excludes, and does not strip U+FEFF, which it includes. So a BOM-prefixed
-#: CSV header would name its first column U+FEFF + "id" rather than "id", and a BOM'd
-#: CSV is what Excel exports. Enumerated rather than derived because ECMA-262 defines
-#: WhiteSpace partly by Unicode category Zs, which is version-dependent.
-_WHITESPACE = frozenset(
-    map(
-        chr,
-        (
-            0x0009,
-            0x000A,
-            0x000B,
-            0x000C,
-            0x000D,
-            0x0020,
-            0x00A0,
-            0x1680,
-            0x2000,
-            0x2001,
-            0x2002,
-            0x2003,
-            0x2004,
-            0x2005,
-            0x2006,
-            0x2007,
-            0x2008,
-            0x2009,
-            0x200A,
-            0x2028,
-            0x2029,
-            0x202F,
-            0x205F,
-            0x3000,
-            0xFEFF,
-        ),
-    )
-)
-
-
-def _trim(value: str) -> str:
-    """Trim preamble §R7's whitespace set from both ends of ``value``."""
-    start, end = 0, len(value)
-    while start < end and value[start] in _WHITESPACE:
-        start += 1
-    while end > start and value[end - 1] in _WHITESPACE:
-        end -= 1
-    return value[start:end]
 
 
 @dataclass(frozen=True)

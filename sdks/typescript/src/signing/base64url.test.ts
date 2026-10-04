@@ -47,4 +47,17 @@ describe("base64urlDecode", () => {
     rejects("Q\tQ");
   });
   test("rejects non-ASCII", () => rejects("Qé"));
+  // A surrogate pair is one astral scalar to `codePointAt` and a lone half is itself; both
+  // lie outside the ASCII alphabet, so each rejects at the first such position exactly as a
+  // BMP character does. Every input has length 3, so it reaches the alphabet check rather
+  // than the length rule.
+  test("rejects an astral character and a lone surrogate half", () => {
+    rejects("Q\u{1F600}");
+    rejects("QQ\ud800");
+    rejects("\udc00QQ");
+  });
+  test("decodes every alphabet character to its own value", () => {
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    expect(base64urlDecode(alphabet)).toEqual(new Uint8Array(Buffer.from(alphabet, "base64url")));
+  });
 });

@@ -44,6 +44,20 @@ describe("encodeDiagnostic — the canonical line", () => {
     expect(result).toContain('"fields":{"alpha":2,"mike":3,"zulu":1}');
   });
 
+  // §4 admits exactly two scalar kinds in `fields`, and every other test here uses numbers.
+  // A boolean is copied through as-is and sorts with the numbers, by key alone.
+  test("encodes boolean field values as JSON booleans, sorted with the numbers", () => {
+    expect(
+      line(encodeDiagnostic({ ...BASE, fields: { retried: false, cached: true, pages: 3 } })),
+    ).toContain('"fields":{"cached":true,"pages":3,"retried":false}');
+  });
+
+  test("places an optional kind directly after the event name", () => {
+    expect(line(encodeDiagnostic({ ...BASE, kind: "audit" }))).toBe(
+      '{"nimbus":"diag","ts":"2026-08-01T12:00:00.000Z","level":"info","extensionId":"acme-gcal","event":"sync.page","kind":"audit"}',
+    );
+  });
+
   test("encodes an integral float without a fractional part", () => {
     // JSON has one number type. 1.0 and 1 are the same JSON value, so both are
     // accepted and both encode as 1 — otherwise Python and JavaScript disagree.
@@ -120,6 +134,26 @@ describe("encodeDiagnostic — member validation", () => {
       "٢٠٢٦-08-01T12:00:00.000Z", // Arabic-Indic digits
     ]) {
       expect(rejection(encodeDiagnostic({ ...BASE, ts })).reason).toBe("invalid-ts");
+    }
+  });
+
+  // Membership, not shape: a level is one of the four published strings, compared exactly,
+  // so a casing variant is as wrong as a level no binding has ever heard of.
+  test("rejects a level outside the four published ones", () => {
+    for (const level of ["verbose", "INFO", "", 2, null]) {
+      expect(rejection(encodeDiagnostic({ ...BASE, level }))).toEqual({
+        reason: "invalid-level",
+        path: "/level",
+      });
+    }
+  });
+
+  test("rejects a kind outside diagnostic and audit, including null", () => {
+    for (const kind of ["metric", "Audit", "", null, 1]) {
+      expect(rejection(encodeDiagnostic({ ...BASE, kind }))).toEqual({
+        reason: "invalid-kind",
+        path: "/kind",
+      });
     }
   });
 
@@ -252,6 +286,26 @@ describe("encodeDiagnostic — reason order", () => {
     );
   });
 
+  // Every input below is wrong in two ways at once. A binding that checked `level` or `kind`
+  // out of §5's position would pass every single-fault test above and fail one of these.
+  test("a bad level is reported after a bad timestamp and before a bad extensionId", () => {
+    expect(rejection(encodeDiagnostic({ ...BASE, ts: "nope", level: "loud" })).reason).toBe(
+      "invalid-ts",
+    );
+    expect(rejection(encodeDiagnostic({ ...BASE, level: "loud", extensionId: "" })).reason).toBe(
+      "invalid-level",
+    );
+  });
+
+  test("a bad kind is reported after the required four and before a bad correlationId", () => {
+    expect(rejection(encodeDiagnostic({ ...BASE, event: "Sync", kind: "metric" })).reason).toBe(
+      "invalid-event",
+    );
+    expect(
+      rejection(encodeDiagnostic({ ...BASE, kind: "metric", correlationId: "ana@x.com" })).reason,
+    ).toBe("invalid-kind");
+  });
+
   test("decides invalid-field-key across every key before invalid-field-value for any", () => {
     // "a" is scanned first and its value is a bad string, but "B" fails the key pattern.
     // The two-pass shape §5 requires reports invalid-field-key regardless of scan order.
@@ -371,6 +425,14 @@ describe("parseDiagnostic", () => {
     // `nimbus` is wire framing, not event data, so it is absent from the parsed event —
     // which is what makes encode(parse(line)) === line hold.
     expect(parsed.event).toEqual({ ...BASE, fields: { items: 42 } });
+    expect(line(encodeDiagnostic(parsed.event))).toBe(encoded);
+  });
+
+  test("round-trips boolean field values off the wire", () => {
+    const encoded = line(encodeDiagnostic({ ...BASE, fields: { cached: true, retried: false } }));
+    const parsed = parseDiagnostic(encoded);
+    if (!parsed.ok) throw new Error(`expected ok, got ${parsed.reason}`);
+    expect(parsed.event.fields).toEqual({ cached: true, retried: false });
     expect(line(encodeDiagnostic(parsed.event))).toBe(encoded);
   });
 

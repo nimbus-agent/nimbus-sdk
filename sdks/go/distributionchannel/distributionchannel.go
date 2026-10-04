@@ -59,9 +59,10 @@ var hints = map[Channel]string{
 // conformance corpus — a case whose expected answer is "whatever this host happens to be"
 // would pin nothing.
 type Config struct {
-	// Env is §2's environment. A nil map is an empty environment, NOT the process's own:
-	// a caller who supplies a Config at all has asked to be isolated from the host, and
-	// silently reading os.Environ for a nil field would defeat that at the worst moment.
+	// Env is §2's environment. A nil Env reads the process's own environment, exactly as
+	// the zero value does, unless the Config came from WithEnv. Go cannot tell an omitted
+	// map from a nil one, so WithEnv is how a caller isolates resolution from the host:
+	// WithEnv(nil) and WithEnv(map[string]string{}) are both an empty environment.
 	Env map[string]string
 
 	// ExecPath is the running executable's path. Empty means "read the real one".

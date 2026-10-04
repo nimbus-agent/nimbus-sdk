@@ -19,10 +19,11 @@ weaker — it has no registry and no publish credential at all: a tag *is* the r
 what protects a consumer there is `sum.golang.org`, the checksum transparency log every
 `go` client verifies automatically. See [Releasing](./RELEASING.md).
 
-The Go binding is the newest and is narrower than the other two in its *batteries*, not in
-its contracts: it executes exactly the corpora Python claims — every case of every one of
-them, nothing deferred — which is every published corpus its surface publishes. Python
-matches it case for case again as of
+The Go binding is the newest. It publishes the same capabilities Python does, so the two
+are narrower than TypeScript by the same set of modules (the rows of the
+[stability matrix](./stability-matrix.md) showing `—` for both). Go executes exactly
+the corpora Python claims — every case of every one of them, nothing deferred — which is
+every published corpus its surface publishes. Python matches it case for case again as of
 [RFC-0020](./rfcs/0020-manifest-signing.md)'s S3, which gave `nimbus_sdk.signing` a
 from-scratch Ed25519 and retired the one gap between them, `manifest-signature`'s three
 crypto kinds. Which corpus each binding claims,
@@ -70,16 +71,19 @@ restated here. What CI actually *tests* is a separate claim the generator cannot
 it is not read from any package — so it is recorded here instead, across **Linux, macOS
 and Windows**:
 
-- **Node 22 and 24** — an ESM smoke test that imports the published entry points.
-- **Python 3.11, 3.12, 3.13 and 3.14.**
+- **Node 22 and 24** — an ESM smoke test that imports the published entry points. macOS
+  runs Node 24 only.
+- **Python 3.11, 3.12, 3.13 and 3.14** on Linux. macOS and Windows run the floor and the
+  newest, 3.11 and 3.14.
 - **Go 1.26 and 1.27** — the two most recent stable minors, which is Go's own support
-  policy. The `go` directive names the *older* of the two on purpose; see
-  [`sdks/go/README.md`](../sdks/go/README.md#supported-go-versions).
+  policy. macOS runs 1.27 only. The `go` directive names the *older* of the two on purpose;
+  see [`sdks/go/README.md`](../sdks/go/README.md#supported-go-versions).
 
 This is not duplication: the matrix section is generated and pins the declared floor
 value each package ships; this list is hand-maintained and pins the versions CI's
 matrix jobs actually run, per OS — which, for TypeScript and Go, does not include the
 floor on every OS (macOS runs each of those two on its newest supported version only).
+A pull request runs only the jobs its changed paths reach; a push to `main` runs them all.
 
 The TypeScript package is **ESM-only** (`"type": "module"`); there is no CommonJS build.
 It ships its own `.d.ts` and declares no minimum TypeScript language version — if you need
@@ -105,7 +109,7 @@ contract itself — then reach for a battery as you need it. Every public export
 | [`agents`](./modules/agents.md) | Agent briefs, their guards, and the guard factory |
 | [`audit-logger`](./modules/audit-logger.md) | The scoped audit logger |
 | [`hitl-request`](./modules/hitl-request.md) | Human-in-the-loop request shapes |
-| [`crypto`](./modules/crypto.md) | Ed25519 signing, JWTs, service-account tokens |
+| [`crypto`](./modules/crypto.md) | JWTs and service-account tokens, plus the original Ed25519 manifest signing, deprecated in favour of `signing` |
 | [`icalendar`](./modules/icalendar.md) | RFC 5545 building and parsing |
 | [`jmap-fastmail`](./modules/jmap-fastmail.md) | Headers, attachment metadata, capped preview |
 | [`data-profile`](./modules/data-profile.md) | CSV / JSON / Parquet structural profiling |
@@ -141,11 +145,10 @@ contract itself — then reach for a battery as you need it. Every public export
   every binding's stability tier, plus binding status and runtime support floors, in one
   place
 - [API surface](./api-surface.md) — the generated snapshot of every public export
-- [Python API surface](./api-surface-python.md) — the same, for every name in the
-  `nimbus_sdk`, `nimbus_sdk.ipc`, `nimbus_sdk.diagnostics` and
-  `nimbus_sdk.connector_kit` import roots
-- [Go API surface](./api-surface-go.md) — the same, for every exported Go declaration
-  across `connectorkit`, `contract`, `diagnostics`, `ipc`, and `spec`
+- [Python API surface](./api-surface-python.md) — the same, for every name in all nine
+  `nimbus_sdk` import roots
+- [Go API surface](./api-surface-go.md) — the same, for every exported declaration in all
+  ten Go packages
 - [Contract spec](./spec/) — versioned JSON Schemas, the
   [manifest rule registry](./spec/rules/v1/), the NDJSON
   [wire spec](./spec/wire/v1/framing.md), and the conformance corpora every language

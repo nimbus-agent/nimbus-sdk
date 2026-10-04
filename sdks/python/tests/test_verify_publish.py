@@ -1,8 +1,7 @@
 """Mutation tests for post-publish attestation verification.
 
-Offline by default. The tests that reach Sigstore's trust root are opt-in — see
-`test_verify_publish_integration.py`-style gating at the bottom of this file, added in
-Task 3.
+Offline by default. The tests that reach Sigstore's trust root are opt-in: they run only
+with ``NIMBUS_VERIFY_INTEGRATION=1`` set, through the gate at the bottom of this file.
 
 The fixture is the real PyPI integrity document for the published 0.1.0, so these
 assertions are made against bytes a real release actually produced.

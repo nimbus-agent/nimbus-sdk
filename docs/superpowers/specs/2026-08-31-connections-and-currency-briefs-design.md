@@ -1,6 +1,15 @@
 # Design — a third `why` subject, and two new agent briefs
 
-- **Status:** proposed
+- **Status:** half shipped, as of 2026-10-03. PR 1 (`WhyItemSubject`, `WhyBrief.itemSubject`
+  and `ExpertBrief.query.itemUrl`) landed in
+  [#260](https://github.com/nimbus-agent/nimbus-sdk/pull/260), released in `@nimbus-dev/sdk`
+  1.31.0. PR 2 (`ConnectionsBrief`, `CurrencyBrief`, their guards and the roster tables) has
+  not shipped. That is why this document and its plan are still here, when every other
+  delivered design was pruned. The counts below are as of 2026-08-31: `AGENT_NAMES` has since
+  grown to twelve, because 2.0.0 added `glossary`, `decisions` and `ownership`. **PR 2 is a
+  major, not the minor the Slices section says.** Appending to the `stable` `AgentBrief`
+  union and `BriefFor` is a signature change under the rule table, which is why those three
+  agents cut 2.0.0 (see the precedent in `docs/DEPRECATION-POLICY.md`).
 - **Opened:** 2026-08-31
 - **Binding:** TypeScript only. The `agents` module has no Python or Go counterpart
   (`sdks/python/src/nimbus_sdk/`, `sdks/go/`), and this design does not create one — see

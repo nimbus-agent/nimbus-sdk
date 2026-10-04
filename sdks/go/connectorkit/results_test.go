@@ -31,7 +31,7 @@ func TestJSONResultDoesNotHTMLEscape(t *testing.T) {
 	// Asserted as the ABSENCE OF ANY BACKSLASH rather than by naming the escaped
 	// forms: the only escapes encoding/json would introduce into this value are the
 	// HTML ones, and a test that spells them out has to carry a literal backslash-u
-	// through every copy of this plan, which is exactly the transcription that goes
+	// through every copy of the test, which is exactly the transcription that goes
 	// wrong. This form cannot be mis-transcribed into something that passes.
 	if strings.ContainsRune(text, '\\') {
 		t.Errorf("text carries an escape sequence, so it is HTML-escaped: %s", text)
@@ -153,6 +153,46 @@ func TestJSONResultIfOkCapsTheSnippetByCodePoints(t *testing.T) {
 	errors.As(err, &status)
 	if got := len([]rune(status.Snippet)); got != 10 {
 		t.Errorf("explicit cap: snippet = %d code points, want 10", got)
+	}
+}
+
+// The two text-body builders build their non-2xx error the same way JSONResultIfOk does —
+// one statusError, so the three cannot drift — but 0 selects the TEXT default, 400, not 300.
+// A parse-path message override must not leak onto the status path either.
+func TestTextBodyBuildersRaiseOnNon2xx(t *testing.T) {
+	builders := []struct {
+		name  string
+		build func(res TextResponse, maxSnippet int) error
+	}{
+		{"JSONResultFromTextIfOk", func(res TextResponse, maxSnippet int) error {
+			_, err := JSONResultFromTextIfOk("svc", res, maxSnippet, "custom")
+			return err
+		}},
+		{"ParseJSONTextIfOk", func(res TextResponse, maxSnippet int) error {
+			_, err := ParseJSONTextIfOk("svc", res, maxSnippet)
+			return err
+		}},
+	}
+	long := fakeResponse{ok: false, status: 502, text: strings.Repeat("\u00e9", 500)}
+	for _, b := range builders {
+		t.Run(b.name, func(t *testing.T) {
+			var status *HTTPStatusError
+			if err := b.build(long, 0); !errors.As(err, &status) {
+				t.Fatalf("err = %v, want *HTTPStatusError", err)
+			}
+			if status.Service != "svc" || status.Status != 502 {
+				t.Errorf("got %+v", status)
+			}
+			if got := len([]rune(status.Snippet)); got != 400 {
+				t.Errorf("default cap: snippet = %d code points, want 400", got)
+			}
+			if err := b.build(long, 10); !errors.As(err, &status) {
+				t.Fatalf("err = %v, want *HTTPStatusError", err)
+			}
+			if got := len([]rune(status.Snippet)); got != 10 {
+				t.Errorf("explicit cap: snippet = %d code points, want 10", got)
+			}
+		})
 	}
 }
 

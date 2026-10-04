@@ -39,13 +39,18 @@ agree on.
   possible: `jmap-fastmail` handles headers + short previews (never full bodies),
   and `data-profile` reads column shapes / metadata (never cell values or row
   samples). These are hard scope constraints enforced in the source.
-- **Provenance publishing.** Releases are published with `npm publish --provenance`
-  via GitHub Actions OIDC / npm trusted-publisher — there is no long-lived npm
-  token in repository secrets, and each release carries a verifiable attestation.
-- **Signing primitives, not signing authority.** `sdks/typescript/src/crypto` ships Ed25519
-  keygen and manifest sign/verify helpers (`signManifest`,
-  `verifyManifestSignature`) plus canonical JSON. The SDK provides the *primitives*;
-  the gateway decides *what to trust*. The SDK never carries keys.
+- **Provenance publishing.** The npm packages are published with `npm publish
+  --provenance` and the PyPI package with PEP 740 attestations, all through GitHub OIDC
+  trusted publishing, so no long-lived registry token sits in repository secrets. Each
+  release is verified from the registry after it publishes. The Go module needs no publish
+  credential at all; `sum.golang.org` vouches for its bytes. See
+  [RELEASING.md](./RELEASING.md).
+- **Signing primitives, not signing authority.** The `signing` surface
+  (`@nimbus-dev/sdk/signing`, `nimbus_sdk.signing`, Go's `signing`) ships Ed25519 key
+  generation, the detached-JWS `signManifest` / `verifyManifestSignature`, and the
+  canonical JSON they sign, all specified by [RFC-0020](./rfcs/0020-manifest-signing.md).
+  The older helpers in `sdks/typescript/src/crypto` are deprecated. The SDK provides the
+  *primitives*; the gateway decides *what to trust*. The SDK never carries keys.
 - **One of those primitives carries a timing caveat, and only in Python.** See
   [the disclosure below](#pythons-ed25519-timing-side-channel). It is scoped to signing
   and key generation; verification is unaffected in every binding.
@@ -102,9 +107,9 @@ descriptions of shipped behavior.
 
 ### Multi-language supply chain
 
-As official Python / Go / Rust SDKs land (roadmap Phases 2–3), each becomes its own
-supply-chain surface with its own registry (PyPI, proxies, crates.io) and its own
-provenance story. Commitments:
+Each official SDK is its own supply-chain surface, with its own registry and its own
+provenance story: PyPI for Python and the module proxy for Go, both official now, and
+crates.io for Rust if it lands (roadmap Phases 2–3). Commitments:
 
 - **Every official SDK stays dependency-minimal** and publishes with the strongest
   provenance its ecosystem supports (e.g. PyPI Trusted Publishers, Sigstore
@@ -126,9 +131,9 @@ binding that fails these does not ship.
 
 ### Manifest signing & connector trust
 
-The Ed25519 signing primitives already in `sdks/typescript/src/crypto` are the foundation for
-the
-registry trust model (roadmap Phase 4). The intended end state:
+The signing contract [RFC-0020](./rfcs/0020-manifest-signing.md) specifies, and all three
+bindings implement, is the foundation for the registry trust model (roadmap Phase 4). The
+intended end state:
 
 - **Published connectors carry a verifiable signature** over a canonicalized
   manifest, and the gateway verifies it before load.

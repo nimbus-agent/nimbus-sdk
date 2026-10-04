@@ -43,6 +43,11 @@ is the reference implementation; every binding is held to the same conformance c
 | `.../sdks/go/ipc` | The hello frame (`EncodeHello`, `ParseHello`), the NDJSON line reader (`LineReader`), and the handshake (`PerformHandshake`) |
 | `.../sdks/go/diagnostics` | The diagnostics contract v0: `Encode`, `Parse`, `MeetsLevel`, and the emitter (`NewEmitter`) |
 | `.../sdks/go/connectorkit` | The batteries a hand-rolled MCP connector needs: `ResolveURLWithBase`, `RequireEnv`, the MCP result builders, the search filter, `HTTPTransport`, `ToolRouter`, and the REST factories |
+| `.../sdks/go/signing` | Manifest signing: canonical JSON (`Canonicalize`, `CanonicalizeManifest`) and the detached JWS envelope (`SignManifest`, `VerifyManifestSignature`, `GenerateSigningKey`) over `crypto/ed25519` |
+| `.../sdks/go/dataprofile` | Column and shape profiling for CSV, JSON, JSONL and Parquet: metadata only, never cell values |
+| `.../sdks/go/distributionchannel` | Release-channel resolution (`Resolve`) and upgrade hints, with the environment, executable path and `realpath` injectable |
+| `.../sdks/go/icalendar` | RFC 5545 VEVENT parsing and building (`Parse`, `Build`) |
+| `.../sdks/go/jmapfastmail` | JMAP session parsing, request builders, and email header, attachment and capped-preview extraction |
 
 That is the whole surface —
 [`docs/api-surface-go.md`](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/api-surface-go.md)
@@ -361,11 +366,14 @@ majors it speaks; the two are unrelated numbers and only one of them is a semver
 
 ## Status
 
-Narrower than the other two bindings only in its batteries, not in its contracts. It
-carries the contract-version constants, the negotiation algorithm, the manifest
-declaration check, the hello frame, the spec loaders, the NDJSON line reader, the
-handshake, the diagnostics envelope with its emitter, the connector kit, the manifest
-canonicalizer, and the SDK version accessor. It executes **every published conformance corpus its surface publishes**
+On par with Python, which publishes the same capabilities, and narrower than TypeScript by
+the same set of modules (see the
+[stability matrix](https://github.com/nimbus-agent/nimbus-sdk/blob/main/docs/stability-matrix.md)).
+It carries the contract-version constants, the negotiation
+algorithm, the manifest declaration check, the hello frame, the spec loaders, the NDJSON
+line reader, the handshake, the diagnostics envelope with its emitter, the connector kit,
+manifest canonicalization and the detached signature envelope, the four ported batteries,
+and the SDK version accessor. It executes **every published conformance corpus its surface publishes**
 — in full, nothing deferred in any: `negotiation` — across all three of its kinds,
 `negotiate`, `hello`, and `declaration` — `framing` — `diagnostics` — across `encode`,
 `parse`, and `level` — `url-resolution` — against `ResolveURLWithBase` — `canonical-json`

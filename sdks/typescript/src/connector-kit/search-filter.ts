@@ -32,18 +32,31 @@ export function stringField(row: Record<string, unknown>, key: string): string {
   return typeof v === "string" ? v : "";
 }
 
-export function tagText(row: Record<string, unknown>): string {
+/**
+ * `row.tags` as one space-joined string of every name `nameOf` returns, or "" when `tags` is
+ * absent or not an array. The two tag extractors below differ only in `nameOf`. An `""` it
+ * returns is still a name — only `undefined` skips an entry.
+ */
+function joinTagNames(
+  row: Record<string, unknown>,
+  nameOf: (tag: unknown) => string | undefined,
+): string {
   const tags = row["tags"];
   if (!Array.isArray(tags)) {
     return "";
   }
   const names: string[] = [];
   for (const t of tags) {
-    if (typeof t === "string") {
-      names.push(t);
+    const name = nameOf(t);
+    if (name !== undefined) {
+      names.push(name);
     }
   }
   return names.join(" ");
+}
+
+export function tagText(row: Record<string, unknown>): string {
+  return joinTagNames(row, (t) => (typeof t === "string" ? t : undefined));
 }
 
 /**
@@ -51,22 +64,10 @@ export function tagText(row: Record<string, unknown>): string {
  * Returns "" when `tags` is absent, not an array, or contains no object entries with a string `name`.
  */
 export function tagNamesFromObjects(row: Record<string, unknown>): string {
-  const tags = row["tags"];
-  if (!Array.isArray(tags)) {
-    return "";
-  }
-  const names: string[] = [];
-  for (const t of tags) {
-    const tag = asObjectish(t);
-    if (tag === undefined) {
-      continue;
-    }
-    const name = tag["name"];
-    if (typeof name === "string" && name !== "") {
-      names.push(name);
-    }
-  }
-  return names.join(" ");
+  return joinTagNames(row, (t) => {
+    const name = asObjectish(t)?.["name"];
+    return typeof name === "string" && name !== "" ? name : undefined;
+  });
 }
 
 /**

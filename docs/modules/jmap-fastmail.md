@@ -136,7 +136,7 @@ Four things it does that the obvious Go does not:
   `API.Example.COM` — and keeps a default `:443` the reference drops.
 - **`CapPreview` counts code points** (§6.4). Go's unit is the byte, so `s[:2000]` is wrong
   twice over: wrong unit, and a cut that can land inside a multi-byte sequence.
-- **`trim` uses §R7's set**, never `strings.TrimSpace`.
+- **Trimming uses §R7's set** (the shared `internal/whitespace`), never `strings.TrimSpace`.
 - **`MethodCall` marshals to a three-element array.** §9 records that these entries are
   heterogeneous — string, object, string — which no typed struct encodes directly.
 

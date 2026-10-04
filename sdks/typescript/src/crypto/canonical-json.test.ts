@@ -119,3 +119,30 @@ describe("canonicalizeManifest", () => {
     expect(text.indexOf('"id"')).toBeLessThan(text.indexOf('"version"'));
   });
 });
+
+// Each case below is output or an error a legacy caller depends on and that
+// `@nimbus-dev/sdk/signing`'s `canonicalize` does not reproduce. They are why this deprecated
+// module keeps its own implementation instead of delegating to the replacement it names, and
+// why its internal calls to its own deprecated members carry `NOSONAR S1874` markers.
+describe("canonicalize — legacy behaviour the signing replacement does not share", () => {
+  // Built from code points rather than typed, so no editor can fold the two forms into one.
+  const precomposed = String.fromCodePoint(0xe9);
+  const decomposed = `e${String.fromCodePoint(0x301)}`;
+
+  test("NFC-normalizes string values but not object keys", () => {
+    expect(decomposed).not.toBe(precomposed);
+    expect(canonicalize(decomposed)).toBe(`"${precomposed}"`);
+    expect(canonicalize({ [decomposed]: decomposed })).toBe(`{"${decomposed}":"${precomposed}"}`);
+  });
+
+  test("sorts keys by UTF-16 code unit, so an astral key precedes U+FB01", () => {
+    const ligature = String.fromCodePoint(0xfb01);
+    const astral = String.fromCodePoint(0x1f600);
+    expect(canonicalize({ [ligature]: 1, [astral]: 2 })).toBe(`{"${astral}":2,"${ligature}":1}`);
+  });
+
+  test("a non-finite number throws NonIntegerNumberInManifest", () => {
+    expect(() => canonicalize(Number.NaN)).toThrow(NonIntegerNumberInManifest);
+    expect(() => canonicalize(Number.POSITIVE_INFINITY)).toThrow(NonIntegerNumberInManifest);
+  });
+});

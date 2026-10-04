@@ -157,3 +157,23 @@ func TestRedactedURLNeverEchoesAnUnparseableCredential(t *testing.T) {
 		t.Errorf("leaked through the unparseable path: %q", got)
 	}
 }
+
+// A timeout reads exactly like the transport failure it specialises, redaction included:
+// a log line tells the two apart only by the cause it names.
+func TestTransportTimeoutErrorMessage(t *testing.T) {
+	err := &TransportTimeoutError{Op: "GET", URL: "https://user:sekrit@api.example.com/x", Err: context.DeadlineExceeded}
+	want := "GET https://api.example.com/x failed: context deadline exceeded"
+	if got := err.Error(); got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}
+
+// The coarse cut exists for a credential in a shape url.Parse could not read. An
+// unparseable URL with no "@" in it carries no credential to cut, so it comes back as it
+// was given rather than being mangled.
+func TestRedactedURLLeavesAnUnparseableURLWithoutAnAtSignAlone(t *testing.T) {
+	const raw = "https://[oops/x"
+	if got := RedactedURL(raw); got != raw {
+		t.Errorf("RedactedURL(%q) = %q, want it unchanged", raw, got)
+	}
+}

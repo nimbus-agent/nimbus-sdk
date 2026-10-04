@@ -27,6 +27,23 @@ describe("stubGlobalFetch / restoreGlobalFetch", () => {
     expect(await (await fetch("https://x.example")).text()).toBe("async");
   });
 
+  test("a throwing handler rejects the returned promise instead of throwing at the call", async () => {
+    // The real `fetch` reports a network failure as a rejection, never as a synchronous
+    // throw, and code under test may attach `.catch` to the call. If the stub let the throw
+    // escape, `fetch(...)` below would throw before `.then` was attached, and the test would
+    // fail on that TypeError instead of reaching the assertion.
+    stubGlobalFetch(() => {
+      throw new TypeError("network down");
+    });
+
+    const outcome = fetch("https://x.example").then(
+      () => "resolved",
+      (e: unknown) => `rejected: ${e instanceof Error ? e.message : String(e)}`,
+    );
+
+    expect(await outcome).toBe("rejected: network down");
+  });
+
   test("restore reinstates the real fetch even after a re-stub, not the previous stub", () => {
     // The whole suite runs in one process, so a stub left installed by one file is still
     // installed for every file after it. Two stubs before one restore is the case that

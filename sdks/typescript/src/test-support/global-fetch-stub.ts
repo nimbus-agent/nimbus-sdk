@@ -26,8 +26,13 @@ const REAL_FETCH = globalThis.fetch;
  * body, and an unrestored stub then fails a later file instead of this one.
  */
 export function stubGlobalFetch(handler: StubbedFetchHandler): void {
-  globalThis.fetch = (async (url: string, init?: RequestInit) =>
-    handler(url, init)) as typeof fetch;
+  // The real `fetch` never throws synchronously, so neither does the stub: a handler that
+  // throws becomes a rejected promise, because the executor runs `handler` and a throw
+  // inside an executor rejects the promise instead of escaping the call.
+  globalThis.fetch = ((url: string, init?: RequestInit) =>
+    new Promise<Response>((resolve) => {
+      resolve(handler(url, init));
+    })) as typeof fetch;
 }
 
 /** Reinstate the real `fetch`. Safe to call when nothing was stubbed. */

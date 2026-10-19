@@ -3511,6 +3511,178 @@ From `./manifest-signature.js`.
 export declare function verifyManifestSignature(manifest: object, trustedKeys: readonly Jwk[]): Promise<void>;
 ```
 
+## `./sync`
+
+12 exports.
+
+### `CredentialsManifestBlock`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export type CredentialsManifestBlock = Record<string, {
+    env: string;
+}>;
+```
+
+### `RESERVED_TOOL_PREFIX`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export declare const RESERVED_TOOL_PREFIX = "__nimbus_";
+```
+
+### `SYNC_CONTRACT_VERSION`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export declare const SYNC_CONTRACT_VERSION = "1";
+```
+
+### `SYNC_TOOL_NAME`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export declare const SYNC_TOOL_NAME = "__nimbus_sync";
+```
+
+### `SyncCapableManifestFields`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export interface SyncCapableManifestFields {
+    sync?: {
+        contract: "1";
+
+        intervalSeconds: number;
+
+        itemTypes: string[];
+    };
+    credentials?: CredentialsManifestBlock;
+}
+```
+
+### `SyncDepth`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export type SyncDepth = "metadata_only" | "summary" | "full";
+```
+
+### `SyncItem`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export type SyncItem = {
+    type: string;
+    externalId: string;
+    title: string;
+    url?: string | null;
+    canonicalUrl?: string | null;
+    modifiedAt: number;
+    metadata: Record<string, unknown>;
+} & ({
+    bodyPreview?: string;
+    body?: undefined;
+    bodyTruncated?: undefined;
+} | {
+    body: string;
+    bodyPreview?: undefined;
+    bodyTruncated?: boolean;
+});
+```
+
+### `SyncManifestBlock`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export type SyncManifestBlock = NonNullable<SyncCapableManifestFields["sync"]>;
+```
+
+### `SyncRequest`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export interface SyncRequest {
+
+    cursor: string | null;
+    depth: SyncDepth;
+    historyFloorMs?: number;
+}
+```
+
+### `SyncResponse`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export type SyncResponse = {
+    status: "ok";
+    items: SyncItem[];
+    cursor: string | null;
+    hasMore: boolean;
+} | {
+    status: "rate_limited";
+    retryAfterMs?: number;
+} | {
+    status: "unauthenticated";
+};
+```
+
+### `SyncValidation`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export type SyncValidation = {
+    ok: true;
+    value: SyncResponse;
+} | {
+    ok: false;
+    reason: string;
+};
+```
+
+### `validateSyncResponse`
+
+**Stability:** experimental
+
+From `(local)`.
+
+```ts
+export declare function validateSyncResponse(raw: unknown): SyncValidation;
+```
+
 ## `./testing`
 
 3 exports.

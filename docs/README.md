@@ -121,6 +121,7 @@ contract itself — then reach for a battery as you need it. Every public export
 | [`connector-kit`](./modules/connector-kit.md) | Dependency-free MCP connector helpers: Zod tool registration, Bearer-auth REST fetch |
 | [`diagnostics`](./modules/diagnostics.md) | The structured, redaction-safe diagnostic and audit envelope |
 | [`signing`](./modules/signing.md) | Deterministic manifest canonicalization, and the pure half of the detached JWS envelope |
+| [`sync`](./modules/sync.md) | The sync contract: how an extension hands indexable items to the gateway |
 | [`manifest-signature`](./modules/manifest-signature.md) | Signing, verifying and key generation for the detached JWS envelope |
 
 ## Examples

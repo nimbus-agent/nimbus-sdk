@@ -55,6 +55,46 @@
       }
     },
     "syncInterval": { "type": "number" },
+    "sync": {
+      "type": "object",
+      "required": ["contract", "intervalSeconds", "itemTypes"],
+      "additionalProperties": false,
+      "properties": {
+        "contract": {
+          "const": "1",
+          "description": "The sync contract major; see docs/spec/sync/v1/sync.md."
+        },
+        "intervalSeconds": { "type": "integer", "minimum": 60 },
+        "itemTypes": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" }
+        }
+      }
+    },
+    "credentials": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+      "additionalProperties": {
+        "type": "object",
+        "required": ["env"],
+        "additionalProperties": false,
+        "properties": {
+          "env": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]{0,63}$",
+            "not": {
+              "anyOf": [
+                { "pattern": "^(NIMBUS_|BUN_|NODE_)" },
+                { "enum": ["PATH", "HOME", "USERPROFILE", "TEMP", "TMP", "TMPDIR", "SYSTEMROOT"] }
+              ]
+            },
+            "description": "The environment variable the gateway injects the credential under. Reserved prefixes and system variables are refused."
+          }
+        }
+      },
+      "description": "Credential name to the environment variable it is injected as; see docs/spec/sync/v1/sync.md section 7. Carries no secret value."
+    },
     "tags": { "type": "array", "items": { "type": "string" } },
     "minNimbusVersion": {
       "type": "string",

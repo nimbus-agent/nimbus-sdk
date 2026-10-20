@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [2.1.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v2.0.0...typescript-v2.1.0) (2026-10-20)
+
+
+### Features
+
+* **sync:** sync contract v1 and the manifest sync/credentials blocks ([#289](https://github.com/nimbus-agent/nimbus-sdk/issues/289)) ([489a34e](https://github.com/nimbus-agent/nimbus-sdk/commit/489a34ea96c4bf4c556ee74bda2b4b585996e991))
+
 ## [2.0.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v1.34.0...typescript-v2.0.0) (2026-09-07)
 
 

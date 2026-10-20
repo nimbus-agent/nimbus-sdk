@@ -44,6 +44,7 @@ The tool result is a JSON object (MCP structured content, or a single text conte
 holding the JSON) whose `status` member selects the shape:
 
 - `"ok"` — `items`: array of items (§ 5); `cursor`: string or `null`; `hasMore`: boolean.
+  When `hasMore` is `true`, `cursor` MUST be a non-empty string.
 - `"rate_limited"` — `retryAfterMs`: non-negative integer, optional.
 - `"unauthenticated"` — no other members.
 
@@ -54,7 +55,9 @@ Unknown extra members MUST be ignored, not rejected.
 
 The cursor is an opaque string chosen by the extension. The gateway stores it and returns it
 verbatim; it MUST NOT parse, order or compare cursors. `hasMore: true` means call again with
-the returned cursor; `hasMore: false` ends the run, and the returned cursor (or `null`) is
+the returned cursor, which is why it MUST then be a non-empty string: a `null` or empty cursor
+would send the next call back to the start, and an extension that pages by cursor would return
+the same page forever; `hasMore: false` ends the run, and the returned cursor (or `null`) is
 what the gateway sends on the next run.
 
 ## 5. Item

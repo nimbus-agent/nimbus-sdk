@@ -118,6 +118,10 @@ function okProblem(raw: Record<string, unknown>): string | null {
   const cursor = raw["cursor"];
   if (cursor !== null && typeof cursor !== "string") return "cursor must be a string or null";
   if (typeof raw["hasMore"] !== "boolean") return "hasMore must be a boolean";
+  // A null or empty cursor with more to come restarts paging from the top: an endless loop.
+  if (raw["hasMore"] && (cursor === null || cursor === "")) {
+    return "cursor must be a non-empty string when hasMore is true";
+  }
   return null;
 }
 

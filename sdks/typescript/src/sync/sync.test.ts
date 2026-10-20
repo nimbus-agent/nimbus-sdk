@@ -27,7 +27,9 @@ const files = readdirSync(CORPUS)
 
 const EXPECTED_FILES = [
   "invalid-body-and-preview.json",
+  "invalid-has-more-empty-cursor.json",
   "invalid-has-more-missing.json",
+  "invalid-has-more-null-cursor.json",
   "invalid-items-not-array.json",
   "invalid-metadata-array.json",
   "invalid-missing-title.json",
@@ -37,6 +39,7 @@ const EXPECTED_FILES = [
   "invalid-truncated-without-body.json",
   "invalid-unknown-status.json",
   "valid-ok-body.json",
+  "valid-ok-has-more.json",
   "valid-ok-minimal.json",
   "valid-ok-preview.json",
   "valid-rate-limited-bare.json",
@@ -104,6 +107,14 @@ describe("validateSyncResponse", () => {
   test("rejects a non-string cursor and a non-boolean hasMore", () => {
     expect(validateSyncResponse({ ...ok([]), cursor: 5 }).ok).toBe(false);
     expect(validateSyncResponse({ ...ok([]), hasMore: "no" }).ok).toBe(false);
+  });
+
+  test("requires a non-empty cursor when hasMore is true", () => {
+    expect(validateSyncResponse({ ...ok([]), hasMore: true }).ok).toBe(false);
+    expect(validateSyncResponse({ ...ok([]), cursor: "", hasMore: true }).ok).toBe(false);
+    expect(validateSyncResponse({ ...ok([]), cursor: "p2", hasMore: true }).ok).toBe(true);
+    // The rule is about continuation only: a final page may still carry a null cursor.
+    expect(validateSyncResponse({ ...ok([]), cursor: null, hasMore: false }).ok).toBe(true);
   });
 
   test("rejects an unsafe-integer modifiedAt and a negative one", () => {

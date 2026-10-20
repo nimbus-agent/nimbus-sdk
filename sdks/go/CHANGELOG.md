@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.23.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.22.0...sdks/go/v0.23.0) (2026-10-20)
+
+
+### Features
+
+* **sync:** sync contract v1 and the manifest sync/credentials blocks ([#289](https://github.com/nimbus-agent/nimbus-sdk/issues/289)) ([489a34e](https://github.com/nimbus-agent/nimbus-sdk/commit/489a34ea96c4bf4c556ee74bda2b4b585996e991))
+
 ## [0.22.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.21.0...sdks/go/v0.22.0) (2026-09-06)
 
 

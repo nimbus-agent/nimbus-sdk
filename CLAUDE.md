@@ -56,8 +56,14 @@ published package.
   §9's `canonicalization-failed` *wraps* that set rather than absorbing it, so a consumer
   switching on one never has to learn the other. A separate entry point because signing is
   a separate contract, governed by
-  [RFC-0020](./docs/rfcs/0020-manifest-signing.md). This makes it a **six**-entry
-  `exports` map.
+  [RFC-0020](./docs/rfcs/0020-manifest-signing.md).
+- `./sync` (`sdks/typescript/src/sync/index.ts`) — the sync contract v1: `SYNC_CONTRACT_VERSION`,
+  `SYNC_TOOL_NAME` (`__nimbus_sync`; every `__nimbus_` tool name is reserved to the gateway),
+  the `SyncRequest` / `SyncItem` / `SyncResponse` types and `validateSyncResponse`. Normatively
+  specified at `docs/spec/sync/v1/sync.md`, with a valid/invalid corpus beside it at
+  `docs/spec/sync/v1/corpus/` that the module's own test exercises (TypeScript only; it is not
+  one of the published conformance corpora under `docs/spec/conformance/v1/`). `experimental`.
+  The gateway does not import it. This makes it a **seven**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.

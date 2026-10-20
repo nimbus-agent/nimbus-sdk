@@ -45,6 +45,14 @@ diverge in practice: what counts as **blank** (JavaScript's `trim` removes U+FEF
 U+0085; Python's `strip` does the reverse) and the **semver pattern** (JavaScript's `\d` is
 ASCII; Python's and Rust's are Unicode-aware, so a transcribed `\d` would accept `"١.٢.٣"`).
 
+### `sync/v1/`
+
+The [sync contract](./sync/v1/sync.md) — how an extension hands indexable items to the
+gateway through the reserved `__nimbus_sync` tool, plus the manifest `sync` and
+`credentials` blocks. Its [corpus](./sync/v1/corpus/) of valid and invalid responses sits
+beside the spec and is executed by the TypeScript binding's own test; it is not one of the
+conformance corpora below, so no coverage declaration applies to it.
+
 ### `predicates/v1/`
 
 The [contract predicates](./predicates/v1/) — the two checks that are pure functions of

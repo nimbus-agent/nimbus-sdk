@@ -49,6 +49,12 @@
       "types": "./dist/signing/index.d.ts",
       "import": "./dist/signing/index.js",
       "default": "./dist/signing/index.js"
+    },
+    "./sync": {
+      "bun": "./src/sync/index.ts",
+      "types": "./dist/sync/index.d.ts",
+      "import": "./dist/sync/index.js",
+      "default": "./dist/sync/index.js"
     }
   },
   "files": [

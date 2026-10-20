@@ -122,7 +122,12 @@ describe("schema guard — structural", () => {
 
   test("ExtensionManifest and its schema declare the same shape, including oauth", () => {
     const diff = diffShapes(
-      tsShapeOf(declarationOf("ExtensionManifest")),
+      // The sync-capable members are typed in the experimental ./sync entry point, not on the
+      // frozen ExtensionManifest, so the schema is compared against both declarations.
+      [
+        ...tsShapeOf(declarationOf("ExtensionManifest")),
+        ...tsShapeOf(declarationOf("SyncCapableManifestFields")),
+      ],
       schemaShapeOf(MANIFEST_SCHEMA_JSON),
     );
     expect(

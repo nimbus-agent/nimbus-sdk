@@ -9,7 +9,7 @@
  * documentation guard derives from `buildSurface()`. `scripts/smoke-calls.test.ts` asserts
  * this list covers every one of them, so adding a battery fails until it has a call here.
  *
- * Each `run` receives the six entry points already imported by the smoke, so no entry
+ * Each `run` receives the seven entry points already imported by the smoke, so no entry
  * re-resolves them.
  */
 
@@ -433,6 +433,23 @@ export const SMOKE_CALLS = [
         rejected = err?.reason === "signature-invalid";
       }
       if (!rejected) throw new Error("verifyManifestSignature accepted a mutated manifest");
+    },
+  },
+  {
+    module: "sync/index",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, _signing, sync) => {
+      if (sync.SYNC_TOOL_NAME !== "__nimbus_sync") {
+        throw new Error(`SYNC_TOOL_NAME is ${sync.SYNC_TOOL_NAME}`);
+      }
+      const ok = sync.validateSyncResponse({
+        status: "ok",
+        items: [],
+        cursor: null,
+        hasMore: false,
+      });
+      if (!ok.ok) throw new Error(`validateSyncResponse refused a valid page: ${ok.reason}`);
+      const bad = sync.validateSyncResponse({ status: "nope" });
+      if (bad.ok) throw new Error("validateSyncResponse accepted an unknown status");
     },
   },
 ];

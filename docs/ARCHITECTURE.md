@@ -26,7 +26,7 @@ Three hard constraints shape every decision here:
 
 ## The public surface (the `exports` map)
 
-The TypeScript package exposes exactly six entry points. Everything else is internal.
+The TypeScript package exposes exactly seven entry points. Everything else is internal.
 (The Python and Go bindings publish import roots and packages instead; see
 [`api-surface-python.md`](./api-surface-python.md) and
 [`api-surface-go.md`](./api-surface-go.md).)
@@ -39,6 +39,7 @@ The TypeScript package exposes exactly six entry points. Everything else is inte
 | `@nimbus-dev/sdk/connector-kit` | `sdks/typescript/src/connector-kit/index.ts` | Dependency-free helpers for hand-rolled MCP connectors: Zod tool registration (`ZodObjectSchema` is a structural type, not a `zod` import), MCP result wrapping, the Bearer-auth REST fetcher, and the search kit (`filterByQuery` / `makeQueryFilter` / `matchesResult` and friends) for in-connector query filtering. The generated TypeScript connector template imports from here. |
 | `@nimbus-dev/sdk/diagnostics` | `sdks/typescript/src/diagnostics/index.ts` | The diagnostics / telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the closed `DiagnosticEvent` envelope, and `createEmitter` for a sink-backed `DiagnosticEmitter`. The redaction-safe replacement for the scoped audit logger's free-form payload. |
 | `@nimbus-dev/sdk/signing` | `sdks/typescript/src/signing/index.ts` | Manifest signing under [RFC-0020](./rfcs/0020-manifest-signing.md): canonicalization (`canonicalize` / `canonicalizeManifest`) and the detached JWS envelope (`signManifest` / `verifyManifestSignature` / `generateSigningKey`, base64url, the RFC 7638 thumbprint, the protected header), failing with one `SignatureError`. It replaces the deprecated signing helpers in `crypto/`. |
+| `@nimbus-dev/sdk/sync` | `sdks/typescript/src/sync/index.ts` | The sync contract v1: `validateSyncResponse`, the `SyncItem` / `SyncResponse` types and the reserved `__nimbus_sync` tool name. Specified at `docs/spec/sync/v1/sync.md`. |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.

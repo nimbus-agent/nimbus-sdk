@@ -261,6 +261,76 @@
       "reason": "Every optional field populated, including a fully and correctly typed oauth object. Pins the types of oauth's five properties, syncInterval, tags, homepage, and icon, none of which the rules inspect."
     },
     {
+      "file": "manifest/valid-sync-credentials.json",
+      "shape": "ExtensionManifest",
+      "expect": "valid",
+      "class": "schema-only",
+      "reason": "A complete sync block and credentials block. No rule inspects either, so only the schema pins their types."
+    },
+    {
+      "file": "manifest/schema-only-bad-sync-contract.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "sync.contract must be exactly \"1\"; any other major is refused."
+    },
+    {
+      "file": "manifest/schema-only-sync-interval-too-small.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "sync.intervalSeconds is an integer of at least 60."
+    },
+    {
+      "file": "manifest/schema-only-sync-item-types-empty.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "sync.itemTypes must name at least one item type."
+    },
+    {
+      "file": "manifest/schema-only-sync-item-type-pattern.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "Each sync.itemTypes entry matches ^[a-z][a-z0-9_]{0,31}$; an upper-case entry does not."
+    },
+    {
+      "file": "manifest/schema-only-credential-env-system.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "A credential may not be injected under PATH (nor HOME, USERPROFILE, TEMP, TMP, TMPDIR or SYSTEMROOT)."
+    },
+    {
+      "file": "manifest/schema-only-credential-env-reserved-prefix.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "A credential env may not start with NIMBUS_, BUN_ or NODE_."
+    },
+    {
+      "file": "manifest/schema-only-credential-env-lowercase.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "A credential env matches ^[A-Z][A-Z0-9_]{0,63}$."
+    },
+    {
+      "file": "manifest/schema-only-credential-name-pattern.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "A credential name matches ^[a-z][a-z0-9_]{0,31}$."
+    },
+    {
+      "file": "manifest/schema-only-credential-plaintext-value.json",
+      "shape": "ExtensionManifest",
+      "expect": "invalid",
+      "class": "schema-only",
+      "reason": "A credential entry carries only an env name. A plaintext value key must not validate: secrets live in the Vault, never in a manifest."
+    },
+    {
       "file": "item/valid-minimal.json",
       "shape": "NimbusItem",
       "expect": "valid",

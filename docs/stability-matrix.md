@@ -28,6 +28,7 @@ binding does not publish the capability at all.
 | [`server`](./modules/server.md) | `stable` | — | — |
 | [`signing`](./modules/signing.md) | `experimental` | `experimental` | `experimental` |
 | [`storybook`](./modules/storybook.md) | `experimental` | — | — |
+| [`sync`](./modules/sync.md) | `experimental` | — | — |
 | [`testing`](./modules/testing.md) | `stable` | `stable` | `stable` |
 | [`types`](./modules/types.md) | `frozen` | — | — |
 

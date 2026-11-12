@@ -93,8 +93,10 @@ cross-platform behavior (e.g. sandbox platform-asymmetry) is exercised in CI.
 ### 6. Ecosystem fit
 
 How the SDK plugs into the rest of Nimbus and welcomes outside contributors:
-consumed by the first-party connectors in the
-[Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo (local co-dev via
+consumed by the first-party connectors (in
+[nimbus-mcp-servers](https://github.com/nimbus-agent/nimbus-mcp-servers) since
+2026-08-27; before that in the
+[Nimbus](https://github.com/nimbus-agent/Nimbus) monorepo, local co-dev via
 `platform:link`), a published stability / support matrix per export tier and
 language, and eventually a third-party connector / app registry (design detail
 defers to the ecosystem roadmap). Authoring guidance is *not* this pillar's: the
@@ -513,6 +515,14 @@ Nimbus connector or app.*
   comment that can miss a module, which `docs-coverage.test.ts` already catches.
 - [ ] The **third-party connector / app registry** design, including the trust and
   signature-verification model — *Pillar 6 (see [SECURITY.md](./SECURITY.md))*
+
+  **Status note (2026-11-12).** The gateway has since shipped a registry of its own design
+  ([Nimbus roadmap, Phase 9.5](https://github.com/nimbus-agent/Nimbus/blob/main/docs/roadmap.md#phase-95--marketplace-registry),
+  2026-10-18 to 2026-11-04): a static, signed index with a pull-request write path, a
+  client, publishing, and a trust layer for key rotation, revocation and takedowns. That
+  design is recorded in the gateway's documents, not in this contract. This box stays `[ ]`
+  until the two are compared: either this repository adopts that design as the contract's,
+  and the box is ticked with a citation, or the difference is written down here.
 - [x] A lightweight **RFC process** for contract changes — *Pillar 9 (see
   [GOVERNANCE.md](./GOVERNANCE.md#the-rfc-process))*
 - [ ] A **manifest signature path proven end-to-end** (sign → publish → gateway
@@ -548,6 +558,11 @@ Nimbus connector or app.*
   published manifest, this stays unchecked — a specified, tri-bound, corpus-pinned
   signature format is a strictly weaker claim than a path proven end to end, and RFC-0020's
   own "Out of scope" section says so.
+
+  **Status note (2026-11-12).** The gateway now verifies publisher signatures on extensions
+  installed from a registry (its Phase 9.5). Whether that path uses this repository's
+  RFC-0020 envelope or the older flat path has not been established here, so the box stays
+  `[ ]`. The check is to read the gateway's verifier against `docs/spec/signing/v1/`.
 
   RFC-0020's last shipment, **S5**, does not gate this box, but it is the other unfinished
   part of that RFC. S5 removes the deprecated flat signature path in `crypto/`

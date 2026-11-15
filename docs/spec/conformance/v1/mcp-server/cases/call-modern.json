@@ -1,0 +1,49 @@
+{
+  "description": "tools/call echo on a modern connection",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "echo",
+        "arguments": {
+          "location": "New York"
+        },
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "resultType": "complete",
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"location\":\"New York\"}"
+          }
+        ],
+        "structuredContent": {
+          "location": "New York"
+        },
+        "_meta": {
+          "io.modelcontextprotocol/serverInfo": {
+            "name": "conformance-server",
+            "version": "1.0.0"
+          }
+        }
+      }
+    }
+  ]
+}

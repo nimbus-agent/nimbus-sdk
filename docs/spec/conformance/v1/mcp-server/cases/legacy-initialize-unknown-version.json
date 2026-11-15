@@ -1,0 +1,52 @@
+{
+  "description": "initialize asking for a version nobody serves, and for the modern one",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "1999-01-01"
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2026-07-28"
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "tools": {}
+        },
+        "serverInfo": {
+          "name": "conformance-server",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "tools": {}
+        },
+        "serverInfo": {
+          "name": "conformance-server",
+          "version": "1.0.0"
+        }
+      }
+    }
+  ]
+}

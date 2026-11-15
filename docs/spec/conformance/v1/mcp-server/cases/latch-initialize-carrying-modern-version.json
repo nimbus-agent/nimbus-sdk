@@ -1,0 +1,55 @@
+{
+  "description": "initialize that carries the modern version latches modern",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-11-25",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "elicitation": {
+            "form": {}
+          }
+        },
+        "clientInfo": {
+          "name": "ExampleClient",
+          "version": "1.0.0"
+        }
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "error": {
+        "code": -32601
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "error": {
+        "code": -32601
+      }
+    }
+  ]
+}

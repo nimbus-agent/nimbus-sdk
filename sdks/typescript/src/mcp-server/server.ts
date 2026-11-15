@@ -245,31 +245,40 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         fail(id, MCP_ERROR_CODES.invalidParams, "tools/call needs a tool name");
         return;
       }
-      let tool: McpTool | undefined;
-      try {
-        tool = (await currentTools()).find((t) => t.name === name);
-      } catch {
-        fail(id, MCP_ERROR_CODES.internalError, "The tool list is unavailable");
-        return;
-      }
-      if (tool === undefined) {
-        fail(id, MCP_ERROR_CODES.invalidParams, `Unknown tool: ${name}`);
-        return;
-      }
+      // Registered BEFORE the first await: a cancellation that arrives right behind its request
+      // (the same read, on stdio) must find the call, even though the handler has not started.
       const controller = new AbortController();
       const key = idKey(id);
       running.set(key, controller);
-      let body: McpJsonObject;
+      const cancelled = (): boolean => controller.signal.aborted;
       try {
-        const args = params["arguments"] === undefined ? {} : params["arguments"];
-        body = toolResultBody(await tool.handler(args, { ...ctxBase, signal: controller.signal }));
-      } catch (thrown) {
-        body = failureBody(thrown);
+        let tool: McpTool | undefined;
+        try {
+          tool = (await currentTools()).find((t) => t.name === name);
+        } catch {
+          if (!cancelled()) fail(id, MCP_ERROR_CODES.internalError, "The tool list is unavailable");
+          return;
+        }
+        // Cancelled while the tool set was being read: the handler never runs.
+        if (cancelled()) return;
+        if (tool === undefined) {
+          fail(id, MCP_ERROR_CODES.invalidParams, `Unknown tool: ${name}`);
+          return;
+        }
+        let body: McpJsonObject;
+        try {
+          const args = params["arguments"] === undefined ? {} : params["arguments"];
+          body = toolResultBody(
+            await tool.handler(args, { ...ctxBase, signal: controller.signal }),
+          );
+        } catch (thrown) {
+          body = failureBody(thrown);
+        }
+        // A cancelled request gets no response (the client has stopped waiting for one).
+        if (!cancelled()) succeed(id, body, modern);
       } finally {
         if (running.get(key) === controller) running.delete(key);
       }
-      // A cancelled request gets no response (the client has stopped waiting for one).
-      if (!controller.signal.aborted) succeed(id, body, modern);
     }
 
     function cancel(params: unknown): void {

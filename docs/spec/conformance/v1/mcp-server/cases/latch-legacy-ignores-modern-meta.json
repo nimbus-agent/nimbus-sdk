@@ -1,0 +1,116 @@
+{
+  "description": "modern _meta on a legacy connection",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "elicitation": {
+            "form": {}
+          }
+        },
+        "clientInfo": {
+          "name": "ExampleClient",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "tools": {}
+        },
+        "serverInfo": {
+          "name": "conformance-server",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "tools": [
+          {
+            "name": "echo",
+            "title": "Echo",
+            "description": "Returns its arguments",
+            "inputSchema": {
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true
+            }
+          },
+          {
+            "name": "declared-failure",
+            "description": "Fails with a chosen message",
+            "inputSchema": {
+              "type": "object"
+            }
+          },
+          {
+            "name": "unexpected-failure",
+            "description": "Fails unexpectedly",
+            "inputSchema": {
+              "type": "object"
+            }
+          },
+          {
+            "name": "wait",
+            "description": "Waits until cancelled",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "error": {
+        "code": -32601
+      }
+    }
+  ]
+}

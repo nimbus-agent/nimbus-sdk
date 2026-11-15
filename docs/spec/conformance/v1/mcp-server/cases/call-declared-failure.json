@@ -1,0 +1,44 @@
+{
+  "description": "a tool that fails with a chosen message, in both envelopes' modern form",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "tools/call",
+      "params": {
+        "name": "declared-failure",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "resultType": "complete",
+        "content": [
+          {
+            "type": "text",
+            "text": "The record is locked"
+          }
+        ],
+        "isError": true,
+        "_meta": {
+          "io.modelcontextprotocol/serverInfo": {
+            "name": "conformance-server",
+            "version": "1.0.0"
+          }
+        }
+      }
+    }
+  ]
+}

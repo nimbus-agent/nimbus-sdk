@@ -55,6 +55,12 @@
       "types": "./dist/sync/index.d.ts",
       "import": "./dist/sync/index.js",
       "default": "./dist/sync/index.js"
+    },
+    "./mcp-server": {
+      "bun": "./src/mcp-server/index.ts",
+      "types": "./dist/mcp-server/index.d.ts",
+      "import": "./dist/mcp-server/index.js",
+      "default": "./dist/mcp-server/index.js"
     }
   },
   "files": [

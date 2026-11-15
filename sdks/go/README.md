@@ -382,8 +382,8 @@ and the SDK version accessor. It executes **every published conformance corpus i
 `sign` — and the four
 battery corpora against the packages that bind them: `data-profile` against `dataprofile`,
 `distribution-channel` against `distributionchannel`, `icalendar` against `icalendar`, and
-`jmap` against `jmapfastmail`. The other four —
-`predicates`, `sandbox`, `manifest` and `item` — bind surfaces this module does not publish
+`jmap` against `jmapfastmail`. The other five —
+`predicates`, `sandbox`, `mcp-server`, `manifest` and `item` — bind surfaces this module does not publish
 at all, and `manifest` / `item` additionally need a JSON Schema validator no
 dependency-free binding has written.
 Which

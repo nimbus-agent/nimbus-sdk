@@ -186,6 +186,11 @@ each half with its own test — keep them.
   (`crypto.subtle`), which keeps them usable in a browser, Deno or an edge worker. This
   entry point replaces the deprecated signing helpers in `crypto/`, which sign different
   bytes.
+- **`@nimbus-dev/sdk/mcp-server`** — an MCP server layer for stdio that serves two protocol
+  eras from one process: the stateless revision `2026-07-28` and the `initialize` handshake of
+  `2025-11-25` and earlier. `createMcpServer`, `serveStdio` and `McpToolError`. Tools only, no
+  runtime dependency, and it does not validate a call's arguments against `inputSchema`.
+  `experimental`.
 
 Changing an exported type is a semver-relevant change.
 

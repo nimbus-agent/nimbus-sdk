@@ -1,0 +1,44 @@
+{
+  "description": "a method with an unusable id is an invalid request",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": null,
+      "method": "tools/list"
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": {},
+      "method": "tools/list"
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": true,
+      "method": "tools/list"
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": null,
+      "error": {
+        "code": -32600
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": null,
+      "error": {
+        "code": -32600
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": null,
+      "error": {
+        "code": -32600
+      }
+    }
+  ]
+}

@@ -31,6 +31,7 @@ widening the contract.
 | [0018](./0018-icalendar-line-folding.md) | `buildVEvent` does not fold — settles `icalendar.md` §7, which RFC-0017 left provisional | accepted | this document (Shipment 3 of the battery port) |
 | [0019](./0019-additive-signature-changes.md) | Extending a declaration is adding, not breaking — **supersedes** RFC-0015's `Signature changed` / `stable` cell for optional-member additions | accepted | this document |
 | [0020](./0020-manifest-signing.md) | Manifest signing as a specified, three-language contract | accepted | this document (Shipment S0 of 6) |
+| [0021](./0021-mcp-server-layer.md) | An MCP server layer that serves two protocol eras, in TypeScript only | accepted | this document, the normative spec, the `mcp-server` corpus and `@nimbus-dev/sdk/mcp-server` |
 
 ## Statuses
 

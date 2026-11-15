@@ -1,0 +1,48 @@
+{
+  "description": "server/discover with instructions",
+  "kind": "exchange",
+  "server": {
+    "instructions": "Use the echo tool."
+  },
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": "discover-1",
+      "method": "server/discover",
+      "params": {
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {}
+        }
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": "discover-1",
+      "result": {
+        "resultType": "complete",
+        "supportedVersions": [
+          "2026-07-28"
+        ],
+        "capabilities": {
+          "tools": {}
+        },
+        "instructions": "Use the echo tool.",
+        "ttlMs": 3600000,
+        "cacheScope": "public",
+        "_meta": {
+          "io.modelcontextprotocol/serverInfo": {
+            "name": "conformance-server",
+            "version": "1.0.0"
+          }
+        }
+      }
+    }
+  ]
+}

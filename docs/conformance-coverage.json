@@ -13,6 +13,7 @@
         "jmap",
         "manifest",
         "manifest-signature",
+        "mcp-server",
         "negotiation",
         "predicates",
         "sandbox",
@@ -37,6 +38,7 @@
       "unclaimed": {
         "item": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
         "manifest": "needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written",
+        "mcp-server": "binds the MCP server layer, which nimbus_sdk does not publish",
         "predicates": "binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish",
         "sandbox": "binds the sandbox probe protocol, which nimbus_sdk does not publish"
       },
@@ -58,6 +60,7 @@
       "unclaimed": {
         "item": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written",
         "manifest": "needs a JSON Schema validator, which the zero-dependency rule would make hand-written",
+        "mcp-server": "binds the MCP server layer, which no Go package publishes",
         "predicates": "binds predicates no Go package publishes",
         "sandbox": "binds the sandbox probe protocol, which no Go package publishes"
       },

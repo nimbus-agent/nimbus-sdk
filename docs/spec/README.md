@@ -53,6 +53,14 @@ gateway through the reserved `__nimbus_sync` tool, plus the manifest `sync` and
 beside the spec and is executed by the TypeScript binding's own test; it is not one of the
 conformance corpora below, so no coverage declaration applies to it.
 
+### `mcp-server/v1/`
+
+The [MCP server layer contract](./mcp-server/v1/mcp-server.md) — what a server built on the
+layer answers, message for message, to a Model Context Protocol client over stdio, in two
+protocol eras: the stateless revision `2026-07-28` and the `initialize` handshake of
+`2025-11-25` and earlier. Its corpus is one of the conformance corpora below, and the
+TypeScript binding is the only one that implements the contract.
+
 ### `predicates/v1/`
 
 The [contract predicates](./predicates/v1/) — the two checks that are pure functions of
@@ -174,10 +182,10 @@ U+FEFF, U+0085 and U+001C–U+001F. See
 
 ### `conformance/v1/`
 
-Thirteen kinds of assertion, across **fourteen** corpus directories — the two counts differ
+Fourteen kinds of assertion, across **fifteen** corpus directories — the two counts differ
 because the document fixtures cover both `manifest` and `item` from one top-level index.
-The groups below are the thirteen kinds; `corpusNames()` in
-`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the fourteen.
+The groups below are the fourteen kinds; `corpusNames()` in
+`sdks/typescript/scripts/conformance-corpora.ts` is what enumerates the fifteen.
 Both numbers are pinned by `COUNT_CLAIMS` in
 `sdks/typescript/scripts/corpus-parity.test.ts`, because they had already drifted once:
 the `canonical-json` shipment added a directory and a kind and bumped neither.
@@ -369,9 +377,9 @@ redaction reason given above — an open envelope has unlimited places to put a 
 
 ## How this stays true
 
-Fourteen guards run on every pull request as part of `bun run test` (see
-`.github/workflows/ci.yml`), the newest of which is `manifest-signature-guard.test.ts`,
-alongside the thirteen described below.
+Fifteen guards run on every pull request as part of `bun run test` (see
+`.github/workflows/ci.yml`), the newest of which is `mcp-server-guard.test.ts`,
+alongside the fourteen described below.
 
 The guards hold the *documents* to each other and to the TypeScript reference. What
 holds the contract to being **language-neutral** is that other bindings execute the
@@ -430,12 +438,13 @@ per-case machinery it needed stays: any deferred case file is enumerated in
 disagree, in either direction — including, as now, when both are empty.
 
 That parity is stated per corpus rather than for the tree, because it does not hold for the
-whole tree. Four corpora are executed by the **TypeScript** binding alone.
+whole tree. Five corpora are executed by the **TypeScript** binding alone.
 `predicates` and `sandbox` are executed by the **TypeScript** binding only — they bind surfaces neither `nimbus_sdk` nor any Go package publishes.
 `manifest` and `item` are executed by the **TypeScript** binding only too — they are fixture sets that need a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written in both other bindings.
-All four are real corpora with real guards, but no second implementation runs them, so they
-carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`
-or `item` run as "the reference implementation agrees with the spec", not as
+`mcp-server` is executed by the **TypeScript** binding only as well — it binds the MCP server layer, which neither `nimbus_sdk` nor any Go package publishes ([RFC-0021](../rfcs/0021-mcp-server-layer.md)).
+All five are real corpora with real guards, but no second implementation runs them, so they
+carry no language-neutrality evidence. Treat a passing `predicates`, `sandbox`, `manifest`,
+`item` or MCP server layer run as "the reference implementation agrees with the spec", not as
 "the spec is implementable twice".
 
 Which binding runs which corpus is declared in

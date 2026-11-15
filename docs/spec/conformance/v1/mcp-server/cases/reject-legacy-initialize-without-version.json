@@ -1,0 +1,30 @@
+{
+  "description": "an opening initialize with no protocolVersion on a server that refuses the legacy era",
+  "kind": "exchange",
+  "server": {
+    "legacy": "reject"
+  },
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize"
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "error": {
+        "code": -32022,
+        "message": "Unsupported protocol version",
+        "data": {
+          "supported": [
+            "2026-07-28"
+          ],
+          "requested": ""
+        }
+      }
+    }
+  ]
+}

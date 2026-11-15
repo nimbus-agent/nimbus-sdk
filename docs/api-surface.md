@@ -3268,6 +3268,349 @@ From `./handshake.js`.
 export declare function performHandshake(io: HandshakeIo, options?: HandshakeOptions): Promise<HandshakeResult>;
 ```
 
+## `./mcp-server`
+
+25 exports.
+
+### `LEGACY_PROTOCOL_VERSIONS`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const LEGACY_PROTOCOL_VERSIONS: readonly string[];
+```
+
+### `MCP_ERROR_CODES`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const MCP_ERROR_CODES: {
+    readonly parseError: -32700;
+    readonly invalidRequest: -32600;
+    readonly methodNotFound: -32601;
+    readonly invalidParams: -32602;
+    readonly internalError: -32603;
+
+    readonly unsupportedProtocolVersion: -32022;
+};
+```
+
+### `META_CLIENT_CAPABILITIES`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const META_CLIENT_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities";
+```
+
+### `META_CLIENT_INFO`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo";
+```
+
+### `META_PROTOCOL_VERSION`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const META_PROTOCOL_VERSION = "io.modelcontextprotocol/protocolVersion";
+```
+
+### `META_SERVER_INFO`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const META_SERVER_INFO = "io.modelcontextprotocol/serverInfo";
+```
+
+### `MODERN_PROTOCOL_VERSION`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare const MODERN_PROTOCOL_VERSION = "2026-07-28";
+```
+
+### `McpConnectOptions` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpConnectOptions {
+
+    legacy?: "serve" | "reject";
+}
+```
+
+### `McpConnection` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpConnection {
+
+    receive(message: unknown): Promise<void>;
+
+    close(): void;
+
+    readonly era: McpEra | undefined;
+}
+```
+
+### `McpContentBlock` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export type McpContentBlock = {
+    type: string;
+    [key: string]: unknown;
+};
+```
+
+### `McpEra` *(type-only)*
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export type McpEra = "modern" | "legacy";
+```
+
+### `McpImplementation` *(type-only)*
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export interface McpImplementation {
+    name: string;
+    version: string;
+    title?: string;
+}
+```
+
+### `McpJsonObject` *(type-only)*
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export type McpJsonObject = {
+    [key: string]: unknown;
+};
+```
+
+### `McpOutgoingMessage` *(type-only)*
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export type McpOutgoingMessage = {
+    jsonrpc: "2.0";
+    id: McpRequestId | null;
+    result: McpJsonObject;
+} | {
+    jsonrpc: "2.0";
+    id: McpRequestId | null;
+    error: {
+        code: number;
+        message: string;
+        data?: McpJsonObject;
+    };
+};
+```
+
+### `McpRequestId` *(type-only)*
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export type McpRequestId = string | number;
+```
+
+### `McpServer` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpServer {
+    readonly info: McpImplementation;
+
+    tool(definition: McpTool): void;
+
+    removeTool(name: string): boolean;
+
+    connect(send: (message: McpOutgoingMessage) => void, options?: McpConnectOptions): McpConnection;
+}
+```
+
+### `McpServerOptions` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpServerOptions {
+    name: string;
+    version: string;
+    title?: string;
+    instructions?: string;
+
+    tools?: () => readonly McpTool[] | Promise<readonly McpTool[]>;
+
+    toolsCache?: {
+        ttlMs: number;
+        cacheScope: "public" | "private";
+    };
+}
+```
+
+### `McpTool` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpTool {
+    name: string;
+    title?: string;
+    description: string;
+    inputSchema: McpJsonObject;
+    annotations?: McpJsonObject;
+
+    handler(args: unknown, ctx: McpToolContext): Promise<McpToolResult> | McpToolResult;
+}
+```
+
+### `McpToolContext` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpToolContext {
+    readonly era: McpEra;
+    readonly protocolVersion: string;
+
+    readonly clientInfo?: McpImplementation;
+    readonly clientCapabilities: McpJsonObject;
+
+    readonly signal: AbortSignal;
+}
+```
+
+### `McpToolError`
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export declare class McpToolError extends Error {
+    constructor(message: string);
+}
+```
+
+### `McpToolResult` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpToolResult {
+    content: McpContentBlock[];
+
+    isError?: boolean;
+    structuredContent?: McpJsonObject;
+}
+```
+
+### `ServeStdioOptions` *(type-only)*
+
+**Stability:** experimental
+
+From `./stdio.js`.
+
+```ts
+export interface ServeStdioOptions extends McpConnectOptions {
+
+    input?: AsyncIterable<Uint8Array>;
+
+    write?: (line: string) => void;
+
+    signal?: AbortSignal;
+}
+```
+
+### `createMcpServer`
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export declare function createMcpServer(options: McpServerOptions): McpServer;
+```
+
+### `isMcpJsonObject`
+
+**Stability:** experimental
+
+From `./protocol.js`.
+
+```ts
+export declare function isMcpJsonObject(value: unknown): value is McpJsonObject;
+```
+
+### `serveStdio`
+
+**Stability:** experimental
+
+From `./stdio.js`.
+
+```ts
+export declare function serveStdio(server: McpServer, options?: ServeStdioOptions): Promise<void>;
+```
+
 ## `./signing`
 
 21 exports.

@@ -1,0 +1,225 @@
+{
+  "spec": "../../../mcp-server/v1/mcp-server.md",
+  "cases": [
+    {
+      "file": "cases/not-an-object.json",
+      "section": "§2",
+      "reason": "A JSON value that is not an object is not JSON-RPC, and is answered once with id null."
+    },
+    {
+      "file": "cases/batch-array.json",
+      "section": "§2",
+      "reason": "An array is not an object, so a JSON-RPC batch is refused whole rather than served item by item."
+    },
+    {
+      "file": "cases/no-method-no-id.json",
+      "section": "§2",
+      "reason": "An object that is neither request, response nor notification."
+    },
+    {
+      "file": "cases/response-is-never-answered.json",
+      "section": "§2",
+      "reason": "A message with an id and no method is a response. Answering one with an error would be a reply to a reply."
+    },
+    {
+      "file": "cases/notification-is-never-answered.json",
+      "section": "§2",
+      "reason": "A message with a method and no id gets no reply, known method or not."
+    },
+    {
+      "file": "cases/id-not-string-or-number.json",
+      "section": "§2",
+      "reason": "A request id that is null, an object or a boolean cannot be echoed back as a request id."
+    },
+    {
+      "file": "cases/latch-legacy-on-initialize.json",
+      "section": "§3",
+      "reason": "The plain handshake opener is the only thing that makes a connection legacy."
+    },
+    {
+      "file": "cases/latch-modern-on-meta.json",
+      "section": "§3",
+      "reason": "A request that carries the modern version opens a modern connection."
+    },
+    {
+      "file": "cases/latch-initialize-carrying-modern-version.json",
+      "section": "§3",
+      "reason": "The modern version on the opener wins over its method: the connection is modern and initialize is not a method there."
+    },
+    {
+      "file": "cases/latch-refused-opener-then-initialize.json",
+      "section": "§3",
+      "reason": "A refused opener still latches. Otherwise a client could fail a modern request and then move the connection to legacy."
+    },
+    {
+      "file": "cases/latch-unsupported-version-then-initialize.json",
+      "section": "§3",
+      "reason": "An opener refused for its version has still decided the era."
+    },
+    {
+      "file": "cases/latch-notification-does-not-decide.json",
+      "section": "§3",
+      "reason": "Only a request decides the era: a notification before the opener changes nothing."
+    },
+    {
+      "file": "cases/latch-legacy-ignores-modern-meta.json",
+      "section": "§3",
+      "reason": "A legacy connection stays legacy: the modern version on a later request is ignored, and there is no discover."
+    },
+    {
+      "file": "cases/reject-legacy-opening-initialize.json",
+      "section": "§3",
+      "reason": "A server that refuses the legacy era tells an opening initialize which version to use, and a second one is simply not a method."
+    },
+    {
+      "file": "cases/reject-legacy-initialize-without-version.json",
+      "section": "§3",
+      "reason": "data.requested is the empty string when the opener named no version."
+    },
+    {
+      "file": "cases/modern-discover.json",
+      "section": "§4",
+      "reason": "discover lists only the version a request's _meta can name, with the cache fields and the server's identity."
+    },
+    {
+      "file": "cases/modern-tools-list.json",
+      "section": "§4",
+      "reason": "The list carries resultType, the cache fields and serverInfo; cursor is ignored and no nextCursor is sent."
+    },
+    {
+      "file": "cases/modern-missing-version-after-latch.json",
+      "section": "§4",
+      "reason": "Every modern request is checked on its own: an earlier request's version does not carry over."
+    },
+    {
+      "file": "cases/modern-version-not-a-string.json",
+      "section": "§4",
+      "reason": "A version that is present but not a string is a malformed request, not an unsupported version."
+    },
+    {
+      "file": "cases/modern-missing-capabilities.json",
+      "section": "§4",
+      "reason": "clientCapabilities is required on every modern request, and must be an object."
+    },
+    {
+      "file": "cases/modern-unsupported-version.json",
+      "section": "§4",
+      "reason": "The protocol's own example: -32022 with the supported versions and the one requested."
+    },
+    {
+      "file": "cases/modern-removed-and-unknown-methods.json",
+      "section": "§4",
+      "reason": "ping and logging/setLevel left the protocol in this revision; everything out of scope is an unknown method."
+    },
+    {
+      "file": "cases/legacy-initialize-older-version.json",
+      "section": "§5",
+      "reason": "A legacy version the server serves is answered as asked."
+    },
+    {
+      "file": "cases/legacy-initialize-unknown-version.json",
+      "section": "§5",
+      "reason": "An unknown version is answered with the newest legacy version, never with an error and never with 2026-07-28."
+    },
+    {
+      "file": "cases/legacy-initialize-with-instructions.json",
+      "section": "§5",
+      "reason": "instructions appear in the handshake result when the server has them."
+    },
+    {
+      "file": "cases/legacy-initialize-missing-version.json",
+      "section": "§5",
+      "reason": "A handshake with no version is refused, the connection is legacy all the same, and no call is served before a handshake succeeds."
+    },
+    {
+      "file": "cases/legacy-tools-list.json",
+      "section": "§5",
+      "reason": "A legacy result carries no resultType, no _meta and no cache fields."
+    },
+    {
+      "file": "cases/legacy-unknown-methods.json",
+      "section": "§5",
+      "reason": "server/discover does not exist in the legacy era, and the layer declares no logging capability."
+    },
+    {
+      "file": "cases/call-modern.json",
+      "section": "§6",
+      "reason": "A modern call result is the handler's content inside the modern envelope."
+    },
+    {
+      "file": "cases/call-legacy.json",
+      "section": "§6",
+      "reason": "The same call on a legacy connection differs only by the envelope."
+    },
+    {
+      "file": "cases/call-arguments-default-to-empty-object.json",
+      "section": "§6",
+      "reason": "An absent arguments member is the empty object, in both eras."
+    },
+    {
+      "file": "cases/call-arguments-are-not-validated.json",
+      "section": "§6",
+      "reason": "The layer does not enforce inputSchema: arguments that are not an object reach the handler as sent."
+    },
+    {
+      "file": "cases/call-unknown-tool-and-missing-name.json",
+      "section": "§6",
+      "reason": "A missing name and an unknown tool are invalid params, in both eras."
+    },
+    {
+      "file": "cases/call-unknown-tool-legacy.json",
+      "section": "§6",
+      "reason": "The legacy era answers an unknown tool the same way."
+    },
+    {
+      "file": "cases/call-declared-failure.json",
+      "section": "§6",
+      "reason": "A failure the handler declares is a result the model can read, with the handler's own message."
+    },
+    {
+      "file": "cases/call-unexpected-failure.json",
+      "section": "§6",
+      "reason": "An undeclared failure must not leak its message: the fixture's holds a path under a home directory."
+    },
+    {
+      "file": "cases/call-unexpected-failure-legacy.json",
+      "section": "§6",
+      "reason": "The fixed failure text is the same in the legacy era."
+    },
+    {
+      "file": "cases/cancel-modern.json",
+      "section": "§6",
+      "reason": "A cancelled call is not answered, and a request id is matched by JSON type as well as value."
+    },
+    {
+      "file": "cases/cancel-legacy.json",
+      "section": "§6",
+      "reason": "Cancellation works the same way on a legacy connection."
+    },
+    {
+      "file": "cases/stdio-parse-error.json",
+      "section": "§7",
+      "reason": "A line that is not JSON is answered and the connection goes on."
+    },
+    {
+      "file": "cases/stdio-split-message.json",
+      "section": "§7",
+      "reason": "A message is delivered when its newline arrives, however the bytes were split."
+    },
+    {
+      "file": "cases/stdio-two-messages-one-chunk.json",
+      "section": "§7",
+      "reason": "Two messages in one read are two messages."
+    },
+    {
+      "file": "cases/stdio-batch-line.json",
+      "section": "§7",
+      "reason": "A batch on the wire reaches §2 as an array."
+    },
+    {
+      "file": "cases/stdio-unterminated-last-line.json",
+      "section": "§7",
+      "reason": "A message with no newline before the input ends was never delivered whole."
+    }
+  ]
+}

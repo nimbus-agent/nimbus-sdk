@@ -9,7 +9,7 @@ import { describe, expect, test } from "bun:test";
 import { corpusNames, publishedCorpora } from "./conformance-corpora.ts";
 
 describe("publishedCorpora", () => {
-  test("finds all fourteen published corpora, both shapes", () => {
+  test("finds all fifteen published corpora, both shapes", () => {
     expect(corpusNames()).toEqual([
       "canonical-json",
       "data-profile",
@@ -21,6 +21,7 @@ describe("publishedCorpora", () => {
       "jmap",
       "manifest",
       "manifest-signature",
+      "mcp-server",
       "negotiation",
       "predicates",
       "sandbox",

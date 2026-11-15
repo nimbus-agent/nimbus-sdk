@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/mcp-server/case.schema.json",
+  "title": "mcp-server conformance case",
+  "description": "One conversation with the conformance fixture server of mcp-server.md §9. `kind` selects how the client's side is given: `exchange` as parsed JSON-RPC messages, `stdio` as the raw chunks written to the server's input. `expect` is the exact list of messages the server sends, in order. Each branch requires its own input AND forbids the other kind's.",
+  "type": "object",
+  "required": ["description", "kind", "expect"],
+  "additionalProperties": false,
+  "properties": {
+    "description": { "type": "string", "pattern": "\\S" },
+    "kind": { "enum": ["exchange", "stdio"] },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the fixture server differs from §9's default. Absent: it serves the legacy era and has no instructions.",
+      "properties": {
+        "legacy": {
+          "enum": ["serve", "reject"],
+          "description": "`reject`: the server refuses the legacy era (§3)."
+        },
+        "instructions": { "type": "string", "pattern": "\\S" }
+      }
+    },
+    "concurrent": {
+      "const": true,
+      "description": "exchange: every message is delivered before any is awaited. Without it each message is fully handled before the next is delivered. Needed for a cancellation, whose call never finishes by itself."
+    },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "description": "exchange: the client's messages, in order. Any JSON value: a case may send what is not a JSON-RPC message at all."
+    },
+    "chunks": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" },
+      "description": "stdio: the strings written to the server's input, one read each. A message boundary is a newline, wherever the chunk boundaries fall."
+    },
+    "expect": {
+      "type": "array",
+      "description": "The messages the server sends, in order. An error carries `message` only for code -32022 (§8, §9).",
+      "items": {
+        "type": "object",
+        "required": ["jsonrpc", "id"],
+        "additionalProperties": false,
+        "properties": {
+          "jsonrpc": { "const": "2.0" },
+          "id": { "type": ["string", "number", "null"] },
+          "result": { "type": "object" },
+          "error": {
+            "type": "object",
+            "required": ["code"],
+            "additionalProperties": false,
+            "properties": {
+              "code": { "enum": [-32700, -32600, -32601, -32602, -32603, -32022] },
+              "message": { "const": "Unsupported protocol version" },
+              "data": { "type": "object" }
+            }
+          }
+        },
+        "oneOf": [{ "required": ["result"] }, { "required": ["error"] }]
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "exchange" } }, "required": ["kind"] },
+      "then": { "required": ["messages"], "properties": { "chunks": false } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "stdio" } }, "required": ["kind"] },
+      "then": {
+        "required": ["chunks"],
+        "properties": { "messages": false, "concurrent": false, "server": false }
+      }
+    }
+  ]
+}

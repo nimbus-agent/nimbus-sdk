@@ -22,11 +22,12 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `jmap` | 61 | 61 | 61 | 61 |
 | `manifest` | 41 | 41 | — | — |
 | `manifest-signature` | 63 | 63 | 63 | 63 |
+| `mcp-server` | 44 | 44 | — | — |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **551** | **551** | **440** | **440** |
+| **Total** | **595** | **595** | **440** | **440** |
 
 ## What each binding does not run, and why
 
@@ -38,6 +39,7 @@ Runs every published corpus.
 
 - `item` — needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written
 - `manifest` — needs a JSON Schema validator, which the zero-runtime-dependency rule would make hand-written
+- `mcp-server` — binds the MCP server layer, which nimbus_sdk does not publish
 - `predicates` — binds `isHitlRequest` and the row-data check, which nimbus_sdk does not publish
 - `sandbox` — binds the sandbox probe protocol, which nimbus_sdk does not publish
 
@@ -45,6 +47,7 @@ Runs every published corpus.
 
 - `item` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
 - `manifest` — needs a JSON Schema validator, which the zero-dependency rule would make hand-written
+- `mcp-server` — binds the MCP server layer, which no Go package publishes
 - `predicates` — binds predicates no Go package publishes
 - `sandbox` — binds the sandbox probe protocol, which no Go package publishes
 

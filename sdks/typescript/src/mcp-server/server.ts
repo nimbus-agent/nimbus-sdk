@@ -6,8 +6,6 @@
  * messages to send. `serveStdio` (`./stdio.js`) is the stdio binding around it.
  */
 
-/** @moduleStability experimental */
-
 import {
   isMcpJsonObject,
   LEGACY_PROTOCOL_VERSIONS,
@@ -23,6 +21,8 @@ import {
   META_SERVER_INFO,
   MODERN_PROTOCOL_VERSION,
 } from "./protocol.js";
+
+/** @moduleStability experimental */
 
 /** One block of a tool result. The layer passes blocks through; it does not interpret them. */
 export type McpContentBlock = { type: string; [key: string]: unknown };

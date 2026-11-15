@@ -26,7 +26,7 @@ Three hard constraints shape every decision here:
 
 ## The public surface (the `exports` map)
 
-The TypeScript package exposes exactly seven entry points. Everything else is internal.
+The TypeScript package exposes exactly eight entry points. Everything else is internal.
 (The Python and Go bindings publish import roots and packages instead; see
 [`api-surface-python.md`](./api-surface-python.md) and
 [`api-surface-go.md`](./api-surface-go.md).)
@@ -40,6 +40,7 @@ The TypeScript package exposes exactly seven entry points. Everything else is in
 | `@nimbus-dev/sdk/diagnostics` | `sdks/typescript/src/diagnostics/index.ts` | The diagnostics / telemetry contract v0: `encodeDiagnostic` / `parseDiagnostic` / `isDiagnosticEvent` / `meetsLevel`, the closed `DiagnosticEvent` envelope, and `createEmitter` for a sink-backed `DiagnosticEmitter`. The redaction-safe replacement for the scoped audit logger's free-form payload. |
 | `@nimbus-dev/sdk/signing` | `sdks/typescript/src/signing/index.ts` | Manifest signing under [RFC-0020](./rfcs/0020-manifest-signing.md): canonicalization (`canonicalize` / `canonicalizeManifest`) and the detached JWS envelope (`signManifest` / `verifyManifestSignature` / `generateSigningKey`, base64url, the RFC 7638 thumbprint, the protected header), failing with one `SignatureError`. It replaces the deprecated signing helpers in `crypto/`. |
 | `@nimbus-dev/sdk/sync` | `sdks/typescript/src/sync/index.ts` | The sync contract v1: `validateSyncResponse`, the `SyncItem` / `SyncResponse` types and the reserved `__nimbus_sync` tool name. Specified at `docs/spec/sync/v1/sync.md`. |
+| `@nimbus-dev/sdk/mcp-server` | `sdks/typescript/src/mcp-server/index.ts` | An MCP server layer for stdio that serves two protocol eras, the stateless revision `2026-07-28` and the `initialize` handshake of `2025-11-25` and earlier: `createMcpServer`, `serveStdio`, `McpToolError`. Dependency-free; specified at `docs/spec/mcp-server/v1/mcp-server.md` with its own conformance corpus. TypeScript only ([RFC-0021](./rfcs/0021-mcp-server-layer.md)). |
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump. The `exports` map, not the file tree, is the API.

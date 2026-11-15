@@ -593,6 +593,36 @@ describe("tools, in both eras", () => {
   );
 
   test.each(eras)(
+    "%s: a cancel that arrives right behind its request, before the handler has started, still cancels it",
+    async (era, req) => {
+      const h = await open(era);
+      let ran = false;
+      h.server.tool({
+        ...ECHO,
+        name: "never",
+        handler: () => {
+          ran = true;
+          return { content: [] };
+        },
+      });
+      // Nothing is awaited between the two: on stdio both can arrive in one read.
+      const call = h.connection.receive(req(7, "tools/call", { name: "never" }));
+      const cancel = h.connection.receive({
+        jsonrpc: "2.0",
+        method: "notifications/cancelled",
+        params: { requestId: 7 },
+      });
+      await Promise.all([call, cancel]);
+      expect(ran).toBe(false);
+      expect(h.sent).toEqual([]);
+      // The id is free again: the same id can be called and answered afterwards.
+      await h.connection.receive(req(7, "tools/call", { name: "never" }));
+      expect(ran).toBe(true);
+      expect(h.sent).toHaveLength(1);
+    },
+  );
+
+  test.each(eras)(
     "%s: close aborts running calls and nothing is sent afterwards",
     async (era, req) => {
       const h = await open(era);

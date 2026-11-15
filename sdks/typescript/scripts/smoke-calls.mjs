@@ -9,7 +9,7 @@
  * documentation guard derives from `buildSurface()`. `scripts/smoke-calls.test.ts` asserts
  * this list covers every one of them, so adding a battery fails until it has a call here.
  *
- * Each `run` receives the seven entry points already imported by the smoke, so no entry
+ * Each `run` receives the eight entry points already imported by the smoke, so no entry
  * re-resolves them.
  */
 
@@ -450,6 +450,50 @@ export const SMOKE_CALLS = [
       if (!ok.ok) throw new Error(`validateSyncResponse refused a valid page: ${ok.reason}`);
       const bad = sync.validateSyncResponse({ status: "nope" });
       if (bad.ok) throw new Error("validateSyncResponse accepted an unknown status");
+    },
+  },
+  {
+    module: "mcp-server/protocol",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, _signing, _sync, mcpServer) => {
+      if (mcpServer.MODERN_PROTOCOL_VERSION !== "2026-07-28") {
+        throw new Error(`MODERN_PROTOCOL_VERSION is ${mcpServer.MODERN_PROTOCOL_VERSION}`);
+      }
+      if (!mcpServer.isMcpJsonObject({}) || mcpServer.isMcpJsonObject([])) {
+        throw new Error("isMcpJsonObject does not tell an object from an array");
+      }
+    },
+  },
+  {
+    module: "mcp-server/server",
+    run: async (_sdk, _testing, _ipc, _connectorKit, _diagnostics, _signing, _sync, mcpServer) => {
+      const server = mcpServer.createMcpServer({ name: "smoke", version: "1.0.0" });
+      const sent = [];
+      const connection = server.connect((message) => sent.push(message));
+      await connection.receive({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { protocolVersion: "2025-11-25" },
+      });
+      if (sent[0]?.result?.serverInfo?.name !== "smoke") {
+        throw new Error(`initialize answered ${JSON.stringify(sent[0])}`);
+      }
+    },
+  },
+  {
+    module: "mcp-server/stdio",
+    run: async (_sdk, _testing, _ipc, _connectorKit, _diagnostics, _signing, _sync, mcpServer) => {
+      const server = mcpServer.createMcpServer({ name: "smoke", version: "1.0.0" });
+      const lines = [];
+      const request =
+        '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}\n';
+      async function* input() {
+        yield new TextEncoder().encode(request);
+      }
+      await mcpServer.serveStdio(server, { input: input(), write: (line) => lines.push(line) });
+      if (lines.length !== 1 || !lines[0].endsWith("\n")) {
+        throw new Error(`serveStdio wrote ${JSON.stringify(lines)}`);
+      }
     },
   },
 ];

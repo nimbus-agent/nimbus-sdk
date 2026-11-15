@@ -1,0 +1,16 @@
+{
+  "description": "a batch array as a line",
+  "kind": "stdio",
+  "chunks": [
+    "[{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{\"_meta\":{\"io.modelcontextprotocol/protocolVersion\":\"2026-07-28\",\"io.modelcontextprotocol/clientInfo\":{\"name\":\"ExampleClient\",\"version\":\"1.0.0\"},\"io.modelcontextprotocol/clientCapabilities\":{}}}}]\n"
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": null,
+      "error": {
+        "code": -32600
+      }
+    }
+  ]
+}

@@ -63,7 +63,17 @@ published package.
   specified at `docs/spec/sync/v1/sync.md`, with a valid/invalid corpus beside it at
   `docs/spec/sync/v1/corpus/` that the module's own test exercises (TypeScript only; it is not
   one of the published conformance corpora under `docs/spec/conformance/v1/`). `experimental`.
-  The gateway does not import it. This makes it a **seven**-entry `exports` map.
+  The gateway does not import it.
+- `./mcp-server` (`sdks/typescript/src/mcp-server/index.ts`) — an MCP server layer for stdio that
+  serves two protocol eras from one process: the stateless revision `2026-07-28` and the
+  `initialize` handshake of `2025-11-25` and the three revisions before it. `createMcpServer`
+  (a tool registry, static or read from a function at every call), `server.connect` (the
+  transport-neutral router, whose era is latched by the connection's first request),
+  `serveStdio`, `McpToolError` and the protocol constants. Dependency-free: the wire is
+  implemented on `NdjsonLineReader`, and the upstream MCP SDK is not imported. Normatively
+  specified at `docs/spec/mcp-server/v1/mcp-server.md` with the `mcp-server` conformance corpus;
+  TypeScript only, by [RFC-0021](./docs/rfcs/0021-mcp-server-layer.md). `experimental`. This
+  makes it an **eight**-entry `exports` map.
 
 Changing an exported type is a semver-relevant change — Conventional Commits drive
 the release-please bump.
@@ -353,15 +363,15 @@ can be partially executed and the machinery that records it is still in place.
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md) carries the per-corpus
 executed-of-published counts.
 
-**Fourteen corpora are published, and no binding but TypeScript runs them all.** Twelve
+**Fifteen corpora are published, and no binding but TypeScript runs them all.** Thirteen
 carry their own `index.json`; two are fixture sets in the *top-level*
 `docs/spec/conformance/v1/index.json`'s `fixtures` array (`manifest` and `item`), with
 their case files sitting directly in the corpus directory and no `cases/` subdirectory.
-The four Go does not claim are exactly those two plus `predicates` and `sandbox` —
-`predicates` and `sandbox` bind surfaces neither Go nor Python publishes, and `manifest` /
+The five Go does not claim are exactly those two plus `predicates`, `sandbox` and `mcp-server` —
+`predicates`, `sandbox` and `mcp-server` bind surfaces neither Go nor Python publishes, and `manifest` /
 `item` need a JSON Schema validator the dependency-free rule would make hand-written in
 either. Every case count
-behind these claims — the total across all fourteen corpora,
+behind these claims — the total across all fifteen corpora,
 and how many of them each binding executes — lives in
 [`docs/conformance-coverage.json`](./docs/conformance-coverage.json), rendered into
 [`docs/conformance-coverage.md`](./docs/conformance-coverage.md), rather than restated

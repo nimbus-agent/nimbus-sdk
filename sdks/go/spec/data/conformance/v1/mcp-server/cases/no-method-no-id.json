@@ -1,0 +1,18 @@
+{
+  "description": "an object with neither method nor id is an invalid request",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0"
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": null,
+      "error": {
+        "code": -32600
+      }
+    }
+  ]
+}

@@ -5,11 +5,11 @@
  * messages is written to the output; a server that wants to log uses stderr.
  */
 
-/** @moduleStability experimental */
-
 import { NdjsonLineReader } from "../ipc/ndjson-line-reader.js";
 import { MCP_ERROR_CODES, type McpOutgoingMessage } from "./protocol.js";
 import type { McpConnectOptions, McpServer } from "./server.js";
+
+/** @moduleStability experimental */
 
 export interface ServeStdioOptions extends McpConnectOptions {
   /** Where messages come from. Default: this process's standard input. */

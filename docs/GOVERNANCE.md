@@ -39,7 +39,7 @@ It is a statement of intent for how the project is run, not a legal document.
     rather than resolving it, and RFC-0016 resolves it — not by promoting a binding that
     was never community, but by holding the binding that *defines* the bar to it. It is
     the only one that satisfies criterion 1 under its literal wording, executing all
-    fourteen published corpora where Python executes ten and Go executes ten.
+    fifteen published corpora where Python executes ten and Go executes ten.
     Python's ten and Go's ten are each executed **in full**. The **partial** claim
     recorded here while [RFC-0020](./rfcs/0020-manifest-signing.md)'s S2 shipped — Python
     running `manifest-signature`'s `base64url` and `thumbprint` kinds and deferring the
@@ -98,7 +98,7 @@ A new language SDK is promoted from community to **official** when:
 
 **Criterion 1, read.** Its wording — "the full conformance suite" — has a literal reading
 and an applied one, and they differ. **Literally**, "full" is every corpus in the tree:
-fourteen are published, and no binding but the reference implementation runs all fourteen, so
+fifteen are published, and no binding but the reference implementation runs all fifteen, so
 read that way the criterion would admit no binding that did not already define the
 contract. **As applied**, "full" means **every published corpus whose surface the binding
 publishes** — the reading Python was promoted under, on two of six.

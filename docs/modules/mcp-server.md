@@ -46,7 +46,9 @@ await serveStdio(server);
 - **Failures.** Throw `McpToolError` to answer the model with a message you chose. Anything else a
   handler throws is answered as `Tool failed`, because an unexpected exception can hold a path or
   a secret.
-- **One era per connection.** The first request decides it and nothing changes it. On a modern
+- **One era per connection.** The first request decides it and nothing changes it. A request
+  here is a message with a `method` and a usable `id`: a notification, a response, and a
+  message whose `id` is not a string or a number do not decide the era. On a modern
   connection `initialize` is not a method; on a legacy one there is no `server/discover`. Pass
   `{ legacy: "reject" }` to serve `2026-07-28` only.
 - **`ctx.clientInfo` is the client's own claim.** It comes with each request in the modern era and

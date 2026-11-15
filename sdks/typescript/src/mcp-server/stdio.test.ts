@@ -182,6 +182,115 @@ describe("serveStdio", () => {
     expect(lines).toEqual([]);
   });
 
+  test("complete lines ahead of an oversized one in the SAME chunk are still served", async () => {
+    const huge = `{"jsonrpc":"2.0","id":9,"method":"x","pad":"${"a".repeat(IPC_MAX_LINE_BYTES)}"}\n`;
+    const good = modern(1, "tools/list");
+    const oneChunk = await run(chunks(good + huge + modern(2, "tools/list")));
+    const twoChunks = await run(chunks(good, huge + modern(2, "tools/list")));
+    const ids = (lines: string[]) =>
+      lines.map((l) => String((JSON.parse(l) as { id: unknown }).id)).sort();
+    expect(ids(oneChunk)).toEqual(ids(twoChunks));
+    expect(ids(oneChunk)).toEqual(["1", "null"]);
+  });
+
+  test("a writer that throws stops serving and the error is rethrown, never left unhandled", async () => {
+    let writes = 0;
+    const served = serveStdio(server(), {
+      input: chunks(modern(1, "tools/list"), modern(2, "tools/list")),
+      write: () => {
+        writes += 1;
+        throw new Error("EPIPE");
+      },
+    });
+    await expect(served).rejects.toThrow("EPIPE");
+    expect(writes).toBe(1);
+    // The same for the parse-error reply, which is written with no handler in between.
+    await expect(
+      serveStdio(server(), {
+        input: chunks("{ not json\n"),
+        write: () => {
+          throw new Error("EPIPE");
+        },
+      }),
+    ).rejects.toThrow("EPIPE");
+  });
+
+  test("an input that fails rejects", async () => {
+    async function* broken(): AsyncGenerator<Uint8Array> {
+      yield encoder.encode(modern(1, "tools/list"));
+      throw new Error("read failed");
+    }
+    await expect(serveStdio(server(), { input: broken(), write: () => undefined })).rejects.toThrow(
+      "read failed",
+    );
+  });
+
+  test("abort resolves even when the pending read never settles and return() does not wake it", async () => {
+    const controller = new AbortController();
+    let returned = 0;
+    const input: AsyncIterable<Uint8Array> = {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => new Promise(() => undefined),
+          return: () => {
+            returned += 1;
+            return new Promise(() => undefined);
+          },
+        };
+      },
+    };
+    const served = serveStdio(server(), {
+      input,
+      write: () => undefined,
+      signal: controller.signal,
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    controller.abort();
+    await served;
+    expect(returned).toBe(1);
+  });
+
+  test("abort ends the drain after the input closed, even for a handler that ignores its signal", async () => {
+    const controller = new AbortController();
+    const stuck: McpTool = { ...ECHO, name: "stuck", handler: () => new Promise(() => undefined) };
+    const lines: string[] = [];
+    const served = serveStdio(server([stuck]), {
+      input: chunks(modern(1, "tools/call", { name: "stuck" })),
+      write: (l) => lines.push(l),
+      signal: controller.signal,
+    });
+    await new Promise((r) => setTimeout(r, 5));
+    controller.abort();
+    await served;
+    expect(lines).toEqual([]);
+  });
+
+  test("the input is released when serving ends early on an oversized line, and once only", async () => {
+    let returned = 0;
+    const huge = encoder.encode(`${"a".repeat(IPC_MAX_LINE_BYTES + 10)}\n`);
+    const input: AsyncIterable<Uint8Array> = {
+      [Symbol.asyncIterator]() {
+        let sent = false;
+        return {
+          next: () => {
+            if (sent) return new Promise(() => undefined);
+            sent = true;
+            return Promise.resolve({ done: false, value: huge });
+          },
+          return: () => {
+            returned += 1;
+            return Promise.resolve({ done: true, value: undefined });
+          },
+        };
+      },
+    };
+    const lines = await run(input);
+    expect(lines.map((l) => JSON.parse(l))).toEqual([
+      { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Message too large" } },
+    ]);
+    expect(returned).toBe(1);
+  });
+
   test("a signal that is already aborted serves nothing", async () => {
     const controller = new AbortController();
     controller.abort();

@@ -1,5 +1,13 @@
 # @nimbus-dev/sdk — Changelog
 
+## [2.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v2.1.0...typescript-v2.2.0) (2026-11-16)
+
+
+### Features
+
+* **sdk:** a tool handler can ask the client for input, in both MCP eras, with a sealed request state ([#296](https://github.com/nimbus-agent/nimbus-sdk/issues/296)) ([fbf4a24](https://github.com/nimbus-agent/nimbus-sdk/commit/fbf4a24fac04d1d7ada14a692c57e78e910520f1))
+* **sdk:** add an MCP server layer for stdio that serves two protocol eras (RFC-0021) ([#293](https://github.com/nimbus-agent/nimbus-sdk/issues/293)) ([4c77da6](https://github.com/nimbus-agent/nimbus-sdk/commit/4c77da6ae86eeb6aee754fd301dc0ebf1735ea8a))
+
 ## [2.1.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v2.0.0...typescript-v2.1.0) (2026-10-20)
 
 

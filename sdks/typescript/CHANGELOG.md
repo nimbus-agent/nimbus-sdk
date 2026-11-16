@@ -1,5 +1,12 @@
 # @nimbus-dev/sdk — Changelog
 
+## [2.3.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v2.2.0...typescript-v2.3.0) (2026-11-16)
+
+
+### Features
+
+* **sdk:** the MCP server layer tells a tool-set function which request it is answering and what that client declared ([#297](https://github.com/nimbus-agent/nimbus-sdk/issues/297)) ([6a38242](https://github.com/nimbus-agent/nimbus-sdk/commit/6a38242dbaceaf2b3dca56f2b5b34b15bdda8fcb))
+
 ## [2.2.0](https://github.com/nimbus-agent/nimbus-sdk/compare/typescript-v2.1.0...typescript-v2.2.0) (2026-11-16)
 
 

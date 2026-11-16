@@ -702,6 +702,7 @@ describe("a tool set that depends on who is asking", () => {
     expect(names(h.sent[0])).toEqual(["echo"]);
     expect(names(h.sent[1])).toEqual(["echo", "write"]);
     // Unlisted to this client, and still callable: the handler ran.
+    expect(resultOf(h.sent[2])).toBeDefined();
     expect(resultOf(h.sent[2])?.["isError"]).toBeUndefined();
     expect(seen).toEqual([
       {
@@ -755,6 +756,7 @@ describe("a tool set that depends on who is asking", () => {
     const names = (m: McpOutgoingMessage | undefined) =>
       ((resultOf(m)?.["tools"] ?? []) as Array<{ name: string }>).map((t) => t.name);
     expect(names(sent[1])).toEqual(["echo", "write"]);
+    expect(resultOf(sent[2])).toBeDefined();
     expect(resultOf(sent[2])?.["isError"]).toBeUndefined();
     const after = {
       era: "legacy" as const,

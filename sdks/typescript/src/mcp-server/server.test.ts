@@ -698,7 +698,7 @@ describe("a tool set that depends on who is asking", () => {
     await send(2, "tools/list", meta({ elicitation: {} }, "asker"));
     await send(3, "tools/call", { name: "write", ...meta({}) });
     const names = (m: McpOutgoingMessage | undefined) =>
-      (resultOf(m)?.["tools"] as Array<{ name: string }>).map((t) => t.name);
+      ((resultOf(m)?.["tools"] ?? []) as Array<{ name: string }>).map((t) => t.name);
     expect(names(h.sent[0])).toEqual(["echo"]);
     expect(names(h.sent[1])).toEqual(["echo", "write"]);
     // Unlisted to this client, and still callable: the handler ran.
@@ -753,7 +753,7 @@ describe("a tool set that depends on who is asking", () => {
     await send(3, "tools/list");
     await send(4, "tools/call", { name: "write" });
     const names = (m: McpOutgoingMessage | undefined) =>
-      (resultOf(m)?.["tools"] as Array<{ name: string }>).map((t) => t.name);
+      ((resultOf(m)?.["tools"] ?? []) as Array<{ name: string }>).map((t) => t.name);
     expect(names(sent[1])).toEqual(["echo", "write"]);
     expect(resultOf(sent[2])?.["isError"]).toBeUndefined();
     const after = {

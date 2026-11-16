@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.24.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.23.0...sdks/go/v0.24.0) (2026-11-16)
+
+
+### Features
+
+* **sdk:** a tool handler can ask the client for input, in both MCP eras, with a sealed request state ([#296](https://github.com/nimbus-agent/nimbus-sdk/issues/296)) ([fbf4a24](https://github.com/nimbus-agent/nimbus-sdk/commit/fbf4a24fac04d1d7ada14a692c57e78e910520f1))
+* **sdk:** add an MCP server layer for stdio that serves two protocol eras (RFC-0021) ([#293](https://github.com/nimbus-agent/nimbus-sdk/issues/293)) ([4c77da6](https://github.com/nimbus-agent/nimbus-sdk/commit/4c77da6ae86eeb6aee754fd301dc0ebf1735ea8a))
+* **sdk:** the MCP server layer tells a tool-set function which request it is answering and what that client declared ([#297](https://github.com/nimbus-agent/nimbus-sdk/issues/297)) ([6a38242](https://github.com/nimbus-agent/nimbus-sdk/commit/6a38242dbaceaf2b3dca56f2b5b34b15bdda8fcb))
+
 ## [0.23.0](https://github.com/nimbus-agent/nimbus-sdk/compare/sdks/go/v0.22.0...sdks/go/v0.23.0) (2026-10-20)
 
 

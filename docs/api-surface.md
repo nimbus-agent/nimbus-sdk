@@ -3270,7 +3270,7 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ## `./mcp-server`
 
-37 exports.
+38 exports.
 
 ### `LEGACY_PROTOCOL_VERSIONS`
 
@@ -3550,7 +3550,7 @@ export interface McpServerOptions {
     title?: string;
     instructions?: string;
 
-    tools?: () => readonly McpTool[] | Promise<readonly McpTool[]>;
+    tools?: (ctx: McpToolsContext) => readonly McpTool[] | Promise<readonly McpTool[]>;
 
     toolsCache?: {
         ttlMs: number;
@@ -3648,6 +3648,26 @@ export interface McpToolResult {
 
     isError?: boolean;
     structuredContent?: McpJsonObject;
+}
+```
+
+### `McpToolsContext` *(type-only)*
+
+**Stability:** experimental
+
+From `./server.js`.
+
+```ts
+export interface McpToolsContext {
+
+    readonly purpose: "list" | "call";
+    readonly era: McpEra;
+
+    readonly protocolVersion: string;
+
+    readonly clientInfo?: McpImplementation;
+
+    readonly clientCapabilities: McpJsonObject;
 }
 ```
 

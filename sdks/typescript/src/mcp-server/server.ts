@@ -55,6 +55,19 @@ export interface McpToolContext {
   readonly requestState?: string;
 }
 
+/** What the `tools` option is told about the request it is answering. */
+export interface McpToolsContext {
+  /** `list` for `tools/list`; `call` for the lookup a `tools/call` makes. */
+  readonly purpose: "list" | "call";
+  readonly era: McpEra;
+  /** Empty on a legacy connection whose `initialize` did not succeed. */
+  readonly protocolVersion: string;
+  /** Per request in the modern era; from `initialize` in the legacy era. Unverified. */
+  readonly clientInfo?: McpImplementation;
+  /** Per request in the modern era; from `initialize` in the legacy era, `{}` when that failed. */
+  readonly clientCapabilities: McpJsonObject;
+}
+
 /** A tool definition. `inputSchema` is a JSON Schema object the layer sends but does NOT enforce. */
 export interface McpTool {
   name: string;
@@ -90,9 +103,11 @@ export interface McpServerOptions {
   instructions?: string;
   /**
    * The whole tool set, read (and awaited) at every `tools/list` and `tools/call`. Use it when the
-   * set follows state outside this process. Exclusive with `server.tool`.
+   * set follows state outside this process, or depends on who is asking: it is told which of the
+   * two requests it is answering and what that request's client declared. A tool returned for
+   * `call` and not for `list` is callable and unlisted. Exclusive with `server.tool`.
    */
-  tools?: () => readonly McpTool[] | Promise<readonly McpTool[]>;
+  tools?: (ctx: McpToolsContext) => readonly McpTool[] | Promise<readonly McpTool[]>;
   /** How long a modern client may cache `tools/list`. Default: not at all, and privately. */
   toolsCache?: { ttlMs: number; cacheScope: "public" | "private" };
   /**
@@ -229,6 +244,9 @@ function failureBody(thrown: unknown): McpJsonObject {
   return { content: [{ type: "text", text }], isError: true };
 }
 
+/** What is known of the client behind one request: a tool context without its signal. */
+type ClientFacts = Omit<McpToolContext, "signal" | "inputResponses" | "requestState">;
+
 export function createMcpServer(options: McpServerOptions): McpServer {
   const info: McpImplementation =
     options.title === undefined
@@ -237,8 +255,18 @@ export function createMcpServer(options: McpServerOptions): McpServer {
   const registered = new Map<string, McpTool>();
   const toolsCache = options.toolsCache ?? { ttlMs: 0, cacheScope: "private" as const };
 
-  async function currentTools(): Promise<readonly McpTool[]> {
-    return options.tools === undefined ? [...registered.values()] : await options.tools();
+  async function currentTools(
+    purpose: McpToolsContext["purpose"],
+    client: ClientFacts,
+  ): Promise<readonly McpTool[]> {
+    if (options.tools === undefined) return [...registered.values()];
+    return await options.tools({
+      purpose,
+      era: client.era,
+      protocolVersion: client.protocolVersion,
+      clientCapabilities: client.clientCapabilities,
+      ...(client.clientInfo === undefined ? {} : { clientInfo: client.clientInfo }),
+    });
   }
 
   function connect(send: Reply, connectOptions: McpConnectOptions = {}): McpConnection {
@@ -283,10 +311,11 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       reply({ jsonrpc: "2.0", id, result });
     }
 
-    async function listTools(id: McpRequestId, modern: boolean): Promise<void> {
+    async function listTools(id: McpRequestId, client: ClientFacts): Promise<void> {
+      const modern = client.era === "modern";
       let tools: readonly McpTool[];
       try {
-        tools = await currentTools();
+        tools = await currentTools("list", client);
       } catch {
         fail(id, MCP_ERROR_CODES.internalError, "The tool list is unavailable");
         return;
@@ -393,7 +422,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       try {
         let tool: McpTool | undefined;
         try {
-          tool = (await currentTools()).find((t) => t.name === name);
+          tool = (await currentTools("call", ctxBase)).find((t) => t.name === name);
         } catch {
           if (!cancelled()) fail(id, MCP_ERROR_CODES.internalError, "The tool list is unavailable");
           return;
@@ -460,7 +489,15 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         return;
       }
       if (method === "tools/list") {
-        await listTools(id, false);
+        // Served even when `initialize` did not succeed (§5): nothing is known of the client then.
+        await listTools(id, {
+          era: "legacy",
+          protocolVersion: legacyClient?.protocolVersion ?? "",
+          clientCapabilities: legacyClient?.clientCapabilities ?? {},
+          ...(legacyClient?.clientInfo === undefined
+            ? {}
+            : { clientInfo: legacyClient.clientInfo }),
+        });
         return;
       }
       if (method === "tools/call" && legacyClient !== undefined) {
@@ -533,18 +570,18 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         succeed(id, body, true);
         return;
       }
+      const clientInfo = asImplementation(meta[META_CLIENT_INFO]);
+      const base: ClientFacts = {
+        era: "modern",
+        protocolVersion: version,
+        clientCapabilities: capabilities,
+        ...(clientInfo === undefined ? {} : { clientInfo }),
+      };
       if (method === "tools/list") {
-        await listTools(id, true);
+        await listTools(id, base);
         return;
       }
       if (method === "tools/call") {
-        const clientInfo = asImplementation(meta[META_CLIENT_INFO]);
-        const base: Omit<McpToolContext, "signal"> = {
-          era: "modern",
-          protocolVersion: version,
-          clientCapabilities: capabilities,
-          ...(clientInfo === undefined ? {} : { clientInfo }),
-        };
         await callTool(id, isMcpJsonObject(params) ? params : {}, base);
         return;
       }

@@ -55,8 +55,13 @@ await serveStdio(server);
   from `initialize` in the legacy one. Show it; do not decide by it.
 - **Cancellation.** `ctx.signal` aborts when the client cancels the call or the connection
   closes. A cancelled call is not answered.
-- **A tool set that changes.** Pass `tools: () => [...]` (it may return a promise) instead of
-  calling `server.tool`, and the set is read at every `tools/list` and `tools/call`.
+- **A tool set that changes, or depends on the client.** Pass `tools: (ctx) => [...]` (it may
+  return a promise) instead of calling `server.tool`, and the set is read at every `tools/list`
+  and `tools/call`. `ctx.purpose` says which of the two is being answered, and `ctx.era`,
+  `ctx.clientCapabilities` and `ctx.clientInfo` describe the client behind that request. A tool
+  returned for `call` and not for `list` is callable and unlisted: use that to keep a tool out of
+  the list for a client that cannot use it while its handler still answers (and records) a call.
+  It is not access control: capabilities are whatever the client says.
 - **Nothing but tools.** Resources, prompts, sampling, subscriptions and the HTTP transport are
   not served; a client that asks gets a method-not-found error.
 

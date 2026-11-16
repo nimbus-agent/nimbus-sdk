@@ -3270,7 +3270,7 @@ export declare function performHandshake(io: HandshakeIo, options?: HandshakeOpt
 
 ## `./mcp-server`
 
-25 exports.
+37 exports.
 
 ### `LEGACY_PROTOCOL_VERSIONS`
 
@@ -3298,6 +3298,16 @@ export declare const MCP_ERROR_CODES: {
 
     readonly unsupportedProtocolVersion: -32022;
 };
+```
+
+### `MCP_STATE_REASONS`
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export declare const MCP_STATE_REASONS: readonly McpStateReason[];
 ```
 
 ### `META_CLIENT_CAPABILITIES`
@@ -3360,6 +3370,8 @@ From `./server.js`.
 export interface McpConnectOptions {
 
     legacy?: "serve" | "reject";
+
+    legacyInputTimeoutMs?: number;
 }
 ```
 
@@ -3417,6 +3429,47 @@ export interface McpImplementation {
 }
 ```
 
+### `McpInputRequest` *(type-only)*
+
+**Stability:** experimental
+
+From `./input.js`.
+
+```ts
+export interface McpInputRequest {
+    method: "elicitation/create";
+    params: McpJsonObject;
+}
+```
+
+### `McpInputRequired`
+
+**Stability:** experimental
+
+From `./input.js`.
+
+```ts
+export declare class McpInputRequired {
+    readonly inputRequests: Readonly<Record<string, McpInputRequest>> | undefined;
+    readonly requestState: string | undefined;
+    constructor(init: McpInputRequiredInit);
+}
+```
+
+### `McpInputRequiredInit` *(type-only)*
+
+**Stability:** experimental
+
+From `./input.js`.
+
+```ts
+export interface McpInputRequiredInit {
+    inputRequests?: Record<string, McpInputRequest>;
+
+    requestState?: string;
+}
+```
+
 ### `McpJsonObject` *(type-only)*
 
 **Stability:** experimental
@@ -3448,6 +3501,11 @@ export type McpOutgoingMessage = {
         message: string;
         data?: McpJsonObject;
     };
+} | {
+    jsonrpc: "2.0";
+    id: string;
+    method: string;
+    params: McpJsonObject;
 };
 ```
 
@@ -3498,7 +3556,32 @@ export interface McpServerOptions {
         ttlMs: number;
         cacheScope: "public" | "private";
     };
+
+    legacyInputShim?: boolean;
 }
+```
+
+### `McpStateError`
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export declare class McpStateError extends Error {
+    readonly reason: McpStateReason;
+    constructor(reason: McpStateReason);
+}
+```
+
+### `McpStateReason` *(type-only)*
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export type McpStateReason = "malformed" | "bad-mac" | "expired" | "mismatch";
 ```
 
 ### `McpTool` *(type-only)*
@@ -3515,7 +3598,7 @@ export interface McpTool {
     inputSchema: McpJsonObject;
     annotations?: McpJsonObject;
 
-    handler(args: unknown, ctx: McpToolContext): Promise<McpToolResult> | McpToolResult;
+    handler(args: unknown, ctx: McpToolContext): Promise<McpToolResult | McpInputRequired> | McpToolResult | McpInputRequired;
 }
 ```
 
@@ -3534,6 +3617,10 @@ export interface McpToolContext {
     readonly clientCapabilities: McpJsonObject;
 
     readonly signal: AbortSignal;
+
+    readonly inputResponses?: McpJsonObject;
+
+    readonly requestState?: string;
 }
 ```
 
@@ -3564,6 +3651,39 @@ export interface McpToolResult {
 }
 ```
 
+### `OpenStateOptions` *(type-only)*
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export interface OpenStateOptions {
+    principal: string;
+    requestDigest: string;
+    now?: () => number;
+}
+```
+
+### `SealStateOptions` *(type-only)*
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export interface SealStateOptions {
+
+    principal: string;
+
+    ttlMs: number;
+
+    requestDigest: string;
+
+    now?: () => number;
+}
+```
+
 ### `ServeStdioOptions` *(type-only)*
 
 **Stability:** experimental
@@ -3591,6 +3711,19 @@ From `./server.js`.
 export declare function createMcpServer(options: McpServerOptions): McpServer;
 ```
 
+### `inputRequired`
+
+**Stability:** experimental
+
+From `./input.js`.
+
+```ts
+export declare const inputRequired: ((init: McpInputRequiredInit) => McpInputRequired) & {
+
+    elicit: typeof elicit;
+};
+```
+
 ### `isMcpJsonObject`
 
 **Stability:** experimental
@@ -3599,6 +3732,36 @@ From `./protocol.js`.
 
 ```ts
 export declare function isMcpJsonObject(value: unknown): value is McpJsonObject;
+```
+
+### `openState`
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export declare function openState(key: Uint8Array, sealed: unknown, options: OpenStateOptions): unknown;
+```
+
+### `requestDigest`
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export declare function requestDigest(toolName: string, args: unknown): string;
+```
+
+### `sealState`
+
+**Stability:** experimental
+
+From `./state.js`.
+
+```ts
+export declare function sealState(key: Uint8Array, payload: unknown, options: SealStateOptions): string;
 ```
 
 ### `serveStdio`

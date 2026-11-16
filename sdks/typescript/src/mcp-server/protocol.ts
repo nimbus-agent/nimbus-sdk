@@ -62,7 +62,8 @@ export type McpOutgoingMessage =
       jsonrpc: "2.0";
       id: McpRequestId | null;
       error: { code: number; message: string; data?: McpJsonObject };
-    };
+    }
+  | { jsonrpc: "2.0"; id: string; method: string; params: McpJsonObject };
 
 /** True for a JSON object: not null, not an array. */
 export function isMcpJsonObject(value: unknown): value is McpJsonObject {

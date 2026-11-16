@@ -10,6 +10,12 @@
 /** @moduleStability experimental */
 
 export {
+  inputRequired,
+  type McpInputRequest,
+  McpInputRequired,
+  type McpInputRequiredInit,
+} from "./input.js";
+export {
   isMcpJsonObject,
   LEGACY_PROTOCOL_VERSIONS,
   MCP_ERROR_CODES,
@@ -36,4 +42,14 @@ export {
   McpToolError,
   type McpToolResult,
 } from "./server.js";
+export {
+  MCP_STATE_REASONS,
+  McpStateError,
+  type McpStateReason,
+  type OpenStateOptions,
+  openState,
+  requestDigest,
+  type SealStateOptions,
+  sealState,
+} from "./state.js";
 export { type ServeStdioOptions, serveStdio } from "./stdio.js";

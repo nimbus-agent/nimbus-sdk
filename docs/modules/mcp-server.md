@@ -1,4 +1,4 @@
-<!-- covers: mcp-server/protocol, mcp-server/server, mcp-server/stdio -->
+<!-- covers: mcp-server/protocol, mcp-server/server, mcp-server/stdio, mcp-server/input, mcp-server/state -->
 
 # `mcp-server`
 
@@ -59,6 +59,71 @@ await serveStdio(server);
   calling `server.tool`, and the set is read at every `tools/list` and `tools/call`.
 - **Nothing but tools.** Resources, prompts, sampling, subscriptions and the HTTP transport are
   not served; a client that asks gets a method-not-found error.
+
+## Asking the client for input
+
+A handler can stop in the middle of a call and ask the person at the client a question. It
+returns `inputRequired(...)` instead of a result, and is run again with the answer:
+
+```ts
+import { randomBytes } from "node:crypto";
+import {
+  createMcpServer,
+  inputRequired,
+  openState,
+  requestDigest,
+  sealState,
+} from "@nimbus-dev/sdk/mcp-server";
+
+const key = randomBytes(32); // kept by the server; a new key refuses every state sealed before
+const server = createMcpServer({ name: "records", version: "1.0.0" });
+
+server.tool({
+  name: "delete_record",
+  description: "Deletes a record after the user confirms",
+  inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"] },
+  handler: (args, ctx) => {
+    const binding = { principal: "local", requestDigest: requestDigest("delete_record", args) };
+    if (ctx.inputResponses === undefined) {
+      return inputRequired({
+        inputRequests: {
+          confirm: inputRequired.elicit({
+            message: "Delete this record?",
+            requestedSchema: {
+              type: "object",
+              properties: { ok: { type: "boolean" } },
+              required: ["ok"],
+            },
+          }),
+        },
+        requestState: sealState(key, { asked: "delete" }, { ...binding, ttlMs: 300_000 }),
+      });
+    }
+    openState(key, ctx.requestState, binding); // throws unless it is ours, fresh, and for this call
+    const answer = ctx.inputResponses["confirm"] as { action?: string; content?: { ok?: boolean } };
+    const confirmed = answer.action === "accept" && answer.content?.ok === true;
+    return { content: [{ type: "text", text: confirmed ? "Deleted" : "Nothing was deleted" }] };
+  },
+});
+```
+
+- **One handler, both eras.** A `2026-07-28` client gets the protocol's `input_required` result
+  and retries the call with its answers. A legacy client is asked by the layer itself, with the
+  old server-to-client `elicitation/create` request, and the handler is run again in the same
+  call. Pass `legacyInputShim: false` to `createMcpServer` to refuse that instead. The
+  `legacyInputTimeoutMs` option of `serveStdio` and `connect` (ten minutes by default) bounds
+  the wait, and a client that does not
+  answer in time counts as having cancelled.
+- **Only what the client declared.** A client that did not declare elicitation is never asked: the
+  call fails as a tool error. Form and url modes are declared separately.
+- **`ctx.inputResponses` and `ctx.requestState` are the client's data.** In the modern era both come
+  back in a new request, so a client can send anything. Check the answer's shape, and seal the
+  state: `sealState` binds it to a principal, to the exact call (`requestDigest`) and to a
+  lifetime, and `openState` throws `McpStateError` unless all three hold. Thrown from a handler,
+  that error is answered as an invalid-params error, not as a tool result.
+- **A sealed state is not secret and not single use.** The client can read the payload, and a valid
+  state can be presented again until it expires. Keep secrets out of it; to act at most once, put a
+  nonce in the payload and remember the ones you have used.
 
 A connection can be driven without stdio, which is how the corpus runs:
 

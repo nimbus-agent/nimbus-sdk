@@ -65,10 +65,12 @@ export async function serveStdio(
   const send = (message: McpOutgoingMessage): void => {
     write(`${JSON.stringify(message)}\n`);
   };
-  const connection = server.connect(
-    send,
-    options.legacy === undefined ? {} : { legacy: options.legacy },
-  );
+  const connection = server.connect(send, {
+    ...(options.legacy === undefined ? {} : { legacy: options.legacy }),
+    ...(options.legacyInputTimeoutMs === undefined
+      ? {}
+      : { legacyInputTimeoutMs: options.legacyInputTimeoutMs }),
+  });
   const reader = new NdjsonLineReader();
   const pending = new Set<Promise<void>>();
   const iterator = input[Symbol.asyncIterator]();

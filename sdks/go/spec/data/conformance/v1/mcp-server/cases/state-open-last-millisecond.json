@@ -1,0 +1,18 @@
+{
+  "description": "opening at the last valid millisecond",
+  "kind": "open",
+  "key": "0101010101010101010101010101010101010101010101010101010101010101",
+  "now": 1800000059999,
+  "sealed": "eyJkIjoiNWNkODA4ZDAwODI4Y2FmYTFiMjdjYjg4ODZjMzNhZjQ3YWVlMWU1ODMxZWEwZDIzM2UxNjQwOWNmMDQxYmIwMSIsImUiOjE4MDAwMDAwNjAwMDAsInAiOiJhbGljZSIsInMiOnsibm9uY2UiOiJuLTEifSwidiI6MX0.XhumXO8E5RFA1Z3MS4Cipk1fh2r8R-jtcOfFc4fENK4",
+  "principal": "alice",
+  "tool": "delete",
+  "arguments": {
+    "id": "a",
+    "force": false
+  },
+  "expect": {
+    "payload": {
+      "nonce": "n-1"
+    }
+  }
+}

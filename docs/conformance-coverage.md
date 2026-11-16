@@ -22,12 +22,12 @@ under `docs/spec/conformance/v1/`. The declaration is held **complete** by
 | `jmap` | 61 | 61 | 61 | 61 |
 | `manifest` | 41 | 41 | — | — |
 | `manifest-signature` | 63 | 63 | 63 | 63 |
-| `mcp-server` | 44 | 44 | — | — |
+| `mcp-server` | 65 | 65 | — | — |
 | `negotiation` | 38 | 38 | 38 | 38 |
 | `predicates` | 33 | 33 | — | — |
 | `sandbox` | 31 | 31 | — | — |
 | `url-resolution` | 28 | 28 | 28 | 28 |
-| **Total** | **595** | **595** | **440** | **440** |
+| **Total** | **616** | **616** | **440** | **440** |
 
 ## What each binding does not run, and why
 

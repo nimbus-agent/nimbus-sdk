@@ -188,8 +188,10 @@ each half with its own test — keep them.
   bytes.
 - **`@nimbus-dev/sdk/mcp-server`** — an MCP server layer for stdio that serves two protocol
   eras from one process: the stateless revision `2026-07-28` and the `initialize` handshake of
-  `2025-11-25` and earlier. `createMcpServer`, `serveStdio` and `McpToolError`. Tools only, no
-  runtime dependency, and it does not validate a call's arguments against `inputSchema`.
+  `2025-11-25` and earlier. `createMcpServer`, `serveStdio` and `McpToolError`; a handler asks
+  the client for input with `inputRequired`, and `sealState` / `openState` make the state it
+  carries across that round trip tamper-evident. Tools only, no runtime dependency, and it does
+  not validate a call's arguments against `inputSchema`.
   `experimental`.
 
 Changing an exported type is a semver-relevant change.

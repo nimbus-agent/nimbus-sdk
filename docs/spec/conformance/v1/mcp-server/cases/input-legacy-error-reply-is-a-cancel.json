@@ -1,0 +1,81 @@
+{
+  "description": "the client answers the question with an error",
+  "kind": "exchange",
+  "clientReplies": {
+    "nimbus-sdk-1": {
+      "error": {
+        "code": -32603,
+        "message": "boom"
+      }
+    }
+  },
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "elicitation": {}
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/call",
+      "params": {
+        "name": "ask"
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "tools": {}
+        },
+        "serverInfo": {
+          "name": "conformance-server",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "nimbus-sdk-1",
+      "method": "elicitation/create",
+      "params": {
+        "mode": "form",
+        "message": "Proceed?",
+        "requestedSchema": {
+          "type": "object",
+          "properties": {
+            "ok": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "ok"
+          ]
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"confirm\":{\"action\":\"cancel\"}},\"state-1\"]"
+          }
+        ]
+      }
+    }
+  ]
+}

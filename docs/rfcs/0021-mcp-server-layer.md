@@ -107,7 +107,10 @@ protocol change that the layer follows is a change to the spec document and the 
 
 ## 7. What follows
 
-A second change adds input requests: a tool handler asks the client for input once, and the layer
-delivers it as an `InputRequiredResult` in the modern era and as the old server-to-client
-elicitation in the legacy era, with helpers to seal the state a handler carries across the round
-trip. It extends the spec document and the corpus under this RFC.
+A second change, made under this RFC, added input requests (spec §10 and §11): a tool handler
+asks the client for input, and the layer delivers it as an `InputRequiredResult` in the modern
+era and as the old server-to-client elicitation in the legacy era, with `sealState` and
+`openState` to seal the state a handler carries across the round trip. The legacy path is ours
+(the older revisions have no interim result) and a server can turn it off. The sealed state is
+an HMAC over canonical JSON, bound to a principal, a request digest and an expiry: it is not
+encrypted and not single use, and the spec says so.

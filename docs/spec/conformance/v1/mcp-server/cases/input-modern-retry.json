@@ -1,0 +1,56 @@
+{
+  "description": "the client retries with its answer and the state",
+  "kind": "exchange",
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "method": "tools/call",
+      "params": {
+        "name": "ask",
+        "inputResponses": {
+          "confirm": {
+            "action": "accept",
+            "content": {
+              "ok": true
+            }
+          }
+        },
+        "requestState": "state-1",
+        "_meta": {
+          "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+          "io.modelcontextprotocol/clientInfo": {
+            "name": "ExampleClient",
+            "version": "1.0.0"
+          },
+          "io.modelcontextprotocol/clientCapabilities": {
+            "elicitation": {
+              "form": {}
+            }
+          }
+        }
+      }
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": {
+        "resultType": "complete",
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"confirm\":{\"action\":\"accept\",\"content\":{\"ok\":true}}},\"state-1\"]"
+          }
+        ],
+        "_meta": {
+          "io.modelcontextprotocol/serverInfo": {
+            "name": "conformance-server",
+            "version": "1.0.0"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -4,11 +4,13 @@ import {
   createMcpServer,
   LEGACY_PROTOCOL_VERSIONS,
   type McpConnectOptions,
+  type McpJsonObject,
   type McpOutgoingMessage,
   type McpServerOptions,
   type McpTool,
   type McpToolContext,
   McpToolError,
+  type McpToolsContext,
   META_CLIENT_CAPABILITIES,
   META_CLIENT_INFO,
   META_PROTOCOL_VERSION,
@@ -668,6 +670,105 @@ describe("tools, in both eras", () => {
       expect(errorOf(h.sent[4])).toEqual({ code: -32603, message: "The tool list is unavailable" });
     },
   );
+});
+
+describe("a tool set that depends on who is asking", () => {
+  const WRITE: McpTool = { ...ECHO, name: "write", description: "Writes" };
+  const canAsk = (ctx: McpToolsContext): boolean => "elicitation" in ctx.clientCapabilities;
+
+  test("modern: each request is answered for its own capabilities, and call and list are told apart", async () => {
+    const seen: McpToolsContext[] = [];
+    const h = harness({
+      tools: (ctx) => {
+        seen.push(ctx);
+        // Listed only to a client that can be asked; callable by anyone.
+        return ctx.purpose === "call" || canAsk(ctx) ? [ECHO, WRITE] : [ECHO];
+      },
+    });
+    const meta = (capabilities: McpJsonObject, name?: string) => ({
+      _meta: {
+        [META_PROTOCOL_VERSION]: MODERN_PROTOCOL_VERSION,
+        [META_CLIENT_CAPABILITIES]: capabilities,
+        ...(name === undefined ? {} : { [META_CLIENT_INFO]: { name, version: "1" } }),
+      },
+    });
+    const send = (id: number, method: string, params: McpJsonObject) =>
+      h.connection.receive({ jsonrpc: "2.0", id, method, params });
+    await send(1, "tools/list", meta({}));
+    await send(2, "tools/list", meta({ elicitation: {} }, "asker"));
+    await send(3, "tools/call", { name: "write", ...meta({}) });
+    const names = (m: McpOutgoingMessage | undefined) =>
+      ((resultOf(m)?.["tools"] ?? []) as Array<{ name: string }>).map((t) => t.name);
+    expect(names(h.sent[0])).toEqual(["echo"]);
+    expect(names(h.sent[1])).toEqual(["echo", "write"]);
+    // Unlisted to this client, and still callable: the handler ran.
+    expect(resultOf(h.sent[2])).toBeDefined();
+    expect(resultOf(h.sent[2])?.["isError"]).toBeUndefined();
+    expect(seen).toEqual([
+      {
+        purpose: "list",
+        era: "modern",
+        protocolVersion: MODERN_PROTOCOL_VERSION,
+        clientCapabilities: {},
+      },
+      {
+        purpose: "list",
+        era: "modern",
+        protocolVersion: MODERN_PROTOCOL_VERSION,
+        clientCapabilities: { elicitation: {} },
+        clientInfo: { name: "asker", version: "1" },
+      },
+      {
+        purpose: "call",
+        era: "modern",
+        protocolVersion: MODERN_PROTOCOL_VERSION,
+        clientCapabilities: {},
+      },
+    ]);
+  });
+
+  test("a tool returned for neither purpose is unknown", async () => {
+    const h = harness({ tools: () => [ECHO] });
+    await h.connection.receive(modern(1, "tools/call", { name: "write" }));
+    expect(errorOf(h.sent[0])?.code).toBe(-32602);
+  });
+
+  test("legacy: the facts come from initialize, for the list and for the call", async () => {
+    const seen: McpToolsContext[] = [];
+    const server = createMcpServer({
+      ...INFO,
+      tools: (ctx) => {
+        seen.push(ctx);
+        return canAsk(ctx) ? [ECHO, WRITE] : [ECHO];
+      },
+    });
+    const sent: McpOutgoingMessage[] = [];
+    const connection = server.connect((m) => sent.push(m));
+    const send = (id: number, method: string, params?: McpJsonObject) =>
+      connection.receive({ jsonrpc: "2.0", id, method, ...(params ? { params } : {}) });
+    await send(2, "initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: { elicitation: {} },
+      clientInfo: { name: "old", version: "1" },
+    });
+    await send(3, "tools/list");
+    await send(4, "tools/call", { name: "write" });
+    const names = (m: McpOutgoingMessage | undefined) =>
+      ((resultOf(m)?.["tools"] ?? []) as Array<{ name: string }>).map((t) => t.name);
+    expect(names(sent[1])).toEqual(["echo", "write"]);
+    expect(resultOf(sent[2])).toBeDefined();
+    expect(resultOf(sent[2])?.["isError"]).toBeUndefined();
+    const after = {
+      era: "legacy" as const,
+      protocolVersion: "2025-06-18",
+      clientCapabilities: { elicitation: {} },
+      clientInfo: { name: "old", version: "1" },
+    };
+    expect(seen).toEqual([
+      { purpose: "list", ...after },
+      { purpose: "call", ...after },
+    ]);
+  });
 });
 
 describe("the tool registry", () => {

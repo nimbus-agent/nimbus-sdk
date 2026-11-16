@@ -1,0 +1,79 @@
+{
+  "description": "a legacy client that declared no elicitation is not listed the ask tools",
+  "kind": "exchange",
+  "server": {
+    "toolsFollowClient": true
+  },
+  "messages": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "method": "initialize",
+      "params": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {}
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "method": "tools/list"
+    }
+  ],
+  "expect": [
+    {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "protocolVersion": "2025-11-25",
+        "capabilities": {
+          "tools": {}
+        },
+        "serverInfo": {
+          "name": "conformance-server",
+          "version": "1.0.0"
+        }
+      }
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": {
+        "tools": [
+          {
+            "name": "echo",
+            "title": "Echo",
+            "description": "Returns its arguments",
+            "inputSchema": {
+              "type": "object"
+            },
+            "annotations": {
+              "readOnlyHint": true
+            }
+          },
+          {
+            "name": "declared-failure",
+            "description": "Fails with a chosen message",
+            "inputSchema": {
+              "type": "object"
+            }
+          },
+          {
+            "name": "unexpected-failure",
+            "description": "Fails unexpectedly",
+            "inputSchema": {
+              "type": "object"
+            }
+          },
+          {
+            "name": "wait",
+            "description": "Waits until cancelled",
+            "inputSchema": {
+              "type": "object"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

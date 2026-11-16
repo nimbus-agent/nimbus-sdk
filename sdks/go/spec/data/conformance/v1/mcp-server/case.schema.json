@@ -39,6 +39,10 @@
         "instructions": {
           "type": "string",
           "pattern": "\\S"
+        },
+        "toolsFollowClient": {
+          "const": true,
+          "description": "The fixture's tool set is read per request (§6): the `ask` tools are listed only to a client that declared `elicitation`, and every tool is callable by any client."
         }
       }
     },

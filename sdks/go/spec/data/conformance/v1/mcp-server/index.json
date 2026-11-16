@@ -267,6 +267,16 @@
       "reason": "A legacy client that declared no elicitation is never sent the request."
     },
     {
+      "file": "cases/tools-follow-client-modern.json",
+      "section": "§6",
+      "reason": "A tool set read per request is answered for that request's own client: listing may depend on what the client declared, and a tool left out of the list is still callable when the set returns it for a call."
+    },
+    {
+      "file": "cases/tools-follow-client-legacy.json",
+      "section": "§6",
+      "reason": "On a legacy connection the client's facts are those of its initialize, for every later request."
+    },
+    {
       "file": "cases/state-digest.json",
       "section": "§11",
       "reason": "A request digest is the SHA-256 of the canonical JSON of the tool name and the arguments, so member order does not matter."

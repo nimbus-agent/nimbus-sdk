@@ -19,6 +19,7 @@ import {
   type McpOutgoingMessage,
   type McpServer,
   McpStateError,
+  type McpTool,
   McpToolError,
   openState,
   requestDigest,
@@ -55,7 +56,7 @@ type Case = {
   tool?: string;
   arguments?: unknown;
   sealed?: string;
-  server?: { legacy?: "serve" | "reject"; instructions?: string };
+  server?: { legacy?: "serve" | "reject"; instructions?: string; toolsFollowClient?: true };
   concurrent?: true;
   messages?: unknown[];
   chunks?: string[];
@@ -73,12 +74,9 @@ const recorder = createRecorder("mcp-server", "guard");
 afterAll(() => recorder.flush());
 
 /** §9's fixture server. */
-function fixture(instructions: string | undefined): McpServer {
-  const server = createMcpServer(
-    instructions === undefined
-      ? { name: "conformance-server", version: "1.0.0" }
-      : { name: "conformance-server", version: "1.0.0", instructions },
-  );
+function fixture(options: Case["server"] = {}): McpServer {
+  const defs: McpTool[] = [];
+  const server = { tool: (definition: McpTool): number => defs.push(definition) };
   const schema = { type: "object" };
   server.tool({
     name: "echo",
@@ -158,7 +156,25 @@ function fixture(instructions: string | undefined): McpServer {
     inputSchema: schema,
     handler: () => inputRequired({}),
   });
-  return server;
+  const info = {
+    name: "conformance-server",
+    version: "1.0.0",
+    ...(options.instructions === undefined ? {} : { instructions: options.instructions }),
+  };
+  if (options.toolsFollowClient === true) {
+    // §9: the `ask` tools are listed only to a client that declared elicitation; every tool is
+    // callable by any client.
+    return createMcpServer({
+      ...info,
+      tools: (ctx) =>
+        ctx.purpose === "call" || "elicitation" in ctx.clientCapabilities
+          ? defs
+          : defs.filter((t) => !t.name.startsWith("ask")),
+    });
+  }
+  const built = createMcpServer(info);
+  for (const definition of defs) built.tool(definition);
+  return built;
 }
 
 /** The messages a conversation case expects; none for a sealed-state case, whose `expect` is one object. */
@@ -203,7 +219,7 @@ function comparable(message: McpOutgoingMessage): unknown {
 async function runExchange(body: Case): Promise<unknown[]> {
   const sent: McpOutgoingMessage[] = [];
   const answers: Promise<void>[] = [];
-  const connection = fixture(body.server?.instructions).connect(
+  const connection = fixture(body.server).connect(
     (m) => {
       sent.push(m);
       // A request from the server (legacy era, §10): the case says how the client answers it.
@@ -233,7 +249,7 @@ async function runStdio(body: Case): Promise<unknown[]> {
     for (const chunk of chunks) yield encoder.encode(chunk);
   }
   const lines: string[] = [];
-  await serveStdio(fixture(undefined), { input: input(), write: (line) => lines.push(line) });
+  await serveStdio(fixture(), { input: input(), write: (line) => lines.push(line) });
   for (const line of lines) {
     // §7: one message per line, each ended by a newline, none containing one.
     expect(line.endsWith("\n")).toBe(true);
@@ -278,7 +294,7 @@ describe("published artifacts", () => {
 
 describe("the corpus cannot pass vacuously", () => {
   test("it is non-empty", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(60);
+    expect(cases.length).toBeGreaterThanOrEqual(67);
   });
 
   test("every kind of case is present", () => {
@@ -358,7 +374,7 @@ describe("the corpus cannot pass vacuously", () => {
 
   test("the fixture's undeclared failure really holds the text that must not leak", async () => {
     const sent: McpOutgoingMessage[] = [];
-    const connection = fixture(undefined).connect((m) => sent.push(m));
+    const connection = fixture().connect((m) => sent.push(m));
     await connection.receive({
       jsonrpc: "2.0",
       id: 1,

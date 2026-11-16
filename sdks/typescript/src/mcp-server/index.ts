@@ -41,6 +41,7 @@ export {
   type McpToolContext,
   McpToolError,
   type McpToolResult,
+  type McpToolsContext,
 } from "./server.js";
 export {
   MCP_STATE_REASONS,

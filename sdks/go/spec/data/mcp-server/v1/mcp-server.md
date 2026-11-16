@@ -154,6 +154,15 @@ A handler's failure is a RESULT, not a JSON-RPC error, so that the model sees it
 When the tool set itself cannot be read, `tools/list` and `tools/call` MUST be answered with
 error `-32603` and a fixed message.
 
+A tool set read per request (**OURS**). A server MAY compute its tool set for each `tools/list`
+and each `tools/call` from the request being answered: which of the two it is, the era, the
+protocol version, and the client's declared name and capabilities (those of the request in the
+modern era; those of `initialize` in the legacy era). `tools/list` lists exactly the set computed
+for a list. `tools/call` looks the name up in the set computed for a call, so a tool a server
+returns for a call and not for a list is callable and unlisted, and step 2 above applies only to a
+name absent from the call set. The client's name and capabilities are its own claim: a server MUST
+NOT treat leaving a tool out of a list as access control.
+
 Cancellation. `notifications/cancelled` whose `params.requestId` equals a running call's `id`
 (same JSON type and value: the string `"7"` does not name the number `7`) cancels that call. A
 cancelled call MUST NOT be answered.
@@ -226,6 +235,10 @@ for an `exchange` case, and as a set for a `stdio` case (§7 lets answers to dif
 arrive in any order; no `stdio` case expects two messages with the same `id`),
 with one allowance from §8: an error's `message` is compared only for code `-32022`, and an
 expected error otherwise carries no `message`.
+
+A case whose `server.toolsFollowClient` is true runs against the same fixture with its tool set
+read per request (§6): the three `ask` tools are listed only when the request's client declared an
+`elicitation` capability, and every tool is in the set for a call.
 
 An `exchange` case may carry `clientReplies`: how the client answers a request the SERVER sends
 it (§10, legacy era), keyed by that request's `id`. The answer is delivered as soon as the

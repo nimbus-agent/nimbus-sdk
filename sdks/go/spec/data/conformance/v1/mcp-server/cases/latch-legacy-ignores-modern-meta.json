@@ -101,6 +101,27 @@
             "inputSchema": {
               "type": "object"
             }
+          },
+          {
+            "name": "ask",
+            "description": "Asks the client to confirm",
+            "inputSchema": {
+              "type": "object"
+            }
+          },
+          {
+            "name": "ask-url",
+            "description": "Asks the client to open a page",
+            "inputSchema": {
+              "type": "object"
+            }
+          },
+          {
+            "name": "ask-nothing",
+            "description": "Asks for input without asking anything",
+            "inputSchema": {
+              "type": "object"
+            }
           }
         ]
       }

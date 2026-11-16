@@ -15,9 +15,14 @@ import { join } from "node:path";
 import Ajv from "ajv";
 import {
   createMcpServer,
+  inputRequired,
   type McpOutgoingMessage,
   type McpServer,
+  McpStateError,
   McpToolError,
+  openState,
+  requestDigest,
+  sealState,
   serveStdio,
 } from "../src/mcp-server/index.ts";
 import { createRecorder } from "./conformance-report.ts";
@@ -33,19 +38,28 @@ const INDEX_PATH = `${CORPUS_DIR}/index.json`;
 const INDEX_SCHEMA_PATH = `${CORPUS_DIR}/index.schema.json`;
 
 /** Every section a case can pin. §1 is scope, §8 the code table, §9 the fixture itself. */
-const PINNED_SECTIONS = ["§2", "§3", "§4", "§5", "§6", "§7"] as const;
+const PINNED_SECTIONS = ["§2", "§3", "§4", "§5", "§6", "§7", "§10", "§11"] as const;
 
 /** The one error code whose message the protocol fixes (§8). */
 const UNSUPPORTED_VERSION = -32022;
 
 type Case = {
   description: string;
-  kind: "exchange" | "stdio";
+  kind: "exchange" | "stdio" | "digest" | "seal" | "open";
+  clientReplies?: Record<string, { result?: unknown; error?: unknown }>;
+  key?: string;
+  now?: number;
+  payload?: unknown;
+  principal?: string;
+  ttlMs?: number;
+  tool?: string;
+  arguments?: unknown;
+  sealed?: string;
   server?: { legacy?: "serve" | "reject"; instructions?: string };
   concurrent?: true;
   messages?: unknown[];
   chunks?: string[];
-  expect: unknown[];
+  expect: unknown;
 };
 type IndexEntry = { file: string; section: string; reason: string };
 
@@ -104,7 +118,79 @@ function fixture(instructions: string | undefined): McpServer {
         ctx.signal.addEventListener("abort", () => resolve({ content: [] }), { once: true });
       }),
   });
+  const question = inputRequired.elicit({
+    message: "Proceed?",
+    requestedSchema: { type: "object", properties: { ok: { type: "boolean" } }, required: ["ok"] },
+  });
+  server.tool({
+    name: "ask",
+    description: "Asks the client to confirm",
+    inputSchema: schema,
+    handler: (_args, ctx) =>
+      ctx.inputResponses === undefined
+        ? inputRequired({ inputRequests: { confirm: question }, requestState: "state-1" })
+        : {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify([ctx.inputResponses, ctx.requestState ?? null]),
+              },
+            ],
+          },
+  });
+  server.tool({
+    name: "ask-url",
+    description: "Asks the client to open a page",
+    inputSchema: schema,
+    handler: () =>
+      inputRequired({
+        inputRequests: {
+          open: {
+            method: "elicitation/create",
+            params: { mode: "url", message: "Open the page", url: "https://example.com/confirm" },
+          },
+        },
+      }),
+  });
+  server.tool({
+    name: "ask-nothing",
+    description: "Asks for input without asking anything",
+    inputSchema: schema,
+    handler: () => inputRequired({}),
+  });
   return server;
+}
+
+/** The messages a conversation case expects; none for a sealed-state case, whose `expect` is one object. */
+const messagesOf = (body: Case): unknown[] => (Array.isArray(body.expect) ? body.expect : []);
+
+const hexBytes = (hex: string): Uint8Array =>
+  Uint8Array.from(hex.match(/../g) ?? [], (pair) => Number.parseInt(pair, 16));
+
+/** §11: one call into the sealed-state functions, as the object the case expects. */
+function runState(body: Case): unknown {
+  const tool = body.tool ?? "";
+  if (body.kind === "digest") return { digest: requestDigest(tool, body.arguments) };
+  const key = hexBytes(body.key ?? "");
+  const now = (): number => body.now ?? 0;
+  const digest = requestDigest(tool, body.arguments);
+  const principal = body.principal ?? "";
+  if (body.kind === "seal") {
+    return {
+      sealed: sealState(key, body.payload, {
+        principal,
+        ttlMs: body.ttlMs ?? 0,
+        requestDigest: digest,
+        now,
+      }),
+    };
+  }
+  try {
+    return { payload: openState(key, body.sealed, { principal, requestDigest: digest, now }) };
+  } catch (e) {
+    if (e instanceof McpStateError) return { reason: e.reason };
+    throw e;
+  }
 }
 
 /** §9's allowance: an error's message is compared only for the code that fixes it. */
@@ -116,8 +202,16 @@ function comparable(message: McpOutgoingMessage): unknown {
 
 async function runExchange(body: Case): Promise<unknown[]> {
   const sent: McpOutgoingMessage[] = [];
+  const answers: Promise<void>[] = [];
   const connection = fixture(body.server?.instructions).connect(
-    (m) => sent.push(m),
+    (m) => {
+      sent.push(m);
+      // A request from the server (legacy era, §10): the case says how the client answers it.
+      const reply = "method" in m ? body.clientReplies?.[m.id] : undefined;
+      if (reply !== undefined) {
+        answers.push(connection.receive({ jsonrpc: "2.0", id: m.id, ...reply }));
+      }
+    },
     body.server?.legacy === undefined ? {} : { legacy: body.server.legacy },
   );
   const handled: Promise<void>[] = [];
@@ -127,6 +221,7 @@ async function runExchange(body: Case): Promise<unknown[]> {
     else await done;
   }
   await Promise.all(handled);
+  await Promise.all(answers);
   connection.close();
   return sent.map(comparable);
 }
@@ -183,12 +278,31 @@ describe("published artifacts", () => {
 
 describe("the corpus cannot pass vacuously", () => {
   test("it is non-empty", () => {
-    expect(cases.length).toBeGreaterThanOrEqual(40);
+    expect(cases.length).toBeGreaterThanOrEqual(60);
   });
 
-  test("both kinds of case are present", () => {
-    expect(cases.some(({ body }) => body.kind === "exchange")).toBe(true);
-    expect(cases.some(({ body }) => body.kind === "stdio")).toBe(true);
+  test("every kind of case is present", () => {
+    for (const kind of ["exchange", "stdio", "digest", "seal", "open"]) {
+      expect(
+        cases.some(({ body }) => body.kind === kind),
+        kind,
+      ).toBe(true);
+    }
+  });
+
+  test("input is asked in both eras, the legacy client answers, and every refusal of a sealed state is exercised", () => {
+    const text = JSON.stringify(cases.map(({ body }) => body));
+    expect(text).toContain('"resultType":"input_required"');
+    expect(cases.some(({ body }) => body.clientReplies !== undefined)).toBe(true);
+    const reasons = new Set(
+      cases
+        .map(({ body }) => (body.expect as { reason?: string }).reason)
+        .filter((r) => r !== undefined),
+    );
+    expect([...reasons].sort()).toEqual(["bad-mac", "expired", "malformed", "mismatch"]);
+    expect(
+      cases.some(({ body }) => (body.expect as { payload?: unknown }).payload !== undefined),
+    ).toBe(true);
   });
 
   test("both eras, a refusing server and a cancellation are exercised", () => {
@@ -202,7 +316,7 @@ describe("the corpus cannot pass vacuously", () => {
   test("every error code of §8 is expected by at least one case", () => {
     const codes = new Set<number>();
     for (const { body } of cases) {
-      for (const message of body.expect) {
+      for (const message of messagesOf(body)) {
         const error = (message as { error?: { code: number } }).error;
         if (error !== undefined) codes.add(error.code);
       }
@@ -215,14 +329,14 @@ describe("the corpus cannot pass vacuously", () => {
   test("no stdio case expects two messages with one id, so matching by id is exact", () => {
     for (const { entry, body } of cases) {
       if (body.kind !== "stdio") continue;
-      const ids = body.expect.map((m) => JSON.stringify((m as { id?: unknown }).id ?? null));
+      const ids = messagesOf(body).map((m) => JSON.stringify((m as { id?: unknown }).id ?? null));
       expect(new Set(ids).size, entry.file).toBe(ids.length);
     }
   });
 
   test("a case that expects nothing still sent something to the server", () => {
     for (const { entry, body } of cases) {
-      if (body.expect.length > 0) continue;
+      if (!Array.isArray(body.expect) || body.expect.length > 0) continue;
       expect((body.messages ?? body.chunks ?? []).length, entry.file).toBeGreaterThan(0);
     }
   });
@@ -265,11 +379,13 @@ describe("the corpus cannot pass vacuously", () => {
 describe("the reference binding satisfies every case", () => {
   for (const { entry, body } of cases) {
     test(`${entry.file}: ${body.description}`, async () => {
-      if (body.kind === "stdio") {
+      if (body.kind === "digest" || body.kind === "seal" || body.kind === "open") {
+        expect(runState(body)).toEqual(body.expect);
+      } else if (body.kind === "stdio") {
         // §7: answers to different requests may arrive in any order, so they are matched by id.
-        expect(byId(await runStdio(body))).toEqual(byId(body.expect));
+        expect(byId(await runStdio(body))).toEqual(byId(messagesOf(body)));
       } else {
-        expect(await runExchange(body)).toEqual(body.expect);
+        expect(await runExchange(body)).toEqual(messagesOf(body));
       }
       recorder.record(entry.file);
     });

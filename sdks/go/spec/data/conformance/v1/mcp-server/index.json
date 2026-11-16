@@ -220,6 +220,111 @@
       "file": "cases/stdio-unterminated-last-line.json",
       "section": "§7",
       "reason": "A message with no newline before the input ends was never delivered whole."
+    },
+    {
+      "file": "cases/input-modern-first-call.json",
+      "section": "§10",
+      "reason": "The protocol's interim result: resultType input_required, the requests as a map, and the handler's state."
+    },
+    {
+      "file": "cases/input-modern-retry.json",
+      "section": "§10",
+      "reason": "The retry is an ordinary new request: the answers and the state reach the handler exactly as the client sent them."
+    },
+    {
+      "file": "cases/input-modern-retry-without-state.json",
+      "section": "§10",
+      "reason": "A result that carried no requestState is retried without one, and the layer must not demand it."
+    },
+    {
+      "file": "cases/input-modern-undeclared-capability.json",
+      "section": "§10",
+      "reason": "A server must not send an input request the client did not declare: the call fails as a tool error instead."
+    },
+    {
+      "file": "cases/input-modern-url-mode.json",
+      "section": "§10",
+      "reason": "url mode needs the url capability; form support does not imply it."
+    },
+    {
+      "file": "cases/input-neither-member.json",
+      "section": "§10",
+      "reason": "An interim result must carry inputRequests or requestState; one that carries neither is a handler error, in both eras."
+    },
+    {
+      "file": "cases/input-legacy-shim.json",
+      "section": "§10",
+      "reason": "On a legacy connection the layer asks the client itself, with the old server-to-client request, and runs the handler again."
+    },
+    {
+      "file": "cases/input-legacy-error-reply-is-a-cancel.json",
+      "section": "§10",
+      "reason": "A JSON-RPC error from the client counts as the client cancelling the question."
+    },
+    {
+      "file": "cases/input-legacy-undeclared-capability.json",
+      "section": "§10",
+      "reason": "A legacy client that declared no elicitation is never sent the request."
+    },
+    {
+      "file": "cases/state-digest.json",
+      "section": "§11",
+      "reason": "A request digest is the SHA-256 of the canonical JSON of the tool name and the arguments, so member order does not matter."
+    },
+    {
+      "file": "cases/state-seal.json",
+      "section": "§11",
+      "reason": "The sealed form, byte for byte: base64url of the canonical body, a dot, base64url of HMAC-SHA-256 over that body."
+    },
+    {
+      "file": "cases/state-open.json",
+      "section": "§11",
+      "reason": "A state opens for the principal and the call it was sealed for, before it expires."
+    },
+    {
+      "file": "cases/state-open-last-millisecond.json",
+      "section": "§11",
+      "reason": "The lifetime is exclusive at its end: one millisecond before it, the state still opens."
+    },
+    {
+      "file": "cases/state-expired.json",
+      "section": "§11",
+      "reason": "At its expiry time exactly, the state is refused."
+    },
+    {
+      "file": "cases/state-other-principal.json",
+      "section": "§11",
+      "reason": "A state presented by another principal is a mismatch."
+    },
+    {
+      "file": "cases/state-other-request.json",
+      "section": "§11",
+      "reason": "A state presented with a call it was not issued for is a mismatch: here one argument differs."
+    },
+    {
+      "file": "cases/state-tampered-body.json",
+      "section": "§11",
+      "reason": "A body changed after sealing fails the MAC, whatever the change claims."
+    },
+    {
+      "file": "cases/state-other-key.json",
+      "section": "§11",
+      "reason": "A state sealed under another key fails the MAC."
+    },
+    {
+      "file": "cases/state-truncated.json",
+      "section": "§11",
+      "reason": "A string that is not two base64url parts is malformed, and is refused before any MAC is computed."
+    },
+    {
+      "file": "cases/state-mac-before-expiry.json",
+      "section": "§11",
+      "reason": "The checks run in order: a forged state that is also expired is reported as forged, so nothing in an unauthenticated body is ever acted on."
+    },
+    {
+      "file": "cases/state-expiry-before-binding.json",
+      "section": "§11",
+      "reason": "Expiry is checked before the binding."
     }
   ]
 }

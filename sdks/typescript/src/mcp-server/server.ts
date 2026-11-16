@@ -6,6 +6,7 @@
  * messages to send. `serveStdio` (`./stdio.js`) is the stdio binding around it.
  */
 
+import { type McpInputRequest, McpInputRequired } from "./input.js";
 import {
   isMcpJsonObject,
   LEGACY_PROTOCOL_VERSIONS,
@@ -21,6 +22,7 @@ import {
   META_SERVER_INFO,
   MODERN_PROTOCOL_VERSION,
 } from "./protocol.js";
+import { McpStateError } from "./state.js";
 
 /** @moduleStability experimental */
 
@@ -44,6 +46,13 @@ export interface McpToolContext {
   readonly clientCapabilities: McpJsonObject;
   /** Aborted when the client cancels this request, or the connection closes. */
   readonly signal: AbortSignal;
+  /**
+   * The client's answers to an earlier `inputRequired`, under the keys the handler chose. Present
+   * only on the retry. The values are whatever the client sent, unvalidated.
+   */
+  readonly inputResponses?: McpJsonObject;
+  /** The `requestState` of an earlier `inputRequired`, as the client returned it. UNTRUSTED. */
+  readonly requestState?: string;
 }
 
 /** A tool definition. `inputSchema` is a JSON Schema object the layer sends but does NOT enforce. */
@@ -57,7 +66,10 @@ export interface McpTool {
    * `args` is whatever the client sent, unvalidated: narrow it. Throw `McpToolError` to answer the
    * model with a message of your choosing; any other throw is answered as `Tool failed`.
    */
-  handler(args: unknown, ctx: McpToolContext): Promise<McpToolResult> | McpToolResult;
+  handler(
+    args: unknown,
+    ctx: McpToolContext,
+  ): Promise<McpToolResult | McpInputRequired> | McpToolResult | McpInputRequired;
 }
 
 /**
@@ -83,11 +95,22 @@ export interface McpServerOptions {
   tools?: () => readonly McpTool[] | Promise<readonly McpTool[]>;
   /** How long a modern client may cache `tools/list`. Default: not at all, and privately. */
   toolsCache?: { ttlMs: number; cacheScope: "public" | "private" };
+  /**
+   * On a LEGACY connection, deliver a handler's `inputRequired` as the old server-to-client
+   * request and run the handler again with the answers. Default true. With `false`, a handler
+   * that asks for input on a legacy connection fails as a tool error.
+   */
+  legacyInputShim?: boolean;
 }
 
 export interface McpConnectOptions {
   /** `reject` refuses the `initialize` handshake: the connection serves 2026-07-28 only. */
   legacy?: "serve" | "reject";
+  /**
+   * How long a legacy client has to answer one input request before it counts as a cancel, in
+   * milliseconds. Default 600000.
+   */
+  legacyInputTimeoutMs?: number;
 }
 
 /** One client connection. */
@@ -115,6 +138,13 @@ export interface McpServer {
 
 const TOOL_FAILED = "Tool failed";
 const DISCOVER_TTL_MS = 3_600_000;
+const MAX_LEGACY_INPUT_ROUNDS = 5;
+const DEFAULT_LEGACY_INPUT_TIMEOUT_MS = 600_000;
+/**
+ * The answer the layer makes up when the client gave none. A NEW object each time: it is handed
+ * to a handler, and a handler that changed a shared one would change every later answer.
+ */
+const cancelled = (): McpJsonObject => ({ action: "cancel" });
 
 type Reply = (message: McpOutgoingMessage) => void;
 
@@ -164,6 +194,36 @@ function toolResultBody(result: unknown): McpJsonObject {
   return body;
 }
 
+function errorBody(text: string): McpJsonObject {
+  return { content: [{ type: "text", text }], isError: true };
+}
+
+/**
+ * Why an input request may not be sent, or undefined when it may. The protocol requires at least
+ * one of the two members, and forbids asking for what the client did not declare.
+ */
+function inputRefusal(asked: McpInputRequired, capabilities: McpJsonObject): string | undefined {
+  const requests = Object.values(asked.inputRequests ?? {});
+  if (requests.length === 0 && asked.requestState === undefined) {
+    return "An input request must carry inputRequests or requestState";
+  }
+  const elicitation = capabilities["elicitation"];
+  for (const request of requests) {
+    if (request.method !== "elicitation/create" || !isMcpJsonObject(request.params)) {
+      return "Only elicitation/create can be asked of the client";
+    }
+    if (!isMcpJsonObject(elicitation)) return "This client cannot be asked for input";
+    const mode = request.params["mode"] ?? "form";
+    // An EMPTY elicitation capability is how the 2025 revisions declared form support.
+    const declared =
+      mode === "form"
+        ? "form" in elicitation || Object.keys(elicitation).length === 0
+        : mode === "url" && "url" in elicitation;
+    if (!declared) return "This client cannot be asked for input";
+  }
+  return undefined;
+}
+
 function failureBody(thrown: unknown): McpJsonObject {
   const text = thrown instanceof McpToolError ? thrown.message : TOOL_FAILED;
   return { content: [{ type: "text", text }], isError: true };
@@ -187,6 +247,11 @@ export function createMcpServer(options: McpServerOptions): McpServer {
     let legacyClient: LegacyClient | undefined;
     let closed = false;
     const running = new Map<string, AbortController>();
+    /** Legacy input requests the client has not answered yet, by the id the layer gave them. */
+    const awaiting = new Map<string, (answer: McpJsonObject) => void>();
+    let inputSequence = 0;
+    const legacyShim = options.legacyInputShim !== false;
+    const inputTimeoutMs = connectOptions.legacyInputTimeoutMs ?? DEFAULT_LEGACY_INPUT_TIMEOUT_MS;
 
     const supported = (): string[] =>
       serveLegacy
@@ -234,6 +299,80 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       succeed(id, body, modern);
     }
 
+    /** Asks a legacy client one question and resolves with its answer, or a cancel. */
+    function askLegacy(request: McpInputRequest, signal: AbortSignal): Promise<McpJsonObject> {
+      // A call already cancelled asks nothing: the client has stopped listening for it.
+      if (signal.aborted) return Promise.resolve(cancelled());
+      return new Promise((resolve) => {
+        inputSequence += 1;
+        const requestId = `nimbus-sdk-${String(inputSequence)}`;
+        const key = idKey(requestId);
+        const settle = (answer: McpJsonObject): void => {
+          if (!awaiting.delete(key)) return;
+          clearTimeout(timer);
+          signal.removeEventListener("abort", onAbort);
+          resolve(answer);
+        };
+        const onAbort = (): void => settle(cancelled());
+        const timer = setTimeout(() => settle(cancelled()), inputTimeoutMs);
+        awaiting.set(key, settle);
+        signal.addEventListener("abort", onAbort, { once: true });
+        reply({ jsonrpc: "2.0", id: requestId, method: request.method, params: request.params });
+      });
+    }
+
+    /**
+     * Runs the handler, and on a legacy connection keeps running it while it asks for input. The
+     * returned body is what the call answers with: a tool result, or (modern era) the
+     * `input_required` interim result.
+     */
+    async function runHandler(
+      tool: McpTool,
+      args: unknown,
+      params: McpJsonObject,
+      base: Omit<McpToolContext, "signal">,
+      signal: AbortSignal,
+    ): Promise<McpJsonObject> {
+      const modern = base.era === "modern";
+      // A modern retry carries the answers and the state back in the request itself.
+      const responses = params["inputResponses"];
+      const state = params["requestState"];
+      let ctx: McpToolContext = {
+        ...base,
+        signal,
+        ...(modern && isMcpJsonObject(responses) ? { inputResponses: responses } : {}),
+        ...(modern && typeof state === "string" ? { requestState: state } : {}),
+      };
+      for (let round = 1; ; round += 1) {
+        const result = await tool.handler(args, ctx);
+        if (!(result instanceof McpInputRequired)) return toolResultBody(result);
+        const refusal = inputRefusal(result, base.clientCapabilities);
+        if (refusal !== undefined) return errorBody(refusal);
+        const entries = Object.entries(result.inputRequests ?? {});
+        if (modern) {
+          const body: McpJsonObject = { resultType: "input_required" };
+          if (entries.length > 0) body["inputRequests"] = Object.fromEntries(entries);
+          if (result.requestState !== undefined) body["requestState"] = result.requestState;
+          return body;
+        }
+        // Cancelled while the handler ran: no further round. The call is not answered at all.
+        if (signal.aborted) return errorBody(TOOL_FAILED);
+        if (!legacyShim) return errorBody("This server cannot ask a legacy client for input");
+        if (entries.length === 0)
+          return errorBody("An input request must ask the client something");
+        if (round > MAX_LEGACY_INPUT_ROUNDS) return errorBody("Too many input requests");
+        const answers = await Promise.all(
+          entries.map(async ([key, request]) => [key, await askLegacy(request, signal)] as const),
+        );
+        ctx = {
+          ...base,
+          signal,
+          inputResponses: Object.fromEntries(answers),
+          ...(result.requestState === undefined ? {} : { requestState: result.requestState }),
+        };
+      }
+    }
+
     async function callTool(
       id: McpRequestId,
       params: McpJsonObject,
@@ -268,10 +407,13 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         let body: McpJsonObject;
         try {
           const args = params["arguments"] === undefined ? {} : params["arguments"];
-          body = toolResultBody(
-            await tool.handler(args, { ...ctxBase, signal: controller.signal }),
-          );
+          body = await runHandler(tool, args, params, ctxBase, controller.signal);
         } catch (thrown) {
+          if (thrown instanceof McpStateError) {
+            // A state that fails verification is a protocol error, never a result (spec §11).
+            if (!cancelled()) fail(id, MCP_ERROR_CODES.invalidParams, "Invalid request state");
+            return;
+          }
           body = failureBody(thrown);
         }
         // A cancelled request gets no response (the client has stopped waiting for one).
@@ -409,6 +551,16 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       fail(id, MCP_ERROR_CODES.methodNotFound, `Method not found: ${method}`);
     }
 
+    /** A response from the client: the answer to a legacy input request, or nothing we asked. */
+    function acceptResponse(message: McpJsonObject): void {
+      const id = message["id"];
+      if (!isRequestId(id)) return;
+      const settle = awaiting.get(idKey(id));
+      if (settle === undefined) return;
+      // A JSON-RPC error, or a result that is not an object, counts as the client cancelling.
+      settle(isMcpJsonObject(message["result"]) ? message["result"] : cancelled());
+    }
+
     function receive(message: unknown): Promise<void> {
       if (closed) return Promise.resolve();
       if (!isMcpJsonObject(message)) {
@@ -420,6 +572,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       if (typeof method !== "string") {
         // With an id this is a RESPONSE: it is never answered. With neither, it is not JSON-RPC.
         if (!hasId) fail(null, MCP_ERROR_CODES.invalidRequest, "Invalid request");
+        else acceptResponse(message);
         return Promise.resolve();
       }
       const params = message["params"];
@@ -452,6 +605,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         closed = true;
         for (const controller of running.values()) controller.abort();
         running.clear();
+        for (const settle of [...awaiting.values()]) settle(cancelled());
       },
       get era() {
         return era;

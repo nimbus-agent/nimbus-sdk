@@ -1,0 +1,16 @@
+{
+  "description": "a state sealed under another key",
+  "kind": "open",
+  "key": "0101010101010101010101010101010101010101010101010101010101010101",
+  "now": 1800000000001,
+  "sealed": "eyJkIjoiNWNkODA4ZDAwODI4Y2FmYTFiMjdjYjg4ODZjMzNhZjQ3YWVlMWU1ODMxZWEwZDIzM2UxNjQwOWNmMDQxYmIwMSIsImUiOjE4MDAwMDAwNjAwMDAsInAiOiJhbGljZSIsInMiOnsibm9uY2UiOiJuLTEifSwidiI6MX0.p5MOS3nSHpFLAJ1oihWfwES_0r6WJGvJz6-AGdQg2Sk",
+  "principal": "alice",
+  "tool": "delete",
+  "arguments": {
+    "id": "a",
+    "force": false
+  },
+  "expect": {
+    "reason": "bad-mac"
+  }
+}

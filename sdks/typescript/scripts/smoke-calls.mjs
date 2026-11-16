@@ -496,6 +496,39 @@ export const SMOKE_CALLS = [
       }
     },
   },
+  {
+    module: "mcp-server/input",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, _signing, _sync, mcpServer) => {
+      const question = mcpServer.inputRequired.elicit({
+        message: "Proceed?",
+        requestedSchema: { type: "object" },
+      });
+      const asked = mcpServer.inputRequired({ inputRequests: { confirm: question } });
+      if (!(asked instanceof mcpServer.McpInputRequired)) {
+        throw new Error("inputRequired did not return an McpInputRequired");
+      }
+      if (asked.inputRequests?.confirm?.params?.mode !== "form") {
+        throw new Error(`inputRequired.elicit built ${JSON.stringify(question)}`);
+      }
+    },
+  },
+  {
+    module: "mcp-server/state",
+    run: (_sdk, _testing, _ipc, _connectorKit, _diagnostics, _signing, _sync, mcpServer) => {
+      const key = new Uint8Array(32).fill(7);
+      const binding = { principal: "smoke", requestDigest: mcpServer.requestDigest("t", { a: 1 }) };
+      const sealed = mcpServer.sealState(key, { n: 1 }, { ...binding, ttlMs: 60_000 });
+      const opened = mcpServer.openState(key, sealed, binding);
+      if (opened?.n !== 1) throw new Error(`openState returned ${JSON.stringify(opened)}`);
+      let reason;
+      try {
+        mcpServer.openState(key, sealed, { ...binding, principal: "other" });
+      } catch (e) {
+        reason = e instanceof mcpServer.McpStateError ? e.reason : String(e);
+      }
+      if (reason !== "mismatch") throw new Error(`another principal opened it: ${String(reason)}`);
+    },
+  },
 ];
 
 /** A minimal manifest that satisfies runContractTests. */

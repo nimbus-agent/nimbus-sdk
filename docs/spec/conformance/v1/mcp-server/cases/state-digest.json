@@ -1,0 +1,12 @@
+{
+  "description": "the digest of one call, with its members in another order",
+  "kind": "digest",
+  "tool": "delete",
+  "arguments": {
+    "force": false,
+    "id": "a"
+  },
+  "expect": {
+    "digest": "5cd808d00828cafa1b27cb8886c33af47aee1e5831ea0d233e16409cf041bb01"
+  }
+}

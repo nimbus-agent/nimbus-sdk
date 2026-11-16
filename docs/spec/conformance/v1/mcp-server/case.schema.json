@@ -2,23 +2,44 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/nimbus-agent/nimbus-sdk/main/docs/spec/conformance/v1/mcp-server/case.schema.json",
   "title": "mcp-server conformance case",
-  "description": "One conversation with the conformance fixture server of mcp-server.md §9. `kind` selects how the client's side is given: `exchange` as parsed JSON-RPC messages, `stdio` as the raw chunks written to the server's input. `expect` is the exact list of messages the server sends, in order. Each branch requires its own input AND forbids the other kind's.",
+  "description": "One case against the conformance fixture of mcp-server.md §9. `kind` selects what is exercised: `exchange` (the client's messages as parsed JSON-RPC) and `stdio` (the raw chunks written to the server's input) are conversations, whose `expect` is the list of messages the server sends; `digest`, `seal` and `open` are single calls into the sealed-state functions of §11, whose `expect` is one object. Each branch requires its own members AND forbids the others'.",
   "type": "object",
-  "required": ["description", "kind", "expect"],
+  "required": [
+    "description",
+    "kind",
+    "expect"
+  ],
   "additionalProperties": false,
   "properties": {
-    "description": { "type": "string", "pattern": "\\S" },
-    "kind": { "enum": ["exchange", "stdio"] },
+    "description": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "kind": {
+      "enum": [
+        "exchange",
+        "stdio",
+        "digest",
+        "seal",
+        "open"
+      ]
+    },
     "server": {
       "type": "object",
       "additionalProperties": false,
       "description": "How the fixture server differs from §9's default. Absent: it serves the legacy era and has no instructions.",
       "properties": {
         "legacy": {
-          "enum": ["serve", "reject"],
+          "enum": [
+            "serve",
+            "reject"
+          ],
           "description": "`reject`: the server refuses the legacy era (§3)."
         },
-        "instructions": { "type": "string", "pattern": "\\S" }
+        "instructions": {
+          "type": "string",
+          "pattern": "\\S"
+        }
       }
     },
     "concurrent": {
@@ -33,45 +54,427 @@
     "chunks": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string" },
+      "items": {
+        "type": "string"
+      },
       "description": "stdio: the strings written to the server's input, one read each. A message boundary is a newline, wherever the chunk boundaries fall."
     },
     "expect": {
-      "type": "array",
-      "description": "The messages the server sends, in order. An error carries `message` only for code -32022 (§8, §9).",
-      "items": {
+      "description": "A list of messages for a conversation; one object for a sealed-state call."
+    },
+    "clientReplies": {
+      "type": "object",
+      "description": "exchange: how the client answers a REQUEST the server sends it (legacy era, §10), by that request's id. Each value has `result` or `error`. A request with no entry is left unanswered.",
+      "additionalProperties": {
         "type": "object",
-        "required": ["jsonrpc", "id"],
         "additionalProperties": false,
         "properties": {
-          "jsonrpc": { "const": "2.0" },
-          "id": { "type": ["string", "number", "null"] },
-          "result": { "type": "object" },
+          "result": {},
           "error": {
-            "type": "object",
-            "required": ["code"],
-            "additionalProperties": false,
-            "properties": {
-              "code": { "enum": [-32700, -32600, -32601, -32602, -32603, -32022] },
-              "message": { "const": "Unsupported protocol version" },
-              "data": { "type": "object" }
-            }
+            "type": "object"
           }
         },
-        "oneOf": [{ "required": ["result"] }, { "required": ["error"] }]
+        "oneOf": [
+          {
+            "required": [
+              "result"
+            ]
+          },
+          {
+            "required": [
+              "error"
+            ]
+          }
+        ]
       }
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2}){32,}$",
+      "description": "seal, open: the key, as hex."
+    },
+    "now": {
+      "type": "integer",
+      "description": "seal, open: the clock, in milliseconds since the epoch."
+    },
+    "payload": {
+      "description": "seal: the JSON value to seal."
+    },
+    "principal": {
+      "type": "string"
+    },
+    "ttlMs": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tool": {
+      "type": "string",
+      "description": "digest, seal, open: the tool name of the call the state is bound to."
+    },
+    "arguments": {
+      "description": "digest, seal, open: the arguments of that call."
+    },
+    "sealed": {
+      "type": "string",
+      "description": "open: the string presented."
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "kind": { "const": "exchange" } }, "required": ["kind"] },
-      "then": { "required": ["messages"], "properties": { "chunks": false } }
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "exchange"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "messages"
+        ],
+        "properties": {
+          "chunks": false,
+          "key": false,
+          "now": false,
+          "payload": false,
+          "principal": false,
+          "ttlMs": false,
+          "tool": false,
+          "arguments": false,
+          "sealed": false,
+          "expect": {
+            "type": "array",
+            "description": "The messages the server sends, in order. An error carries `message` only for code -32022 (§8, §9). A message with `method` is a request the server sends the client (legacy era, §10).",
+            "items": {
+              "type": "object",
+              "required": [
+                "jsonrpc",
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "jsonrpc": {
+                  "const": "2.0"
+                },
+                "id": {
+                  "type": [
+                    "string",
+                    "number",
+                    "null"
+                  ]
+                },
+                "result": {
+                  "type": "object"
+                },
+                "method": {
+                  "const": "elicitation/create"
+                },
+                "params": {
+                  "type": "object"
+                },
+                "error": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        -32700,
+                        -32600,
+                        -32601,
+                        -32602,
+                        -32603,
+                        -32022
+                      ]
+                    },
+                    "message": {
+                      "const": "Unsupported protocol version"
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "oneOf": [
+                {
+                  "required": [
+                    "result"
+                  ]
+                },
+                {
+                  "required": [
+                    "error"
+                  ]
+                },
+                {
+                  "required": [
+                    "method",
+                    "params"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
     },
     {
-      "if": { "properties": { "kind": { "const": "stdio" } }, "required": ["kind"] },
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "stdio"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
       "then": {
-        "required": ["chunks"],
-        "properties": { "messages": false, "concurrent": false, "server": false }
+        "required": [
+          "chunks"
+        ],
+        "properties": {
+          "messages": false,
+          "concurrent": false,
+          "server": false,
+          "clientReplies": false,
+          "key": false,
+          "now": false,
+          "payload": false,
+          "principal": false,
+          "ttlMs": false,
+          "tool": false,
+          "arguments": false,
+          "sealed": false,
+          "expect": {
+            "type": "array",
+            "description": "The messages the server sends, in order. An error carries `message` only for code -32022 (§8, §9). A message with `method` is a request the server sends the client (legacy era, §10).",
+            "items": {
+              "type": "object",
+              "required": [
+                "jsonrpc",
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "jsonrpc": {
+                  "const": "2.0"
+                },
+                "id": {
+                  "type": [
+                    "string",
+                    "number",
+                    "null"
+                  ]
+                },
+                "result": {
+                  "type": "object"
+                },
+                "method": {
+                  "const": "elicitation/create"
+                },
+                "params": {
+                  "type": "object"
+                },
+                "error": {
+                  "type": "object",
+                  "required": [
+                    "code"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "enum": [
+                        -32700,
+                        -32600,
+                        -32601,
+                        -32602,
+                        -32603,
+                        -32022
+                      ]
+                    },
+                    "message": {
+                      "const": "Unsupported protocol version"
+                    },
+                    "data": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "oneOf": [
+                {
+                  "required": [
+                    "result"
+                  ]
+                },
+                {
+                  "required": [
+                    "error"
+                  ]
+                },
+                {
+                  "required": [
+                    "method",
+                    "params"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "digest"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "tool",
+          "arguments"
+        ],
+        "properties": {
+          "server": false,
+          "concurrent": false,
+          "messages": false,
+          "chunks": false,
+          "clientReplies": false,
+          "key": false,
+          "now": false,
+          "payload": false,
+          "principal": false,
+          "ttlMs": false,
+          "sealed": false,
+          "expect": {
+            "type": "object",
+            "required": [
+              "digest"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "digest": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "seal"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "key",
+          "now",
+          "payload",
+          "principal",
+          "ttlMs",
+          "tool",
+          "arguments"
+        ],
+        "properties": {
+          "server": false,
+          "concurrent": false,
+          "messages": false,
+          "chunks": false,
+          "clientReplies": false,
+          "sealed": false,
+          "expect": {
+            "type": "object",
+            "required": [
+              "sealed"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "sealed": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+$"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "open"
+          }
+        },
+        "required": [
+          "kind"
+        ]
+      },
+      "then": {
+        "required": [
+          "key",
+          "now",
+          "sealed",
+          "principal",
+          "tool",
+          "arguments"
+        ],
+        "properties": {
+          "server": false,
+          "concurrent": false,
+          "messages": false,
+          "chunks": false,
+          "clientReplies": false,
+          "payload": false,
+          "ttlMs": false,
+          "expect": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "payload": {},
+              "reason": {
+                "enum": [
+                  "malformed",
+                  "bad-mac",
+                  "expired",
+                  "mismatch"
+                ]
+              }
+            },
+            "oneOf": [
+              {
+                "required": [
+                  "payload"
+                ]
+              },
+              {
+                "required": [
+                  "reason"
+                ]
+              }
+            ]
+          }
+        }
       }
     }
   ]

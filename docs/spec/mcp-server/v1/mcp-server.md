@@ -181,7 +181,7 @@ The server MUST NOT write anything but MCP messages to its output.
 | `-32700` | A line that is not JSON (§7) |
 | `-32600` | Not a JSON-RPC request, response or notification (§2); a line over the limit (§7) |
 | `-32601` | A method this era does not have (§3, §4, §5) |
-| `-32602` | A request missing what its era requires (§4, §5); a bad tool name (§6) |
+| `-32602` | A request missing what its era requires (§4, §5); a bad tool name (§6); a request state that fails verification (§11) |
 | `-32603` | The tool set cannot be read (§6) |
 | `-32022` | A protocol version the server does not serve (§3, §4) |
 
@@ -203,7 +203,20 @@ The corpus runs against one fixed server so that a case is data and nothing else
 - tool `unexpected-failure` (description `Fails unexpectedly`, input schema `{"type":"object"}`):
   fails with an undeclared error whose message is `ENOENT /home/alice/.ssh/id_rsa`;
 - tool `wait` (description `Waits until cancelled`, input schema `{"type":"object"}`): does not
-  return until its call is cancelled.
+  return until its call is cancelled;
+- tool `ask` (description `Asks the client to confirm`, input schema `{"type":"object"}`): when
+  the call carries no input responses it asks for input (§10) with one request, key `confirm`,
+  a form-mode `elicitation/create` with message `Proceed?` and requested schema
+  `{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}`, and the
+  request state `state-1`; when it carries them it returns one text block holding the JSON
+  serialization of the two-element array of the responses and the request state (`null` when
+  there is none);
+- tool `ask-url` (description `Asks the client to open a page`, input schema
+  `{"type":"object"}`): always asks for input with one request, key `open`, a url-mode
+  `elicitation/create` with message `Open the page` and url `https://example.com/confirm`, and
+  no request state;
+- tool `ask-nothing` (description `Asks for input without asking anything`, input schema
+  `{"type":"object"}`): asks for input with no requests and no request state.
 
 An `exchange` case gives the client's messages in order; each is delivered after the previous
 one has been fully handled, unless the case is `concurrent`, in which case all are delivered
@@ -213,3 +226,90 @@ for an `exchange` case, and as a set for a `stdio` case (§7 lets answers to dif
 arrive in any order; no `stdio` case expects two messages with the same `id`),
 with one allowance from §8: an error's `message` is compared only for code `-32022`, and an
 expected error otherwise carries no `message`.
+
+An `exchange` case may carry `clientReplies`: how the client answers a request the SERVER sends
+it (§10, legacy era), keyed by that request's `id`. The answer is delivered as soon as the
+request is sent. A request with no entry is never answered.
+
+A `digest`, `seal` or `open` case is one call into the functions of §11 and its `expect` is one
+object: `{"digest"}`, `{"sealed"}`, and `{"payload"}` or `{"reason"}`. `key` is hex and `now`
+is the clock in milliseconds; the request digest of a `seal` or `open` case is that of its `tool`
+and `arguments`.
+
+## §10 Input requests
+
+A tool handler MAY, instead of a result, ask the client for input: a map of requests keyed by
+names the handler chooses, an opaque request state, or both. `elicitation/create` is the only
+request this layer sends.
+
+Before anything is sent, in both eras:
+
+- An input request with no requests and no request state MUST be answered as a tool error
+  (`isError: true`, §6) with the text `An input request must carry inputRequests or requestState`.
+- A server MUST NOT ask for what the client did not declare. A form-mode request (`params.mode`
+  absent or `form`) needs the client capability `elicitation.form`, or an `elicitation` object
+  with no members, which is how the revisions before `2025-11-25` declared form support. A
+  url-mode request needs `elicitation.url`. Otherwise the call MUST be answered as a tool error
+  with the text `This client cannot be asked for input`, and nothing is sent to the client.
+
+**Modern era.** The call is answered with the protocol's interim result: `resultType` is
+`input_required`, with `inputRequests` when there is at least one request and `requestState` when
+the handler gave one, inside the envelope of §4. The client retries with an ordinary new
+`tools/call` that carries `params.inputResponses` and, when it was given one, `params.requestState`.
+The layer hands the handler `inputResponses` when it is an object and `requestState` when it is a
+string, exactly as sent, and ignores either member otherwise. Both are the client's data: a
+handler MUST treat them as untrusted (§11).
+
+**Legacy era (OURS).** The older revisions have no interim result, so the layer asks the client
+itself and runs the handler again:
+
+1. For each request it sends the client a JSON-RPC request with that `method` and `params` and an
+   `id` of the string `nimbus-sdk-<n>`, where `n` counts from 1 on the connection.
+2. The `result` of the client's response is that request's answer. A JSON-RPC error from the
+   client, no response within the timeout (ten minutes unless configured), and a cancellation of
+   the call each count as the answer `{"action":"cancel"}`.
+3. The handler runs again with the answers under the handler's keys and with the request state it
+   returned. On a legacy connection the request state never reaches the client.
+
+A handler MAY ask again. After five rounds in one call the call MUST be answered as a tool error.
+A legacy input request that carries a request state but no requests MUST be answered as a tool
+error: there is nothing to ask. A server MAY be built without this behaviour, and then every
+input request on a legacy connection is a tool error.
+
+## §11 Sealed request state
+
+In the modern era the request state travels through the client, and the protocol requires a server
+to treat it as attacker-controlled. This section defines a tamper-evident form for it.
+
+**The request digest** of a call is the lowercase hex SHA-256 of the UTF-8 canonical JSON (the
+[canonicalization contract](../../signing/v1/canonical-json.md)) of `{"arguments": <arguments>, "tool": <tool name>}`. Absent arguments
+are `null`. The same call with its members in another order has the same digest.
+
+**Sealing.** Given a key of at least 32 bytes, a JSON payload, a principal (a string naming who the
+state is issued to), a lifetime in milliseconds and a request digest, the body is the canonical
+JSON of
+
+```json
+{ "v": 1, "p": "<principal>", "d": "<request digest>", "e": <now + lifetime, ms since the epoch>, "s": <payload> }
+```
+
+and the sealed state is `base64url(body) + "." + base64url(HMAC-SHA-256(key, body))`, both parts
+without padding.
+
+**Opening** MUST check, in this order, and refuse at the first that fails:
+
+1. `malformed`: the value is not a string of exactly two base64url parts separated by one `.`, or
+   the body is not UTF-8.
+2. `bad-mac`: the MAC, compared in constant time, is not the HMAC-SHA-256 of the body under the
+   key. Nothing inside the body is read before this check passes.
+3. `malformed`: the authentic body is not an object with `v` equal to `1` and a numeric `e`.
+4. `expired`: the clock is at or past `e`.
+5. `mismatch`: `p` is not the principal presenting it, or `d` is not the digest of the call it is
+   presented with.
+
+Otherwise the result is `s`. A refused state MUST be answered with error `-32602`, never with a
+tool result, and the reason MUST NOT be sent to the client.
+
+A sealed state is not encrypted: whoever holds it can read the payload, so it MUST NOT hold a
+secret. It is not single use: a valid state can be presented again until it expires. A handler
+that must not act twice keeps a nonce in the payload and remembers the nonces it has spent.

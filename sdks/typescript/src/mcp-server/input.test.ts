@@ -476,6 +476,56 @@ describe("input requests in the legacy era (the shim)", () => {
     expect(h.sent).toHaveLength(1);
   });
 
+  test("a handler that asks again after its call was cancelled sends the client nothing more", async () => {
+    let runs = 0;
+    const again: McpTool = {
+      name: "again",
+      description: "Always asks",
+      inputSchema: { type: "object" },
+      handler: () => {
+        runs += 1;
+        return inputRequired({ inputRequests: { confirm: QUESTION } });
+      },
+    };
+    const h = await openLegacy([again]);
+    const call = h.connection.receive(legacyCall(1, "again"));
+    for (let i = 0; i < 50 && h.sent.length === 0; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    expect(h.sent).toHaveLength(1);
+    await h.connection.receive({
+      jsonrpc: "2.0",
+      method: "notifications/cancelled",
+      params: { requestId: 1 },
+    });
+    await call;
+    // The handler ran again with the cancel, asked again, and that question was never sent.
+    expect(runs).toBe(2);
+    expect(h.sent).toHaveLength(1);
+  });
+
+  test("each made-up cancel is its own object: a handler that changes one changes no other", async () => {
+    const seen: unknown[] = [];
+    const mutator: McpTool = {
+      name: "mutate",
+      description: "Changes the answer it was given",
+      inputSchema: { type: "object" },
+      handler: (_args, ctx) => {
+        if (ctx.inputResponses === undefined) {
+          return inputRequired({ inputRequests: { confirm: QUESTION } });
+        }
+        const answer = ctx.inputResponses["confirm"] as McpJsonObject;
+        seen.push(answer["action"]);
+        answer["action"] = "decline";
+        return { content: [] };
+      },
+    };
+    const h = await openLegacy([mutator], { elicitation: {} }, {}, 1);
+    await h.connection.receive(legacyCall(1, "mutate"));
+    await h.connection.receive(legacyCall(2, "mutate"));
+    expect(seen).toEqual(["cancel", "cancel"]);
+  });
+
   test("closing the connection releases a waiting call, and other requests are served while one waits", async () => {
     const h = await openLegacy([ASK]);
     const call = h.connection.receive(legacyCall(1, "ask"));

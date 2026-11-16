@@ -140,7 +140,11 @@ const TOOL_FAILED = "Tool failed";
 const DISCOVER_TTL_MS = 3_600_000;
 const MAX_LEGACY_INPUT_ROUNDS = 5;
 const DEFAULT_LEGACY_INPUT_TIMEOUT_MS = 600_000;
-const CANCELLED: McpJsonObject = { action: "cancel" };
+/**
+ * The answer the layer makes up when the client gave none. A NEW object each time: it is handed
+ * to a handler, and a handler that changed a shared one would change every later answer.
+ */
+const cancelled = (): McpJsonObject => ({ action: "cancel" });
 
 type Reply = (message: McpOutgoingMessage) => void;
 
@@ -297,6 +301,8 @@ export function createMcpServer(options: McpServerOptions): McpServer {
 
     /** Asks a legacy client one question and resolves with its answer, or a cancel. */
     function askLegacy(request: McpInputRequest, signal: AbortSignal): Promise<McpJsonObject> {
+      // A call already cancelled asks nothing: the client has stopped listening for it.
+      if (signal.aborted) return Promise.resolve(cancelled());
       return new Promise((resolve) => {
         inputSequence += 1;
         const requestId = `nimbus-sdk-${String(inputSequence)}`;
@@ -307,12 +313,11 @@ export function createMcpServer(options: McpServerOptions): McpServer {
           signal.removeEventListener("abort", onAbort);
           resolve(answer);
         };
-        const onAbort = (): void => settle(CANCELLED);
-        const timer = setTimeout(() => settle(CANCELLED), inputTimeoutMs);
+        const onAbort = (): void => settle(cancelled());
+        const timer = setTimeout(() => settle(cancelled()), inputTimeoutMs);
         awaiting.set(key, settle);
         signal.addEventListener("abort", onAbort, { once: true });
         reply({ jsonrpc: "2.0", id: requestId, method: request.method, params: request.params });
-        if (signal.aborted) settle(CANCELLED);
       });
     }
 
@@ -350,6 +355,8 @@ export function createMcpServer(options: McpServerOptions): McpServer {
           if (result.requestState !== undefined) body["requestState"] = result.requestState;
           return body;
         }
+        // Cancelled while the handler ran: no further round. The call is not answered at all.
+        if (signal.aborted) return errorBody(TOOL_FAILED);
         if (!legacyShim) return errorBody("This server cannot ask a legacy client for input");
         if (entries.length === 0)
           return errorBody("An input request must ask the client something");
@@ -551,7 +558,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       const settle = awaiting.get(idKey(id));
       if (settle === undefined) return;
       // A JSON-RPC error, or a result that is not an object, counts as the client cancelling.
-      settle(isMcpJsonObject(message["result"]) ? message["result"] : CANCELLED);
+      settle(isMcpJsonObject(message["result"]) ? message["result"] : cancelled());
     }
 
     function receive(message: unknown): Promise<void> {
@@ -598,7 +605,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         closed = true;
         for (const controller of running.values()) controller.abort();
         running.clear();
-        for (const settle of [...awaiting.values()]) settle(CANCELLED);
+        for (const settle of [...awaiting.values()]) settle(cancelled());
       },
       get era() {
         return era;

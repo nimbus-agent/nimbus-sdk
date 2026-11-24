@@ -14,11 +14,11 @@ The acceptance tests spawn `python -m nimbus_quickstart_connector.main` as a rea
 package has to be installed before `pytest` will pass. An editable install (`-e`) means you never
 have to reinstall after an edit.
 
-| Command | What it does |
-| --- | --- |
-| `python -m pytest` | Unit tests for your logic, acceptance tests for the wire. |
-| `python -m mypy` | Strict typecheck over `src/` and `tests/`. |
-| `python -m ruff check . && python -m ruff format --check .` | Lint and format. |
+| Command                                                     | What it does                                              |
+| ----------------------------------------------------------- | --------------------------------------------------------- |
+| `python -m pytest`                                          | Unit tests for your logic, acceptance tests for the wire. |
+| `python -m mypy`                                            | Strict typecheck over `src/` and `tests/`.                |
+| `python -m ruff check . && python -m ruff format --check .` | Lint and format.                                          |
 
 ## What is contract, and what is yours
 
@@ -30,13 +30,13 @@ opinion.
 
 ## The files
 
-| File | What it is |
-| --- | --- |
-| `src/nimbus_quickstart_connector/manifest.py` | The manifest the gateway reads, and the tool list. Contract. |
+| File                                          | What it is                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------- |
+| `src/nimbus_quickstart_connector/manifest.py` | The manifest the gateway reads, and the tool list. Contract.                 |
 | `src/nimbus_quickstart_connector/handlers.py` | Your logic. Imports neither SDK, so you can test it without a wire protocol. |
-| `src/nimbus_quickstart_connector/main.py` | The only file that knows a protocol exists: handshake, then MCP. |
-| `tests/test_handlers.py` | Unit tests for your logic. |
-| `tests/test_handshake.py` | Acceptance tests for the wire behaviour. Keep these. |
+| `src/nimbus_quickstart_connector/main.py`     | The only file that knows a protocol exists: handshake, then MCP.             |
+| `tests/test_handlers.py`                      | Unit tests for your logic.                                                   |
+| `tests/test_handshake.py`                     | Acceptance tests for the wire behaviour. Keep these.                         |
 
 ## There is no Python `connector-kit`
 
@@ -60,7 +60,7 @@ read**.
 
 `main.py` therefore does **not** let the MCP transport read raw stdin. `stdio_server` accepts an
 explicit `stdin`, and it is given `_ReplayStdin`: a line source that yields `result.pending`
-first and then keeps pushing the rest of stdin through the *same* reader. Because `stdio_server`
+first and then keeps pushing the rest of stdin through the _same_ reader. Because `stdio_server`
 parses one JSON-RPC message per line, replaying frames costs no protocol knowledge — the template
 never constructs a JSON-RPC message by hand.
 
@@ -88,7 +88,7 @@ the system they came from.
 
 ## Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| `0` | Normal shutdown. |
+| Code | Meaning                                                                     |
+| ---- | --------------------------------------------------------------------------- |
+| `0`  | Normal shutdown.                                                            |
 | `20` | Handshake refused — no contract major in common. `CONTRACT_HANDSHAKE_EXIT`. |

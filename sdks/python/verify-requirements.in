@@ -15,7 +15,7 @@
 #
 # Do NOT use pip-tools: it imports pip internals (`pip._internal.utils.compat`) and
 # breaks against current pip with `ImportError: cannot import name 'stdlib_pkgs'`.
-pypi-attestations==0.0.30
+pypi-attestations==0.0.32
 
 # Declared because verify_publish.py imports it directly, not because anything here
 # lacks it: `sigstore` and `pypi-attestations` both depend on `pyasn1 ~= 0.6` today, so

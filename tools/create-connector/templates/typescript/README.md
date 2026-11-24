@@ -12,12 +12,12 @@ npm start         # node dist/main.js
 The acceptance tests drive the built `dist/main.js` as a process, so `npm test` runs
 `typecheck` and `build` first (`pretest`). There is no way to test a stale `dist/`.
 
-| Script | What it does |
-| --- | --- |
-| `npm run typecheck` | `tsc --noEmit` over everything, **including the test files**. |
-| `npm run build` | `tsc` over the sources only, into `dist/`. Emits nothing if it errors. |
-| `npm test` | `pretest` (typecheck + build), then the tests. |
-| `npm start` | Runs the connector on stdio. |
+| Script              | What it does                                                           |
+| ------------------- | ---------------------------------------------------------------------- |
+| `npm run typecheck` | `tsc --noEmit` over everything, **including the test files**.          |
+| `npm run build`     | `tsc` over the sources only, into `dist/`. Emits nothing if it errors. |
+| `npm test`          | `pretest` (typecheck + build), then the tests.                         |
+| `npm start`         | Runs the connector on stdio.                                           |
 
 `package.json` sets `"private": true` so a scaffold cannot be published to npm by accident.
 Remove that line when you actually want to publish this connector.
@@ -32,15 +32,15 @@ opinion.
 
 ## The files
 
-| File | What it is |
-| --- | --- |
-| `manifest.ts` | The manifest the gateway reads, and the tool list. Contract. |
-| `handlers.ts` | Your logic. Imports neither SDK, so you can test it without a wire protocol. |
-| `main.ts` | The only file that knows a protocol exists: handshake, then MCP. |
-| `handlers.test.ts` | Unit tests for your logic. |
-| `main.test.ts` | Acceptance tests for the wire behaviour. Keep these. |
-| `tsconfig.json` | Typechecks everything, including tests. Emits nothing. |
-| `tsconfig.build.json` | The build: sources only, into `dist/`. |
+| File                  | What it is                                                                   |
+| --------------------- | ---------------------------------------------------------------------------- |
+| `manifest.ts`         | The manifest the gateway reads, and the tool list. Contract.                 |
+| `handlers.ts`         | Your logic. Imports neither SDK, so you can test it without a wire protocol. |
+| `main.ts`             | The only file that knows a protocol exists: handshake, then MCP.             |
+| `handlers.test.ts`    | Unit tests for your logic.                                                   |
+| `main.test.ts`        | Acceptance tests for the wire behaviour. Keep these.                         |
+| `tsconfig.json`       | Typechecks everything, including tests. Emits nothing.                       |
+| `tsconfig.build.json` | The build: sources only, into `dist/`.                                       |
 
 ## Read this before you restructure `main.ts`
 
@@ -56,7 +56,7 @@ read**.
 - a frame the gateway left half-written stays inside the `NdjsonLineReader` you passed in.
 
 `main.ts` therefore does **not** hand `process.stdin` to the MCP transport. It builds a stream
-that yields `result.pending` first and then keeps pushing the rest of stdin through the *same*
+that yields `result.pending` first and then keeps pushing the rest of stdin through the _same_
 reader, and hands the transport that. `StdioServerTransport` takes a readable and a writable, so
 this costs nothing.
 
@@ -82,7 +82,7 @@ the system they came from.
 
 ## Exit codes
 
-| Code | Meaning |
-| --- | --- |
-| `0` | Normal shutdown. |
+| Code | Meaning                                                                     |
+| ---- | --------------------------------------------------------------------------- |
+| `0`  | Normal shutdown.                                                            |
 | `20` | Handshake refused — no contract major in common. `CONTRACT_HANDSHAKE_EXIT`. |

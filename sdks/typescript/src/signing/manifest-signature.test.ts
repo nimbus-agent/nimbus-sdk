@@ -390,4 +390,28 @@ describe("a misbehaving WebCrypto still answers inside §10's closed set", () =>
     expect((caught as SignatureError).reason).toBe("key-unsupported");
     expect((caught as SignatureError).cause).toBe(failure);
   });
+
+  // The measured case: WebCrypto rejects a key by THROWING from importKey. Signing maps that
+  // throw to key-unsupported and verifying maps it to signature-invalid, each keeping it.
+  test("a throw from importKey is key-unsupported when signing, with the original as cause", async () => {
+    const failure = new Error("simulated DataError");
+    override("importKey", (async () => {
+      throw failure;
+    }) as unknown as SubtleCrypto["importKey"]);
+    await expect(signManifest(MANIFEST, priv)).rejects.toMatchObject({
+      reason: "key-unsupported",
+      cause: failure,
+    });
+  });
+
+  test("a throw from importKey is signature-invalid when verifying, with the original as cause", async () => {
+    const failure = new Error("simulated NotSupportedError");
+    override("importKey", (async () => {
+      throw failure;
+    }) as unknown as SubtleCrypto["importKey"]);
+    await expect(verifyManifestSignature(signed, [pub])).rejects.toMatchObject({
+      reason: "signature-invalid",
+      cause: failure,
+    });
+  });
 });

@@ -104,6 +104,13 @@ describe("sealState and openState", () => {
     }
   });
 
+  test("a body that is not valid UTF-8 is malformed, before its MAC is checked", () => {
+    // 0xff never occurs in UTF-8; the MAC part is well-formed base64url but authenticates nothing.
+    const body = base64urlEncode(new Uint8Array([0x7b, 0xff, 0x7d]));
+    const mac = base64urlEncode(new Uint8Array(32));
+    expect(reasonOf(() => openState(KEY, `${body}.${mac}`, OPEN))).toBe("malformed");
+  });
+
   test("an authentic string that is not a version 1 state is malformed", () => {
     const sign = (text: string): string =>
       `${base64urlEncode(new TextEncoder().encode(text))}.${base64urlEncode(createHmac("sha256", KEY).update(text, "utf8").digest())}`;

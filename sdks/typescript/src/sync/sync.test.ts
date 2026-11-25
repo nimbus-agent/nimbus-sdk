@@ -122,6 +122,20 @@ describe("validateSyncResponse", () => {
     expect(validateSyncResponse(ok([{ ...item, modifiedAt: -1 }])).ok).toBe(false);
   });
 
+  test("rejects a url or canonicalUrl that is neither a string nor null", () => {
+    expect(validateSyncResponse(ok([{ ...item, url: null, canonicalUrl: "https://x" }])).ok).toBe(
+      true,
+    );
+    const url = validateSyncResponse(ok([{ ...item, url: 7 }]));
+    expect(url.ok ? undefined : url.reason).toBe(
+      "items[0]: url must be a string or null when present",
+    );
+    const canonical = validateSyncResponse(ok([{ ...item, canonicalUrl: {} }]));
+    expect(canonical.ok ? undefined : canonical.reason).toBe(
+      "items[0]: canonicalUrl must be a string or null when present",
+    );
+  });
+
   test("names the offending item index in the reason", () => {
     const result = validateSyncResponse(ok([item, { ...item, title: 3 }]));
     expect(result.ok).toBe(false);

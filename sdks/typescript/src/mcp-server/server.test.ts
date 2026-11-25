@@ -161,6 +161,36 @@ describe("the era latch", () => {
     expect(resultOf(h.sent[2])).toBeDefined();
   });
 
+  test("legacy: reject names an empty requested version when the opening initialize sends none", async () => {
+    for (const params of [undefined, {}, { protocolVersion: 2025 }]) {
+      const h = harness({}, { legacy: "reject" });
+      await h.connection.receive(legacy(1, "initialize", params));
+      expect(errorOf(h.sent[0])).toEqual({
+        code: -32022,
+        message: "Unsupported protocol version",
+        data: { supported: [MODERN_PROTOCOL_VERSION], requested: "" },
+      });
+    }
+  });
+
+  test("legacy: a client that initialized with no clientInfo is unnamed in a call", async () => {
+    const seen: McpToolContext[] = [];
+    const h = harness();
+    h.server.tool({
+      ...ECHO,
+      handler: (_args, ctx) => {
+        seen.push(ctx);
+        return { content: [] };
+      },
+    });
+    await h.connection.receive(legacy(1, "initialize", { protocolVersion: "2025-11-25" }));
+    await h.connection.receive(legacy(2, "tools/call", { name: "echo" }));
+    expect(seen).toHaveLength(1);
+    expect(seen[0]?.era).toBe("legacy");
+    expect(seen[0] !== undefined && "clientInfo" in seen[0]).toBe(false);
+    expect(seen[0]?.clientCapabilities).toEqual({});
+  });
+
   test("modern _meta on a legacy connection is ignored: the connection stays legacy", async () => {
     const h = harness();
     h.server.tool(ECHO);
@@ -657,7 +687,7 @@ describe("tools, in both eras", () => {
         },
       });
       await h.connection.receive(req(1, "tools/list"));
-      expect((bare(h.sent[0])["tools"] as unknown[]).length).toBe(1);
+      expect(bare(h.sent[0])["tools"] as unknown[]).toHaveLength(1);
       tools = [];
       await h.connection.receive(req(2, "tools/list"));
       expect(bare(h.sent[1])).toEqual({ tools: [] });

@@ -344,6 +344,25 @@ describe("parseICalendar", () => {
   });
 });
 
+describe("parseICalendar: properties it does not model", () => {
+  it("ignores an unknown property and keeps the ones it knows", () => {
+    const src = ics(
+      "BEGIN:VCALENDAR",
+      "BEGIN:VEVENT",
+      "UID:unknown-prop-1",
+      "X-APPLE-TRAVEL-ADVISORY-BEHAVIOR:AUTOMATIC",
+      "SEQUENCE:3",
+      "SUMMARY:Kept",
+      "DTSTART:20260601T090000Z",
+      "END:VEVENT",
+      "END:VCALENDAR",
+    );
+    const events = parseICalendar(src);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ uid: "unknown-prop-1", summary: "Kept" });
+  });
+});
+
 // ---------------------------------------------------------------------------
 // buildVEvent — Task B2 fixtures
 // ---------------------------------------------------------------------------

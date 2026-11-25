@@ -650,6 +650,15 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       settle(isMcpJsonObject(message["result"]) ? message["result"] : cancelled());
     }
 
+    /** The era the first request opens: legacy only for an `initialize` with no modern `_meta`, when served. */
+    function eraOfFirstRequest(method: string, params: unknown): McpEra {
+      const modernMeta =
+        isMcpJsonObject(params) &&
+        isMcpJsonObject(params["_meta"]) &&
+        META_PROTOCOL_VERSION in params["_meta"];
+      return method === "initialize" && !modernMeta && serveLegacy ? "legacy" : "modern";
+    }
+
     function receive(message: unknown): Promise<void> {
       if (closed) return Promise.resolve();
       if (!isMcpJsonObject(message)) {
@@ -676,13 +685,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       }
       // The latch: the FIRST request decides the era, synchronously, whatever is answered to it.
       const first = era === undefined;
-      if (era === undefined) {
-        const modernMeta =
-          isMcpJsonObject(params) &&
-          isMcpJsonObject(params["_meta"]) &&
-          META_PROTOCOL_VERSION in params["_meta"];
-        era = method === "initialize" && !modernMeta && serveLegacy ? "legacy" : "modern";
-      }
+      era ??= eraOfFirstRequest(method, params);
       return era === "legacy"
         ? legacyRequest(id, method, params)
         : modernRequest(id, method, params, first);

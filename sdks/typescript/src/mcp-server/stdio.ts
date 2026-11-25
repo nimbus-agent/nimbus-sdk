@@ -166,7 +166,7 @@ export async function serveStdio(
     if (!isStopped()) {
       // The input ended: let the calls already accepted finish and answer, unless serving is
       // stopped meanwhile (a handler that ignores its signal must not hold this open either).
-      await Promise.race([Promise.allSettled([...pending]), whenStopped]);
+      await Promise.race([Promise.allSettled(pending), whenStopped]);
     }
   } finally {
     options.signal?.removeEventListener("abort", stop);

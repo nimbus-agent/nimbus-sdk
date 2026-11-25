@@ -83,9 +83,8 @@ function optionalStringOrNull(item: Record<string, unknown>, key: string): strin
     : `${key} must be a string or null when present`;
 }
 
-/** Returns the first problem with one item, or `null`. */
-function itemProblem(item: unknown): string | null {
-  if (!isRecord(item)) return "must be an object";
+/** The first problem with an item's identity fields, in the order checked, or `null`. */
+function identityProblem(item: Record<string, unknown>): string | null {
   if (!isNonEmptyString(item["type"])) return "type must be a non-empty string";
   if (!isNonEmptyString(item["externalId"])) return "externalId must be a non-empty string";
   if (typeof item["title"] !== "string") return "title must be a string";
@@ -96,6 +95,11 @@ function itemProblem(item: unknown): string | null {
     return "modifiedAt must be a non-negative safe integer (epoch milliseconds)";
   }
   if (!isRecord(item["metadata"])) return "metadata must be an object";
+  return null;
+}
+
+/** The first problem with an item's body fields, in the order checked, or `null`. */
+function bodyProblem(item: Record<string, unknown>): string | null {
   const hasBody = item["body"] !== undefined;
   const hasPreview = item["bodyPreview"] !== undefined;
   if (hasBody && hasPreview) return "body and bodyPreview are mutually exclusive";
@@ -106,6 +110,12 @@ function itemProblem(item: unknown): string | null {
     if (typeof item["bodyTruncated"] !== "boolean") return "bodyTruncated must be a boolean";
   }
   return null;
+}
+
+/** Returns the first problem with one item, or `null`. */
+function itemProblem(item: unknown): string | null {
+  if (!isRecord(item)) return "must be an object";
+  return identityProblem(item) ?? bodyProblem(item);
 }
 
 function okProblem(raw: Record<string, unknown>): string | null {

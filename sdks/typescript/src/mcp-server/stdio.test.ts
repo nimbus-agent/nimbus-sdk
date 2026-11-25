@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { IPC_MAX_LINE_BYTES } from "../ipc/ndjson-line-reader.js";
 import {
   createMcpServer,
+  inputRequired,
   type McpTool,
   META_CLIENT_CAPABILITIES,
   META_PROTOCOL_VERSION,
@@ -289,6 +290,69 @@ describe("serveStdio", () => {
       { jsonrpc: "2.0", id: null, error: { code: -32600, message: "Message too large" } },
     ]);
     expect(returned).toBe(1);
+  });
+
+  test("the legacy input timeout reaches the connection: an unanswered question counts as a cancel", async () => {
+    const asks: McpTool = {
+      ...ECHO,
+      name: "asks",
+      handler: (_args, ctx) =>
+        ctx.inputResponses === undefined
+          ? inputRequired({
+              inputRequests: {
+                q: inputRequired.elicit({ message: "Sure?", requestedSchema: { type: "object" } }),
+              },
+            })
+          : { content: [{ type: "text", text: JSON.stringify(ctx.inputResponses) }] },
+    };
+    const init = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: { elicitation: {} } } })}\n`;
+    const call = `${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "asks" } })}\n`;
+    const lines = await run(chunks(init, call), server([asks]), { legacyInputTimeoutMs: 1 });
+    const sent = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(sent[1]).toMatchObject({ method: "elicitation/create" });
+    expect(sent[2]).toMatchObject({
+      id: 2,
+      result: { content: [{ type: "text", text: '{"q":{"action":"cancel"}}' }] },
+    });
+  });
+
+  test("an input whose return() throws is still finished with", async () => {
+    const input: AsyncIterable<Uint8Array> = {
+      [Symbol.asyncIterator]() {
+        let sent = false;
+        return {
+          next: () => {
+            if (sent) return Promise.resolve({ done: true, value: undefined });
+            sent = true;
+            return Promise.resolve({ done: false, value: encoder.encode(modern(1, "tools/list")) });
+          },
+          return: () => {
+            throw new Error("cannot release");
+          },
+        };
+      },
+    };
+    const lines = await run(input);
+    expect(lines.map((l) => (JSON.parse(l) as { id: number }).id)).toEqual([1]);
+  });
+
+  test("with no writer, each line goes to this process's standard output", async () => {
+    const written: unknown[] = [];
+    const original = process.stdout.write;
+    process.stdout.write = ((chunk: unknown) => {
+      written.push(chunk);
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await serveStdio(server(), { input: chunks(modern(1, "tools/list")) });
+    } finally {
+      process.stdout.write = original;
+    }
+    expect(written).toHaveLength(1);
+    expect(JSON.parse(String(written[0]))).toMatchObject({
+      id: 1,
+      result: { tools: [{ name: "echo" }] },
+    });
   });
 
   test("a signal that is already aborted serves nothing", async () => {

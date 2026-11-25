@@ -155,6 +155,7 @@ const TOOL_FAILED = "Tool failed";
 const DISCOVER_TTL_MS = 3_600_000;
 const MAX_LEGACY_INPUT_ROUNDS = 5;
 const DEFAULT_LEGACY_INPUT_TIMEOUT_MS = 600_000;
+const TOOL_LIST_UNAVAILABLE = "The tool list is unavailable";
 /**
  * The answer the layer makes up when the client gave none. A NEW object each time: it is handed
  * to a handler, and a handler that changed a shared one would change every later answer.
@@ -247,6 +248,37 @@ function failureBody(thrown: unknown): McpJsonObject {
 /** What is known of the client behind one request: a tool context without its signal. */
 type ClientFacts = Omit<McpToolContext, "signal" | "inputResponses" | "requestState">;
 
+/**
+ * The context of a call's first round. A modern retry carries the answers and the state back in
+ * the request itself.
+ */
+function firstContext(
+  params: McpJsonObject,
+  base: Omit<McpToolContext, "signal">,
+  signal: AbortSignal,
+): McpToolContext {
+  const modern = base.era === "modern";
+  const responses = params["inputResponses"];
+  const state = params["requestState"];
+  return {
+    ...base,
+    signal,
+    ...(modern && isMcpJsonObject(responses) ? { inputResponses: responses } : {}),
+    ...(modern && typeof state === "string" ? { requestState: state } : {}),
+  };
+}
+
+/** The modern era's `input_required` interim result: the handler's requests and state, as asked. */
+function inputRequiredBody(
+  asked: McpInputRequired,
+  entries: readonly (readonly [string, McpInputRequest])[],
+): McpJsonObject {
+  const body: McpJsonObject = { resultType: "input_required" };
+  if (entries.length > 0) body["inputRequests"] = Object.fromEntries(entries);
+  if (asked.requestState !== undefined) body["requestState"] = asked.requestState;
+  return body;
+}
+
 export function createMcpServer(options: McpServerOptions): McpServer {
   const info: McpImplementation =
     options.title === undefined
@@ -317,7 +349,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       try {
         tools = await currentTools("list", client);
       } catch {
-        fail(id, MCP_ERROR_CODES.internalError, "The tool list is unavailable");
+        fail(id, MCP_ERROR_CODES.internalError, TOOL_LIST_UNAVAILABLE);
         return;
       }
       const body: McpJsonObject = { tools: tools.map(toolEntry) };
@@ -357,39 +389,22 @@ export function createMcpServer(options: McpServerOptions): McpServer {
      */
     async function runHandler(
       tool: McpTool,
-      args: unknown,
       params: McpJsonObject,
       base: Omit<McpToolContext, "signal">,
       signal: AbortSignal,
     ): Promise<McpJsonObject> {
-      const modern = base.era === "modern";
-      // A modern retry carries the answers and the state back in the request itself.
-      const responses = params["inputResponses"];
-      const state = params["requestState"];
-      let ctx: McpToolContext = {
-        ...base,
-        signal,
-        ...(modern && isMcpJsonObject(responses) ? { inputResponses: responses } : {}),
-        ...(modern && typeof state === "string" ? { requestState: state } : {}),
-      };
+      const args = params["arguments"] === undefined ? {} : params["arguments"];
+      let ctx = firstContext(params, base, signal);
       for (let round = 1; ; round += 1) {
         const result = await tool.handler(args, ctx);
         if (!(result instanceof McpInputRequired)) return toolResultBody(result);
         const refusal = inputRefusal(result, base.clientCapabilities);
         if (refusal !== undefined) return errorBody(refusal);
         const entries = Object.entries(result.inputRequests ?? {});
-        if (modern) {
-          const body: McpJsonObject = { resultType: "input_required" };
-          if (entries.length > 0) body["inputRequests"] = Object.fromEntries(entries);
-          if (result.requestState !== undefined) body["requestState"] = result.requestState;
-          return body;
-        }
-        // Cancelled while the handler ran: no further round. The call is not answered at all.
-        if (signal.aborted) return errorBody(TOOL_FAILED);
-        if (!legacyShim) return errorBody("This server cannot ask a legacy client for input");
-        if (entries.length === 0)
-          return errorBody("An input request must ask the client something");
-        if (round > MAX_LEGACY_INPUT_ROUNDS) return errorBody("Too many input requests");
+        if (base.era === "modern") return inputRequiredBody(result, entries);
+        const stop = legacyRoundRefusal(signal, entries, round);
+        if (stop !== undefined) return errorBody(stop);
+        // Each round needs the previous round's answers: the rounds cannot run concurrently.
         const answers = await Promise.all(
           entries.map(async ([key, request]) => [key, await askLegacy(request, signal)] as const),
         );
@@ -402,12 +417,25 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       }
     }
 
+    /** Why a legacy round may not ask the client, in the order checked, or undefined when it may. */
+    function legacyRoundRefusal(
+      signal: AbortSignal,
+      entries: readonly unknown[],
+      round: number,
+    ): string | undefined {
+      // Cancelled while the handler ran: no further round. The call is not answered at all.
+      if (signal.aborted) return TOOL_FAILED;
+      if (!legacyShim) return "This server cannot ask a legacy client for input";
+      if (entries.length === 0) return "An input request must ask the client something";
+      if (round > MAX_LEGACY_INPUT_ROUNDS) return "Too many input requests";
+      return undefined;
+    }
+
     async function callTool(
       id: McpRequestId,
       params: McpJsonObject,
       ctxBase: Omit<McpToolContext, "signal">,
     ): Promise<void> {
-      const modern = ctxBase.era === "modern";
       const name = params["name"];
       if (typeof name !== "string") {
         fail(id, MCP_ERROR_CODES.invalidParams, "tools/call needs a tool name");
@@ -418,38 +446,44 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       const controller = new AbortController();
       const key = idKey(id);
       running.set(key, controller);
-      const cancelled = (): boolean => controller.signal.aborted;
+      const signal = controller.signal;
       try {
         let tool: McpTool | undefined;
         try {
           tool = (await currentTools("call", ctxBase)).find((t) => t.name === name);
         } catch {
-          if (!cancelled()) fail(id, MCP_ERROR_CODES.internalError, "The tool list is unavailable");
+          if (!signal.aborted) fail(id, MCP_ERROR_CODES.internalError, TOOL_LIST_UNAVAILABLE);
           return;
         }
         // Cancelled while the tool set was being read: the handler never runs.
-        if (cancelled()) return;
+        if (signal.aborted) return;
         if (tool === undefined) {
           fail(id, MCP_ERROR_CODES.invalidParams, `Unknown tool: ${name}`);
           return;
         }
-        let body: McpJsonObject;
+        let body: McpJsonObject | undefined;
         try {
-          const args = params["arguments"] === undefined ? {} : params["arguments"];
-          body = await runHandler(tool, args, params, ctxBase, controller.signal);
-        } catch (thrown) {
-          if (thrown instanceof McpStateError) {
-            // A state that fails verification is a protocol error, never a result (spec §11).
-            if (!cancelled()) fail(id, MCP_ERROR_CODES.invalidParams, "Invalid request state");
-            return;
-          }
-          body = failureBody(thrown);
+          body = await runHandler(tool, params, ctxBase, signal);
+        } catch (error_) {
+          body = handlerFailure(id, error_, signal);
         }
         // A cancelled request gets no response (the client has stopped waiting for one).
-        if (!cancelled()) succeed(id, body, modern);
+        if (body !== undefined && !signal.aborted) succeed(id, body, ctxBase.era === "modern");
       } finally {
         if (running.get(key) === controller) running.delete(key);
       }
+    }
+
+    /** The body a handler's throw answers with, or undefined when it was answered as an error. */
+    function handlerFailure(
+      id: McpRequestId,
+      thrown: unknown,
+      signal: AbortSignal,
+    ): McpJsonObject | undefined {
+      if (!(thrown instanceof McpStateError)) return failureBody(thrown);
+      // A state that fails verification is a protocol error, never a result (spec §11).
+      if (!signal.aborted) fail(id, MCP_ERROR_CODES.invalidParams, "Invalid request state");
+      return undefined;
     }
 
     function cancel(params: unknown): void {
@@ -459,29 +493,43 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       running.get(idKey(requestId))?.abort();
     }
 
+    /** What is known of a legacy client: nothing when its `initialize` did not succeed (§5). */
+    function legacyFacts(): ClientFacts {
+      return {
+        era: "legacy",
+        protocolVersion: legacyClient?.protocolVersion ?? "",
+        clientCapabilities: legacyClient?.clientCapabilities ?? {},
+        ...(legacyClient?.clientInfo === undefined ? {} : { clientInfo: legacyClient.clientInfo }),
+      };
+    }
+
+    function legacyInitialize(id: McpRequestId, params: unknown): void {
+      const p = isMcpJsonObject(params) ? params : {};
+      const requested = p["protocolVersion"];
+      if (typeof requested !== "string") {
+        fail(id, MCP_ERROR_CODES.invalidParams, "initialize needs a protocolVersion");
+        return;
+      }
+      const protocolVersion = LEGACY_PROTOCOL_VERSIONS.includes(requested)
+        ? requested
+        : (LEGACY_PROTOCOL_VERSIONS[0] ?? requested);
+      legacyClient = {
+        protocolVersion,
+        clientInfo: asImplementation(p["clientInfo"]),
+        clientCapabilities: isMcpJsonObject(p["capabilities"]) ? p["capabilities"] : {},
+      };
+      const body: McpJsonObject = {
+        protocolVersion,
+        capabilities: { tools: {} },
+        serverInfo: info,
+      };
+      if (options.instructions !== undefined) body["instructions"] = options.instructions;
+      succeed(id, body, false);
+    }
+
     async function legacyRequest(id: McpRequestId, method: string, params: unknown): Promise<void> {
       if (method === "initialize") {
-        const p = isMcpJsonObject(params) ? params : {};
-        const requested = p["protocolVersion"];
-        if (typeof requested !== "string") {
-          fail(id, MCP_ERROR_CODES.invalidParams, "initialize needs a protocolVersion");
-          return;
-        }
-        const protocolVersion = LEGACY_PROTOCOL_VERSIONS.includes(requested)
-          ? requested
-          : (LEGACY_PROTOCOL_VERSIONS[0] ?? requested);
-        legacyClient = {
-          protocolVersion,
-          clientInfo: asImplementation(p["clientInfo"]),
-          clientCapabilities: isMcpJsonObject(p["capabilities"]) ? p["capabilities"] : {},
-        };
-        const body: McpJsonObject = {
-          protocolVersion,
-          capabilities: { tools: {} },
-          serverInfo: info,
-        };
-        if (options.instructions !== undefined) body["instructions"] = options.instructions;
-        succeed(id, body, false);
+        legacyInitialize(id, params);
         return;
       }
       if (method === "ping") {
@@ -490,27 +538,50 @@ export function createMcpServer(options: McpServerOptions): McpServer {
       }
       if (method === "tools/list") {
         // Served even when `initialize` did not succeed (§5): nothing is known of the client then.
-        await listTools(id, {
-          era: "legacy",
-          protocolVersion: legacyClient?.protocolVersion ?? "",
-          clientCapabilities: legacyClient?.clientCapabilities ?? {},
-          ...(legacyClient?.clientInfo === undefined
-            ? {}
-            : { clientInfo: legacyClient.clientInfo }),
-        });
+        await listTools(id, legacyFacts());
         return;
       }
       if (method === "tools/call" && legacyClient !== undefined) {
-        const base: Omit<McpToolContext, "signal"> = {
-          era: "legacy",
-          protocolVersion: legacyClient.protocolVersion,
-          clientCapabilities: legacyClient.clientCapabilities,
-          ...(legacyClient.clientInfo === undefined ? {} : { clientInfo: legacyClient.clientInfo }),
-        };
-        await callTool(id, isMcpJsonObject(params) ? params : {}, base);
+        await callTool(id, isMcpJsonObject(params) ? params : {}, legacyFacts());
         return;
       }
       fail(id, MCP_ERROR_CODES.methodNotFound, `Method not found: ${method}`);
+    }
+
+    /**
+     * `initialize` on a modern connection. The handshake does not exist in this era. As the
+     * connection's opener, on a server that refuses the legacy era, it is told which version to
+     * use instead.
+     */
+    function modernInitialize(
+      id: McpRequestId,
+      params: unknown,
+      first: boolean,
+      hasVersion: boolean,
+    ): void {
+      if (first && !hasVersion && !serveLegacy) {
+        const requested =
+          isMcpJsonObject(params) && typeof params["protocolVersion"] === "string"
+            ? params["protocolVersion"]
+            : "";
+        fail(id, MCP_ERROR_CODES.unsupportedProtocolVersion, "Unsupported protocol version", {
+          supported: supported(),
+          requested,
+        });
+        return;
+      }
+      fail(id, MCP_ERROR_CODES.methodNotFound, "Method not found: initialize");
+    }
+
+    function discover(id: McpRequestId): void {
+      const body: McpJsonObject = {
+        supportedVersions: [MODERN_PROTOCOL_VERSION],
+        capabilities: { tools: {} },
+      };
+      if (options.instructions !== undefined) body["instructions"] = options.instructions;
+      body["ttlMs"] = DISCOVER_TTL_MS;
+      body["cacheScope"] = "public";
+      succeed(id, body, true);
     }
 
     async function modernRequest(
@@ -523,19 +594,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         isMcpJsonObject(params) && isMcpJsonObject(params["_meta"]) ? params["_meta"] : {};
       const hasVersion = META_PROTOCOL_VERSION in meta;
       if (method === "initialize") {
-        // The handshake does not exist in this era. As the connection's opener, on a server that
-        // refuses the legacy era, it is told which version to use instead.
-        if (first && !hasVersion && !serveLegacy) {
-          fail(id, MCP_ERROR_CODES.unsupportedProtocolVersion, "Unsupported protocol version", {
-            supported: supported(),
-            requested:
-              isMcpJsonObject(params) && typeof params["protocolVersion"] === "string"
-                ? params["protocolVersion"]
-                : "",
-          });
-          return;
-        }
-        fail(id, MCP_ERROR_CODES.methodNotFound, "Method not found: initialize");
+        modernInitialize(id, params, first, hasVersion);
         return;
       }
       if (!hasVersion) {
@@ -560,14 +619,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         return;
       }
       if (method === "server/discover") {
-        const body: McpJsonObject = {
-          supportedVersions: [MODERN_PROTOCOL_VERSION],
-          capabilities: { tools: {} },
-        };
-        if (options.instructions !== undefined) body["instructions"] = options.instructions;
-        body["ttlMs"] = DISCOVER_TTL_MS;
-        body["cacheScope"] = "public";
-        succeed(id, body, true);
+        discover(id);
         return;
       }
       const clientInfo = asImplementation(meta[META_CLIENT_INFO]);
@@ -642,7 +694,7 @@ export function createMcpServer(options: McpServerOptions): McpServer {
         closed = true;
         for (const controller of running.values()) controller.abort();
         running.clear();
-        for (const settle of [...awaiting.values()]) settle(cancelled());
+        for (const settle of awaiting.values()) settle(cancelled());
       },
       get era() {
         return era;
